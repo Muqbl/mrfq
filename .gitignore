@@ -1,0 +1,49 @@
+# ─── Database (contains hashed credentials & operational data) ─
+data.db
+data.db-wal
+data.db-shm
+# Legacy JSON storage
+data.json
+
+# ─── Secrets ──────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ─── Uploaded files (created at runtime, never committed) ──────
+uploads/*
+!uploads/.gitkeep
+
+# ─── Logs ─────────────────────────────────────────────────────
+audit.log
+*.log
+logs/
+
+# ─── Dependencies (install via npm install) ───────────────────
+node_modules/
+
+# ─── Build / dist ─────────────────────────────────────────────
+dist/
+build/
+
+# ─── macOS / editor ───────────────────────────────────────────
+.DS_Store
+**/.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.claude/
+
+# ─── Sensitive exports & reports ─────────────────────────────
+*.xlsx
+*.pdf
+reports/
+screenshots/
+backup*.zip
+old/
+
+# ─── Temp ─────────────────────────────────────────────────────
+importAllLocations.js
+TODO.md
+*.bak
+*.tmp

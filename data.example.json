@@ -1,0 +1,14 @@
+{
+  "_note": "This file is for reference only. Production storage is SQLite (data.db). Run: node scripts/seed-demo.js",
+  "_schema": {
+    "users":       "See: db.js migration — users table",
+    "sessions":    "See: db.js migration — sessions table",
+    "locations":   "See: db.js migration — locations table",
+    "zones":       "See: db.js migration — zones table",
+    "assignments": "See: db.js migration — assignments table",
+    "tickets":     "See: db.js migration — tickets table",
+    "reports":     "See: db.js migration — reports table",
+    "photos":      "See: db.js migration — photos table",
+    "audit_logs":  "See: db.js migration — audit_logs table"
+  }
+}
