@@ -935,16 +935,119 @@ const server = http.createServer(async (req, res) => {
 });
 
 /* ═══════════════════════════════════════════════════════════════
+   AUTO-SEED  (runs only when DB has no users — safe on restart)
+   Reads passwords from env vars. If absent, generates random ones.
+   Credentials printed to stdout once and never stored in source.
+   ═══════════════════════════════════════════════════════════════ */
+function autoSeedIfEmpty() {
+  const db = getDb();
+  const count = db.prepare('SELECT COUNT(*) AS c FROM users WHERE deleted_at IS NULL').get().c;
+  if (count > 0) return count;
+
+  function rndPwd() {
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$';
+    let p = '';
+    while (p.length < 16) {
+      const b = crypto.randomBytes(1)[0];
+      if (b < chars.length * Math.floor(256 / chars.length)) p += chars[b % chars.length];
+    }
+    return p;
+  }
+
+  const pw = {
+    admin:      process.env.DEMO_ADMIN_PASSWORD      || rndPwd(),
+    fm:         process.env.DEMO_FM_PASSWORD         || rndPwd(),
+    manager:    process.env.DEMO_MANAGER_PASSWORD    || rndPwd(),
+    supervisor: process.env.DEMO_SUPERVISOR_PASSWORD || rndPwd(),
+    worker:     process.env.DEMO_WORKER_PASSWORD     || rndPwd()
+  };
+
+  const ts = new Date().toISOString();
+  const insUser = db.prepare(`
+    INSERT OR IGNORE INTO users
+      (id,name,username,password,role,active,employee_no,
+       force_password_change,last_password_change,created_at,updated_at)
+    VALUES (?,?,?,?,?,1,'',1,'',?,?)
+  `);
+  const insLoc = db.prepare(`
+    INSERT OR IGNORE INTO locations
+      (id,type,name_ar,name_en,floor,zone,priority,active,created_at,updated_at)
+    VALUES (?,?,?,?,?,?,?,1,?,?)
+  `);
+
+  db.transaction(() => {
+    [
+      ['u-admin','مدير النظام','admin',pw.admin,'system_admin'],
+      ['u-fm','مدير المرافق','fm',pw.fm,'facility_manager'],
+      ['u-clean-manager','مدير النظافة','manager',pw.manager,'cleaning_manager'],
+      ['u-s1','مشرف 1','supervisor1',pw.supervisor,'cleaning_supervisor'],
+      ['u-s2','مشرف 2','supervisor2',pw.supervisor,'cleaning_supervisor'],
+      ['u-w3','عامل 3','worker3',pw.worker,'cleaner'],
+      ['u-w4','عامل 4','worker4',pw.worker,'cleaner'],
+      ['u-w5','عامل 5','worker5',pw.worker,'cleaner'],
+      ['u-w6','عامل 6','worker6',pw.worker,'cleaner'],
+      ['u-w7','عامل 7','worker7',pw.worker,'cleaner']
+    ].forEach(([id,name,username,pass,role]) =>
+      insUser.run(id,name,username,hashPassword(pass),role,ts,ts)
+    );
+    [
+      ['wc-gf-a','restroom','دورة مياه - الدور الأرضي - A','Restroom - GF - Zone A','GF','GF','medium'],
+      ['wc-gf-b','restroom','دورة مياه - الدور الأرضي - B','Restroom - GF - Zone B','GF','GF','medium'],
+      ['wc-mz-a','restroom','دورة مياه - الميزانين - A','Restroom - Mezzanine - A','MZ','MZ','medium'],
+      ['wc-01-a','restroom','دورة مياه - الدور الأول - A','Restroom - First Floor - A','01','1F','medium'],
+      ['lobby-gf','lobby','الردهة الرئيسية - الأرضي','Main Lobby - Ground Floor','GF','GF','high'],
+      ['pantry-05','pantry','منطقة الضيافة - الخامس','Pantry Area - Fifth Floor','05','5F','medium'],
+      ['meeting-08-a','meeting_room','قاعة اجتماع - الثامن - A','Meeting Room - 8F - A','08','8F','high'],
+      ['corridor-04','corridor','ممرات الدور الرابع','Fourth Floor Corridors','04','4F','low'],
+      ['prayer-mz','prayer_room','مصلى الميزانين','Mezzanine Prayer Room','MZ','MZ','high']
+    ].forEach(([id,type,ar,en,floor,zone,pri]) => insLoc.run(id,type,ar,en,floor,zone,pri,ts,ts));
+
+    ['GF','MZ','1F','2F','3F','4F','5F','6F','7F','8F','B1','B2'].forEach(z =>
+      db.prepare('INSERT OR IGNORE INTO zones (name) VALUES (?)').run(z)
+    );
+    [['u-w3',['wc-gf-a','lobby-gf']],['u-w4',['wc-gf-b','corridor-04']],
+     ['u-w5',['wc-mz-a','prayer-mz']],['u-w6',['wc-01-a','pantry-05']],
+     ['u-w7',['meeting-08-a']]
+    ].forEach(([wid,lids]) =>
+      lids.forEach(lid =>
+        db.prepare('INSERT OR IGNORE INTO assignments (worker_id,location_id,created_at) VALUES (?,?,?)').run(wid,lid,ts)
+      )
+    );
+    db.prepare(`INSERT OR IGNORE INTO tickets
+      (id,title,description,location_id,location_name_ar,location_name_en,
+       assigned_to,assigned_to_name,created_by,status,priority,notes,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,'مدير النظافة','open','high','',?,?)
+    `).run('t-demo-1','تنظيف عاجل لمنطقة الضيافة','بيانات تجريبية فقط',
+           'pantry-05','منطقة الضيافة - الخامس','Pantry - 5F','u-w6','عامل 6',ts,ts);
+  })();
+
+  console.log('');
+  console.log('╔══════════════════════════════════════════════════════════╗');
+  console.log('║   AUTO-SEED: Demo accounts created                       ║');
+  console.log('║   ⚠ Change these passwords after first login             ║');
+  console.log('╠══════════════════════════════════════════════════════════╣');
+  console.log(`║   admin      : ${pw.admin.padEnd(42)}║`);
+  console.log(`║   fm         : ${pw.fm.padEnd(42)}║`);
+  console.log(`║   manager    : ${pw.manager.padEnd(42)}║`);
+  console.log(`║   supervisor : ${pw.supervisor.padEnd(42)}║`);
+  console.log(`║   worker3-7  : ${pw.worker.padEnd(42)}║`);
+  console.log('╚══════════════════════════════════════════════════════════╝');
+  console.log('');
+
+  return db.prepare('SELECT COUNT(*) AS c FROM users WHERE deleted_at IS NULL').get().c;
+}
+
+/* ═══════════════════════════════════════════════════════════════
    STARTUP
    ═══════════════════════════════════════════════════════════════ */
 try {
-  getDb(); // initialise DB + run migrations
+  getDb();
 } catch (e) {
   console.error('[startup] DB init failed:', e.message);
   process.exit(1);
 }
 
-const userCount = getDb().prepare('SELECT COUNT(*) AS c FROM users WHERE deleted_at IS NULL').get().c;
+const userCount = autoSeedIfEmpty();
 
 server.listen(PORT, () => {
   console.log('');
@@ -955,13 +1058,7 @@ server.listen(PORT, () => {
   console.log(`║   Port    : ${String(PORT).padEnd(47)}║`);
   console.log(`║   Database: ${String(process.env.DB_PATH || 'data.db').padEnd(47)}║`);
   console.log(`║   Uploads : ${String(UPLOADS_DIR).slice(0, 47).padEnd(47)}║`);
-  console.log('╠══════════════════════════════════════════════════════════╣');
-  if (userCount === 0) {
-    console.log('║   ⚠ No users found. Run to create demo accounts:         ║');
-    console.log('║     node scripts/seed-demo.js                            ║');
-  } else {
-    console.log(`║   ✓ ${String(userCount + ' users loaded from database').padEnd(54)}║`);
-  }
+  console.log(`║   Users   : ${String(userCount).padEnd(47)}║`);
   console.log('╚══════════════════════════════════════════════════════════╝');
   console.log('');
 });
