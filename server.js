@@ -954,13 +954,21 @@ function autoSeedIfEmpty() {
     return p;
   }
 
+  // ADMIN_PASSWORD is the canonical env var for the admin account.
+  // Other accounts get random passwords (printed once to stdout).
+  // The admin password is NEVER printed — the operator already knows it.
+  if (!process.env.ADMIN_PASSWORD && !process.env.DEMO_ADMIN_PASSWORD) {
+    console.warn('[startup] WARNING: ADMIN_PASSWORD env var not set. A random admin password will be generated and printed once.');
+  }
   const pw = {
-    admin:      process.env.DEMO_ADMIN_PASSWORD      || rndPwd(),
+    admin:      process.env.ADMIN_PASSWORD           ||
+                process.env.DEMO_ADMIN_PASSWORD      || rndPwd(),
     fm:         process.env.DEMO_FM_PASSWORD         || rndPwd(),
     manager:    process.env.DEMO_MANAGER_PASSWORD    || rndPwd(),
     supervisor: process.env.DEMO_SUPERVISOR_PASSWORD || rndPwd(),
     worker:     process.env.DEMO_WORKER_PASSWORD     || rndPwd()
   };
+  const adminPwdFromEnv = !!(process.env.ADMIN_PASSWORD || process.env.DEMO_ADMIN_PASSWORD);
 
   const ts = new Date().toISOString();
   const insUser = db.prepare(`
@@ -1024,13 +1032,20 @@ function autoSeedIfEmpty() {
   console.log('');
   console.log('╔══════════════════════════════════════════════════════════╗');
   console.log('║   AUTO-SEED: Demo accounts created                       ║');
-  console.log('║   ⚠ Change these passwords after first login             ║');
+  console.log('║   ⚠ All accounts require password change on first login  ║');
   console.log('╠══════════════════════════════════════════════════════════╣');
-  console.log(`║   admin      : ${pw.admin.padEnd(42)}║`);
+  // Admin password: never printed if it came from env var (operator knows it)
+  if (adminPwdFromEnv) {
+    console.log('║   admin      : [set via ADMIN_PASSWORD env var]          ║');
+  } else {
+    console.log(`║   admin      : ${pw.admin.padEnd(42)}║`);
+  }
   console.log(`║   fm         : ${pw.fm.padEnd(42)}║`);
   console.log(`║   manager    : ${pw.manager.padEnd(42)}║`);
   console.log(`║   supervisor : ${pw.supervisor.padEnd(42)}║`);
   console.log(`║   worker3-7  : ${pw.worker.padEnd(42)}║`);
+  console.log('╠══════════════════════════════════════════════════════════╣');
+  console.log('║   Username for admin login: admin                        ║');
   console.log('╚══════════════════════════════════════════════════════════╝');
   console.log('');
 
