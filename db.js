@@ -191,6 +191,18 @@ const MIGRATIONS = {
     CREATE INDEX idx_audit_ts     ON audit_logs(ts);
     CREATE INDEX idx_audit_user   ON audit_logs(user_id);
     CREATE INDEX idx_audit_action ON audit_logs(action);
+  `,
+
+  /* ── v2: employee portal, categories, reference numbers, ratings ── */
+  2: `
+    ALTER TABLE tickets ADD COLUMN category     TEXT NOT NULL DEFAULT 'general';
+    ALTER TABLE tickets ADD COLUMN reference_no TEXT NOT NULL DEFAULT '';
+    ALTER TABLE tickets ADD COLUMN created_by_id TEXT NOT NULL DEFAULT '';
+    CREATE INDEX idx_tickets_category ON tickets(category);
+    CREATE INDEX idx_tickets_refno    ON tickets(reference_no);
+    ALTER TABLE photos  ADD COLUMN photo_type   TEXT NOT NULL DEFAULT 'general';
+    ALTER TABLE reports ADD COLUMN rating_supervisor REAL;
+    ALTER TABLE reports ADD COLUMN rating_manager    REAL;
   `
 };
 

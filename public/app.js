@@ -4,7 +4,7 @@
    ══════════════════════════════════════════════════════════════ */
 
 /* ─── CONSTANTS ──────────────────────────────────────────────── */
-const ROLES = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','cleaner'];
+const ROLES = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','cleaner','employee'];
 const TYPES = ['restroom','lobby','office','meeting_room','pantry','corridor','prayer_room','elevator','entrance','parking','outdoor','other'];
 
 // ===== Facility Constants =====
@@ -82,6 +82,22 @@ const T = {
     workerName:'اسم العامل',reportsCount:'التقارير',locationsCount:'المرافق',usersCount:'المستخدمون',
     workersCount:'العمال',step1:'اختر الموقع',step2:'نفّذ البنود',step3:'التقط الصور',step4:'أرسل',
     myTickets:'بلاغاتي',priorityHigh:'أولوية عالية',
+    employee:'موظف',
+    submitRequest:'تقديم طلب تنظيف',myRequests:'طلباتي',
+    reqCategory:'نوع الطلب',refNumber:'رقم المرجع',
+    cat_general:'طلب تنظيف عام',cat_spill:'انسكاب',cat_restroom:'مشكلة دورة مياه',
+    cat_meeting_room:'تنظيف قاعة اجتماع',cat_emergency:'تنظيف طارئ',
+    requestSubmitted:'تم تقديم الطلب بنجاح',
+    beforePhotos:'صور قبل التنظيف',afterPhotos:'صور بعد التنظيف',
+    beforePhotoHint:'التقط صوراً للحالة قبل البدء',afterPhotoHint:'التقط صوراً بعد الانتهاء',
+    performance:'الأداء',teamOverview:'نظرة الفريق',
+    approvalRate:'معدل الاعتماد',avgQuality:'متوسط الجودة',
+    openTasks:'مهام مفتوحة',assignedLocs:'مواقع مخصصة',
+    ratingBySupervisor:'تقييم المشرف',ratingByManager:'تقييم المدير',
+    workloadScore:'مؤشر العبء',monthlyRecognition:'التميز الشهري',
+    topWorker:'عامل الشهر',noRating:'لم يُقيَّم',
+    slaStatus:'حالة SLA',supervisorQueue:'قائمة الإشراف',
+    unassigned:'غير محدد',autoAssigned:'تعيين تلقائي',
   },
   en:{
     app:'Facility Care Platform',sub:'Professional management for every facility, at any time',
@@ -128,6 +144,23 @@ const T = {
     workerName:'Worker',reportsCount:'Reports',locationsCount:'Locations',usersCount:'Users',
     workersCount:'Workers',step1:'Select Site',step2:'Complete Tasks',step3:'Take Photos',step4:'Submit',
     myTickets:'My Tickets',priorityHigh:'High Priority',
+    employee:'Employee',
+    submitRequest:'Submit Cleaning Request',myRequests:'My Requests',
+    reqCategory:'Request Type',refNumber:'Reference No.',
+    cat_general:'General Cleaning',cat_spill:'Spill',cat_restroom:'Restroom Issue',
+    cat_meeting_room:'Meeting Room Cleaning',cat_emergency:'Emergency Cleaning',
+    requestSubmitted:'Request submitted successfully',
+    beforePhotos:'Before Photos',afterPhotos:'After Photos',
+    beforePhotoHint:'Capture photos of the condition before starting',
+    afterPhotoHint:'Capture photos after completion',
+    performance:'Performance',teamOverview:'Team Overview',
+    approvalRate:'Approval Rate',avgQuality:'Avg Quality',
+    openTasks:'Open Tasks',assignedLocs:'Assigned Locations',
+    ratingBySupervisor:'Supervisor Rating',ratingByManager:'Manager Rating',
+    workloadScore:'Workload Score',monthlyRecognition:'Monthly Recognition',
+    topWorker:'Worker of the Month',noRating:'Not Rated',
+    slaStatus:'SLA Status',supervisorQueue:'Supervisor Queue',
+    unassigned:'Unassigned',autoAssigned:'Auto-Assigned',
   }
 };
 
@@ -161,6 +194,12 @@ const IC = {
   'alert-circle':`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
   'bar-chart-2':`<svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
   smartphone:`<svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>`,
+  star:`<svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+  award:`<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>`,
+  'bar-chart':`<svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>`,
+  send:`<svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`,
+  list:`<svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
+  'clock':`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
 };
 const ic=(name,size=18)=>`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${IC[name]?.replace(/<svg[^>]*>/,'').replace(/<\/svg>/,'')??''}</svg>`;
 
@@ -169,6 +208,8 @@ let lang = localStorage.lang||'ar';
 // Auth is cookie-based (HttpOnly) — no token stored in JS
 let me = null, data = null, view = 'dashboard';
 let currentPhotos = [], stream = null;
+let currentBeforePhotos = [], currentAfterPhotos = [];
+let cameraMode = 'general'; // 'before' | 'after' | 'general'
 let editUserId = null, currentTicketId = null;
 let reportFilter = 'all';
 let usersSearch = '', usersRoleFilter = 'all';
@@ -177,6 +218,8 @@ let assignFloorFilter = 'all';
 let viewHistory = [];
 let eventSource = null;
 let forcePasswordChange = false;
+let employeeTab = 'submit'; // 'submit' | 'history'
+let perfData = null; // cached performance data
 
 const app = document.getElementById('app');
 const tr = k => (T[lang]&&T[lang][k]) || k;
@@ -424,12 +467,21 @@ let _lastView = null;
 function render(){
   if(!me||!data) return loginPage();
   if(me.role==='cleaner') return renderWorker();
+  if(me.role==='employee') return renderEmployee();
   setDoc();
   // Reset users filter state when navigating away from users
   if(_lastView==='users' && view!=='users'){ usersSearch=''; usersRoleFilter='all'; }
   if(_lastView==='locations' && view!=='locations'){ locsFloorFilter='all'; }
   if(_lastView==='assignments' && view!=='assignments'){ assignFloorFilter='all'; }
   _lastView = view;
+  if(view==='performance'){
+    shell(`<div style="text-align:center;padding:40px">${ic('clock',28)}</div>`);
+    performance().then(html=>{
+      const main=document.querySelector('.mainContent .pageAnim');
+      if(main) main.innerHTML=html;
+    });
+    return;
+  }
   const fn = {dashboard:dash,reports:reports,tickets:tickets,locations:locations,assignments:assignments,users:users}[view]||dash;
   shell(fn());
   if(view==='assignments') setTimeout(fillAssign, 0);
@@ -637,6 +689,7 @@ function shell(content){
           ${navItem('locations',tr('locations'),'locations',0)}
           ${navItem('assignments',tr('assignments'),'assignments',0)}
           ${canUsers()?navItem('users',tr('users'),'users',0):''}
+          ${canReview()?navItem('performance',tr('performance'),'bar-chart',0):''}
         </div>
       </div>
       <div class="sidebar-footer">
@@ -904,14 +957,37 @@ ${filtered.length===0
   : `<div class="reportGrid">${filtered.map(r=>reportCard(r,true)).join('')}</div>`}`;
 }
 
+function starRatingWidget(reportId, ratingType, current){
+  const stars = [1,2,3,4,5];
+  const val = current != null ? Math.round(current) : 0;
+  return `<div class="starRating" data-report="${esc(reportId)}" data-type="${esc(ratingType)}">
+    ${stars.map(s=>`<button class="starBtn${s<=val?' filled':''}" onclick="submitRating('${esc(reportId)}','${esc(ratingType)}',${s})" title="${s}" aria-label="${s} stars">${ic('star',15)}</button>`).join('')}
+    <span class="starVal">${current!=null?current.toFixed(1):tr('noRating')}</span>
+  </div>`;
+}
+
+async function submitRating(reportId, ratingType, value){
+  try{
+    await api('/reports/rate',{method:'POST',body:JSON.stringify({id:reportId,ratingType,value})});
+    toast(lang==='ar'?'تم حفظ التقييم':'Rating saved','ok');
+    await load();
+  }catch(e){ toast(lang==='ar'?'خطأ في التقييم':'Rating error','bad'); }
+}
+
 function reportCard(r,full){
   const imgs = imgList(r);
+  const before = (r.beforePhotos||[]);
+  const after  = (r.afterPhotos||[]);
+  const hasTyped = before.length||after.length;
   const st = r.approvalStatus||'pending_approval';
   const q = qualityScore(r);
   const tasks = taskSetFor(r.locationType);
   return`<article class="reportCard">
     <div class="reportCard-media ${imgs.length<=1?'single':''}">
-      ${imgs.length
+      ${hasTyped ? `
+        ${before.length?`<div class="photoGroup"><div class="photoGroup-label">${ic('camera',12)} ${tr('beforePhotos')}</div><div class="photoGroup-imgs">${before.map((src,i)=>`<img class="reportCard-thumb" src="${src}" loading="lazy" onclick='openGallery(${JSON.stringify(before)},${i})' alt="">`).join('')}</div></div>`:''}
+        ${after.length?`<div class="photoGroup"><div class="photoGroup-label ok">${ic('check',12)} ${tr('afterPhotos')}</div><div class="photoGroup-imgs">${after.map((src,i)=>`<img class="reportCard-thumb" src="${src}" loading="lazy" onclick='openGallery(${JSON.stringify(after)},${i})' alt="">`).join('')}</div></div>`:''}
+      ` : imgs.length
         ? imgs.slice(0,4).map((src,i)=>`<img class="reportCard-thumb" src="${src}" loading="lazy" onclick='openGallery(${JSON.stringify(imgs)},${i})' alt="">`).join('')
         : `<div style="display:grid;place-items:center;height:120px;background:var(--surface-3);color:var(--muted)">${ic('camera',28)}</div>`}
     </div>
@@ -924,6 +1000,7 @@ function reportCard(r,full){
         <span class="badge brand">${ic('camera',10)} ${num(imgs.length)}</span>
         <span class="badge gold">${tr('quality')}: ${num(q)}%</span>
         <span class="badge ${st==='approved'?'ok':st==='rejected'||st==='needs_recleaning'?'bad':'warn'}">${tr(st)}</span>
+        ${r.ratingSupervisor!=null?`<span class="badge gold">${ic('star',10)} ${r.ratingSupervisor.toFixed(1)}</span>`:''}
       </div>
       ${r.notes?`<div style="font-size:var(--fs-xs);color:var(--muted);line-height:1.6;padding:8px;background:var(--surface-3);border-radius:var(--r-sm)">${esc(r.notes)}</div>`:''}
       <details>
@@ -938,6 +1015,16 @@ function reportCard(r,full){
           <button class="btn danger sm action-btn" onclick="reviewReport('${r.id}','rejected')">${ic('x',14)} ${tr('reject')}</button>
           <button class="btn warn sm action-btn" onclick="reviewReport('${r.id}','needs_recleaning')">${ic('flip',14)} ${tr('reclean')}</button>
           ${canDelete()?`<button class="btn danger sm action-btn" onclick="deleteReport('${r.id}')">${ic('trash',14)} ${lang==='ar'?'حذف':'Delete'}</button>`:''}
+        </div>
+        <div class="ratingRow">
+          <div class="ratingGroup">
+            <span class="ratingLabel">${tr('ratingBySupervisor')}</span>
+            ${starRatingWidget(r.id,'supervisor',r.ratingSupervisor)}
+          </div>
+          ${canManage()?`<div class="ratingGroup">
+            <span class="ratingLabel">${tr('ratingByManager')}</span>
+            ${starRatingWidget(r.id,'manager',r.ratingManager)}
+          </div>`:''}
         </div>`:''}
     </div>
   </article>`;
@@ -1119,8 +1206,18 @@ ${canTicket()?`
   </div>
   <div class="formGrid">
     <div class="field"><label>${tr('title')}</label><input id="tt" value="${lang==='ar'?'بلاغ نظافة':'Cleaning Ticket'}"></div>
+    <div class="field"><label>${tr('reqCategory')}</label><select id="tc">
+      <option value="general">${tr('cat_general')}</option>
+      <option value="spill">${tr('cat_spill')}</option>
+      <option value="restroom">${tr('cat_restroom')}</option>
+      <option value="meeting_room">${tr('cat_meeting_room')}</option>
+      <option value="emergency">${tr('cat_emergency')}</option>
+    </select></div>
     <div class="field"><label>${tr('location')}</label><select id="tl">${(data.locations||[]).map(l=>`<option value="${l.id}">${esc(locName(l))}</option>`).join('')}</select></div>
-    <div class="field"><label>${tr('assignedTo')}</label><select id="tw">${workers.map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('')}</select></div>
+    <div class="field"><label>${tr('assignedTo')} (${lang==='ar'?'اختياري':'optional'})</label><select id="tw">
+      <option value="">${lang==='ar'?'— تعيين تلقائي —':'— Auto-Assign —'}</option>
+      ${workers.map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('')}
+    </select></div>
     <div class="field"><label>${tr('priority')}</label><select id="tp"><option value="high">${tr('high')}</option><option value="medium" selected>${tr('medium')}</option><option value="low">${tr('low')}</option></select></div>
   </div>
   <div class="field" style="margin-bottom:14px"><label>${tr('description')}</label><textarea id="td" rows="2" placeholder="${lang==='ar'?'وصف البلاغ...':'Describe the issue...'}"></textarea></div>
@@ -1130,11 +1227,13 @@ ${ticketCards(data.tickets||[])}`;
 }
 
 async function createTicket(){
+  const assignedTo = document.getElementById('tw').value;
   await api('/tickets',{method:'POST',body:JSON.stringify({
     title:document.getElementById('tt').value,
     description:document.getElementById('td').value,
     locationId:document.getElementById('tl').value,
-    assignedTo:document.getElementById('tw').value,
+    assignedTo: assignedTo || undefined,
+    category: document.getElementById('tc').value,
     priority:document.getElementById('tp').value
   })});
   toast(tr('saved'),'ok');
@@ -1152,20 +1251,27 @@ function ticketCards(items){
     const prCls = t.priority==='high'?'bad':t.priority==='low'?'info':'warn';
     const canEdit = canTicket();
     const canDel = ['system_admin','cleaning_manager'].includes(me.role);
+    const catLabel = tr('cat_'+(t.category||'general')) || (t.category||'general');
+    const catClr = t.category==='emergency'?'bad':t.category==='spill'?'warn':t.category==='meeting_room'?'brand':'';
     return`<div class="ticketCard priority-${t.priority||'medium'}">
       <div class="ticketCard-top">
-        <div class="ticketCard-title">${esc(t.title)}</div>
-        <div style="display:flex;gap:6px;align-items:center">
+        <div>
+          <div class="ticketCard-title">${esc(t.title)}</div>
+          ${t.referenceNo?`<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:2px;font-family:ui-monospace,monospace">${esc(t.referenceNo)}</div>`:''}
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
           <span class="badge ${t.status==='completed'?'ok':'bad'}">${tr(t.status==='completed'?'closed':'open')}</span>
           ${canEdit?`<button class="btn secondary sm" style="padding:3px 8px" onclick="editTicketModal('${t.id}')">${ic('edit',13)}</button>`:''}
           ${canDel?`<button class="btn danger sm" style="padding:3px 8px" onclick="deleteTicketConfirm('${t.id}')">${ic('trash',13)}</button>`:''}
         </div>
       </div>
-      <div class="ticketCard-meta">${ic('locations',12)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)} &nbsp;·&nbsp; ${ic('users',12)} ${esc(t.assignedToName)}</div>
+      <div class="ticketCard-meta">${ic('locations',12)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)} &nbsp;·&nbsp; ${ic('users',12)} ${esc(t.assignedToName||tr('unassigned'))}</div>
       ${t.description?`<p style="font-size:var(--fs-sm);color:var(--ink-soft);line-height:1.6">${esc(t.description)}</p>`:''}
       <div class="ticketCard-badges">
+        ${t.category&&t.category!=='general'?`<span class="badge ${catClr}">${catLabel}</span>`:''}
         <span class="badge ${prCls}">${lang==='ar'?'أولوية:':''} ${tr(t.priority||'medium')}</span>
         <span class="badge brand">${fmt(t.createdAt)}</span>
+        ${!t.assignedToName?`<span class="badge warn">${tr('supervisorQueue')}</span>`:''}
       </div>
       <div class="timeline">
         <div class="timelineItem">
@@ -1761,7 +1867,7 @@ function workerGoBack(){
   const form=document.getElementById('workerForm');
   if(form&&form.innerHTML.trim()){
     form.innerHTML='';
-    currentPhotos=[];
+    currentPhotos=[]; currentBeforePhotos=[]; currentAfterPhotos=[];
     if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
     window.scrollTo({top:0,behavior:'smooth'});
     return;
@@ -1787,7 +1893,7 @@ function startForm(){
   }
   const asg = (data.assignments||[]).find(a=>a.workerId===me.id);
   if(asg&&asg.locationIds.length&&!asg.locationIds.includes(id)) return toast(tr('notAssigned'),'bad');
-  currentPhotos = [];
+  currentBeforePhotos = []; currentAfterPhotos = [];
   const tasks = taskSetFor(loc.type);
   document.getElementById('workerForm').innerHTML=`
     <div class="wCard">
@@ -1808,6 +1914,16 @@ function startForm(){
     </div>
 
     <div class="wCard">
+      <div class="wCard-title"><span class="wCard-number" style="background:var(--warn-bg);color:var(--warn)">${ic('camera',14)}</span>${tr('beforePhotos')}</div>
+      <p style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:12px">${tr('beforePhotoHint')}</p>
+      <button class="cameraBtn" onclick="openCamera('before')">
+        ${ic('camera',22)}
+        <span>${tr('addPhoto')} — ${tr('beforePhotos')}</span>
+      </button>
+      <div id="beforePreviews" class="photoGrid" style="margin-top:12px"></div>
+    </div>
+
+    <div class="wCard">
       <div class="wCard-title"><span class="wCard-number">2</span>${tr('step2')}</div>
       <div class="taskChecklist">
         ${tasks.map((p,i)=>`
@@ -1823,12 +1939,13 @@ function startForm(){
     </div>
 
     <div class="wCard">
-      <div class="wCard-title"><span class="wCard-number">3</span>${tr('step3')}</div>
-      <button class="cameraBtn" onclick="openCamera()">
+      <div class="wCard-title"><span class="wCard-number" style="background:var(--ok-bg);color:var(--ok)">${ic('check',14)}</span>${tr('afterPhotos')}</div>
+      <p style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:12px">${tr('afterPhotoHint')}</p>
+      <button class="cameraBtn" onclick="openCamera('after')">
         ${ic('camera',22)}
-        <span>${tr('addPhoto')}</span>
+        <span>${tr('addPhoto')} — ${tr('afterPhotos')}</span>
       </button>
-      <div id="photoPreviews" class="photoGrid" style="margin-top:12px"></div>
+      <div id="afterPreviews" class="photoGrid" style="margin-top:12px"></div>
     </div>
 
     <div style="height:80px"></div>
@@ -1843,14 +1960,26 @@ function startForm(){
 }
 
 /* ─── CAMERA ─────────────────────────────────────────────────── */
-async function openCamera(){
+async function openCamera(mode='general'){
+  cameraMode = mode;
   try{
     if(stream) stream.getTracks().forEach(t=>t.stop());
     stream = await navigator.mediaDevices.getUserMedia({
       video:{facingMode:{ideal:cameraFacing},width:{ideal:1920},height:{ideal:1080}},
       audio:false
     });
-    document.getElementById('cameraFull').classList.add('active');
+    const cam = document.getElementById('cameraFull');
+    cam.classList.add('active');
+    // Tint the shutter button to indicate mode
+    const shutter = cam.querySelector('.shutter');
+    if(shutter){
+      shutter.style.background = mode==='before' ? 'var(--warn)' : mode==='after' ? 'var(--ok)' : '';
+    }
+    const modeEl = cam.querySelector('.cameraTop-title');
+    if(modeEl){
+      const modeLabel = mode==='before' ? tr('beforePhotos') : mode==='after' ? tr('afterPhotos') : tr('takePhoto');
+      modeEl.innerHTML = `${ic('camera',18)} ${modeLabel}`;
+    }
     document.getElementById('camVideo').srcObject = stream;
     updateCameraCounter();
   }catch(e){toast(tr('cameraError'),'bad')}
@@ -1865,12 +1994,13 @@ function closeCamera(){
   document.getElementById('cameraFull').classList.remove('active');
 }
 function doneCamera(){
-  renderPhotoPreviews();
+  renderPhotoPreviews(cameraMode);
 }
 function updateCameraCounter(){
   const el = document.getElementById('cameraCounter');
   if(!el) return;
-  if(currentPhotos.length>0){el.style.display='block';el.textContent=`${currentPhotos.length} ${lang==='ar'?'صورة':'photos'}`}
+  const arr = cameraMode==='before'?currentBeforePhotos:cameraMode==='after'?currentAfterPhotos:currentPhotos;
+  if(arr.length>0){el.style.display='block';el.textContent=`${arr.length} ${lang==='ar'?'صورة':'photos'}`}
   else{el.style.display='none'}
 }
 function capturePhoto(){
@@ -1880,7 +2010,9 @@ function capturePhoto(){
   c.width = vid.videoWidth; c.height = vid.videoHeight;
   c.getContext('2d').drawImage(vid,0,0);
   compactImage(c.toDataURL('image/jpeg',.86)).then(img=>{
-    currentPhotos.push(img);
+    if(cameraMode==='before') currentBeforePhotos.push(img);
+    else if(cameraMode==='after') currentAfterPhotos.push(img);
+    else currentPhotos.push(img);
     updateCameraCounter();
     // Flash feedback
     const flash = document.createElement('div');
@@ -1890,14 +2022,26 @@ function capturePhoto(){
   });
 }
 
-function renderPhotoPreviews(){
-  const el = document.getElementById('photoPreviews');
-  if(!el) return;
-  el.innerHTML = currentPhotos.map((p,i)=>`
-    <div class="photoItem">
-      <img src="${p}" alt="" onclick='openGallery(${JSON.stringify(currentPhotos)},${i})'>
-      <button class="photoItem-del" onclick="currentPhotos.splice(${i},1);renderPhotoPreviews()">×</button>
-    </div>`).join('') || `<div style="font-size:var(--fs-xs);color:var(--muted);text-align:center;padding:12px">${tr('photoRequired')}</div>`;
+function renderPhotoPreviews(mode='general'){
+  if(mode==='before'||mode==='after'){
+    const arr = mode==='before'?currentBeforePhotos:currentAfterPhotos;
+    const elId = mode==='before'?'beforePreviews':'afterPreviews';
+    const el = document.getElementById(elId);
+    if(!el) return;
+    el.innerHTML = arr.map((p,i)=>`
+      <div class="photoItem">
+        <img src="${p}" alt="" onclick='openGallery(${JSON.stringify(arr)},${i})'>
+        <button class="photoItem-del" onclick="${mode==='before'?'currentBeforePhotos':'currentAfterPhotos'}.splice(${i},1);renderPhotoPreviews('${mode}')">×</button>
+      </div>`).join('') || `<div style="font-size:var(--fs-xs);color:var(--muted);text-align:center;padding:12px">${tr('photoRequired')}</div>`;
+  } else {
+    const el = document.getElementById('photoPreviews');
+    if(!el) return;
+    el.innerHTML = currentPhotos.map((p,i)=>`
+      <div class="photoItem">
+        <img src="${p}" alt="" onclick='openGallery(${JSON.stringify(currentPhotos)},${i})'>
+        <button class="photoItem-del" onclick="currentPhotos.splice(${i},1);renderPhotoPreviews('general')">×</button>
+      </div>`).join('') || `<div style="font-size:var(--fs-xs);color:var(--muted);text-align:center;padding:12px">${tr('photoRequired')}</div>`;
+  }
 }
 
 let qrScannerInstance = null;
@@ -1946,8 +2090,11 @@ function openQRScanner(){
 
       closeQRScanner();
 
+      const empInput = document.getElementById('empLocCode');
       const locInput = document.getElementById('locCode');
-      if(locInput) locInput.value = loc;
+      const isEmployee = !!empInput;
+      const targetInput = isEmployee ? empInput : locInput;
+      if(targetInput) targetInput.value = loc;
 
       const parsed = parseLoc(loc);
       if(!parsed){
@@ -1960,7 +2107,7 @@ function openQRScanner(){
         return;
       }
       toast(lang==='ar'?`تم التعرف على: ${locName(facility)}`:`Found: ${locName(facility)}`,'ok');
-      setTimeout(()=>startForm(), 200);
+      if(!isEmployee) setTimeout(()=>startForm(), 200);
     },
     ()=>{}
   ).catch(err => {
@@ -1991,15 +2138,19 @@ async function closeQRScanner(){
 
 /* ─── SUBMIT REPORT ──────────────────────────────────────────── */
 async function submitReport(locationId){
-  if(!currentPhotos.length) return toast(tr('photoRequired'),'bad');
+  const hasPhotos = currentBeforePhotos.length||currentAfterPhotos.length||currentPhotos.length;
+  if(!hasPhotos) return toast(tr('photoRequired'),'bad');
   const btn = document.querySelector('.submitBtn');
   if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner" style="width:24px;height:24px;border-width:2.5px"></div>`}
+  const usesTyped = currentBeforePhotos.length||currentAfterPhotos.length;
   const payload = {
     locationId,
     status:document.getElementById('wkStatus')?.value||'completed',
     notes:document.getElementById('wkNotes')?.value||'',
     tasks:[...document.querySelectorAll('.taskCheck:checked')].map(x=>x.value),
-    photos:currentPhotos
+    ...(usesTyped
+      ? { beforePhotos: currentBeforePhotos, afterPhotos: currentAfterPhotos }
+      : { photos: currentPhotos })
   };
   if(currentTicketId){
     try{await api('/tickets/complete',{method:'POST',body:JSON.stringify({id:currentTicketId,photos:currentPhotos,notes:payload.notes})})}
@@ -2009,7 +2160,7 @@ async function submitReport(locationId){
   try{
     await api('/reports',{method:'POST',body:JSON.stringify(payload)});
     toast(tr('reportSent'),'ok');
-    currentPhotos = [];
+    currentPhotos = []; currentBeforePhotos = []; currentAfterPhotos = [];
     document.getElementById('workerForm').innerHTML = `
       <div class="wCard" style="text-align:center;padding:32px">
         <div style="width:64px;height:64px;border-radius:50%;background:var(--ok-bg);margin:0 auto 16px;display:grid;place-items:center;color:var(--ok)">${ic('check',28)}</div>
@@ -2026,6 +2177,332 @@ async function submitReport(locationId){
     if(btn){btn.disabled=false;btn.innerHTML=`${ic('check',20)} ${tr('submit')}`}
     updateSyncDot();
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   EMPLOYEE PORTAL — /order/cleaning
+   ═══════════════════════════════════════════════════════════════ */
+function renderEmployee(){
+  setDoc();
+  const myOrders = (data.tickets||[]).filter(t=>t.createdById===me.id);
+  app.innerHTML=`
+<div class="workerPage">
+  <div class="prototype-banner" role="alert">
+    ${lang==='ar'?'⚠ نسخة تجريبية — بيانات غير حقيقية':'⚠ Prototype — Demo Data Only'}
+  </div>
+  <header class="workerTopbar">
+    <div class="workerTopbar-brand">
+      <div class="workerTopbar-icon"><img src="/assets/logos/logo-icon-dark.svg" onerror="this.style.display='none'" alt="REGA"></div>
+      <div>
+        <div class="workerTopbar-name">${esc(me.name)}</div>
+        <span class="workerTopbar-role">${tr('employee')}</span>
+      </div>
+    </div>
+    <div class="workerTopbar-actions">
+      <button class="icon-btn" onclick="switchLang()" title="${tr('lang')}">${tr('lang')}</button>
+      <button class="icon-btn" onclick="logout()" title="${tr('logout')}">${ic('logout',20)}</button>
+    </div>
+  </header>
+  <div class="workerContent">
+    <!-- Tab bar -->
+    <div class="empTabs">
+      <button class="empTab${employeeTab==='submit'?' active':''}" onclick="employeeTab='submit';renderEmployee()">${ic('send',15)} ${tr('submitRequest')}</button>
+      <button class="empTab${employeeTab==='history'?' active':''}" onclick="employeeTab='history';renderEmployee()">
+        ${ic('list',15)} ${tr('myRequests')}
+        ${myOrders.filter(t=>t.status==='open').length?`<span class="empTab-badge">${myOrders.filter(t=>t.status==='open').length}</span>`:''}
+      </button>
+    </div>
+    ${employeeTab==='submit' ? employeeSubmitForm() : employeeHistory(myOrders)}
+  </div>
+</div>`;
+}
+
+function employeeSubmitForm(){
+  const CATS = ['general','spill','restroom','meeting_room','emergency'];
+  const CAT_ICONS = {general:'locations',spill:'alert-circle',restroom:'locations',meeting_room:'users',emergency:'bell'};
+  return`
+<div class="wCard">
+  <div class="wCard-title"><span class="wCard-number">1</span>${lang==='ar'?'حدد الموقع':'Select Location'}</div>
+  <div class="field">
+    <label>${lang==='ar'?'كود الموقع':'Location Code'}</label>
+    <div class="locInput-wrap">
+      <input id="empLocCode" class="ltr" placeholder="wc-gf-a">
+      <button class="locInput-scan" onclick="openQRScanner()" title="${tr('scanQR')}">${ic('qr',18)}</button>
+    </div>
+  </div>
+  <div id="empLocName" style="font-size:var(--fs-xs);color:var(--brand-mid);min-height:18px;margin-top:4px"></div>
+  <script>document.getElementById('empLocCode')?.addEventListener('input',function(){
+    const id=this.value.trim();
+    const loc=(data&&data.locations||[]).find(l=>l.id===id);
+    const el=document.getElementById('empLocName');
+    if(el)el.textContent=loc?(lang==='ar'?loc.nameAr:loc.nameEn):'';
+  });<\/script>
+</div>
+
+<div class="wCard">
+  <div class="wCard-title"><span class="wCard-number">2</span>${tr('reqCategory')}</div>
+  <div class="empCatGrid">
+    ${CATS.map(c=>`
+      <button class="empCatBtn" data-cat="${c}" onclick="document.querySelectorAll('.empCatBtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.getElementById('empCatVal').value='${c}'">
+        <span class="empCatBtn-icon">${ic(CAT_ICONS[c]||'locations',20)}</span>
+        <span>${tr('cat_'+c)}</span>
+      </button>`).join('')}
+  </div>
+  <input type="hidden" id="empCatVal" value="general">
+</div>
+
+<div class="wCard">
+  <div class="wCard-title"><span class="wCard-number">3</span>${lang==='ar'?'تفاصيل الطلب':'Request Details'}</div>
+  <div class="field">
+    <label>${tr('description')} <span style="color:var(--muted);font-weight:400">(${lang==='ar'?'اختياري':'optional'})</span></label>
+    <textarea id="empDesc" rows="3" placeholder="${lang==='ar'?'صف المشكلة بالتفصيل...':'Describe the issue in detail...'}"></textarea>
+  </div>
+  <div class="field">
+    <label>${lang==='ar'?'صورة (اختياري)':'Photo (optional)'}</label>
+    <button class="cameraBtn" onclick="openCamera('general');window._empPhotoMode=true">
+      ${ic('camera',20)}<span>${lang==='ar'?'إضافة صورة':'Add Photo'}</span>
+    </button>
+    <div id="empPhotoPrev" class="photoGrid" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<div style="height:90px"></div>
+<div class="stickySubmit">
+  <button class="submitBtn" onclick="submitEmployeeOrder()">${ic('send',18)} ${tr('submitRequest')}</button>
+</div>`;
+}
+
+function employeeHistory(orders){
+  if(!orders.length) return`
+<div class="wCard" style="text-align:center;padding:40px 24px">
+  <div style="color:var(--muted);margin-bottom:12px">${ic('list',36)}</div>
+  <div style="font-family:var(--font-head);font-size:var(--fs-lg);font-weight:800;color:var(--ink)">${lang==='ar'?'لا توجد طلبات بعد':'No requests yet'}</div>
+  <p style="color:var(--muted);margin-top:8px;font-size:var(--fs-sm)">${lang==='ar'?'قدّم أول طلب تنظيف من التبويب الأول':'Submit your first cleaning request from the first tab'}</p>
+</div>`;
+
+  return`
+<div class="wCard">
+  <div class="wCard-title">${ic('list',16)} ${tr('myRequests')} (${orders.length})</div>
+  <div style="display:grid;gap:10px">
+    ${orders.map(t=>{
+      const stCls = t.status==='completed'?'ok':'bad';
+      const catLabel = tr('cat_'+(t.category||'general'));
+      return`<div style="padding:14px 16px;border:1.5px solid var(--line);border-radius:var(--r);background:var(--surface)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+          <div>
+            <div style="font-weight:800;font-size:var(--fs-sm);color:var(--ink)">${esc(t.title)}</div>
+            ${t.referenceNo?`<div style="font-family:ui-monospace,monospace;font-size:var(--fs-xs);color:var(--brand-mid);margin-top:2px">${esc(t.referenceNo)}</div>`:''}
+          </div>
+          <span class="badge ${stCls}">${tr(t.status==='completed'?'closed':'open')}</span>
+        </div>
+        <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          ${ic('locations',11)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}
+          <span>·</span>
+          <span class="badge" style="font-size:10px">${catLabel}</span>
+          <span>·</span>
+          ${fmt(t.createdAt)}
+        </div>
+        ${t.assignedToName?`<div style="font-size:var(--fs-xs);color:var(--ok);margin-top:4px;display:flex;align-items:center;gap:4px">${ic('users',11)} ${lang==='ar'?'تم التعيين لـ:':'Assigned to:'} ${esc(t.assignedToName)}</div>`:`<div style="font-size:var(--fs-xs);color:var(--warn);margin-top:4px">${lang==='ar'?'في قائمة انتظار المشرف':'In supervisor queue'}</div>`}
+      </div>`;
+    }).join('')}
+  </div>
+</div>`;
+}
+
+async function submitEmployeeOrder(){
+  const locId = document.getElementById('empLocCode')?.value.trim();
+  const category = document.getElementById('empCatVal')?.value || 'general';
+  const desc = document.getElementById('empDesc')?.value.trim() || '';
+  if(!locId) return toast(lang==='ar'?'أدخل كود الموقع':'Enter location code','bad');
+  const loc = (data.locations||[]).find(l=>l.id===locId);
+  if(!loc) return toast(lang==='ar'?`الموقع "${locId}" غير موجود`:`Location "${locId}" not found`,'bad');
+  const btn = document.querySelector('.submitBtn');
+  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner" style="width:22px;height:22px;border-width:2.5px"></div>`}
+  const photo = currentPhotos[0] || null;
+  try{
+    const res = await api('/order',{method:'POST',body:JSON.stringify({
+      locationId:locId, category, description:desc,
+      photo: photo || undefined
+    })});
+    currentPhotos = [];
+    toast(tr('requestSubmitted'),'ok');
+    // Show success card
+    const wc = document.querySelector('.workerContent');
+    if(wc) wc.innerHTML=`
+      <div class="wCard" style="text-align:center;padding:40px 24px;margin-top:24px">
+        <div style="width:72px;height:72px;border-radius:50%;background:var(--ok-bg);margin:0 auto 16px;display:grid;place-items:center;color:var(--ok)">${ic('check',32)}</div>
+        <div style="font-family:var(--font-head);font-size:var(--fs-xl);font-weight:800;color:var(--ink)">${tr('requestSubmitted')}</div>
+        ${res.ticket.referenceNo?`<div style="font-family:ui-monospace,monospace;font-size:var(--fs-sm);color:var(--brand-mid);margin-top:8px">${esc(res.ticket.referenceNo)}</div>`:''}
+        <p style="color:var(--muted);margin-top:8px;font-size:var(--fs-sm)">${res.autoAssigned?(lang==='ar'?'تم التعيين التلقائي لعامل النظافة':'Auto-assigned to a cleaning worker'):(lang==='ar'?'تم إرسال الطلب للمشرف':'Sent to supervisor queue')}</p>
+        <button class="btn wide" style="margin-top:20px" onclick="employeeTab='submit';renderEmployee()">${lang==='ar'?'طلب جديد':'New Request'}</button>
+        <button class="btn secondary wide" style="margin-top:10px" onclick="employeeTab='history';load().then(renderEmployee)">${tr('myRequests')}</button>
+      </div>`;
+  }catch(e){
+    if(btn){btn.disabled=false;btn.innerHTML=`${ic('send',18)} ${tr('submitRequest')}`}
+    toast(lang==='ar'?'حدث خطأ، حاول مرة أخرى':'Error, please try again','bad');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PERFORMANCE VIEW — Phases 7 & 8
+   ═══════════════════════════════════════════════════════════════ */
+async function performance(){
+  // Load fresh performance data
+  let metrics = [];
+  try{
+    const res = await api('/performance');
+    perfData = res;
+    metrics = res.metrics || [];
+  }catch(e){
+    return`<div class="card"><div class="empty-state"><div class="empty-icon">${ic('bar-chart',28)}</div><div class="empty-title">${lang==='ar'?'تعذر تحميل بيانات الأداء':'Failed to load performance data'}</div></div></div>`;
+  }
+
+  // Monthly recognition top 3
+  const scored = metrics.map(w=>{
+    const approval = w.approvalRate ?? 0;
+    const quality  = w.avgQuality ?? 0;
+    const ratingS  = w.avgRatingSupervisor ? w.avgRatingSupervisor*20 : 0;
+    const ratingM  = w.avgRatingManager ? w.avgRatingManager*20 : 0;
+    const ratingAvg = ratingS || ratingM ? ((ratingS||ratingM) + (ratingM&&ratingS ? ratingM : 0)) / (ratingM&&ratingS ? 2 : 1) : 0;
+    const workload = Math.max(0, 100 - (w.workloadScore||0));
+    const weighted = Math.round(approval*0.3 + quality*0.25 + ratingAvg*0.25 + workload*0.2);
+    return {...w, weighted};
+  }).sort((a,b)=>b.weighted-a.weighted);
+
+  const medals = ['🥇','🥈','🥉'];
+
+  return`
+<div class="pageHeader">
+  <div class="pageHeader-left">
+    <div class="pageTitle">${tr('performance')}</div>
+    <div class="pageSub">${metrics.length} ${lang==='ar'?'عامل — آخر 30 يوم':'workers — last 30 days'}</div>
+  </div>
+  <div class="pageActions">
+    <button class="btn secondary sm" onclick="exportPerformancePDF()">${ic('reports',14)} ${lang==='ar'?'تصدير PDF':'PDF'}</button>
+  </div>
+</div>
+
+<!-- MONTHLY RECOGNITION -->
+${scored.length>=1?`
+<div class="card" style="margin-bottom:20px">
+  <div class="card-head">
+    <span class="card-title">${ic('award',16)} ${tr('monthlyRecognition')}</span>
+    <span class="badge gold">${lang==='ar'?'يونيو 2026':'June 2026'}</span>
+  </div>
+  <div class="recognitionPodium">
+    ${scored.slice(0,3).map((w,i)=>`
+      <div class="podiumCard ${i===0?'gold':i===1?'silver':'bronze'}">
+        <div class="podiumCard-medal">${medals[i]||''}</div>
+        <div class="podiumCard-avatar">${esc(initials(w.name))}</div>
+        <div class="podiumCard-name">${esc(w.name)}</div>
+        <div class="podiumCard-score">${w.weighted}${lang==='ar'?'%':''}</div>
+        <div class="podiumCard-stats">
+          ${w.approvalRate!=null?`<span>${tr('approvalRate')}: ${w.approvalRate}%</span>`:''}
+          ${w.avgRatingSupervisor?`<span>${ic('star',10)} ${w.avgRatingSupervisor.toFixed(1)}</span>`:''}
+        </div>
+      </div>`).join('')}
+  </div>
+</div>`:''}
+
+<!-- FULL TEAM PERFORMANCE TABLE -->
+<div class="card">
+  <div class="card-head">
+    <span class="card-title">${ic('users',16)} ${tr('teamOverview')}</span>
+    <span class="badge brand">${metrics.length} ${lang==='ar'?'عامل':'workers'}</span>
+  </div>
+  <div class="perfTableWrap">
+    <table class="perfTable">
+      <thead><tr>
+        <th>${tr('name')}</th>
+        <th>${lang==='ar'?'التقارير (30ي)':'Reports (30d)'}</th>
+        <th>${tr('approvalRate')}</th>
+        <th>${tr('avgQuality')}</th>
+        <th>${tr('ratingBySupervisor')}</th>
+        ${canManage()?`<th>${tr('ratingByManager')}</th>`:''}
+        <th>${tr('openTasks')}</th>
+        <th>${tr('workloadScore')}</th>
+        <th>${lang==='ar'?'النقاط':'Score'}</th>
+      </tr></thead>
+      <tbody>
+        ${scored.map((w,rank)=>{
+          const rS = w.avgRatingSupervisor;
+          const rM = w.avgRatingManager;
+          return`<tr>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="width:32px;height:32px;border-radius:50%;background:var(--surface-3);display:grid;place-items:center;font-size:var(--fs-xs);font-weight:800;flex-shrink:0;color:var(--brand)">${esc(initials(w.name))}</div>
+                <div>
+                  <div style="font-weight:700;font-size:var(--fs-sm)">${esc(w.name)}</div>
+                  <div style="font-size:var(--fs-xs);color:var(--muted)">${esc(w.username)}</div>
+                </div>
+              </div>
+            </td>
+            <td><span style="font-weight:700">${w.reportsLast30}</span>${w.thisMonth?` <span style="font-size:var(--fs-xs);color:var(--muted)">(${w.thisMonth} ${lang==='ar'?'هذا الشهر':'this mo.'})</span>`:''}</td>
+            <td>${w.approvalRate!=null?`<span class="badge ${w.approvalRate>=80?'ok':w.approvalRate>=60?'warn':'bad'}">${w.approvalRate}%</span>`:`<span class="badge">${tr('noRating')}</span>`}</td>
+            <td>${w.avgQuality?`<span class="badge gold">${w.avgQuality}%</span>`:`—`}</td>
+            <td>${rS!=null?`<div style="display:flex;align-items:center;gap:4px">${ic('star',13)} ${rS.toFixed(1)}</div>`:`<span style="color:var(--muted)">${tr('noRating')}</span>`}</td>
+            ${canManage()?`<td>${rM!=null?`<div style="display:flex;align-items:center;gap:4px">${ic('star',13)} ${rM.toFixed(1)}</div>`:`<span style="color:var(--muted)">${tr('noRating')}</span>`}</td>`:''}
+            <td><span class="badge ${w.openTickets>3?'bad':w.openTickets>1?'warn':'ok'}">${w.openTickets}</span></td>
+            <td>
+              <div class="progress-track" style="width:80px;display:inline-block">
+                <div class="progress-fill ${w.workloadScore>80?'bad':w.workloadScore>40?'gold':'ok'}" style="width:${Math.min(100,w.workloadScore)}%"></div>
+              </div>
+            </td>
+            <td><span style="font-family:var(--font-head);font-weight:800;font-size:var(--fs-sm);color:${rank===0?'var(--gold)':rank<3?'var(--brand-mid)':'var(--ink)'}">${w.weighted}</span></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>
+</div>`;
+}
+
+async function exportPerformancePDF(){
+  let metrics = perfData?.metrics || [];
+  if(!metrics.length){
+    try{ const r=await api('/performance'); metrics=r.metrics||[]; }catch(e){ return; }
+  }
+  const scored = metrics.map(w=>({...w,
+    weighted:Math.round((w.approvalRate??0)*0.3+(w.avgQuality??0)*0.25+
+      ((w.avgRatingSupervisor||0)*20)*0.25+(Math.max(0,100-(w.workloadScore||0)))*0.2)
+  })).sort((a,b)=>b.weighted-a.weighted);
+  const dir=lang==='ar'?'rtl':'ltr';
+  const html=`<!DOCTYPE html><html lang="${lang}" dir="${dir}"><head><meta charset="utf-8">
+<title>REGA — ${tr('performance')}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:24px;color:#222;direction:${dir}}
+.header{display:flex;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #0A4E5B}
+.brand{color:#0A4E5B;font-size:20px;font-weight:800}.meta{font-size:11px;color:#666;margin-top:4px}
+table{width:100%;border-collapse:collapse;font-size:12px;margin-top:16px}
+th{background:#083B46;color:#fff;padding:9px 10px;text-align:${lang==='ar'?'right':'left'};font-weight:700}
+td{padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top}
+tr:nth-child(even) td{background:#f8f9fa}
+.ok{color:#16884D;font-weight:700}.bad{color:#c83232;font-weight:700}.warn{color:#A66200;font-weight:700}
+.footer{margin-top:16px;font-size:10px;color:#999;text-align:center}
+@media print{body{padding:12px}@page{margin:15mm}}</style></head><body>
+<div class="header">
+  <div><div class="brand">REGA — ${tr('performance')}</div><div class="meta">${new Date().toISOString().slice(0,10)} · ${lang==='ar'?'آخر 30 يوم':'Last 30 days'}</div></div>
+  <div class="meta">${lang==='ar'?'مُصدَّر بواسطة: ':'Exported by: '}${esc(me.name)}</div>
+</div>
+<table><thead><tr>
+  <th>#</th><th>${tr('name')}</th><th>${lang==='ar'?'التقارير':'Reports'}</th>
+  <th>${tr('approvalRate')}</th><th>${tr('avgQuality')}</th>
+  <th>${tr('ratingBySupervisor')}</th><th>${lang==='ar'?'مهام مفتوحة':'Open Tasks'}</th>
+  <th>${lang==='ar'?'النقاط':'Score'}</th>
+</tr></thead><tbody>
+${scored.map((w,i)=>`<tr>
+  <td>${i+1}</td><td>${esc(w.name)}</td><td>${w.reportsLast30}</td>
+  <td class="${w.approvalRate>=80?'ok':w.approvalRate>=60?'warn':'bad'}">${w.approvalRate!=null?w.approvalRate+'%':'—'}</td>
+  <td>${w.avgQuality?w.avgQuality+'%':'—'}</td>
+  <td>${w.avgRatingSupervisor?w.avgRatingSupervisor.toFixed(1):'—'}</td>
+  <td>${w.openTickets}</td>
+  <td><strong>${w.weighted}</strong></td>
+</tr>`).join('')}
+</tbody></table>
+<div class="footer">REGA Facility Care · ${new Date().toISOString().slice(0,10)}</div>
+</body></html>`;
+  const w=window.open('','_blank','width=900,height=700');
+  w.document.write(html); w.document.close();
+  w.addEventListener('load',()=>w.print());
 }
 
 /* ─── INIT ───────────────────────────────────────────────────── */

@@ -18,7 +18,7 @@ const MAX_PHOTO_BYTES    = 5_242_880;  // 5 MB per photo
 const MAX_PHOTOS         = 10;
 const PUBLIC             = path.join(__dirname, 'public');
 const UPLOADS_DIR        = process.env.UPLOADS_PATH || path.join(__dirname, 'uploads');
-const ALLOWED_ROLES      = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','cleaner'];
+const ALLOWED_ROLES      = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','cleaner','employee'];
 
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
@@ -186,6 +186,22 @@ function processPhotos(raw, uploadedBy, reportId = null, ticketId = null) {
     .map(p => p.url);
 }
 
+/** Like processPhotos but sets photo_type after storing. */
+function processPhotosTyped(raw, uploadedBy, reportId = null, ticketId = null, photoType = 'general') {
+  if (!Array.isArray(raw)) return [];
+  const db = getDb();
+  return raw.slice(0, MAX_PHOTOS)
+    .map(d => {
+      const p = storePhoto(d, uploadedBy, reportId, ticketId);
+      if (p) {
+        db.prepare('UPDATE photos SET photo_type = ? WHERE id = ?').run(photoType, p.id);
+      }
+      return p;
+    })
+    .filter(Boolean)
+    .map(p => p.url);
+}
+
 /* ═══════════════════════════════════════════════════════════════
    RATE LIMITER
    ═══════════════════════════════════════════════════════════════ */
@@ -346,7 +362,9 @@ function dbTickets()  {
 }
 function dbReports()  {
   return getDb().prepare(`
-    SELECT r.*, GROUP_CONCAT(p.filename) AS photo_files
+    SELECT r.*,
+      GROUP_CONCAT(p.filename)   AS photo_files,
+      GROUP_CONCAT(p.photo_type) AS photo_types
     FROM reports r
     LEFT JOIN photos p ON p.report_id = r.id AND p.deleted_at IS NULL
     WHERE r.deleted_at IS NULL
@@ -368,8 +386,11 @@ function ticketRow(r) {
     assignedTo:     r.assigned_to,
     assignedToName: r.assigned_to_name,
     createdBy:      r.created_by,
+    createdById:    r.created_by_id || '',
     status:         r.status,
     priority:       r.priority,
+    category:       r.category || 'general',
+    referenceNo:    r.reference_no || '',
     notes:          r.notes,
     createdAt:      r.created_at,
     completedAt:    r.completed_at || '',
@@ -380,24 +401,36 @@ function ticketRow(r) {
 /** Map DB report row → frontend camelCase */
 function reportRow(r) {
   if (!r) return null;
-  const photos = r.photo_files ? r.photo_files.split(',').map(f => `/uploads/${f}`) : [];
+  const allPhotos = r.photo_files ? r.photo_files.split(',') : [];
+  const allTypes  = r.photo_types ? r.photo_types.split(',') : [];
+  const photos = allPhotos.map(f => `/uploads/${f}`);
+  const beforePhotos = allPhotos
+    .filter((_, i) => (allTypes[i] || 'general') === 'before')
+    .map(f => `/uploads/${f}`);
+  const afterPhotos = allPhotos
+    .filter((_, i) => (allTypes[i] || 'general') === 'after')
+    .map(f => `/uploads/${f}`);
   return {
-    id:             r.id,
-    workerId:       r.worker_id,
-    workerName:     r.worker_name,
-    locationId:     r.location_id,
-    locationNameAr: r.location_name_ar,
-    locationNameEn: r.location_name_en,
-    locationType:   r.location_type,
-    status:         r.status,
-    tasks:          JSON.parse(r.tasks || '[]'),
-    notes:          r.notes,
-    createdAt:      r.created_at,
-    approvalStatus: r.approval_status,
-    approvedBy:     r.approved_by,
-    approvedAt:     r.approved_at || '',
-    reviewNote:     r.review_note,
-    photos
+    id:               r.id,
+    workerId:         r.worker_id,
+    workerName:       r.worker_name,
+    locationId:       r.location_id,
+    locationNameAr:   r.location_name_ar,
+    locationNameEn:   r.location_name_en,
+    locationType:     r.location_type,
+    status:           r.status,
+    tasks:            JSON.parse(r.tasks || '[]'),
+    notes:            r.notes,
+    createdAt:        r.created_at,
+    approvalStatus:   r.approval_status,
+    approvedBy:       r.approved_by,
+    approvedAt:       r.approved_at || '',
+    reviewNote:       r.review_note,
+    ratingSupervisor: r.rating_supervisor ?? null,
+    ratingManager:    r.rating_manager    ?? null,
+    photos,
+    beforePhotos,
+    afterPhotos
   };
 }
 
@@ -413,6 +446,15 @@ function buildBootstrap(me) {
 
   const base = { user: publicUser(me), locations, zones, settings };
 
+  if (me.role === 'employee') {
+    return {
+      ...base,
+      users:       [publicUser(me)],
+      assignments: [],
+      tickets:     allTickets.filter(t => t.createdById === me.id),
+      reports:     []
+    };
+  }
   if (me.role === 'cleaner') {
     const myAssign = assignments.find(a => a.workerId === me.id);
     return {
@@ -455,6 +497,38 @@ function broadcast(event, payload) {
    CSV helper
    ═══════════════════════════════════════════════════════════════ */
 function csvCell(v) { return '"' + String(v ?? '').replace(/"/g, '""') + '"'; }
+
+/* ═══════════════════════════════════════════════════════════════
+   REFERENCE NUMBER GENERATOR  (CLN-YYYY-XXXXXX)
+   ═══════════════════════════════════════════════════════════════ */
+function generateRefNo(db) {
+  const year = new Date().getFullYear();
+  const key  = `ref_seq_${year}`;
+  const row  = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+  const seq  = parseInt(row?.value || '0', 10) + 1;
+  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, String(seq));
+  return `CLN-${year}-${String(seq).padStart(6, '0')}`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   AUTO-ASSIGNMENT
+   Pick the worker assigned to the location with fewest open tickets.
+   Returns { id, name } or null if no worker covers this location.
+   ═══════════════════════════════════════════════════════════════ */
+function autoAssign(locationId, db) {
+  return db.prepare(`
+    SELECT a.worker_id AS id, u.name,
+      (SELECT COUNT(*) FROM tickets
+       WHERE assigned_to = a.worker_id
+         AND status = 'open' AND deleted_at IS NULL) AS open_count
+    FROM assignments a
+    JOIN  users u ON u.id = a.worker_id
+      AND u.active = 1 AND u.deleted_at IS NULL AND u.role = 'cleaner'
+    WHERE a.location_id = ?
+    ORDER BY open_count ASC
+    LIMIT 1
+  `).get(locationId) || null;
+}
 
 /* ═══════════════════════════════════════════════════════════════
    HTTP SERVER
@@ -727,25 +801,36 @@ const server = http.createServer(async (req, res) => {
       /* ── TICKETS: CREATE ────────────────────────────────────── */
       if (req.method === 'POST' && url.pathname === '/api/tickets') {
         if (!canCreateTickets(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
-        const b      = await bodyJSON(req);
-        const loc    = db.prepare('SELECT * FROM locations WHERE id = ? AND deleted_at IS NULL').get(b.locationId);
-        const worker = db.prepare('SELECT * FROM users WHERE id = ? AND active = 1 AND deleted_at IS NULL').get(b.assignedTo);
-        if (!loc || !worker) return send(res, 400, { error: 'MISSING_LOCATION_OR_WORKER' });
-        const id  = newId('t');
-        const ts  = now();
+        const b   = await bodyJSON(req);
+        const loc = db.prepare('SELECT * FROM locations WHERE id = ? AND deleted_at IS NULL').get(b.locationId);
+        if (!loc) return send(res, 400, { error: 'MISSING_LOCATION' });
+        // Worker is optional — auto-assign if not provided
+        let worker = null;
+        if (b.assignedTo) {
+          worker = db.prepare('SELECT * FROM users WHERE id = ? AND active = 1 AND deleted_at IS NULL').get(b.assignedTo);
+          if (!worker) return send(res, 400, { error: 'WORKER_NOT_FOUND' });
+        } else {
+          const auto = autoAssign(loc.id, db);
+          if (auto) worker = db.prepare('SELECT * FROM users WHERE id = ?').get(auto.id);
+        }
+        const id       = newId('t');
+        const ts       = now();
         const priority = ['high','medium','low'].includes(b.priority) ? b.priority : 'medium';
+        const category = sanitize(b.category || 'general', 50);
         db.prepare(`
           INSERT INTO tickets (id,title,description,location_id,location_name_ar,location_name_en,
-            assigned_to,assigned_to_name,created_by,status,priority,notes,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,'open',?,?,?,?)
+            assigned_to,assigned_to_name,created_by,created_by_id,status,priority,
+            category,reference_no,notes,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?)
         `).run(id, sanitize(b.title, 200) || 'بلاغ نظافة',
                sanitize(b.description, 1000), loc.id, loc.name_ar, loc.name_en,
-               worker.id, worker.name, me.name, priority, '', ts, ts);
+               worker?.id || null, worker?.name || '',
+               me.name, me.id, priority, category, '', '', ts, ts);
         const ticket = ticketRow(db.prepare(`
           SELECT t.*, NULL AS photo_files FROM tickets t WHERE t.id = ?
         `).get(id));
         broadcast('ticket_created', { ticket });
-        auditLog('ticket_created', me, ip, ua, { targetType: 'ticket', targetId: id });
+        auditLog('ticket_created', me, ip, ua, { targetType: 'ticket', targetId: id, extra: { category, autoAssigned: !b.assignedTo } });
         return send(res, 200, { ticket });
       }
 
@@ -832,9 +917,20 @@ const server = http.createServer(async (req, res) => {
           VALUES (?,?,?,?,?,?,?,?,?,?,'pending',?,?)
         `).run(id, me.id, me.name, loc.id, loc.name_ar, loc.name_en,
                loc.type, status, JSON.stringify(tasks), sanitize(b.notes, 1000), ts, ts);
-        processPhotos(b.photos, me.id, id, null);
+        // Support before/after typed photos, fallback to legacy `photos` as 'general'
+        if (Array.isArray(b.beforePhotos) && b.beforePhotos.length) {
+          processPhotosTyped(b.beforePhotos, me.id, id, null, 'before');
+        }
+        if (Array.isArray(b.afterPhotos) && b.afterPhotos.length) {
+          processPhotosTyped(b.afterPhotos, me.id, id, null, 'after');
+        }
+        if (!b.beforePhotos && !b.afterPhotos) {
+          processPhotos(b.photos, me.id, id, null);
+        }
         const report = reportRow(db.prepare(`
-          SELECT r.*, GROUP_CONCAT(p.filename) AS photo_files
+          SELECT r.*,
+            GROUP_CONCAT(p.filename)   AS photo_files,
+            GROUP_CONCAT(p.photo_type) AS photo_types
           FROM reports r LEFT JOIN photos p ON p.report_id=r.id AND p.deleted_at IS NULL
           WHERE r.id=? GROUP BY r.id
         `).get(id));
@@ -889,6 +985,112 @@ const server = http.createServer(async (req, res) => {
           'SELECT * FROM audit_logs ORDER BY ts DESC LIMIT ? OFFSET ?'
         ).all(limit, offset);
         return send(res, 200, { logs, limit, offset });
+      }
+
+      /* ── EMPLOYEE ORDER: CREATE (employee portal) ───────────── */
+      if (req.method === 'POST' && url.pathname === '/api/order') {
+        if (me.role !== 'employee') return send(res, 403, { error: 'FORBIDDEN' });
+        const b   = await bodyJSON(req);
+        const loc = db.prepare('SELECT * FROM locations WHERE id = ? AND deleted_at IS NULL').get(sanitize(b.locationId, 80));
+        if (!loc) return send(res, 404, { error: 'LOCATION_NOT_FOUND' });
+        const VALID_CATS = ['general','spill','restroom','meeting_room','emergency'];
+        const category   = VALID_CATS.includes(b.category) ? b.category : 'general';
+        const autoPriority = { emergency: 'high', spill: 'high', meeting_room: 'high', restroom: 'medium', general: 'medium' };
+        const priority   = autoPriority[category] || ((['high','medium','low'].includes(b.priority)) ? b.priority : 'medium');
+        const refNo      = generateRefNo(db);
+        const CAT_TITLES = { general:'طلب تنظيف', spill:'بلاغ انسكاب', restroom:'مشكلة دورة مياه', meeting_room:'تنظيف قاعة اجتماع', emergency:'تنظيف طارئ' };
+        const title      = sanitize(b.title || '', 200) || CAT_TITLES[category] || 'طلب تنظيف';
+        const worker = autoAssign(loc.id, db);
+        const workerUser = worker ? db.prepare('SELECT * FROM users WHERE id = ?').get(worker.id) : null;
+        const id  = newId('t');
+        const ts  = now();
+        db.prepare(`
+          INSERT INTO tickets (id,title,description,location_id,location_name_ar,location_name_en,
+            assigned_to,assigned_to_name,created_by,created_by_id,status,priority,
+            category,reference_no,notes,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?)
+        `).run(id, title, sanitize(b.description, 1000),
+               loc.id, loc.name_ar, loc.name_en,
+               workerUser?.id || null, workerUser?.name || '',
+               me.name, me.id, priority, category, refNo, '', ts, ts);
+        // Optional photo
+        if (b.photo) {
+          processPhotosTyped([b.photo], me.id, null, id, 'general');
+        }
+        const ticket = ticketRow(db.prepare('SELECT t.*, NULL AS photo_files FROM tickets t WHERE t.id = ?').get(id));
+        broadcast('ticket_created', { ticket });
+        auditLog('order_created', me, ip, ua, { targetType: 'ticket', targetId: id, extra: { category, refNo, autoAssigned: !!workerUser } });
+        return send(res, 200, { ticket, autoAssigned: !!workerUser });
+      }
+
+      /* ── PERFORMANCE METRICS (supervisor/manager) ────────────── */
+      if (req.method === 'GET' && url.pathname === '/api/performance') {
+        if (!canReview(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const workers = db.prepare(
+          "SELECT * FROM users WHERE role='cleaner' AND active=1 AND deleted_at IS NULL"
+        ).all();
+        const now30 = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+        const nowStr = now();
+        const metrics = workers.map(w => {
+          const reports30 = db.prepare(
+            "SELECT * FROM reports WHERE worker_id=? AND created_at>=? AND deleted_at IS NULL ORDER BY created_at DESC"
+          ).all(w.id, now30);
+          const total = db.prepare("SELECT COUNT(*) AS c FROM reports WHERE worker_id=? AND deleted_at IS NULL").get(w.id).c;
+          const reviewed = reports30.filter(r => r.approval_status !== 'pending');
+          const approved = reviewed.filter(r => r.approval_status === 'approved').length;
+          const approvalRate = reviewed.length > 0 ? Math.round(approved / reviewed.length * 100) : null;
+          const avgRatingSup = (() => {
+            const rated = reports30.filter(r => r.rating_supervisor != null);
+            return rated.length ? Math.round(rated.reduce((s,r) => s + r.rating_supervisor, 0) / rated.length * 10) / 10 : null;
+          })();
+          const avgRatingMgr = (() => {
+            const rated = reports30.filter(r => r.rating_manager != null);
+            return rated.length ? Math.round(rated.reduce((s,r) => s + r.rating_manager, 0) / rated.length * 10) / 10 : null;
+          })();
+          const openTickets = db.prepare(
+            "SELECT COUNT(*) AS c FROM tickets WHERE assigned_to=? AND status='open' AND deleted_at IS NULL"
+          ).get(w.id).c;
+          const locCount = db.prepare(
+            "SELECT COUNT(*) AS c FROM assignments WHERE worker_id=?"
+          ).get(w.id).c;
+          // Quality score (client-side formula mirror)
+          const avgQuality = reports30.length ? Math.round(
+            reports30.reduce((sum, r) => {
+              const photos = (r.photo_files || '').split(',').filter(Boolean).length;
+              const tasks  = JSON.parse(r.tasks || '[]').length;
+              return sum + Math.min(100, (photos >= 2 ? 45 : photos ? 25 : 0) + (tasks >= 4 ? 45 : tasks * 8) + (r.notes ? 10 : 0));
+            }, 0) / reports30.length
+          ) : 0;
+          // Workload score: open_tickets / max(1, assigned_locations)
+          const workloadScore = Math.round(openTickets / Math.max(1, locCount) * 100);
+          // Month reports
+          const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+          const thisMonth = db.prepare(
+            "SELECT COUNT(*) AS c FROM reports WHERE worker_id=? AND created_at>=? AND deleted_at IS NULL"
+          ).get(w.id, monthStart.toISOString()).c;
+          return {
+            id: w.id, name: w.name, username: w.username, employeeNo: w.employee_no || '',
+            total, thisMonth, reportsLast30: reports30.length,
+            approvalRate, avgQuality, avgRatingSupervisor: avgRatingSup, avgRatingManager: avgRatingMgr,
+            openTickets, locCount, workloadScore
+          };
+        });
+        return send(res, 200, { metrics, generatedAt: now() });
+      }
+
+      /* ── REPORT RATING (supervisor/manager) ─────────────────── */
+      if (req.method === 'POST' && url.pathname === '/api/reports/rate') {
+        if (!canReview(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const b    = await bodyJSON(req);
+        const rpt  = db.prepare('SELECT 1 FROM reports WHERE id = ? AND deleted_at IS NULL').get(b.id);
+        if (!rpt) return send(res, 404, { error: 'REPORT_NOT_FOUND' });
+        const value = parseFloat(b.value);
+        if (isNaN(value) || value < 1 || value > 5) return send(res, 400, { error: 'INVALID_RATING' });
+        const col = b.ratingType === 'manager' ? 'rating_manager' : 'rating_supervisor';
+        if (col === 'rating_manager' && !canManageSystem(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        db.prepare(`UPDATE reports SET ${col} = ?, updated_at = ? WHERE id = ?`).run(value, now(), b.id);
+        auditLog('report_rated', me, ip, ua, { targetType: 'report', targetId: b.id, extra: { col, value } });
+        return send(res, 200, { ok: true });
       }
 
       return send(res, 404, { error: 'NOT_FOUND' });
@@ -994,7 +1196,9 @@ function autoSeedIfEmpty() {
       ['u-w4','عامل 4','worker4',pw.worker,'cleaner'],
       ['u-w5','عامل 5','worker5',pw.worker,'cleaner'],
       ['u-w6','عامل 6','worker6',pw.worker,'cleaner'],
-      ['u-w7','عامل 7','worker7',pw.worker,'cleaner']
+      ['u-w7','عامل 7','worker7',pw.worker,'cleaner'],
+      ['u-emp1','موظف 1','employee1',pw.worker,'employee'],
+      ['u-emp2','موظف 2','employee2',pw.worker,'employee']
     ].forEach(([id,name,username,pass,role]) =>
       insUser.run(id,name,username,hashPassword(pass),role,ts,ts)
     );
@@ -1044,6 +1248,7 @@ function autoSeedIfEmpty() {
   console.log(`║   manager    : ${pw.manager.padEnd(42)}║`);
   console.log(`║   supervisor : ${pw.supervisor.padEnd(42)}║`);
   console.log(`║   worker3-7  : ${pw.worker.padEnd(42)}║`);
+  console.log(`║   employee1-2: ${pw.worker.padEnd(42)}║`);
   console.log('╠══════════════════════════════════════════════════════════╣');
   console.log('║   Username for admin login: admin                        ║');
   console.log('╚══════════════════════════════════════════════════════════╝');
