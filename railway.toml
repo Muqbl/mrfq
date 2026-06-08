@@ -1,0 +1,33 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "node server.js"
+healthcheckPath = "/health"
+healthcheckTimeout = 60
+
+# ─────────────────────────────────────────────────────────────────────
+# REQUIRED: Set these environment variables in the Railway dashboard
+# ─────────────────────────────────────────────────────────────────────
+#
+#  DB_PATH=/data/data.db
+#    → Must point to a Railway Volume mount path.
+#    → Without this, data.db is stored on ephemeral disk and
+#      ALL DATA (users, passwords) is lost on every redeploy.
+#    → Steps: Railway dashboard → your service → Volumes
+#             → Add Volume, mount at /data
+#             → Set env var: DB_PATH=/data/data.db
+#
+#  UPLOADS_PATH=/data/uploads
+#    → Same volume as above. All uploaded photos stored here.
+#
+#  ADMIN_PASSWORD=your-strong-password
+#    → Used ONLY when the database is empty (first startup).
+#    → After that, changing password in the UI persists in the DB.
+#    → Changing this env var has NO effect if users already exist.
+#
+#  HTTPS=true
+#    → Railway serves traffic over HTTPS via its proxy.
+#    → Set this so session cookies get the Secure flag.
+#
+# ─────────────────────────────────────────────────────────────────────

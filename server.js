@@ -9,7 +9,8 @@ const { getDb } = require('./db');
    CONFIG  (all from environment — no secrets in code)
    ═══════════════════════════════════════════════════════════════ */
 const PORT               = parseInt(process.env.PORT, 10)              || 3000;
-const IS_HTTPS           = process.env.HTTPS                          === 'true';
+// IS_HTTPS: explicit env var OR auto-detect Railway/Render reverse-proxy
+const IS_HTTPS           = process.env.HTTPS === 'true';
 const SESSION_TIMEOUT_MS = parseInt(process.env.SESSION_TIMEOUT_MS, 10) || 7_200_000; // 2 h
 const SESSION_COOKIE     = 'sid';
 const MAX_BODY_BYTES     = 35_000_000;
@@ -1238,6 +1239,13 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    /* ── HEALTH CHECK ──────────────────────────────────────── */
+    if (url.pathname === '/health') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, db: !!process.env.DB_PATH, ts: Date.now() }));
+      return;
+    }
+
     /* ── STATIC FILES ───────────────────────────────────────── */
     let file = url.pathname === '/' ? '/index.html' : url.pathname;
     file = path.normalize(file).replace(/^(\.\.[/\\])+/, '');
@@ -1252,7 +1260,14 @@ const server = http.createServer(async (req, res) => {
       '.ttf':  'font/ttf', '.woff': 'font/woff', '.woff2': 'font/woff2'
     };
     setSecurityHeaders(res);
-    res.writeHead(200, { 'Content-Type': types[ext] || 'application/octet-stream' });
+    // HTML and app JS/CSS: never cache — always serve fresh on redeploy.
+    // Static assets (fonts, icons, QR lib) get a 1-hour cache.
+    const noCache = ['.html','.js','.css'].includes(ext);
+    const headers = {
+      'Content-Type': types[ext] || 'application/octet-stream',
+      'Cache-Control': noCache ? 'no-store' : 'public, max-age=3600'
+    };
+    res.writeHead(200, headers);
     res.end(fs.readFileSync(p));
 
   } catch (e) {

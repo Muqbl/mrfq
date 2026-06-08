@@ -639,6 +639,7 @@ function loginPage(){
       </div>
       <p class="loginPanel-foot">${lang==='ar'?'الدخول متاح فقط للمستخدمين المصرح لهم داخل المنصة.':'Access is restricted to authorized platform users only.'}</p>
       <p class="loginPanel-foot" style="font-size:10px;margin-top:6px;color:var(--muted)">${lang==='ar'?'استخدام الهوية البصرية لأغراض المحاكاة فقط — ليست نسخة إنتاجية':'Visual identity used for simulation purposes only — not a production deployment'}</p>
+      <p class="loginPanel-foot" style="font-size:9px;margin-top:4px;color:var(--muted-light);direction:ltr;text-align:center">build 20260608-3</p>
     </div>
   </div>
 </main>`;
@@ -1805,14 +1806,25 @@ function showAddRoleModal(userId){
   if(!u) return;
   const existingRoles = u.roles||[u.role];
 
+  const ROLE_COLORS = {
+    system_admin:       {bg:'#E6F4F2', color:'#0F3D3E'},
+    facility_manager:   {bg:'rgba(10,78,91,.12)', color:'var(--brand)'},
+    cleaning_manager:   {bg:'#F5E9FF', color:'#6B21A8'},
+    cleaning_supervisor:{bg:'rgba(26,105,164,.12)', color:'var(--info)'},
+    cleaner:            {bg:'rgba(22,136,77,.10)', color:'var(--ok)'},
+    employee:           {bg:'rgba(185,154,95,.12)', color:'var(--gold)'}
+  };
+
   function buildRoleCards(){
     return ROLES.map(r=>{
       const active = existingRoles.includes(r);
       const isLast = active && existingRoles.length===1;
+      const rc = ROLE_COLORS[r]||{bg:'var(--surface-3)',color:'var(--muted)'};
+      const iconStyle = `background:${rc.bg};color:${rc.color}`;
       return `<div class="roleCard ${active?'active':''} ${isLast?'locked':''}"
         title="${isLast?(lang==='ar'?'لا يمكن إزالة الصلاحية الأخيرة':'Cannot remove the last role'):''}"
         onclick="${active?(isLast?'':`removeUserRole('${userId}','${r}')`):`addUserRole('${userId}','${r}')`}">
-        <div class="roleCardIcon ${roleBadgeClass(r)}">${active?ic('check',14):ic('plus',14)}</div>
+        <div class="roleCardIcon" style="${iconStyle}">${active?ic('check',14):ic('plus',14)}</div>
         <div class="roleCardName">${tr(r)}</div>
         ${isLast?`<div class="roleCardLock">${ic('lock',10)}</div>`:''}
       </div>`;
