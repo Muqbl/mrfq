@@ -223,6 +223,8 @@ const IC = {
   filter:`<svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>`,
   log:`<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>`,
   'alert-triangle':`<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  chevron:`<svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>`,
+  lock:`<svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
 };
 const ic=(name,size=18)=>`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${IC[name]?.replace(/<svg[^>]*>/,'').replace(/<\/svg>/,'')??''}</svg>`;
 
@@ -639,7 +641,7 @@ function loginPage(){
       </div>
       <p class="loginPanel-foot">${lang==='ar'?'الدخول متاح فقط للمستخدمين المصرح لهم داخل المنصة.':'Access is restricted to authorized platform users only.'}</p>
       <p class="loginPanel-foot" style="font-size:10px;margin-top:6px;color:var(--muted)">${lang==='ar'?'استخدام الهوية البصرية لأغراض المحاكاة فقط — ليست نسخة إنتاجية':'Visual identity used for simulation purposes only — not a production deployment'}</p>
-      <p class="loginPanel-foot" style="font-size:9px;margin-top:4px;color:var(--muted-light);direction:ltr;text-align:center">build 20260608-3</p>
+      <p class="loginPanel-foot" style="font-size:9px;margin-top:4px;color:var(--muted-light);direction:ltr;text-align:center">build 20260608-4</p>
     </div>
   </div>
 </main>`;
@@ -745,6 +747,9 @@ function shell(content){
         </div>
       </div>
       <div class="topbar-end">
+        ${me.roles&&me.roles.length>1?`<button class="tb-workspace" onclick="renderWorkspaceSwitcher()">
+          ${ic('layers',14)}<span class="tb-workspace-label">${roleLabel(me.role)}</span>${ic('chevron',14)}
+        </button>`:''}
         ${qSize>0?`<button class="tb-sync pending" onclick="flushOfflineQueue()" title="${tr('sync')}">
           <span class="tb-sync-dot pending"></span>
           <span class="tb-sync-lbl">${qSize} ${lang==='ar'?'معلق':'pending'}</span>
@@ -1676,23 +1681,8 @@ function users(){
     <div class="pageTitle">${tr('users')}</div>
     <div class="pageSub">${num(filtered.length)}${filtered.length!==allUsers.length?' / '+num(allUsers.length):''} ${lang==='ar'?'مستخدم':'users'}</div>
   </div>
-</div>
-<div class="card" style="margin-bottom:20px">
-  <div class="card-head">
-    <span class="card-title">${editUserId?`${ic('edit',16)} ${tr('edit')}`:ic('plus',16)+' '+tr('addUser')}</span>
-    ${me.role==='cleaning_manager'?`<span class="badge gold">${lang==='ar'?'تدير العمال والمشرفين':'Manages workers & supervisors'}</span>`:''}
-  </div>
-  <div class="formGrid">
-    <div class="field"><label>${tr('name')}</label><input id="un"></div>
-    <div class="field"><label>${tr('username')}</label><input id="uu" class="ltr"></div>
-    <div class="field"><label>${tr('password')}</label><input id="up" class="ltr" placeholder="••••••••"></div>
-    <div class="field"><label>${tr('role')}</label><select id="ur">${editableRoles.map(r=>`<option value="${r}">${tr(r)}</option>`).join('')}</select></div>
-    <div class="field"><label>${tr('employeeNo')}</label><input id="ue" class="ltr"></div>
-    <div class="field"><label>${tr('status')}</label><select id="ua"><option value="true">${tr('activeUser')}</option><option value="false">${tr('inactive')}</option></select></div>
-  </div>
-  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
-    <button class="btn" onclick="saveUser()">${ic('check',16)} ${tr('save')}</button>
-    <button class="btn secondary" onclick="clearUserForm()">${tr('cancel')}</button>
+  <div class="pageHeader-actions">
+    ${canManageUsers()?`<button class="btn" onclick="showUserFormModal()">${ic('plus',16)} ${tr('addUser')}</button>`:''}
   </div>
 </div>
 
@@ -1708,72 +1698,81 @@ function users(){
 
 ${filtered.length===0
   ? `<div class="card"><div class="empty-state"><div class="empty-icon">${ic('users',28)}</div><div class="empty-title">${lang==='ar'?'لا توجد نتائج':'No results found'}</div><p class="empty-sub">${lang==='ar'?'جرب تغيير الفلتر أو كلمة البحث':'Try changing the filter or search term'}</p></div></div>`
-  : `<div class="usersTableWrap">
-  <table class="usersTable">
-    <thead>
-      <tr>
-        <th>${tr('name')}</th>
-        <th>${tr('role')}</th>
-        <th>${tr('employeeNo')}</th>
-        <th>${tr('status')}</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      ${filtered.map(u=>{
-        const isSysAdmin = u.id==='u-admin';
-        const canEdit = canManageUsers() && !isSysAdmin;
-        const canDel = canManageUsers() && !isSysAdmin && u.id!==me.id;
-        const rCls = roleBadgeClass(u.role);
-        return`<tr>
-          <td>
-            <div class="userRow-cell-name">
-              <div class="userRow-avatar">${esc(initials(u.name))}</div>
-              <div>
-                <div class="userRow-name">${esc(u.name)}</div>
-                <div class="userRow-username">${esc(u.username)}</div>
-              </div>
-            </div>
-          </td>
-          <td>
-            <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">
-              <span class="badge ${rCls}">${tr(u.role)}</span>
-              ${(u.roles||[]).filter(r=>r!==u.role).map(r=>`<span class="badge" style="opacity:.7;font-size:10px">${tr(r)}</span>`).join('')}
-              ${canEdit&&canManageUsers()?`<button class="btn secondary sm" style="padding:2px 6px;font-size:10px" onclick="showAddRoleModal('${u.id}')">${ic('plus',11)}</button>`:''}
-            </div>
-          </td>
-          <td><span class="mono" style="font-size:var(--fs-xs)">${u.employeeNo?esc(u.employeeNo):'—'}</span></td>
-          <td><span class="badge ${u.active?'ok':'bad'}">${u.active?tr('activeUser'):tr('inactive')}</span></td>
-          <td>
-            <div style="display:flex;gap:6px;justify-content:flex-end">
-              ${canEdit?`<button class="btn secondary sm" onclick="editUser('${u.id}')">${ic('edit',14)}</button>`:''}
-              ${canDel?`<button class="btn danger sm" onclick="deleteUserConfirm('${u.id}')">${ic('trash',14)}</button>`:''}
-            </div>
-          </td>
-        </tr>`;
-      }).join('')}
-    </tbody>
-  </table>
+  : `<div class="userCardsGrid">
+  ${filtered.map(u=>{
+    const canEdit = canManageUsers();
+    const canDel = canManageUsers() && u.id!==me.id;
+    const rCls = roleBadgeClass(u.role);
+    const extraRoles = (u.roles||[]).filter(r=>r!==u.role);
+    return`<div class="userCard">
+      <div class="userCard-header">
+        <div class="userCard-avatar">${esc(initials(u.name))}</div>
+        <div class="userCard-info">
+          <div class="userCard-name">${esc(u.name)}</div>
+          <div class="userCard-username">${esc(u.username)}</div>
+          ${u.employeeNo?`<div class="userCard-empno">${esc(u.employeeNo)}</div>`:''}
+        </div>
+        <span class="badge ${u.active?'ok':'bad'}">${u.active?tr('activeUser'):tr('inactive')}</span>
+      </div>
+      <div class="userCard-roles">
+        <span class="badge ${rCls}">${tr(u.role)}</span>
+        ${extraRoles.map(r=>`<span class="badge" style="opacity:.75;font-size:10px">${tr(r)}</span>`).join('')}
+      </div>
+      <div class="userCard-actions">
+        ${canEdit?`<button class="btn secondary sm roles-manage-btn" onclick="showAddRoleModal('${u.id}')">${ic('shield',14)} ${lang==='ar'?'الصلاحيات':'Roles'}</button>`:''}
+        ${canEdit?`<button class="btn secondary sm" onclick="showUserFormModal('${u.id}')">${ic('edit',14)}</button>`:''}
+        ${canDel?`<button class="btn danger sm" onclick="deleteUserConfirm('${u.id}')">${ic('trash',14)}</button>`:''}
+      </div>
+    </div>`;
+  }).join('')}
 </div>`}`;
 }
 
-function editUser(id){
-  const u = (data.users||[]).find(x=>x.id===id);
-  if(!u) return;
-  editUserId = id;
-  document.getElementById('un').value = u.name;
-  document.getElementById('uu').value = u.username;
-  document.getElementById('up').value = '';
-  document.getElementById('ur').value = u.role;
-  document.getElementById('ue').value = u.employeeNo||'';
-  document.getElementById('ua').value = String(u.active);
-  window.scrollTo({top:0,behavior:'smooth'});
+function showUserFormModal(id){
+  const editableRoles = me.role==='system_admin'?ROLES:['cleaning_supervisor','cleaner'];
+  const u = id?(data.users||[]).find(x=>x.id===id):null;
+  editUserId = id||null;
+
+  document.getElementById('userFormModal')?.remove();
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.id = 'userFormModal';
+  modal.innerHTML=`<div class="modal-box">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">${u?`${ic('edit',16)} ${tr('edit')}`:ic('plus',16)+' '+tr('addUser')}</div>
+        ${me.role==='cleaning_manager'?`<div class="modal-subtitle">${lang==='ar'?'تدير العمال والمشرفين':'Manages workers & supervisors'}</div>`:''}
+      </div>
+      <button class="icon-btn" onclick="hideUserFormModal()">${ic('x',18)}</button>
+    </div>
+    <div class="formGrid" style="padding:0 0 4px">
+      <div class="field"><label>${tr('name')}</label><input id="un" value="${u?esc(u.name):''}"></div>
+      <div class="field"><label>${tr('username')}</label><input id="uu" class="ltr" value="${u?esc(u.username):''}"></div>
+      <div class="field"><label>${tr('password')}</label><input id="up" class="ltr" placeholder="••••••••"></div>
+      <div class="field"><label>${tr('role')}</label><select id="ur">${editableRoles.map(r=>`<option value="${r}"${u&&u.role===r?' selected':''}>${tr(r)}</option>`).join('')}</select></div>
+      <div class="field"><label>${tr('employeeNo')}</label><input id="ue" class="ltr" value="${u&&u.employeeNo?esc(u.employeeNo):''}"></div>
+      <div class="field"><label>${tr('status')}</label><select id="ua"><option value="true"${u&&u.active?' selected':''}>${tr('activeUser')}</option><option value="false"${u&&!u.active?' selected':''}>${tr('inactive')}</option></select></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="saveUser()">${ic('check',16)} ${tr('save')}</button>
+      <button class="btn secondary" onclick="hideUserFormModal()">${tr('cancel')}</button>
+    </div>
+  </div>`;
+  modal.addEventListener('click',e=>{if(e.target===modal)hideUserFormModal();});
+  document.body.appendChild(modal);
 }
-function clearUserForm(){
+
+function hideUserFormModal(){
   editUserId = null;
-  ['un','uu','up','ue'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
-  const ua = document.getElementById('ua');
-  if(ua) ua.value='true';
+  document.getElementById('userFormModal')?.remove();
+}
+
+function editUser(id){
+  showUserFormModal(id);
+}
+
+function clearUserForm(){
+  hideUserFormModal();
 }
 async function saveUser(){
   const payload = {
@@ -1787,7 +1786,7 @@ async function saveUser(){
   if(editUserId) await api('/users/'+editUserId,{method:'PUT',body:JSON.stringify(payload)});
   else await api('/users',{method:'POST',body:JSON.stringify(payload)});
   toast(tr('saved'),'ok');
-  editUserId = null;
+  hideUserFormModal();
   await load();
 }
 
