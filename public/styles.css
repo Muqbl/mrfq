@@ -1726,8 +1726,41 @@ textarea::placeholder{
 .auditCell-time{color:var(--muted);white-space:nowrap;font-size:10px}
 
 /* ═══════════════════════════════════════════════════════════════
-   MULTI-ROLE BADGE IN USERS TABLE
+   ROLE MANAGEMENT MODAL
    ═══════════════════════════════════════════════════════════════ */
+.roles-modal-box{max-width:440px}
+.modal-subtitle{font-size:var(--fs-sm);color:var(--muted);margin-top:2px;font-weight:400}
+.roles-grid{
+  display:grid;grid-template-columns:repeat(2,1fr);gap:10px;
+  padding:16px 0;
+}
+.roleCard{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 14px;border-radius:var(--radius);
+  border:2px solid var(--line);background:var(--surface-2);
+  cursor:pointer;transition:all .15s;user-select:none;
+  position:relative;
+}
+.roleCard:hover:not(.locked){border-color:var(--brand-mid);background:var(--surface)}
+.roleCard.active{border-color:var(--brand);background:var(--brand-bg,#e8f4f1)}
+.roleCard.locked{opacity:.6;cursor:not-allowed}
+.roleCardIcon{
+  width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;color:#fff;font-size:12px;
+}
+.roleCardName{font-size:var(--fs-sm);font-weight:500;color:var(--ink);line-height:1.3}
+.roleCardLock{position:absolute;top:6px;inset-inline-end:6px;color:var(--muted-light)}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px;padding-top:4px;border-top:1px solid var(--line);margin-top:4px}
 
-
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE FIXES
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width:600px){
+  .modal-box{margin:16px;max-width:calc(100vw - 32px) !important;border-radius:16px}
+  .roles-grid{grid-template-columns:1fr 1fr}
+  .auditTable{font-size:10px}
+  .auditTable th,.auditTable td{padding:7px 8px}
+  .pageTitle{font-size:1.1rem}
+  .dataTable th,.dataTable td{padding:8px 10px;font-size:var(--fs-xs)}
+}
 

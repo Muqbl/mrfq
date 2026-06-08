@@ -102,7 +102,7 @@ const T = {
     switchWorkspace:'تغيير',workspaceHint:'لديك أكثر من صلاحية. اختر مساحة العمل للمتابعة.',
     slaDeadline:'موعد SLA',slaBreached:'تجاوز SLA',slaOverdue:'تجاوز المهلة',
     slaOk:'ملتزم',slaWarning:'قريب من المهلة',slaReport:'تقرير SLA',
-    auditLog:'سجل المراجعة',auditAction:'الإجراء',auditUser:'المستخدم',
+    auditLog:'سجل التدقيق',auditAction:'الإجراء',auditUser:'المستخدم',
     auditTarget:'الهدف',auditResult:'النتيجة',auditTime:'الوقت',
     addRole:'إضافة صلاحية',removeRole:'إزالة',rolesLabel:'الصلاحيات',
     complianceRate:'نسبة الالتزام',avgCompletionTime:'متوسط وقت الإنجاز',
@@ -1804,42 +1804,58 @@ function showAddRoleModal(userId){
   const u=(data.users||[]).find(x=>x.id===userId);
   if(!u) return;
   const existingRoles = u.roles||[u.role];
-  const available = ROLES.filter(r=>!existingRoles.includes(r));
-  if(!available.length){ toast(lang==='ar'?'لا توجد صلاحيات إضافية':'No more roles available'); return; }
+
+  function buildRoleCards(){
+    return ROLES.map(r=>{
+      const active = existingRoles.includes(r);
+      const isLast = active && existingRoles.length===1;
+      return `<div class="roleCard ${active?'active':''} ${isLast?'locked':''}"
+        title="${isLast?(lang==='ar'?'لا يمكن إزالة الصلاحية الأخيرة':'Cannot remove the last role'):''}"
+        onclick="${active?(isLast?'':`removeUserRole('${userId}','${r}')`):`addUserRole('${userId}','${r}')`}">
+        <div class="roleCardIcon ${roleBadgeClass(r)}">${active?ic('check',14):ic('plus',14)}</div>
+        <div class="roleCardName">${tr(r)}</div>
+        ${isLast?`<div class="roleCardLock">${ic('lock',10)}</div>`:''}
+      </div>`;
+    }).join('');
+  }
+
+  document.getElementById('rolesModal')?.remove();
   const modal=document.createElement('div');
   modal.className='modal-overlay';
-  modal.id='addRoleModal';
-  modal.innerHTML=`<div class="modal-box" style="max-width:360px">
+  modal.id='rolesModal';
+  modal.innerHTML=`<div class="modal-box roles-modal-box">
     <div class="modal-header">
-      <h3>${tr('addRole')} — ${esc(u.name)}</h3>
-      <button class="icon-btn" onclick="document.getElementById('addRoleModal').remove()">${ic('x',18)}</button>
+      <div>
+        <div class="modal-title">${tr('rolesLabel')}</div>
+        <div class="modal-subtitle">${esc(u.name)}</div>
+      </div>
+      <button class="icon-btn" onclick="document.getElementById('rolesModal').remove()">${ic('x',18)}</button>
     </div>
-    <div style="margin-top:12px">
-      <div style="margin-bottom:8px;font-size:var(--fs-sm);color:var(--muted)">${tr('rolesLabel')}: ${existingRoles.map(r=>`<span class="badge" style="font-size:10px">${tr(r)}</span>`).join(' ')}</div>
-      <select id="newRoleSelect" class="input">${available.map(r=>`<option value="${r}">${tr(r)}</option>`).join('')}</select>
+    <div class="roles-grid" id="rolesGrid">${buildRoleCards()}</div>
+    <div class="modal-footer">
+      <button class="btn secondary" onclick="document.getElementById('rolesModal').remove()">${tr('cancel')}</button>
     </div>
-    <div style="display:flex;gap:8px;margin-top:16px">
-      <button class="btn" onclick="addUserRole('${userId}',document.getElementById('newRoleSelect').value)">${ic('plus',14)} ${tr('addRole')}</button>
-      <button class="btn secondary" onclick="document.getElementById('addRoleModal').remove()">${tr('cancel')}</button>
-    </div>
-    ${existingRoles.length>1?`<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
-      <div style="font-size:var(--fs-sm);font-weight:600;margin-bottom:8px">${tr('removeRole')}:</div>
-      ${existingRoles.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">
-        <span class="badge ${roleBadgeClass(r)}">${tr(r)}</span>
-        <button class="btn danger sm" style="padding:2px 8px" onclick="removeUserRole('${userId}','${r}')">${tr('removeRole')}</button>
-      </div>`).join('')}
-    </div>`:''}
   </div>`;
   modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
   document.body.appendChild(modal);
+
+  window._rolesModalUserId = userId;
+  window._rolesModalRefresh = async ()=>{
+    await load();
+    const updated = (data.users||[]).find(x=>x.id===userId);
+    if(!updated) return;
+    existingRoles.length=0;
+    (updated.roles||[updated.role]).forEach(r=>existingRoles.push(r));
+    const grid = document.getElementById('rolesGrid');
+    if(grid) grid.innerHTML = buildRoleCards();
+  };
 }
 
 async function addUserRole(userId, role){
   try{
     await api(`/users/${userId}/roles`,{method:'POST',body:JSON.stringify({role})});
     toast(lang==='ar'?'تم إضافة الصلاحية':'Role added','ok');
-    document.getElementById('addRoleModal')?.remove();
-    await load();
+    if(window._rolesModalRefresh) await window._rolesModalRefresh();
   }catch(e){ toast(e.message||'Error','bad'); }
 }
 
@@ -1847,8 +1863,7 @@ async function removeUserRole(userId, role){
   try{
     await api(`/users/${userId}/roles/${role}`,{method:'DELETE'});
     toast(lang==='ar'?'تم إزالة الصلاحية':'Role removed','ok');
-    document.getElementById('addRoleModal')?.remove();
-    await load();
+    if(window._rolesModalRefresh) await window._rolesModalRefresh();
   }catch(e){ toast(e.message||'Error','bad'); }
 }
 
@@ -1992,23 +2007,7 @@ function renderWorker(){
     <!-- Worker form area -->
     <div id="workerForm"></div>
 
-    <!-- Fullscreen camera -->
-    <div id="cameraFull" class="cameraFull">
-      <div class="cameraViewport">
-        <video id="camVideo" autoplay playsinline></video>
-        <div class="cameraFrame"></div>
-        <div class="cameraTop">
-          <div class="cameraTop-title">${ic('camera',18)} ${tr('takePhoto')}</div>
-          <button class="camSideBtn" onclick="closeCamera()">${ic('x',20)}</button>
-        </div>
-        <div id="cameraCounter" class="cameraCounter" style="display:none">0 ${lang==='ar'?'صورة':'photos'}</div>
-      </div>
-      <div class="cameraBottom">
-        <button class="camSideBtn" onclick="toggleCameraFacing()" id="camFlipBtn" title="${lang==='ar'?'تبديل الكاميرا':'Switch camera'}">${ic('flip',20)}</button>
-        <button class="shutter" onclick="capturePhoto()" aria-label="${tr('takePhoto')}"></button>
-        <button class="camSideBtn" onclick="closeCamera();doneCamera()">${lang==='ar'?'تم':'Done'}</button>
-      </div>
-    </div>
+    <!-- Fullscreen camera (ensureCameraOverlay injects into body) -->
   </div>
 </div>`;
 
@@ -2016,6 +2015,30 @@ function renderWorker(){
 }
 
 let cameraFacing = 'environment';
+
+/* ── Camera overlay — created on demand, lives in body ──── */
+function ensureCameraOverlay(){
+  if(document.getElementById('cameraFull')) return;
+  const div = document.createElement('div');
+  div.id = 'cameraFull';
+  div.className = 'cameraFull';
+  div.innerHTML = `<div class="cameraViewport">
+    <video id="camVideo" autoplay playsinline muted></video>
+    <div class="cameraFrame"></div>
+    <div class="cameraTop">
+      <div class="cameraTop-title" id="cameraTopTitle">${ic('camera',18)} ${tr('takePhoto')}</div>
+      <button class="camSideBtn" onclick="closeCamera()">${ic('x',20)}</button>
+    </div>
+    <div id="cameraCounter" class="cameraCounter" style="display:none"></div>
+  </div>
+  <div class="cameraBottom">
+    <button class="camSideBtn" onclick="toggleCameraFacing()" id="camFlipBtn">${ic('flip',20)}</button>
+    <button class="shutter" id="camShutter" onclick="capturePhoto()"></button>
+    <button class="camSideBtn" onclick="closeCamera();doneCamera()">${lang==='ar'?'تم':'Done'}</button>
+  </div>`;
+  document.body.appendChild(div);
+}
+
 function workerGoBack(){
   const form=document.getElementById('workerForm');
   if(form&&form.innerHTML.trim()){
@@ -2115,39 +2138,83 @@ function startForm(){
 /* ─── CAMERA ─────────────────────────────────────────────────── */
 async function openCamera(mode='general'){
   cameraMode = mode;
+
+  // Check HTTPS / mediaDevices availability
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    const isHTTPS = location.protocol==='https:' || location.hostname==='localhost' || location.hostname==='127.0.0.1';
+    const msg = isHTTPS
+      ? (lang==='ar'?'الكاميرا غير مدعومة في هذا المتصفح':'Camera not supported in this browser')
+      : (lang==='ar'?'تتطلب الكاميرا اتصالاً آمناً (HTTPS)':'Camera requires a secure connection (HTTPS)');
+    toast(msg,'bad');
+    return;
+  }
+
+  ensureCameraOverlay();
+
   try{
     if(stream) stream.getTracks().forEach(t=>t.stop());
-    stream = await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:{ideal:cameraFacing},width:{ideal:1920},height:{ideal:1080}},
-      audio:false
-    });
+    // Try environment (back) camera first; fall back to any available camera
+    let constraints = {video:{facingMode:{ideal:cameraFacing},width:{ideal:1280},height:{ideal:720}},audio:false};
+    try{
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+    }catch(fallbackErr){
+      stream = await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+    }
+
     const cam = document.getElementById('cameraFull');
     cam.classList.add('active');
-    // Tint the shutter button to indicate mode
-    const shutter = cam.querySelector('.shutter');
-    if(shutter){
-      shutter.style.background = mode==='before' ? 'var(--warn)' : mode==='after' ? 'var(--ok)' : '';
-    }
-    const modeEl = cam.querySelector('.cameraTop-title');
+
+    const shutter = document.getElementById('camShutter');
+    if(shutter) shutter.style.background = mode==='before'?'var(--warn)':mode==='after'?'var(--ok)':'';
+
+    const modeEl = document.getElementById('cameraTopTitle');
     if(modeEl){
-      const modeLabel = mode==='before' ? tr('beforePhotos') : mode==='after' ? tr('afterPhotos') : tr('takePhoto');
-      modeEl.innerHTML = `${ic('camera',18)} ${modeLabel}`;
+      const lbl = mode==='before'?tr('beforePhotos'):mode==='after'?tr('afterPhotos'):tr('takePhoto');
+      modeEl.innerHTML = `${ic('camera',18)} ${lbl}`;
     }
-    document.getElementById('camVideo').srcObject = stream;
+
+    const vid = document.getElementById('camVideo');
+    vid.srcObject = stream;
+    vid.muted = true;
+    try{ await vid.play(); }catch{}
     updateCameraCounter();
-  }catch(e){toast(tr('cameraError'),'bad')}
+  }catch(e){
+    let msg;
+    if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError'){
+      msg=lang==='ar'?'تم رفض إذن الكاميرا. افتح إعدادات المتصفح وامنح الإذن.':'Camera permission denied. Open browser settings and grant permission.';
+    }else if(e.name==='NotFoundError'||e.name==='DevicesNotFoundError'){
+      msg=lang==='ar'?'لا توجد كاميرا متاحة في هذا الجهاز.':'No camera found on this device.';
+    }else if(e.name==='NotReadableError'||e.name==='TrackStartError'){
+      msg=lang==='ar'?'الكاميرا مستخدمة من تطبيق آخر. أغلق التطبيقات الأخرى وحاول مجدداً.':'Camera is in use by another app. Close other apps and try again.';
+    }else if(e.name==='OverconstrainedError'){
+      msg=lang==='ar'?'لا تدعم الكاميرا الإعدادات المطلوبة.':'Camera does not support the requested settings.';
+    }else{
+      msg=(lang==='ar'?'خطأ في الكاميرا: ':'Camera error: ')+e.message;
+    }
+    toast(msg,'bad');
+    console.warn('[camera]',e.name,e.message);
+  }
 }
 function toggleCameraFacing(){
   cameraFacing = cameraFacing==='environment'?'user':'environment';
-  openCamera();
+  openCamera(cameraMode);
 }
 function closeCamera(){
-  if(stream) stream.getTracks().forEach(t=>t.stop());
-  stream = null;
-  document.getElementById('cameraFull').classList.remove('active');
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  const cam=document.getElementById('cameraFull');
+  if(cam) cam.classList.remove('active');
 }
 function doneCamera(){
   renderPhotoPreviews(cameraMode);
+  if(window._empPhotoMode){ renderEmpPhotoPrev(); window._empPhotoMode=false; }
+}
+function renderEmpPhotoPrev(){
+  const el=document.getElementById('empPhotoPrev');
+  if(!el) return;
+  el.innerHTML=currentPhotos.map((p,i)=>`<div class="photoItem">
+    <img src="${p}" loading="lazy">
+    <button class="photoItem-del" onclick="currentPhotos.splice(${i},1);renderEmpPhotoPrev()">×</button>
+  </div>`).join('');
 }
 function updateCameraCounter(){
   const el = document.getElementById('cameraCounter');
@@ -2272,7 +2339,6 @@ function openQRScanner(){
 async function closeQRScanner(){
   try{
     if(qrScannerInstance){
-      await qrScannerInstance.clear().catch(()=>{});
       await qrScannerInstance.stop().catch(()=>{});
       qrScannerInstance = null;
     }

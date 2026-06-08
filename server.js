@@ -1399,15 +1399,23 @@ try {
 const userCount = autoSeedIfEmpty();
 
 server.listen(PORT, () => {
+  const dbPath = process.env.DB_PATH || 'data.db';
+  const hasPersistentVolume = process.env.DB_PATH && process.env.DB_PATH.startsWith('/');
   console.log('');
   console.log('╔══════════════════════════════════════════════════════════╗');
   console.log('║   REGA Facility Care — PROTOTYPE / نسخة تجريبية          ║');
   console.log('║   بيانات غير حقيقية — Demo Data Only                     ║');
   console.log('╠══════════════════════════════════════════════════════════╣');
   console.log(`║   Port    : ${String(PORT).padEnd(47)}║`);
-  console.log(`║   Database: ${String(process.env.DB_PATH || 'data.db').padEnd(47)}║`);
+  console.log(`║   Database: ${String(dbPath).padEnd(47)}║`);
   console.log(`║   Uploads : ${String(UPLOADS_DIR).slice(0, 47).padEnd(47)}║`);
   console.log(`║   Users   : ${String(userCount).padEnd(47)}║`);
   console.log('╚══════════════════════════════════════════════════════════╝');
+  if(!hasPersistentVolume){
+    console.log('');
+    console.log('⚠️  WARNING: DB_PATH not set — using ephemeral local storage.');
+    console.log('   On Railway/cloud: set DB_PATH to a persistent volume path');
+    console.log('   e.g. DB_PATH=/data/rega.db to prevent data loss on redeploy.');
+  }
   console.log('');
 });
