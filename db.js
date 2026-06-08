@@ -203,6 +203,34 @@ const MIGRATIONS = {
     ALTER TABLE photos  ADD COLUMN photo_type   TEXT NOT NULL DEFAULT 'general';
     ALTER TABLE reports ADD COLUMN rating_supervisor REAL;
     ALTER TABLE reports ADD COLUMN rating_manager    REAL;
+  `,
+
+  /* ── v3: multi-role, workspace, SLA ─────────────────────────── */
+  3: `
+    CREATE TABLE user_roles (
+      user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role       TEXT NOT NULL,
+      module     TEXT NOT NULL DEFAULT 'cleaning',
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, role)
+    );
+    CREATE INDEX idx_user_roles_user ON user_roles(user_id);
+
+    INSERT OR IGNORE INTO user_roles (user_id, role, module, created_at)
+      SELECT id, role, 'cleaning', created_at FROM users WHERE deleted_at IS NULL;
+
+    ALTER TABLE sessions ADD COLUMN active_workspace TEXT NOT NULL DEFAULT '';
+
+    ALTER TABLE tickets ADD COLUMN sla_deadline         TEXT;
+    ALTER TABLE tickets ADD COLUMN sla_breached         INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE tickets ADD COLUMN response_time_mins   INTEGER;
+    ALTER TABLE tickets ADD COLUMN completion_time_mins INTEGER;
+
+    INSERT OR IGNORE INTO settings VALUES ('sla_emergency',    '15');
+    INSERT OR IGNORE INTO settings VALUES ('sla_spill',        '30');
+    INSERT OR IGNORE INTO settings VALUES ('sla_restroom',     '30');
+    INSERT OR IGNORE INTO settings VALUES ('sla_meeting_room', '60');
+    INSERT OR IGNORE INTO settings VALUES ('sla_general',      '240');
   `
 };
 

@@ -98,6 +98,15 @@ const T = {
     topWorker:'عامل الشهر',noRating:'لم يُقيَّم',
     slaStatus:'حالة SLA',supervisorQueue:'قائمة الإشراف',
     unassigned:'غير محدد',autoAssigned:'تعيين تلقائي',
+    workspaceSelect:'اختر مساحة العمل',currentWorkspace:'مساحة العمل',
+    switchWorkspace:'تغيير',workspaceHint:'لديك أكثر من صلاحية. اختر مساحة العمل للمتابعة.',
+    slaDeadline:'موعد SLA',slaBreached:'تجاوز SLA',slaOverdue:'تجاوز المهلة',
+    slaOk:'ملتزم',slaWarning:'قريب من المهلة',slaReport:'تقرير SLA',
+    auditLog:'سجل المراجعة',auditAction:'الإجراء',auditUser:'المستخدم',
+    auditTarget:'الهدف',auditResult:'النتيجة',auditTime:'الوقت',
+    addRole:'إضافة صلاحية',removeRole:'إزالة',rolesLabel:'الصلاحيات',
+    complianceRate:'نسبة الالتزام',avgCompletionTime:'متوسط وقت الإنجاز',
+    mins:'دقيقة',hours:'ساعة',
   },
   en:{
     app:'Facility Care Platform',sub:'Professional management for every facility, at any time',
@@ -161,6 +170,15 @@ const T = {
     topWorker:'Worker of the Month',noRating:'Not Rated',
     slaStatus:'SLA Status',supervisorQueue:'Supervisor Queue',
     unassigned:'Unassigned',autoAssigned:'Auto-Assigned',
+    workspaceSelect:'Select Workspace',currentWorkspace:'Workspace',
+    switchWorkspace:'Switch',workspaceHint:'You have multiple roles. Select a workspace to continue.',
+    slaDeadline:'SLA Deadline',slaBreached:'SLA Breached',slaOverdue:'Overdue',
+    slaOk:'On Track',slaWarning:'Near Deadline',slaReport:'SLA Report',
+    auditLog:'Audit Log',auditAction:'Action',auditUser:'User',
+    auditTarget:'Target',auditResult:'Result',auditTime:'Time',
+    addRole:'Add Role',removeRole:'Remove',rolesLabel:'Roles',
+    complianceRate:'Compliance Rate',avgCompletionTime:'Avg Completion Time',
+    mins:'min',hours:'hr',
   }
 };
 
@@ -200,6 +218,11 @@ const IC = {
   send:`<svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`,
   list:`<svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
   'clock':`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  shield:`<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+  layers:`<svg viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`,
+  filter:`<svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>`,
+  log:`<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>`,
+  'alert-triangle':`<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
 };
 const ic=(name,size=18)=>`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${IC[name]?.replace(/<svg[^>]*>/,'').replace(/<\/svg>/,'')??''}</svg>`;
 
@@ -220,6 +243,7 @@ let eventSource = null;
 let forcePasswordChange = false;
 let employeeTab = 'submit'; // 'submit' | 'history'
 let perfData = null; // cached performance data
+let workspaceSelected = false; // true after user picks workspace this session
 
 const app = document.getElementById('app');
 const tr = k => (T[lang]&&T[lang][k]) || k;
@@ -237,6 +261,55 @@ function fmtDate(d){
   const dt=new Date(d), pad=n=>String(n).padStart(2,'0');
   const Y=dt.getFullYear(), M=pad(dt.getMonth()+1), D=pad(dt.getDate());
   return lang==='ar' ? `${Y}/${M}/${D}` : `${M}/${D}/${Y}`;
+}
+
+/* ── SLA helpers ─────────────────────────────────────────── */
+function slaInfo(ticket){
+  if(!ticket.slaDeadline || ticket.status !== 'open') return null;
+  const deadline = new Date(ticket.slaDeadline);
+  const diffMs   = deadline - Date.now();
+  const diffMins = Math.round(diffMs / 60_000);
+  if(diffMins < 0){
+    const overMins = Math.abs(diffMins);
+    const text = overMins >= 60
+      ? `${Math.round(overMins/60)}${tr('hours')} ${lang==='ar'?'تجاوز':'overdue'}`
+      : `${overMins}${tr('mins')} ${lang==='ar'?'تجاوز':'overdue'}`;
+    return { cls:'sla-overdue', text, icon:'alert-triangle' };
+  }
+  if(diffMins < 30){
+    const text = `${diffMins}${tr('mins')} ${lang==='ar'?'متبقي':'left'}`;
+    return { cls:'sla-warning', text, icon:'clock' };
+  }
+  const remText = diffMins >= 60
+    ? `${Math.round(diffMins/60)}${tr('hours')} ${lang==='ar'?'متبقي':'left'}`
+    : `${diffMins}${tr('mins')} ${lang==='ar'?'متبقي':'left'}`;
+  return { cls:'sla-ok', text: remText, icon:'clock' };
+}
+
+function slaBadge(ticket){
+  if(ticket.slaBreached && ticket.status !== 'open'){
+    return `<span class="slaBadge sla-overdue">${ic('alert-triangle',12)} ${tr('slaBreached')}</span>`;
+  }
+  const info = slaInfo(ticket);
+  if(!info) return '';
+  return `<span class="slaBadge ${info.cls}">${ic(info.icon,12)} ${info.text}</span>`;
+}
+
+/* ── Workspace helpers ───────────────────────────────────── */
+function needsWorkspaceSelection(){
+  if(!me || !me.roles || me.roles.length <= 1) return false;
+  // Only prompt if this is a fresh session (not if user already chose)
+  return !workspaceSelected;
+}
+async function switchWorkspace(role){
+  try{
+    const b = await api('/workspace', { method:'POST', body: JSON.stringify({ workspace: role }) });
+    workspaceSelected = true;
+    sessionStorage.setItem('wsSelected','1');
+    me = b.user; data = b;
+    view = 'dashboard';
+    render();
+  }catch(e){ toast(e.message||'Error','bad'); }
 }
 /* num() — always Western digits, body font via CSS */
 const num = v => String(v);
@@ -390,8 +463,13 @@ function setDoc(){
   document.documentElement.dir = lang==='ar'?'rtl':'ltr';
 }
 async function load(){
-  try{const b = await api('/bootstrap');data=b;me=b.user;render();connectSSE()}
-  catch(e){logout()}
+  try{
+    const b = await api('/bootstrap');
+    data=b; me=b.user;
+    // If server already has a workspace active (returning session), skip selector
+    if(me.roles && me.roles.length > 1 && sessionStorage.getItem('wsSelected')) workspaceSelected=true;
+    render(); connectSSE();
+  }catch(e){logout()}
 }
 async function login(){
   try{
@@ -408,7 +486,8 @@ async function login(){
 }
 async function logout(){
   try{ await api('/logout',{method:'POST'}); }catch{ /* server already cleared session */ }
-  me=null;data=null;forcePasswordChange=false;
+  me=null;data=null;forcePasswordChange=false;workspaceSelected=false;
+  sessionStorage.removeItem('wsSelected');
   if(eventSource){eventSource.close();eventSource=null;}
   viewHistory=[];
   loginPage();
@@ -466,10 +545,11 @@ function activityFeed(){
 let _lastView = null;
 function render(){
   if(!me||!data) return loginPage();
+  // Workspace selection screen for multi-role users
+  if(needsWorkspaceSelection()) return renderWorkspaceSelector();
   if(me.role==='cleaner') return renderWorker();
   if(me.role==='employee') return renderEmployee();
   setDoc();
-  // Reset users filter state when navigating away from users
   if(_lastView==='users' && view!=='users'){ usersSearch=''; usersRoleFilter='all'; }
   if(_lastView==='locations' && view!=='locations'){ locsFloorFilter='all'; }
   if(_lastView==='assignments' && view!=='assignments'){ assignFloorFilter='all'; }
@@ -477,6 +557,14 @@ function render(){
   if(view==='performance'){
     shell(`<div style="text-align:center;padding:40px">${ic('clock',28)}</div>`);
     performance().then(html=>{
+      const main=document.querySelector('.mainContent .pageAnim');
+      if(main) main.innerHTML=html;
+    });
+    return;
+  }
+  if(view==='auditlog'){
+    shell(`<div style="text-align:center;padding:40px">${ic('clock',28)}</div>`);
+    auditLogPage().then(html=>{
       const main=document.querySelector('.mainContent .pageAnim');
       if(main) main.innerHTML=html;
     });
@@ -690,9 +778,13 @@ function shell(content){
           ${navItem('assignments',tr('assignments'),'assignments',0)}
           ${canUsers()?navItem('users',tr('users'),'users',0):''}
           ${canReview()?navItem('performance',tr('performance'),'bar-chart',0):''}
+          ${canManage()?navItem('auditlog',tr('auditLog'),'log',0):''}
         </div>
       </div>
       <div class="sidebar-footer">
+        ${me.roles&&me.roles.length>1?`<div class="workspacePill" onclick="renderWorkspaceSwitcher()">
+          ${ic('layers',14)} <span>${roleLabel(me.role)}</span> ${ic('arrow',12)}
+        </div>`:''}
         <div class="sidebar-user">
           <div class="sidebar-user-avatar">${esc(initials(me.name))}</div>
           <div style="min-width:0;flex:1">
@@ -1272,12 +1364,15 @@ function ticketCards(items){
         <span class="badge ${prCls}">${lang==='ar'?'أولوية:':''} ${tr(t.priority||'medium')}</span>
         <span class="badge brand">${fmt(t.createdAt)}</span>
         ${!t.assignedToName?`<span class="badge warn">${tr('supervisorQueue')}</span>`:''}
+        ${slaBadge(t)}
+        ${t.completionTimeMins!=null?`<span class="slaBadge sla-done">${ic('check',11)} ${t.completionTimeMins<60?t.completionTimeMins+tr('mins'):Math.round(t.completionTimeMins/60)+tr('hours')}</span>`:''}
       </div>
       <div class="timeline">
         <div class="timelineItem">
           <div class="timelineDot active"></div>
           <div class="timelineItem-body"><div class="timelineItem-label">${tr('open')}</div><div class="timelineItem-time">${fmt(t.createdAt)}</div></div>
         </div>
+        ${t.slaDeadline&&t.status==='open'?`<div class="timelineItem"><div class="timelineDot ${t.slaBreached?'breach':''}"></div><div class="timelineItem-body"><div class="timelineItem-label">${tr('slaDeadline')}</div><div class="timelineItem-time">${fmt(t.slaDeadline)}</div></div></div>`:''}
         ${t.completedAt?`<div class="timelineItem"><div class="timelineDot"></div><div class="timelineItem-body"><div class="timelineItem-label">${tr('closed')}</div><div class="timelineItem-time">${fmt(t.completedAt)}</div></div></div>`:''}
       </div>
     </div>`;
@@ -1639,7 +1734,13 @@ ${filtered.length===0
               </div>
             </div>
           </td>
-          <td><span class="badge ${rCls}">${tr(u.role)}</span></td>
+          <td>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">
+              <span class="badge ${rCls}">${tr(u.role)}</span>
+              ${(u.roles||[]).filter(r=>r!==u.role).map(r=>`<span class="badge" style="opacity:.7;font-size:10px">${tr(r)}</span>`).join('')}
+              ${canEdit&&canManageUsers()?`<button class="btn secondary sm" style="padding:2px 6px;font-size:10px" onclick="showAddRoleModal('${u.id}')">${ic('plus',11)}</button>`:''}
+            </div>
+          </td>
           <td><span class="mono" style="font-size:var(--fs-xs)">${u.employeeNo?esc(u.employeeNo):'—'}</span></td>
           <td><span class="badge ${u.active?'ok':'bad'}">${u.active?tr('activeUser'):tr('inactive')}</span></td>
           <td>
@@ -1697,6 +1798,58 @@ async function deleteUserConfirm(id){
   await api('/users/'+id,{method:'DELETE'});
   toast(lang==='ar'?'تم حذف المستخدم':'User deleted','ok');
   await load();
+}
+
+function showAddRoleModal(userId){
+  const u=(data.users||[]).find(x=>x.id===userId);
+  if(!u) return;
+  const existingRoles = u.roles||[u.role];
+  const available = ROLES.filter(r=>!existingRoles.includes(r));
+  if(!available.length){ toast(lang==='ar'?'لا توجد صلاحيات إضافية':'No more roles available'); return; }
+  const modal=document.createElement('div');
+  modal.className='modal-overlay';
+  modal.id='addRoleModal';
+  modal.innerHTML=`<div class="modal-box" style="max-width:360px">
+    <div class="modal-header">
+      <h3>${tr('addRole')} — ${esc(u.name)}</h3>
+      <button class="icon-btn" onclick="document.getElementById('addRoleModal').remove()">${ic('x',18)}</button>
+    </div>
+    <div style="margin-top:12px">
+      <div style="margin-bottom:8px;font-size:var(--fs-sm);color:var(--muted)">${tr('rolesLabel')}: ${existingRoles.map(r=>`<span class="badge" style="font-size:10px">${tr(r)}</span>`).join(' ')}</div>
+      <select id="newRoleSelect" class="input">${available.map(r=>`<option value="${r}">${tr(r)}</option>`).join('')}</select>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn" onclick="addUserRole('${userId}',document.getElementById('newRoleSelect').value)">${ic('plus',14)} ${tr('addRole')}</button>
+      <button class="btn secondary" onclick="document.getElementById('addRoleModal').remove()">${tr('cancel')}</button>
+    </div>
+    ${existingRoles.length>1?`<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
+      <div style="font-size:var(--fs-sm);font-weight:600;margin-bottom:8px">${tr('removeRole')}:</div>
+      ${existingRoles.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">
+        <span class="badge ${roleBadgeClass(r)}">${tr(r)}</span>
+        <button class="btn danger sm" style="padding:2px 8px" onclick="removeUserRole('${userId}','${r}')">${tr('removeRole')}</button>
+      </div>`).join('')}
+    </div>`:''}
+  </div>`;
+  modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
+  document.body.appendChild(modal);
+}
+
+async function addUserRole(userId, role){
+  try{
+    await api(`/users/${userId}/roles`,{method:'POST',body:JSON.stringify({role})});
+    toast(lang==='ar'?'تم إضافة الصلاحية':'Role added','ok');
+    document.getElementById('addRoleModal')?.remove();
+    await load();
+  }catch(e){ toast(e.message||'Error','bad'); }
+}
+
+async function removeUserRole(userId, role){
+  try{
+    await api(`/users/${userId}/roles/${role}`,{method:'DELETE'});
+    toast(lang==='ar'?'تم إزالة الصلاحية':'Role removed','ok');
+    document.getElementById('addRoleModal')?.remove();
+    await load();
+  }catch(e){ toast(e.message||'Error','bad'); }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2503,6 +2656,122 @@ ${scored.map((w,i)=>`<tr>
   const w=window.open('','_blank','width=900,height=700');
   w.document.write(html); w.document.close();
   w.addEventListener('load',()=>w.print());
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   WORKSPACE SELECTOR
+   ═══════════════════════════════════════════════════════════════ */
+function renderWorkspaceSelector(){
+  setDoc();
+  const roles = (me.roles||[me.role]);
+  app.innerHTML=`<div class="wsSelector">
+    <div class="wsCard">
+      <div class="wsCard-logo">${ic('layers',32)}</div>
+      <h2 class="wsCard-title">${tr('workspaceSelect')}</h2>
+      <p class="wsCard-hint">${tr('workspaceHint')}</p>
+      <div class="wsGrid">
+        ${roles.map(r=>`
+          <button class="wsBtn${r===me.role?' active':''}" onclick="switchWorkspace('${r}')">
+            <div class="wsBtn-icon">${ic(r==='system_admin'?'shield':r.includes('manager')||r==='facility_manager'?'building':r==='cleaner'?'check':'assignments',22)}</div>
+            <div class="wsBtn-label">${roleLabel(r)}</div>
+          </button>`).join('')}
+      </div>
+      <button class="btn secondary" style="margin-top:16px;width:100%" onclick="workspaceSelected=true;sessionStorage.setItem('wsSelected','1');render()">
+        ${lang==='ar'?'المتابعة بالصلاحية الحالية':'Continue with current role'} (${roleLabel(me.role)})
+      </button>
+    </div>
+  </div>`;
+}
+
+function renderWorkspaceSwitcher(){
+  const roles = (me.roles||[me.role]);
+  if(roles.length<=1) return;
+  const existing=document.getElementById('wsModal');
+  if(existing){existing.remove();return;}
+  const modal=document.createElement('div');
+  modal.id='wsModal';
+  modal.className='modal-overlay';
+  modal.innerHTML=`<div class="modal-box" style="max-width:380px">
+    <div class="modal-header">
+      <h3>${tr('switchWorkspace')}</h3>
+      <button class="icon-btn" onclick="document.getElementById('wsModal').remove()">${ic('x',18)}</button>
+    </div>
+    <div class="wsGrid" style="margin-top:12px">
+      ${roles.map(r=>`
+        <button class="wsBtn${r===me.role?' active':''}" onclick="document.getElementById('wsModal').remove();switchWorkspace('${r}')">
+          <div class="wsBtn-icon">${ic(r==='system_admin'?'shield':r.includes('manager')||r==='facility_manager'?'building':r==='cleaner'?'check':'assignments',20)}</div>
+          <div class="wsBtn-label">${roleLabel(r)}</div>
+        </button>`).join('')}
+    </div>
+  </div>`;
+  modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
+  document.body.appendChild(modal);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   AUDIT LOG PAGE
+   ═══════════════════════════════════════════════════════════════ */
+async function auditLogPage(){
+  try{
+    const action = document.getElementById('auditFilter')?.value||'';
+    const user   = document.getElementById('auditUser')?.value||'';
+    const url    = `/audit-logs?limit=200${action?'&action='+encodeURIComponent(action):''}${user?'&user='+encodeURIComponent(user):''}`;
+    const res = await api(url);
+    const logs = res.logs||[];
+    const actionColors={
+      login:'ok',logout:'',login_failed:'bad',workspace_switch:'brand',
+      user_created:'ok',user_updated:'',user_deleted:'bad',
+      ticket_created:'ok',ticket_completed:'ok',ticket_deleted:'bad',
+      report_created:'ok',report_reviewed:'brand',report_deleted:'bad',
+      order_created:'ok',report_rated:'',
+      user_role_added:'ok',user_role_removed:'bad',
+      audit_viewed:'',export_reports:''
+    };
+    return`<div class="pageTitle">${tr('auditLog')}</div>
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input id="auditFilter" class="input sm" style="flex:1;min-width:150px"
+          placeholder="${lang==='ar'?'فلتر بالإجراء':'Filter by action'}"
+          value="${esc(action)}" onkeydown="if(event.key==='Enter')navigateTo('auditlog')">
+        <input id="auditUser" class="input sm" style="flex:1;min-width:150px"
+          placeholder="${lang==='ar'?'فلتر بالمستخدم':'Filter by user'}"
+          value="${esc(user)}" onkeydown="if(event.key==='Enter')navigateTo('auditlog')">
+        <button class="btn sm" onclick="navigateTo('auditlog')">${ic('filter',14)} ${lang==='ar'?'تطبيق':'Apply'}</button>
+      </div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="overflow-x:auto">
+        <table class="auditTable">
+          <thead><tr>
+            <th>${tr('auditTime')}</th>
+            <th>${tr('auditAction')}</th>
+            <th>${tr('auditUser')}</th>
+            <th>${tr('role')}</th>
+            <th>${tr('auditTarget')}</th>
+            <th>${tr('auditResult')}</th>
+          </tr></thead>
+          <tbody>
+          ${logs.length?logs.map(l=>{
+            const clr=actionColors[l.action]||'';
+            let extra='';
+            try{ const ex=JSON.parse(l.extra||'{}'); extra=Object.entries(ex).map(([k,v])=>`${k}:${v}`).join(', '); }catch{}
+            return`<tr>
+              <td class="auditCell-time">${fmt(l.ts)}</td>
+              <td><span class="badge ${clr}" style="font-size:10px">${esc(l.action)}</span></td>
+              <td>${esc(l.username||'—')}</td>
+              <td><span class="badge" style="font-size:10px">${esc(l.role||'—')}</span></td>
+              <td style="font-size:var(--fs-xs);color:var(--muted)">${esc(l.target_type?l.target_type+':'+l.target_id:'—')}${extra?` <span style="opacity:.6">(${esc(extra)})</span>`:''}</td>
+              <td><span class="badge ${l.result==='success'?'ok':'bad'}" style="font-size:10px">${esc(l.result)}</span></td>
+            </tr>`;
+          }).join(''):`<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted)">${tr('noData')}</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+      <div style="padding:10px 16px;font-size:var(--fs-xs);color:var(--muted);border-top:1px solid var(--border)">${lang==='ar'?'إجمالي السجلات':'Total records'}: ${res.total||0}</div>
+    </div>`;
+  }catch(e){
+    return`<div class="card"><div class="empty-state">${ic('shield',28)}<div class="empty-title">${e.message||'Error'}</div></div></div>`;
+  }
 }
 
 /* ─── INIT ───────────────────────────────────────────────────── */

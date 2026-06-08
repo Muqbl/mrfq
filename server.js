@@ -240,14 +240,27 @@ function sessionGetUser(req) {
   ).get(token, now());
   if (!row) { db.prepare('DELETE FROM sessions WHERE token = ?').run(token); return null; }
 
-  // Slide expiry window
   const newExpiry = new Date(Date.now() + SESSION_TIMEOUT_MS).toISOString();
   db.prepare('UPDATE sessions SET last_activity = ?, expires_at = ? WHERE token = ?')
     .run(now(), newExpiry, token);
 
-  return db.prepare(
+  const user = db.prepare(
     'SELECT * FROM users WHERE id = ? AND active = 1 AND deleted_at IS NULL'
-  ).get(row.user_id) || null;
+  ).get(row.user_id);
+  if (!user) return null;
+
+  // Attach all roles from user_roles (with fallback to primary role column)
+  try {
+    const roleRows = db.prepare('SELECT role FROM user_roles WHERE user_id = ?').all(user.id);
+    user._roles = roleRows.length ? roleRows.map(r => r.role) : [user.role];
+  } catch { user._roles = [user.role]; }
+
+  // Apply active workspace as effective role for this request
+  if (row.active_workspace && user._roles.includes(row.active_workspace)) {
+    user.role = row.active_workspace;
+  }
+
+  return user;
 }
 
 function sessionDelete(req) {
@@ -293,6 +306,7 @@ const publicUser = u => {
     name:                u.name,
     username:            u.username,
     role:                u.role,
+    roles:               u._roles || [u.role],
     active:              u.active === 1 || u.active === true,
     employeeNo:          u.employee_no || '',
     forcePasswordChange: u.force_password_change === 1 || u.force_password_change === true,
@@ -392,8 +406,12 @@ function ticketRow(r) {
     category:       r.category || 'general',
     referenceNo:    r.reference_no || '',
     notes:          r.notes,
-    createdAt:      r.created_at,
-    completedAt:    r.completed_at || '',
+    createdAt:          r.created_at,
+    completedAt:        r.completed_at || '',
+    slaDeadline:        r.sla_deadline || '',
+    slaBreached:        r.sla_breached === 1,
+    responseTimeMins:   r.response_time_mins  ?? null,
+    completionTimeMins: r.completion_time_mins ?? null,
     photos
   };
 }
@@ -509,6 +527,26 @@ function generateRefNo(db) {
   db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, String(seq));
   return `CLN-${year}-${String(seq).padStart(6, '0')}`;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   SLA
+   ═══════════════════════════════════════════════════════════════ */
+const SLA_MINS = { emergency: 15, spill: 30, restroom: 30, meeting_room: 60, general: 240 };
+
+function slaMins(category) { return SLA_MINS[category] || SLA_MINS.general; }
+
+function computeSlaDeadline(category) {
+  return new Date(Date.now() + slaMins(category) * 60_000).toISOString();
+}
+
+// Periodic SLA breach check every 5 minutes
+setInterval(() => {
+  try {
+    getDb().prepare(
+      "UPDATE tickets SET sla_breached=1,updated_at=? WHERE sla_deadline < ? AND status='open' AND sla_breached=0 AND deleted_at IS NULL"
+    ).run(now(), now());
+  } catch {}
+}, 300_000);
 
 /* ═══════════════════════════════════════════════════════════════
    AUTO-ASSIGNMENT
@@ -663,6 +701,10 @@ const server = http.createServer(async (req, res) => {
           VALUES (?,?,?,?,?,?,?,1,'',?,?)
         `).run(id, name, username, hashPassword(pwd), role,
                b.active !== false ? 1 : 0, sanitize(b.employeeNo, 50), ts, ts);
+        try {
+          db.prepare('INSERT OR IGNORE INTO user_roles (user_id,role,module,created_at) VALUES (?,?,?,?)')
+            .run(id, role, 'cleaning', ts);
+        } catch {}
         const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
         auditLog('user_created', me, ip, ua, { targetType: 'user', targetId: id, extra: { username, role } });
         return send(res, 200, { user: publicUser(u) });
@@ -698,8 +740,9 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { user: publicUser(updated) });
       }
 
-      /* ── USERS: DELETE (soft) ───────────────────────────────── */
-      if (req.method === 'DELETE' && url.pathname.startsWith('/api/users/')) {
+      /* ── USERS: DELETE (soft) — must be exactly /api/users/:id ── */
+      if (req.method === 'DELETE' && url.pathname.startsWith('/api/users/')
+          && url.pathname.split('/').length === 4) {
         if (!canManageUsers(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const id = sanitize(url.pathname.split('/').pop(), 50);
         const u  = db.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL').get(id);
@@ -813,19 +856,20 @@ const server = http.createServer(async (req, res) => {
           const auto = autoAssign(loc.id, db);
           if (auto) worker = db.prepare('SELECT * FROM users WHERE id = ?').get(auto.id);
         }
-        const id       = newId('t');
-        const ts       = now();
-        const priority = ['high','medium','low'].includes(b.priority) ? b.priority : 'medium';
-        const category = sanitize(b.category || 'general', 50);
+        const id          = newId('t');
+        const ts          = now();
+        const priority    = ['high','medium','low'].includes(b.priority) ? b.priority : 'medium';
+        const category    = sanitize(b.category || 'general', 50);
+        const slaDeadline = computeSlaDeadline(category);
         db.prepare(`
           INSERT INTO tickets (id,title,description,location_id,location_name_ar,location_name_en,
             assigned_to,assigned_to_name,created_by,created_by_id,status,priority,
-            category,reference_no,notes,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?)
+            category,reference_no,notes,sla_deadline,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?,?)
         `).run(id, sanitize(b.title, 200) || 'بلاغ نظافة',
                sanitize(b.description, 1000), loc.id, loc.name_ar, loc.name_en,
                worker?.id || null, worker?.name || '',
-               me.name, me.id, priority, category, '', '', ts, ts);
+               me.name, me.id, priority, category, '', '', slaDeadline, ts, ts);
         const ticket = ticketRow(db.prepare(`
           SELECT t.*, NULL AS photo_files FROM tickets t WHERE t.id = ?
         `).get(id));
@@ -841,9 +885,13 @@ const server = http.createServer(async (req, res) => {
         if (!t) return send(res, 404, { error: 'TICKET_NOT_FOUND' });
         if (me.role === 'cleaner' && t.assigned_to !== me.id) return send(res, 403, { error: 'FORBIDDEN' });
         processPhotos(b.photos, me.id, null, t.id);
+        const completionMins = Math.round((Date.now() - new Date(t.created_at).getTime()) / 60_000);
+        const slaBreached    = t.sla_deadline && new Date(t.sla_deadline) < new Date() ? 1 : (t.sla_breached || 0);
+        const completedTs    = now();
         db.prepare(`
-          UPDATE tickets SET status='completed', completed_at=?, notes=?, updated_at=? WHERE id=?
-        `).run(now(), sanitize(b.notes, 1000), now(), t.id);
+          UPDATE tickets SET status='completed', completed_at=?, notes=?, updated_at=?,
+            completion_time_mins=?, sla_breached=? WHERE id=?
+        `).run(completedTs, sanitize(b.notes, 1000), completedTs, completionMins, slaBreached, t.id);
         const ticket = ticketRow(db.prepare(`
           SELECT t.*, GROUP_CONCAT(p.filename) AS photo_files
           FROM tickets t LEFT JOIN photos p ON p.ticket_id=t.id AND p.deleted_at IS NULL
@@ -976,15 +1024,91 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { ok: true });
       }
 
-      /* ── AUDIT LOGS: READ (admin only) ──────────────────────── */
+      /* ── AUDIT LOGS: READ (manager+) ────────────────────────── */
       if (req.method === 'GET' && url.pathname === '/api/audit-logs') {
-        if (me.role !== 'system_admin') return send(res, 403, { error: 'FORBIDDEN' });
-        const limit  = Math.min(parseInt(url.searchParams.get('limit') || '100', 10), 500);
+        if (!canManageSystem(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const limit  = Math.min(parseInt(url.searchParams.get('limit') || '200', 10), 500);
         const offset = parseInt(url.searchParams.get('offset') || '0', 10);
-        const logs   = db.prepare(
-          'SELECT * FROM audit_logs ORDER BY ts DESC LIMIT ? OFFSET ?'
-        ).all(limit, offset);
-        return send(res, 200, { logs, limit, offset });
+        const action = url.searchParams.get('action') || '';
+        const user   = url.searchParams.get('user')   || '';
+        let q = 'SELECT * FROM audit_logs WHERE 1=1';
+        const params = [];
+        if (action) { q += ' AND action LIKE ?'; params.push(`%${action}%`); }
+        if (user)   { q += ' AND (username LIKE ? OR user_id = ?)'; params.push(`%${user}%`, user); }
+        q += ' ORDER BY ts DESC LIMIT ? OFFSET ?';
+        params.push(limit, offset);
+        const logs  = db.prepare(q).all(...params);
+        const total = db.prepare('SELECT COUNT(*) AS c FROM audit_logs').get().c;
+        auditLog('audit_viewed', me, ip, ua);
+        return send(res, 200, { logs, total, limit, offset });
+      }
+
+      /* ── WORKSPACE SWITCH ───────────────────────────────────── */
+      if (req.method === 'POST' && url.pathname === '/api/workspace') {
+        const b = await bodyJSON(req);
+        const workspace = sanitize(b.workspace || '', 50);
+        if (!workspace || !me._roles || !me._roles.includes(workspace))
+          return send(res, 403, { error: 'ROLE_NOT_ALLOWED' });
+        const token = parseCookies(req)[SESSION_COOKIE];
+        db.prepare('UPDATE sessions SET active_workspace = ? WHERE token = ?').run(workspace, token);
+        auditLog('workspace_switch', me, ip, ua, { extra: { from: me.role, to: workspace } });
+        const updatedMe = { ...me, role: workspace };
+        return send(res, 200, buildBootstrap(updatedMe));
+      }
+
+      /* ── USER ROLES: ADD ────────────────────────────────────── */
+      if (req.method === 'POST' && /^\/api\/users\/[^/]+\/roles$/.test(url.pathname)) {
+        if (!canManageUsers(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const userId = url.pathname.split('/')[3];
+        const u = db.prepare('SELECT 1 FROM users WHERE id = ? AND deleted_at IS NULL').get(userId);
+        if (!u) return send(res, 404, { error: 'USER_NOT_FOUND' });
+        const b    = await bodyJSON(req);
+        const role = sanitize(b.role || '', 50);
+        if (!role || !ALLOWED_ROLES.includes(role)) return send(res, 400, { error: 'INVALID_ROLE' });
+        if (!allowedRoleEditor(me.role, role)) return send(res, 403, { error: 'ROLE_NOT_ALLOWED' });
+        db.prepare('INSERT OR IGNORE INTO user_roles (user_id,role,module,created_at) VALUES (?,?,?,?)')
+          .run(userId, role, 'cleaning', now());
+        auditLog('user_role_added', me, ip, ua, { targetType: 'user', targetId: userId, extra: { role } });
+        return send(res, 200, { ok: true });
+      }
+
+      /* ── USER ROLES: REMOVE ─────────────────────────────────── */
+      if (req.method === 'DELETE' && /^\/api\/users\/[^/]+\/roles\/[^/]+$/.test(url.pathname)) {
+        if (!canManageUsers(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const parts  = url.pathname.split('/');
+        const userId = parts[3];
+        const role   = parts[5];
+        if (!role || !ALLOWED_ROLES.includes(role)) return send(res, 400, { error: 'INVALID_ROLE' });
+        const cnt = db.prepare('SELECT COUNT(*) AS c FROM user_roles WHERE user_id = ?').get(userId).c;
+        if (cnt <= 1) return send(res, 400, { error: 'CANNOT_REMOVE_LAST_ROLE' });
+        db.prepare('DELETE FROM user_roles WHERE user_id = ? AND role = ?').run(userId, role);
+        auditLog('user_role_removed', me, ip, ua, { targetType: 'user', targetId: userId, extra: { role } });
+        return send(res, 200, { ok: true });
+      }
+
+      /* ── SLA REPORT ─────────────────────────────────────────── */
+      if (req.method === 'GET' && url.pathname === '/api/sla-report') {
+        if (!canReview(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const days = Math.min(parseInt(url.searchParams.get('days') || '30', 10), 365);
+        const from = new Date(Date.now() - days * 86400_000).toISOString();
+        const rows = db.prepare(`
+          SELECT category,
+            COUNT(*) AS total,
+            SUM(CASE WHEN sla_breached=1 THEN 1 ELSE 0 END) AS breached,
+            AVG(CASE WHEN completion_time_mins IS NOT NULL THEN completion_time_mins ELSE NULL END) AS avg_completion_mins
+          FROM tickets
+          WHERE created_at >= ? AND deleted_at IS NULL
+          GROUP BY category
+        `).all(from);
+        const categories = rows.map(r => ({
+          category:       r.category,
+          total:          r.total,
+          breached:       r.breached,
+          complianceRate: r.total > 0 ? Math.round((r.total - r.breached) / r.total * 100) : 100,
+          avgCompletionMins: r.avg_completion_mins ? Math.round(r.avg_completion_mins) : null,
+          slaMins:        slaMins(r.category)
+        }));
+        return send(res, 200, { categories, days, generatedAt: now() });
       }
 
       /* ── EMPLOYEE ORDER: CREATE (employee portal) ───────────── */
@@ -1004,15 +1128,16 @@ const server = http.createServer(async (req, res) => {
         const workerUser = worker ? db.prepare('SELECT * FROM users WHERE id = ?').get(worker.id) : null;
         const id  = newId('t');
         const ts  = now();
+        const slaDeadline = computeSlaDeadline(category);
         db.prepare(`
           INSERT INTO tickets (id,title,description,location_id,location_name_ar,location_name_en,
             assigned_to,assigned_to_name,created_by,created_by_id,status,priority,
-            category,reference_no,notes,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?)
+            category,reference_no,notes,sla_deadline,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?,?)
         `).run(id, title, sanitize(b.description, 1000),
                loc.id, loc.name_ar, loc.name_en,
                workerUser?.id || null, workerUser?.name || '',
-               me.name, me.id, priority, category, refNo, '', ts, ts);
+               me.name, me.id, priority, category, refNo, '', slaDeadline, ts, ts);
         // Optional photo
         if (b.photo) {
           processPhotosTyped([b.photo], me.id, null, id, 'general');
@@ -1199,9 +1324,13 @@ function autoSeedIfEmpty() {
       ['u-w7','عامل 7','worker7',pw.worker,'cleaner'],
       ['u-emp1','موظف 1','employee1',pw.worker,'employee'],
       ['u-emp2','موظف 2','employee2',pw.worker,'employee']
-    ].forEach(([id,name,username,pass,role]) =>
-      insUser.run(id,name,username,hashPassword(pass),role,ts,ts)
-    );
+    ].forEach(([id,name,username,pass,role]) => {
+      insUser.run(id,name,username,hashPassword(pass),role,ts,ts);
+      try {
+        db.prepare('INSERT OR IGNORE INTO user_roles (user_id,role,module,created_at) VALUES (?,?,?,?)')
+          .run(id, role, 'cleaning', ts);
+      } catch {}
+    });
     [
       ['wc-gf-a','restroom','دورة مياه - الدور الأرضي - A','Restroom - GF - Zone A','GF','GF','medium'],
       ['wc-gf-b','restroom','دورة مياه - الدور الأرضي - B','Restroom - GF - Zone B','GF','GF','medium'],
