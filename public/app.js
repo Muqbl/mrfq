@@ -811,12 +811,8 @@ function shell(content){
         </div>
       </div>
       <div class="sidebar-footer">
-        <div class="sidebar-user">
-          <div class="sidebar-user-avatar">${esc(initials(me.name))}</div>
-          <div style="min-width:0;flex:1">
-            <div class="sidebar-user-name">${esc(me.name)}</div>
-            <div class="sidebar-user-role">${roleLabel(me.role)}</div>
-          </div>
+        <div class="sidebar-workspace-badge">
+          ${ic('layers',13)}<span>${roleLabel(me.role)}</span>
         </div>
       </div>
     </aside>

@@ -345,8 +345,19 @@ function allowedRoleEditor(editorRole, targetRole) {
 /* ═══════════════════════════════════════════════════════════════
    DATA HELPERS  (all DB queries → camelCase output)
    ═══════════════════════════════════════════════════════════════ */
-function dbUsers()    {
-  return getDb().prepare('SELECT * FROM users WHERE deleted_at IS NULL').all();
+function dbUsers() {
+  const db    = getDb();
+  const users = db.prepare('SELECT * FROM users WHERE deleted_at IS NULL').all();
+  const allRoleRows = db.prepare('SELECT user_id, role FROM user_roles').all();
+  const roleMap = {};
+  for (const r of allRoleRows) {
+    if (!roleMap[r.user_id]) roleMap[r.user_id] = [];
+    roleMap[r.user_id].push(r.role);
+  }
+  for (const u of users) {
+    u._roles = roleMap[u.id] || [u.role];
+  }
+  return users;
 }
 function dbLocs()     {
   return getDb().prepare('SELECT * FROM locations WHERE deleted_at IS NULL').all().map(mapLocation);
