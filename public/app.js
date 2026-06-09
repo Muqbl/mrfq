@@ -237,7 +237,7 @@ let currentBeforePhotos = [], currentAfterPhotos = [];
 let cameraMode = 'general'; // 'before' | 'after' | 'general'
 let editUserId = null, currentTicketId = null;
 let reportFilter = 'all';
-let usersSearch = '', usersRoleFilter = 'all';
+let usersSearch = '', usersRoleFilter = 'all', usersStatusFilter = 'all';
 let locsFloorFilter = 'all';
 let assignFloorFilter = 'all';
 let viewHistory = [];
@@ -552,7 +552,7 @@ function render(){
   if(me.role==='cleaner') return renderWorker();
   if(me.role==='employee') return renderEmployee();
   setDoc();
-  if(_lastView==='users' && view!=='users'){ usersSearch=''; usersRoleFilter='all'; }
+  if(_lastView==='users' && view!=='users'){ usersSearch=''; usersRoleFilter='all'; usersStatusFilter='all'; }
   if(_lastView==='locations' && view!=='locations'){ locsFloorFilter='all'; }
   if(_lastView==='assignments' && view!=='assignments'){ assignFloorFilter='all'; }
   _lastView = view;
@@ -641,7 +641,7 @@ function loginPage(){
       </div>
       <p class="loginPanel-foot">${lang==='ar'?'الدخول متاح فقط للمستخدمين المصرح لهم داخل المنصة.':'Access is restricted to authorized platform users only.'}</p>
       <p class="loginPanel-foot" style="font-size:10px;margin-top:6px;color:var(--muted)">${lang==='ar'?'استخدام الهوية البصرية لأغراض المحاكاة فقط — ليست نسخة إنتاجية':'Visual identity used for simulation purposes only — not a production deployment'}</p>
-      <p class="loginPanel-foot" style="font-size:9px;margin-top:4px;color:var(--muted-light);direction:ltr;text-align:center">build 20260609-1</p>
+      <p class="loginPanel-foot" style="font-size:9px;margin-top:4px;color:var(--muted-light);direction:ltr;text-align:center">build 20260609-2</p>
     </div>
   </div>
 </main>`;
@@ -788,9 +788,6 @@ function shell(content){
         </div>
       </div>
       <div class="sidebar-footer">
-        ${me.roles&&me.roles.length>1?`<div class="workspacePill" onclick="renderWorkspaceSwitcher()">
-          ${ic('layers',14)} <span>${roleLabel(me.role)}</span> ${ic('arrow',12)}
-        </div>`:''}
         <div class="sidebar-user">
           <div class="sidebar-user-avatar">${esc(initials(me.name))}</div>
           <div style="min-width:0;flex:1">
@@ -1109,10 +1106,12 @@ function reportCard(r,full){
       </details>
       ${full&&canReview()?`
         <div class="reportCard-actions">
-          <button class="btn ok sm action-btn" onclick="reviewReport('${r.id}','approved')">${ic('check',14)} ${tr('approve')}</button>
-          <button class="btn danger sm action-btn" onclick="reviewReport('${r.id}','rejected')">${ic('x',14)} ${tr('reject')}</button>
-          <button class="btn warn sm action-btn" onclick="reviewReport('${r.id}','needs_recleaning')">${ic('flip',14)} ${tr('reclean')}</button>
-          ${canDelete()?`<button class="btn danger sm action-btn" onclick="deleteReport('${r.id}')">${ic('trash',14)} ${lang==='ar'?'حذف':'Delete'}</button>`:''}
+          <div class="reportCard-actions-primary">
+            <button class="btn ok sm action-btn" onclick="reviewReport('${r.id}','approved')">${ic('check',13)} ${tr('approve')}</button>
+            <button class="btn warn sm action-btn" onclick="reviewReport('${r.id}','needs_recleaning')">${ic('flip',13)} ${tr('reclean')}</button>
+            <button class="btn danger sm action-btn" onclick="reviewReport('${r.id}','rejected')">${ic('x',13)} ${tr('reject')}</button>
+          </div>
+          ${canDelete()?`<div class="reportCard-actions-secondary"><button class="btn secondary sm action-btn" onclick="deleteReport('${r.id}')">${ic('trash',13)}</button></div>`:''}
         </div>
         <div class="ratingRow">
           <div class="ratingGroup">
@@ -1666,13 +1665,22 @@ async function saveAssign(){
    USERS PAGE
    ═══════════════════════════════════════════════════════════════ */
 function users(){
-  const editableRoles = me.role==='system_admin'?ROLES:['cleaning_supervisor','cleaner'];
   const allUsers = data.users||[];
   const filtered = allUsers.filter(u=>{
-    const matchSearch = !usersSearch || u.name.toLowerCase().includes(usersSearch.toLowerCase()) || u.username.toLowerCase().includes(usersSearch.toLowerCase()) || (u.employeeNo||'').toLowerCase().includes(usersSearch.toLowerCase());
+    const matchSearch = !usersSearch
+      || u.name.toLowerCase().includes(usersSearch.toLowerCase())
+      || u.username.toLowerCase().includes(usersSearch.toLowerCase())
+      || (u.employeeNo||'').toLowerCase().includes(usersSearch.toLowerCase());
     const matchRole = usersRoleFilter==='all' || u.role===usersRoleFilter;
-    return matchSearch && matchRole;
+    const matchStatus = usersStatusFilter==='all' || (usersStatusFilter==='active'?u.active:!u.active);
+    return matchSearch && matchRole && matchStatus;
   });
+
+  const total = allUsers.length;
+  const active = allUsers.filter(u=>u.active).length;
+  const inactive = total - active;
+  const multiRole = allUsers.filter(u=>(u.roles||[]).length>1).length;
+
   return`
 <div class="pageHeader">
   <div class="pageHeader-left">
@@ -1685,82 +1693,102 @@ function users(){
 </div>
 
 <!-- Summary stats -->
-${(()=>{
-  const total = allUsers.length;
-  const active = allUsers.filter(u=>u.active).length;
-  const inactive = total - active;
-  const multiRole = allUsers.filter(u=>(u.roles||[]).length>1).length;
-  return`<div class="userSummaryGrid">
-    <div class="userSummaryCard">
-      <div class="userSummaryCard-icon" style="background:rgba(10,78,91,.08);color:var(--brand)">${ic('users',20)}</div>
-      <div class="userSummaryCard-body">
-        <div class="userSummaryCard-value">${num(total)}</div>
-        <div class="userSummaryCard-label">${lang==='ar'?'إجمالي المستخدمين':'Total Users'}</div>
-      </div>
+<div class="userSummaryGrid">
+  <div class="userSummaryCard">
+    <div class="userSummaryCard-icon" style="background:rgba(10,78,91,.08);color:var(--brand)">${ic('users',20)}</div>
+    <div class="userSummaryCard-body">
+      <div class="userSummaryCard-value">${num(total)}</div>
+      <div class="userSummaryCard-label">${lang==='ar'?'إجمالي المستخدمين':'Total Users'}</div>
     </div>
-    <div class="userSummaryCard">
-      <div class="userSummaryCard-icon" style="background:var(--ok-bg);color:var(--ok)">${ic('check',20)}</div>
-      <div class="userSummaryCard-body">
-        <div class="userSummaryCard-value">${num(active)}</div>
-        <div class="userSummaryCard-label">${lang==='ar'?'نشط':'Active'}</div>
-      </div>
+  </div>
+  <div class="userSummaryCard">
+    <div class="userSummaryCard-icon" style="background:var(--ok-bg);color:var(--ok)">${ic('check',20)}</div>
+    <div class="userSummaryCard-body">
+      <div class="userSummaryCard-value">${num(active)}</div>
+      <div class="userSummaryCard-label">${lang==='ar'?'نشط':'Active'}</div>
     </div>
-    <div class="userSummaryCard">
-      <div class="userSummaryCard-icon" style="background:var(--bad-bg);color:var(--bad)">${ic('x',20)}</div>
-      <div class="userSummaryCard-body">
-        <div class="userSummaryCard-value">${num(inactive)}</div>
-        <div class="userSummaryCard-label">${lang==='ar'?'معطل':'Inactive'}</div>
-      </div>
+  </div>
+  <div class="userSummaryCard">
+    <div class="userSummaryCard-icon" style="background:var(--bad-bg);color:var(--bad)">${ic('x',20)}</div>
+    <div class="userSummaryCard-body">
+      <div class="userSummaryCard-value">${num(inactive)}</div>
+      <div class="userSummaryCard-label">${lang==='ar'?'معطل':'Inactive'}</div>
     </div>
-    <div class="userSummaryCard">
-      <div class="userSummaryCard-icon" style="background:rgba(185,154,95,.10);color:var(--gold)">${ic('layers',20)}</div>
-      <div class="userSummaryCard-body">
-        <div class="userSummaryCard-value">${num(multiRole)}</div>
-        <div class="userSummaryCard-label">${lang==='ar'?'متعدد الصلاحيات':'Multi-Role'}</div>
-      </div>
+  </div>
+  <div class="userSummaryCard">
+    <div class="userSummaryCard-icon" style="background:rgba(185,154,95,.10);color:var(--gold)">${ic('layers',20)}</div>
+    <div class="userSummaryCard-body">
+      <div class="userSummaryCard-value">${num(multiRole)}</div>
+      <div class="userSummaryCard-label">${lang==='ar'?'متعدد الصلاحيات':'Multi-Role'}</div>
     </div>
-  </div>`;
-})()}
+  </div>
+</div>
 
-<!-- Search + role filter bar -->
+<!-- Filter bar -->
 <div class="usersFilterBar">
-  <input type="search" placeholder="${lang==='ar'?'بحث عن مستخدم...':'Search users...'}" value="${esc(usersSearch)}"
+  <input type="search" placeholder="${lang==='ar'?'بحث...':'Search users...'}" value="${esc(usersSearch)}"
     oninput="usersSearch=this.value;render()">
+  <div class="usersFilterBar-sep"></div>
   <select onchange="usersRoleFilter=this.value;render()">
     <option value="all"${usersRoleFilter==='all'?' selected':''}>${lang==='ar'?'كل الصلاحيات':'All Roles'}</option>
     ${ROLES.map(r=>`<option value="${r}"${usersRoleFilter===r?' selected':''}>${tr(r)}</option>`).join('')}
   </select>
+  <select onchange="usersStatusFilter=this.value;render()">
+    <option value="all"${usersStatusFilter==='all'?' selected':''}>${lang==='ar'?'كل الحالات':'All Status'}</option>
+    <option value="active"${usersStatusFilter==='active'?' selected':''}>${tr('activeUser')}</option>
+    <option value="inactive"${usersStatusFilter==='inactive'?' selected':''}>${tr('inactive')}</option>
+  </select>
 </div>
 
+<!-- Enterprise table -->
 ${filtered.length===0
   ? `<div class="card"><div class="empty-state"><div class="empty-icon">${ic('users',28)}</div><div class="empty-title">${lang==='ar'?'لا توجد نتائج':'No results found'}</div><p class="empty-sub">${lang==='ar'?'جرب تغيير الفلتر أو كلمة البحث':'Try changing the filter or search term'}</p></div></div>`
-  : `<div class="userCardsGrid">
-  ${filtered.map(u=>{
-    const canEdit = canManageUsers();
-    const canDel = canManageUsers() && u.id!==me.id;
-    const rCls = roleBadgeClass(u.role);
-    const extraRoles = (u.roles||[]).filter(r=>r!==u.role);
-    return`<div class="userCard">
-      <div class="userCard-header">
-        <div class="userCard-avatar">${esc(initials(u.name))}</div>
-        <div class="userCard-info">
-          <div class="userCard-name">${esc(u.name)}</div>
-          <div class="userCard-username">${esc(u.username)}</div>
-          ${u.employeeNo?`<div class="userCard-empno">${esc(u.employeeNo)}</div>`:''}
-        </div>
-        <span class="badge ${u.active?'ok':'bad'}">${u.active?tr('activeUser'):tr('inactive')}</span>
-      </div>
-      <div class="userCard-roles">
-        <span class="badge ${rCls}">${tr(u.role)}</span>
-        ${extraRoles.map(r=>`<span class="badge" style="opacity:.75;font-size:10px">${tr(r)}</span>`).join('')}
-      </div>
-      <div class="userCard-actions">
-        ${canEdit?`<button class="btn secondary sm roles-manage-btn" onclick="showAddRoleModal('${u.id}')">${ic('shield',14)} ${lang==='ar'?'الصلاحيات':'Roles'}</button>`:''}
-        ${canEdit?`<button class="btn secondary sm" onclick="showUserFormModal('${u.id}')">${ic('edit',14)}</button>`:''}
-        ${canDel?`<button class="btn danger sm" onclick="deleteUserConfirm('${u.id}')">${ic('trash',14)}</button>`:''}
-      </div>
-    </div>`;
-  }).join('')}
+  : `<div class="usersTableWrap">
+  <table class="usersTable">
+    <thead>
+      <tr>
+        <th>${lang==='ar'?'المستخدم':'User'}</th>
+        <th>${lang==='ar'?'رقم الموظف':'Emp No'}</th>
+        <th>${lang==='ar'?'الحالة':'Status'}</th>
+        <th>${lang==='ar'?'الصلاحيات':'Roles'}</th>
+        ${canManageUsers()?`<th style="text-align:end">${lang==='ar'?'إجراءات':'Actions'}</th>`:''}
+      </tr>
+    </thead>
+    <tbody>
+      ${filtered.map(u=>{
+        const canEdit = canManageUsers();
+        const canDel = canManageUsers() && u.id!==me.id;
+        const rCls = roleBadgeClass(u.role);
+        const extraRoles = (u.roles||[]).filter(r=>r!==u.role);
+        return`<tr>
+          <td>
+            <div class="userRow-cell-name">
+              <div class="userRow-avatar">${esc(initials(u.name))}</div>
+              <div>
+                <div class="userRow-name">${esc(u.name)}</div>
+                <div class="userRow-username">${esc(u.username)}</div>
+              </div>
+            </div>
+          </td>
+          <td class="mono" style="font-size:11px;color:var(--muted)">${u.employeeNo?esc(u.employeeNo):'—'}</td>
+          <td><span class="badge ${u.active?'ok':'bad'}">${u.active?tr('activeUser'):tr('inactive')}</span></td>
+          <td>
+            <div class="usersTable-roles">
+              <span class="badge ${rCls}">${tr(u.role)}</span>
+              ${extraRoles.map(r=>`<span class="badge" style="font-size:10px">${tr(r)}</span>`).join('')}
+            </div>
+          </td>
+          ${canEdit?`<td>
+            <div class="usersTable-actions">
+              <button class="btn secondary sm" onclick="showAddRoleModal('${u.id}')" title="${lang==='ar'?'إدارة الصلاحيات':'Manage Roles'}">${ic('shield',13)} ${lang==='ar'?'الصلاحيات':'Roles'}</button>
+              <button class="btn secondary sm" onclick="showUserFormModal('${u.id}')" title="${lang==='ar'?'تعديل':'Edit'}">${ic('edit',13)}</button>
+              ${canDel?`<button class="btn danger sm" onclick="deleteUserConfirm('${u.id}')" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button>`:''}
+            </div>
+          </td>`:''}
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>
 </div>`}`;
 }
 
