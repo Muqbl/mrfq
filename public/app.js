@@ -641,7 +641,7 @@ function loginPage(){
       </div>
       <p class="loginPanel-foot">${lang==='ar'?'الدخول متاح فقط للمستخدمين المصرح لهم داخل المنصة.':'Access is restricted to authorized platform users only.'}</p>
       <p class="loginPanel-foot" style="font-size:10px;margin-top:6px;color:var(--muted)">${lang==='ar'?'استخدام الهوية البصرية لأغراض المحاكاة فقط — ليست نسخة إنتاجية':'Visual identity used for simulation purposes only — not a production deployment'}</p>
-      <p class="loginPanel-foot" style="font-size:9px;margin-top:4px;color:var(--muted-light);direction:ltr;text-align:center">build 20260608-4</p>
+      <p class="loginPanel-foot" style="font-size:9px;margin-top:4px;color:var(--muted-light);direction:ltr;text-align:center">build 20260609-1</p>
     </div>
   </div>
 </main>`;
@@ -1486,18 +1486,16 @@ ${canManage()?`
   <div class="card-head">
     <span class="card-title">${ic('plus',16)} ${lang==='ar'?'إضافة مرفق':'Add Facility'}</span>
   </div>
-  <div class="formGrid">
+  <div class="formGrid-4">
     <div class="field"><label>ID</label><input id="lid" class="ltr" placeholder="office-01-a"></div>
     <div class="field"><label>${tr('type')}</label><select id="ltype">${TYPES.map(t=>`<option value="${t}">${tr(t)}</option>`).join('')}</select></div>
     <div class="field"><label>${lang==='ar'?'الاسم العربي':'Arabic Name'}</label><input id="lar" placeholder="الاسم العربي"></div>
     <div class="field"><label>${lang==='ar'?'الاسم الإنجليزي':'English Name'}</label><input id="len" class="ltr" placeholder="English name"></div>
     <div class="field"><label>${tr('floor')}</label><select id="lf">${FACILITY_FLOORS.map(f=>`<option value="${esc(f)}">${esc(f)}</option>`).join('')}</select></div>
     <div class="field"><label>${tr('zone')}</label><select id="lz">${FACILITY_ZONES.map(z=>`<option value="${esc(z)}">${esc(z)}</option>`).join('')}</select></div>
-
-
     <div class="field"><label>${tr('priority')}</label><select id="lpri"><option value="high">${tr('high')}</option><option value="medium" selected>${tr('medium')}</option><option value="low">${tr('low')}</option></select></div>
+    <div class="field" style="align-self:flex-end"><button class="btn wide" onclick="addLoc()">${ic('plus',16)} ${tr('save')}</button></div>
   </div>
-  <button class="btn" onclick="addLoc()">${ic('plus',16)} ${tr('save')}</button>
 </div>`:''}
 <!-- FLOOR FILTER -->
 <div class="filterBar" style="margin-bottom:16px">
@@ -1685,6 +1683,44 @@ function users(){
     ${canManageUsers()?`<button class="btn" onclick="showUserFormModal()">${ic('plus',16)} ${tr('addUser')}</button>`:''}
   </div>
 </div>
+
+<!-- Summary stats -->
+${(()=>{
+  const total = allUsers.length;
+  const active = allUsers.filter(u=>u.active).length;
+  const inactive = total - active;
+  const multiRole = allUsers.filter(u=>(u.roles||[]).length>1).length;
+  return`<div class="userSummaryGrid">
+    <div class="userSummaryCard">
+      <div class="userSummaryCard-icon" style="background:rgba(10,78,91,.08);color:var(--brand)">${ic('users',20)}</div>
+      <div class="userSummaryCard-body">
+        <div class="userSummaryCard-value">${num(total)}</div>
+        <div class="userSummaryCard-label">${lang==='ar'?'إجمالي المستخدمين':'Total Users'}</div>
+      </div>
+    </div>
+    <div class="userSummaryCard">
+      <div class="userSummaryCard-icon" style="background:var(--ok-bg);color:var(--ok)">${ic('check',20)}</div>
+      <div class="userSummaryCard-body">
+        <div class="userSummaryCard-value">${num(active)}</div>
+        <div class="userSummaryCard-label">${lang==='ar'?'نشط':'Active'}</div>
+      </div>
+    </div>
+    <div class="userSummaryCard">
+      <div class="userSummaryCard-icon" style="background:var(--bad-bg);color:var(--bad)">${ic('x',20)}</div>
+      <div class="userSummaryCard-body">
+        <div class="userSummaryCard-value">${num(inactive)}</div>
+        <div class="userSummaryCard-label">${lang==='ar'?'معطل':'Inactive'}</div>
+      </div>
+    </div>
+    <div class="userSummaryCard">
+      <div class="userSummaryCard-icon" style="background:rgba(185,154,95,.10);color:var(--gold)">${ic('layers',20)}</div>
+      <div class="userSummaryCard-body">
+        <div class="userSummaryCard-value">${num(multiRole)}</div>
+        <div class="userSummaryCard-label">${lang==='ar'?'متعدد الصلاحيات':'Multi-Role'}</div>
+      </div>
+    </div>
+  </div>`;
+})()}
 
 <!-- Search + role filter bar -->
 <div class="usersFilterBar">
