@@ -110,6 +110,11 @@ const T = {
     submitted:'تم الإرسال',assigned:'تم التعيين',accepted:'مقبول',
     in_progress:'قيد التنفيذ',waiting_verification:'بانتظار التحقق',
     reclean_required:'إعادة التنظيف مطلوبة',cancelled:'ملغي',
+    myProfile:'ملفي الشخصي',profileCenter:'مركز الملف الشخصي',
+    changePassword:'تغيير كلمة المرور',lastPwdChange:'آخر تغيير للكلمة السرية',
+    rolesLabel:'الصلاحيات',workspacesLabel:'مساحات العمل',
+    requester:'مقدم الطلب',activeTickets:'البلاغات النشطة',
+    closeModal:'إغلاق',activeTicket:'بلاغ نشط',
   },
   en:{
     app:'Facility Care Platform',sub:'Professional management for every facility, at any time',
@@ -185,6 +190,11 @@ const T = {
     submitted:'Submitted',assigned:'Assigned',accepted:'Accepted',
     in_progress:'In Progress',waiting_verification:'Awaiting Verification',
     reclean_required:'Re-clean Required',cancelled:'Cancelled',
+    myProfile:'My Profile',profileCenter:'Profile Center',
+    changePassword:'Change Password',lastPwdChange:'Last Password Change',
+    rolesLabel:'Roles',workspacesLabel:'Workspaces',
+    requester:'Requester',activeTickets:'Active Tickets',
+    closeModal:'Close',activeTicket:'Active ticket',
   }
 };
 
@@ -295,7 +305,7 @@ function slaInfo(ticket){
 }
 
 function slaBadge(ticket){
-  if(ticket.slaBreached && ticket.status !== 'open'){
+  if(ticket.slaBreached && !['completed','rejected','cancelled'].includes(ticket.status)){
     return `<span class="slaBadge sla-overdue">${ic('alert-triangle',12)} ${tr('slaBreached')}</span>`;
   }
   const info = slaInfo(ticket);
@@ -729,7 +739,7 @@ async function submitForcePassword(){
    ═══════════════════════════════════════════════════════════════ */
 function shell(content){
   const qSize = getQ().length;
-  const openTickets = (data.tickets||[]).filter(t=>t.status==='open').length;
+  const openTickets = (data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
   const pendingReports = (data.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
 
   app.innerHTML=`
@@ -768,6 +778,13 @@ function shell(content){
           ${pendingReports>0||openTickets>0?`<span class="tb-notif-badge"></span>`:''}
         </button>
         <button class="tb-lang" onclick="switchLang()">${tr('lang')}</button>
+        <button class="tb-user" onclick="showProfileCenter()" title="${tr('myProfile')}">
+          <div class="tb-avatar">${esc(initials(me.name))}</div>
+          <div>
+            <div class="tb-user-name">${esc(me.name.split(' ')[0])}</div>
+            <span class="tb-user-role">${roleLabel(me.role)}</span>
+          </div>
+        </button>
         <button class="tb-logout icon-btn" onclick="logout()" title="${tr('logout')}">${ic('logout',18)}</button>
       </div>
     </div>
@@ -1151,7 +1168,7 @@ function toggleNotif(e){
 
   // Build items: pending reports + open tickets
   const pendingReps=(data.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending'||r.approvalStatus==='pending_approval');
-  const openTkts=(data.tickets||[]).filter(t=>t.status==='open');
+  const openTkts=(data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status));
 
   const items=[
     ...pendingReps.map(r=>({
@@ -1164,7 +1181,7 @@ function toggleNotif(e){
     ...openTkts.map(t=>({
       color:'var(--bad)',
       label: esc(t.title),
-      sub:   lang==='ar'? `بلاغ مفتوح` : 'Open ticket',
+      sub:   lang==='ar'? `${tr(t.status)||t.status} · ${tr('activeTicket')}` : `${tr(t.status)||t.status} · ${tr('activeTicket')}`,
       time:  fmt(t.createdAt),
       go:()=>{ view='tickets'; render(); }
     }))
@@ -1297,7 +1314,7 @@ function tickets(){
 <div class="pageHeader">
   <div class="pageHeader-left">
     <div class="pageTitle">${tr('tickets')}</div>
-    <div class="pageSub">${num((data.tickets||[]).filter(t=>t.status==='open').length)} ${lang==='ar'?'بلاغ مفتوح':'open tickets'}</div>
+    <div class="pageSub">${num((data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length)} ${lang==='ar'?'بلاغ نشط':'active tickets'}</div>
   </div>
   ${canTicket()?`<button class="btn sm" onclick="document.querySelector('.card').scrollIntoView({behavior:'smooth'})">${ic('plus',14)} ${tr('createTicket')}</button>`:''}
 </div>
@@ -1356,6 +1373,10 @@ function ticketCards(items){
     const canDel = ['system_admin','cleaning_manager'].includes(me.role);
     const catLabel = tr('cat_'+(t.category||'general')) || (t.category||'general');
     const catClr = t.category==='emergency'?'bad':t.category==='spill'?'warn':t.category==='meeting_room'?'brand':'';
+    const statusCls = t.status==='completed'?'ok':['reclean_required','rejected','cancelled'].includes(t.status)?'bad':t.status==='waiting_verification'?'warn':'brand';
+    const requesterUser = (data.users||[]).find(u=>u.id===t.createdById);
+    const requesterUsername = requesterUser?.username || '';
+    const requesterEmpNo = requesterUser?.employeeNo || '';
     return`<div class="ticketCard priority-${t.priority||'medium'}">
       <div class="ticketCard-top">
         <div>
@@ -1363,12 +1384,13 @@ function ticketCards(items){
           ${t.referenceNo?`<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:2px;font-family:ui-monospace,monospace">${esc(t.referenceNo)}</div>`:''}
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-          <span class="badge ${t.status==='completed'?'ok':['reclean_required','rejected','cancelled'].includes(t.status)?'bad':['waiting_verification'].includes(t.status)?'warn':'brand'}">${tr(t.status)||t.status}</span>
+          <span class="badge ${statusCls}">${tr(t.status)||t.status}</span>
           ${canEdit?`<button class="btn secondary sm" style="padding:3px 8px" onclick="editTicketModal('${t.id}')">${ic('edit',13)}</button>`:''}
           ${canDel?`<button class="btn danger sm" style="padding:3px 8px" onclick="deleteTicketConfirm('${t.id}')">${ic('trash',13)}</button>`:''}
         </div>
       </div>
       <div class="ticketCard-meta">${ic('locations',12)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)} &nbsp;·&nbsp; ${ic('users',12)} ${esc(t.assignedToName||tr('unassigned'))}</div>
+      ${t.createdBy?`<div class="ticketCard-requester">${ic('user',12)} <span class="ticketCard-requester-label">${tr('requester')}:</span> <span class="ticketCard-requester-name">${esc(t.createdBy)}</span>${requesterUsername?`<span class="ticketCard-requester-username">@${esc(requesterUsername)}</span>`:''}${requesterEmpNo?`<span class="ticketCard-requester-empno">${esc(requesterEmpNo)}</span>`:''}</div>`:''}
       ${t.description?`<p style="font-size:var(--fs-sm);color:var(--ink-soft);line-height:1.6">${esc(t.description)}</p>`:''}
       <div class="ticketCard-badges">
         ${t.category&&t.category!=='general'?`<span class="badge ${catClr}">${catLabel}</span>`:''}
@@ -1398,36 +1420,34 @@ function editTicketModal(id){
   const modal=document.createElement('div');
   modal.className='modal-overlay';modal.id='editTicketModal';
   modal.innerHTML=`
-<div class="modal">
-  <div class="modal-head">
-    <span class="modal-title">${ic('edit',16)} ${lang==='ar'?'تعديل البلاغ':'Edit Ticket'}</span>
+<div class="modal-box">
+  <div class="modal-header">
+    <div class="modal-title">${ic('edit',16)} ${lang==='ar'?'تعديل البلاغ':'Edit Ticket'}</div>
     <button class="icon-btn" onclick="document.getElementById('editTicketModal').remove()">${ic('x',18)}</button>
   </div>
-  <div class="modal-body">
-    <div class="formGrid" style="grid-template-columns:1fr 1fr">
-      <div class="field"><label>${tr('title')}</label><input id="et-title" value="${esc(t.title)}"></div>
-      <div class="field"><label>${tr('priority')}</label>
-        <select id="et-priority">
-          <option value="high"${t.priority==='high'?' selected':''}>${tr('high')}</option>
-          <option value="medium"${t.priority==='medium'?' selected':''}>${tr('medium')}</option>
-          <option value="low"${t.priority==='low'?' selected':''}>${tr('low')}</option>
-        </select>
-      </div>
-      <div class="field"><label>${tr('status')}</label>
-        <select id="et-status">
-          <option value="open"${t.status==='open'?' selected':''}>${tr('open')}</option>
-          <option value="completed"${t.status==='completed'?' selected':''}>${tr('closed')}</option>
-        </select>
-      </div>
-      <div class="field"><label>${tr('assignedTo')}</label>
-        <select id="et-worker">
-          ${workers.map(w=>`<option value="${w.id}"${t.assignedTo===w.id?' selected':''}>${esc(w.name)}</option>`).join('')}
-        </select>
-      </div>
+  <div class="formGrid" style="padding:4px 0">
+    <div class="field"><label>${tr('title')}</label><input id="et-title" value="${esc(t.title)}"></div>
+    <div class="field"><label>${tr('priority')}</label>
+      <select id="et-priority">
+        <option value="high"${t.priority==='high'?' selected':''}>${tr('high')}</option>
+        <option value="medium"${t.priority==='medium'?' selected':''}>${tr('medium')}</option>
+        <option value="low"${t.priority==='low'?' selected':''}>${tr('low')}</option>
+      </select>
     </div>
-    <div class="field"><label>${tr('description')}</label><textarea id="et-desc" rows="3">${esc(t.description||'')}</textarea></div>
+    <div class="field"><label>${tr('status')}</label>
+      <select id="et-status">
+        ${ ['submitted','assigned','accepted','in_progress','waiting_verification','completed','reclean_required','rejected','cancelled'].map(s=>`<option value="${s}"${t.status===s?' selected':''}>${tr(s)||s}</option>`).join('') }
+      </select>
+    </div>
+    <div class="field"><label>${tr('assignedTo')}</label>
+      <select id="et-worker">
+        <option value="">${tr('unassigned')}</option>
+        ${workers.map(w=>`<option value="${w.id}"${t.assignedTo===w.id?' selected':''}>${esc(w.name)}</option>`).join('')}
+      </select>
+    </div>
   </div>
-  <div class="modal-foot">
+  <div class="field" style="margin-top:4px"><label>${tr('description')}</label><textarea id="et-desc" rows="3">${esc(t.description||'')}</textarea></div>
+  <div class="modal-footer">
     <button class="btn" onclick="saveEditTicket('${id}')">${ic('check',16)} ${tr('save')}</button>
     <button class="btn secondary" onclick="document.getElementById('editTicketModal').remove()">${tr('cancel')}</button>
   </div>
@@ -1975,7 +1995,7 @@ function renderWorker(){
   setDoc();
   const assigned = ((data.assignments||[]).find(a=>a.workerId===me.id)?.locationIds)||[];
   const locs = (data.locations||[]).filter(l=>!assigned.length||assigned.includes(l.id));
-  const myTickets = (data.tickets||[]).filter(t=>t.assignedTo===me.id&&t.status==='open');
+  const myTickets = (data.tickets||[]).filter(t=>t.assignedTo===me.id&&!['completed','rejected','cancelled'].includes(t.status));
   const qrFromUrl = new URL(location.href).searchParams.get('loc')||'';
   const qrFromStorage = sessionStorage.getItem('qr_loc')||'';
   const param = parseLoc(qrFromUrl || qrFromStorage);
@@ -2006,6 +2026,8 @@ function renderWorker(){
     </div>
     <div class="workerTopbar-actions">
       ${qSize>0?`<button class="offlineTag" onclick="flushOfflineQueue()">${ic('sync',14)} ${qSize} ${lang==='ar'?'معلق':'pending'}</button>`:''}
+      ${me.roles&&me.roles.length>1?`<button class="tb-workspace" onclick="renderWorkspaceSwitcher()">${ic('layers',13)}<span class="tb-workspace-label">${roleLabel(me.role)}</span>${ic('chevron',13)}</button>`:''}
+      <button class="icon-btn tb-profile-btn" onclick="showProfileCenter()" title="${tr('myProfile')}">${esc(initials(me.name))}</button>
       <button class="icon-btn" onclick="switchLang()" title="${tr('lang')}">${tr('lang')}</button>
       <button class="icon-btn" onclick="flushOfflineQueue()" title="${tr('sync')}">${ic('sync',20)}</button>
       <button class="icon-btn" onclick="logout()" title="${tr('logout')}">${ic('logout',20)}</button>
@@ -2499,6 +2521,8 @@ function renderEmployee(){
       </div>
     </div>
     <div class="workerTopbar-actions">
+      ${me.roles&&me.roles.length>1?`<button class="tb-workspace" onclick="renderWorkspaceSwitcher()">${ic('layers',13)}<span class="tb-workspace-label">${roleLabel(me.role)}</span>${ic('chevron',13)}</button>`:''}
+      <button class="icon-btn tb-profile-btn" onclick="showProfileCenter()" title="${tr('myProfile')}">${esc(initials(me.name))}</button>
       <button class="icon-btn" onclick="switchLang()" title="${tr('lang')}">${tr('lang')}</button>
       <button class="icon-btn" onclick="logout()" title="${tr('logout')}">${ic('logout',20)}</button>
     </div>
@@ -2509,7 +2533,7 @@ function renderEmployee(){
       <button class="empTab${employeeTab==='submit'?' active':''}" onclick="employeeTab='submit';renderEmployee()">${ic('send',15)} ${tr('submitRequest')}</button>
       <button class="empTab${employeeTab==='history'?' active':''}" onclick="employeeTab='history';renderEmployee()">
         ${ic('list',15)} ${tr('myRequests')}
-        ${myOrders.filter(t=>t.status==='open').length?`<span class="empTab-badge">${myOrders.filter(t=>t.status==='open').length}</span>`:''}
+        ${myOrders.filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length?`<span class="empTab-badge">${myOrders.filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length}</span>`:''}
       </button>
     </div>
     ${employeeTab==='submit' ? employeeSubmitForm() : employeeHistory(myOrders)}
@@ -2585,7 +2609,7 @@ function employeeHistory(orders){
   <div class="wCard-title">${ic('list',16)} ${tr('myRequests')} (${orders.length})</div>
   <div style="display:grid;gap:10px">
     ${orders.map(t=>{
-      const stCls = t.status==='completed'?'ok':'bad';
+      const stCls = t.status==='completed'?'ok':['reclean_required','rejected','cancelled'].includes(t.status)?'bad':t.status==='waiting_verification'?'warn':'brand';
       const catLabel = tr('cat_'+(t.category||'general'));
       return`<div style="padding:14px 16px;border:1.5px solid var(--line);border-radius:var(--r);background:var(--surface)">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
@@ -2853,6 +2877,117 @@ function renderWorkspaceSwitcher(){
   </div>`;
   modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
   document.body.appendChild(modal);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PROFILE CENTER
+   ═══════════════════════════════════════════════════════════════ */
+function showProfileCenter(){
+  document.getElementById('profileModal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'profileModal';
+  modal.className = 'modal-overlay';
+  const myRoles = me.roles || [me.role];
+  modal.innerHTML=`
+<div class="modal-box profile-modal">
+  <div class="modal-header">
+    <div class="modal-title">${ic('user',16)} ${tr('profileCenter')}</div>
+    <button class="icon-btn" onclick="document.getElementById('profileModal').remove()">${ic('x',18)}</button>
+  </div>
+
+  <!-- Identity -->
+  <div class="profile-identity">
+    <div class="profile-avatar">${esc(initials(me.name))}</div>
+    <div class="profile-info">
+      <div class="profile-name">${esc(me.name)}</div>
+      <div class="profile-username">@${esc(me.username)}</div>
+      ${me.employeeNo?`<div class="profile-empno">${lang==='ar'?'رقم الموظف:':'Emp. No:'} <strong>${esc(me.employeeNo)}</strong></div>`:''}
+    </div>
+  </div>
+
+  <!-- Roles -->
+  <div class="profile-section">
+    <div class="profile-section-label">${tr('rolesLabel')}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+      ${myRoles.map((r,i)=>`<span class="badge ${i===0?'brand':''}">${roleLabel(r)}</span>`).join('')}
+    </div>
+  </div>
+
+  <!-- Workspaces -->
+  ${myRoles.length>1?`
+  <div class="profile-section">
+    <div class="profile-section-label">${tr('workspacesLabel')}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+      ${myRoles.map(r=>`
+        <button class="wsBtn${r===me.role?' active':''}" style="flex:0 0 auto;min-width:0" onclick="document.getElementById('profileModal').remove();switchWorkspace('${r}')">
+          <div class="wsBtn-icon">${ic(r==='system_admin'?'shield':r.includes('manager')||r==='facility_manager'?'building':r==='cleaner'?'check':'assignments',16)}</div>
+          <div class="wsBtn-label">${roleLabel(r)}</div>
+        </button>`).join('')}
+    </div>
+  </div>`:''}
+
+  <!-- Last Password Change -->
+  ${me.lastPasswordChange?`
+  <div class="profile-section">
+    <div class="profile-section-label">${tr('lastPwdChange')}</div>
+    <div class="profile-value">${fmt(me.lastPasswordChange)}</div>
+  </div>`:''}
+
+  <!-- Language -->
+  <div class="profile-section">
+    <div class="profile-section-label">${lang==='ar'?'اللغة':'Language'}</div>
+    <button class="btn secondary sm" style="margin-top:6px" onclick="document.getElementById('profileModal').remove();switchLang()">
+      ${lang==='ar'?'التغيير إلى English':'Switch to العربية'}
+    </button>
+  </div>
+
+  <!-- Change Password -->
+  <div class="profile-section">
+    <div class="profile-section-label">${tr('changePassword')}</div>
+    <div class="formGrid" style="margin-top:8px">
+      <div class="field">
+        <label>${lang==='ar'?'كلمة المرور الجديدة':'New Password'}</label>
+        <input type="password" id="profileNewPwd" class="ltr" placeholder="••••••••" autocomplete="new-password">
+      </div>
+      <div class="field">
+        <label>${lang==='ar'?'تأكيد كلمة المرور':'Confirm Password'}</label>
+        <input type="password" id="profileConfirmPwd" class="ltr" placeholder="••••••••" autocomplete="new-password">
+      </div>
+    </div>
+    <div id="profilePwdError" style="color:var(--bad);font-size:var(--fs-xs);min-height:16px;margin-top:2px"></div>
+    <button class="btn sm" style="margin-top:8px" onclick="profileChangePassword()">
+      ${ic('lock',14)} ${lang==='ar'?'تغيير':'Change'}
+    </button>
+  </div>
+
+  <div class="modal-footer">
+    <button class="btn danger" onclick="logout()">${ic('logout',15)} ${lang==='ar'?'تسجيل الخروج':'Logout'}</button>
+    <button class="btn secondary" onclick="document.getElementById('profileModal').remove()">${tr('closeModal')}</button>
+  </div>
+</div>`;
+  modal.addEventListener('click', e=>{ if(e.target===modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+
+async function profileChangePassword(){
+  const newPwd = document.getElementById('profileNewPwd')?.value || '';
+  const confirm = document.getElementById('profileConfirmPwd')?.value || '';
+  const errEl = document.getElementById('profilePwdError');
+  if(!errEl) return;
+  errEl.textContent = '';
+  if(newPwd.length < 6){ errEl.textContent = lang==='ar'?'كلمة المرور قصيرة (٦ أحرف على الأقل)':'Password too short (min 6 chars)'; return; }
+  if(newPwd !== confirm){ errEl.textContent = lang==='ar'?'كلمتا المرور غير متطابقتين':'Passwords do not match'; return; }
+  try{
+    await api('/change-password',{method:'POST',body:JSON.stringify({newPassword:newPwd})});
+    toast(lang==='ar'?'تم تغيير كلمة المرور بنجاح':'Password changed successfully','ok');
+    document.getElementById('profileModal')?.remove();
+    await load();
+  }catch(e){
+    const msg = e.message==='SAME_PASSWORD'
+      ? (lang==='ar'?'لا يمكن استخدام كلمة المرور القديمة':'Cannot reuse the old password')
+      : (lang==='ar'?'حدث خطأ':'Error');
+    if(errEl) errEl.textContent = msg;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
