@@ -170,10 +170,13 @@ function storePhoto(dataUrl, uploadedBy, reportId = null, ticketId = null) {
 
   const id = newId('ph');
   const ts = now();
+  const entityType = reportId ? 'report' : (ticketId ? 'ticket' : '');
+  const entityId   = reportId || ticketId || '';
   getDb().prepare(`
-    INSERT INTO photos (id, filename, mime_type, size_bytes, report_id, ticket_id, uploaded_by, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, filename, mime, buf.length, reportId, ticketId, uploadedBy, ts);
+    INSERT INTO photos (id, filename, mime_type, size_bytes, report_id, ticket_id,
+      entity_type, entity_id, uploaded_by, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, filename, mime, buf.length, reportId, ticketId, entityType, entityId, uploadedBy, ts);
 
   return { id, url: `/uploads/${filename}` };
 }
@@ -316,14 +319,18 @@ const publicUser = u => {
 };
 
 const mapLocation = l => l ? {
-  id:       l.id,
-  type:     l.type,
-  nameAr:   l.name_ar,
-  nameEn:   l.name_en,
-  floor:    l.floor,
-  zone:     l.zone,
-  priority: l.priority,
-  active:   l.active === 1 || l.active === true
+  id:         l.id,
+  type:       l.type,
+  nameAr:     l.name_ar,
+  nameEn:     l.name_en,
+  floor:      l.floor,
+  zone:       l.zone,
+  priority:   l.priority,
+  active:     l.active === 1 || l.active === true,
+  facilityId: l.facility_id || '',
+  buildingId: l.building_id || '',
+  room:       l.room  || '',
+  space:      l.space || ''
 } : null;
 
 function canManageUsers(role) { return ['system_admin','cleaning_manager'].includes(role); }
@@ -408,11 +415,15 @@ function ticketRow(r) {
     referenceNo:    r.reference_no || '',
     notes:          r.notes,
     createdAt:          r.created_at,
-    completedAt:        r.completed_at || '',
-    slaDeadline:        r.sla_deadline || '',
-    slaBreached:        r.sla_breached === 1,
-    responseTimeMins:   r.response_time_mins  ?? null,
-    completionTimeMins: r.completion_time_mins ?? null,
+    completedAt:                 r.completed_at || '',
+    acceptedAt:                  r.accepted_at || '',
+    startedAt:                   r.started_at || '',
+    verificationRequestedAt:     r.verification_requested_at || '',
+    cancelledAt:                 r.cancelled_at || '',
+    slaDeadline:                 r.sla_deadline || '',
+    slaBreached:                 r.sla_breached === 1,
+    responseTimeMins:            r.response_time_mins  ?? null,
+    completionTimeMins:          r.completion_time_mins ?? null,
     photos
   };
 }
@@ -520,13 +531,29 @@ function csvCell(v) { return '"' + String(v ?? '').replace(/"/g, '""') + '"'; }
 /* ═══════════════════════════════════════════════════════════════
    REFERENCE NUMBER GENERATOR  (CLN-YYYY-XXXXXX)
    ═══════════════════════════════════════════════════════════════ */
-function generateRefNo(db) {
+function generateRefNo(db, prefix = 'CLN') {
   const year = new Date().getFullYear();
-  const key  = `ref_seq_${year}`;
+  const key  = `${prefix.toLowerCase()}_ref_seq_${year}`;
   const row  = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
   const seq  = parseInt(row?.value || '0', 10) + 1;
   db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, String(seq));
-  return `CLN-${year}-${String(seq).padStart(6, '0')}`;
+  return `${prefix.toUpperCase()}-${year}-${String(seq).padStart(6, '0')}`;
+}
+
+function logEvent(db, eventType, entityType, entityId, actor, payload = {}) {
+  try {
+    db.prepare(`
+      INSERT INTO event_log
+        (event_type, module, entity_type, entity_id, actor_id, actor_role, payload, created_at)
+      VALUES (?, 'cleaning', ?, ?, ?, ?, ?, ?)
+    `).run(
+      eventType, entityType, entityId,
+      actor?.id   || '',
+      actor?.role || '',
+      JSON.stringify(payload),
+      now()
+    );
+  } catch (e) { console.error('[event]', e.message); }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -544,7 +571,7 @@ function computeSlaDeadline(category) {
 setInterval(() => {
   try {
     getDb().prepare(
-      "UPDATE tickets SET sla_breached=1,updated_at=? WHERE sla_deadline < ? AND status='open' AND sla_breached=0 AND deleted_at IS NULL"
+      "UPDATE tickets SET sla_breached=1,updated_at=? WHERE sla_deadline < ? AND status NOT IN ('completed','rejected','cancelled') AND sla_breached=0 AND deleted_at IS NULL"
     ).run(now(), now());
   } catch {}
 }, 300_000);
@@ -559,7 +586,8 @@ function autoAssign(locationId, db) {
     SELECT a.worker_id AS id, u.name,
       (SELECT COUNT(*) FROM tickets
        WHERE assigned_to = a.worker_id
-         AND status = 'open' AND deleted_at IS NULL) AS open_count
+         AND status NOT IN ('completed','rejected','cancelled')
+         AND deleted_at IS NULL) AS open_count
     FROM assignments a
     JOIN  users u ON u.id = a.worker_id
       AND u.active = 1 AND u.deleted_at IS NULL AND u.role = 'cleaner'
@@ -857,25 +885,27 @@ const server = http.createServer(async (req, res) => {
           const auto = autoAssign(loc.id, db);
           if (auto) worker = db.prepare('SELECT * FROM users WHERE id = ?').get(auto.id);
         }
-        const id          = newId('t');
-        const ts          = now();
-        const priority    = ['high','medium','low'].includes(b.priority) ? b.priority : 'medium';
-        const category    = sanitize(b.category || 'general', 50);
-        const slaDeadline = computeSlaDeadline(category);
+        const id            = newId('t');
+        const ts            = now();
+        const priority      = ['high','medium','low'].includes(b.priority) ? b.priority : 'medium';
+        const category      = sanitize(b.category || 'general', 50);
+        const slaDeadline   = computeSlaDeadline(category);
+        const initialStatus = worker ? 'assigned' : 'submitted';
         db.prepare(`
           INSERT INTO tickets (id,title,description,location_id,location_name_ar,location_name_en,
             assigned_to,assigned_to_name,created_by,created_by_id,status,priority,
             category,reference_no,notes,sla_deadline,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?,?)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `).run(id, sanitize(b.title, 200) || 'بلاغ نظافة',
                sanitize(b.description, 1000), loc.id, loc.name_ar, loc.name_en,
                worker?.id || null, worker?.name || '',
-               me.name, me.id, priority, category, '', '', slaDeadline, ts, ts);
+               me.name, me.id, initialStatus, priority, category, '', '', slaDeadline, ts, ts);
         const ticket = ticketRow(db.prepare(`
           SELECT t.*, NULL AS photo_files FROM tickets t WHERE t.id = ?
         `).get(id));
         broadcast('ticket_created', { ticket });
         auditLog('ticket_created', me, ip, ua, { targetType: 'ticket', targetId: id, extra: { category, autoAssigned: !b.assignedTo } });
+        logEvent(db, 'ticket.submitted', 'ticket', id, me, { category, status: initialStatus, locationId: loc.id });
         return send(res, 200, { ticket });
       }
 
@@ -900,6 +930,7 @@ const server = http.createServer(async (req, res) => {
         `).get(t.id));
         broadcast('ticket_completed', { ticket });
         auditLog('ticket_completed', me, ip, ua, { targetType: 'ticket', targetId: t.id });
+        logEvent(db, 'ticket.completed_by_worker', 'ticket', t.id, me, { completionMins });
         return send(res, 200, { ticket });
       }
 
@@ -988,6 +1019,7 @@ const server = http.createServer(async (req, res) => {
           targetType: 'report', targetId: id,
           extra: { locationId: loc.id, photoCount: report.photos.length }
         });
+        logEvent(db, 'report.created', 'report', id, me, { locationId: loc.id, photoCount: report.photos.length });
         return send(res, 200, { report });
       }
 
@@ -999,11 +1031,17 @@ const server = http.createServer(async (req, res) => {
         if (!r) return send(res, 404, { error: 'REPORT_NOT_FOUND' });
         const validSt = ['approved','rejected','needs_recleaning'];
         const status  = validSt.includes(b.status) ? b.status : 'approved';
+        const reviewTs = now();
         db.prepare(`
           UPDATE reports SET approval_status=?, approved_by=?, approved_at=?, review_note=?, updated_at=? WHERE id=?
-        `).run(status, me.name, now(), sanitize(b.note, 500), now(), b.id);
+        `).run(status, me.name, reviewTs, sanitize(b.note, 500), reviewTs, b.id);
+        db.prepare(`
+          INSERT INTO approval_history
+            (entity_type, entity_id, level, approver_id, approver_role, action, notes, created_at)
+          VALUES ('report', ?, 1, ?, ?, ?, ?, ?)
+        `).run(b.id, me.id, me.role, status, sanitize(b.note || '', 500), reviewTs);
         const report = reportRow(db.prepare(`
-          SELECT r.*, GROUP_CONCAT(p.filename) AS photo_files
+          SELECT r.*, GROUP_CONCAT(p.filename) AS photo_files, GROUP_CONCAT(p.photo_type) AS photo_types
           FROM reports r LEFT JOIN photos p ON p.report_id=r.id AND p.deleted_at IS NULL
           WHERE r.id=? GROUP BY r.id
         `).get(b.id));
@@ -1011,6 +1049,8 @@ const server = http.createServer(async (req, res) => {
         auditLog('report_reviewed', me, ip, ua, {
           targetType: 'report', targetId: b.id, extra: { status }
         });
+        const reviewEventMap = { approved: 'report.approved', rejected: 'report.rejected', needs_recleaning: 'report.reclean_required' };
+        logEvent(db, reviewEventMap[status] || 'report.reviewed', 'report', b.id, me, { status, note: b.note || '' });
         return send(res, 200, { report });
       }
 
@@ -1127,18 +1167,19 @@ const server = http.createServer(async (req, res) => {
         const title      = sanitize(b.title || '', 200) || CAT_TITLES[category] || 'طلب تنظيف';
         const worker = autoAssign(loc.id, db);
         const workerUser = worker ? db.prepare('SELECT * FROM users WHERE id = ?').get(worker.id) : null;
-        const id  = newId('t');
-        const ts  = now();
+        const id          = newId('t');
+        const ts          = now();
         const slaDeadline = computeSlaDeadline(category);
+        const orderStatus = workerUser ? 'assigned' : 'submitted';
         db.prepare(`
           INSERT INTO tickets (id,title,description,location_id,location_name_ar,location_name_en,
             assigned_to,assigned_to_name,created_by,created_by_id,status,priority,
             category,reference_no,notes,sla_deadline,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?,?)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `).run(id, title, sanitize(b.description, 1000),
                loc.id, loc.name_ar, loc.name_en,
                workerUser?.id || null, workerUser?.name || '',
-               me.name, me.id, priority, category, refNo, '', slaDeadline, ts, ts);
+               me.name, me.id, orderStatus, priority, category, refNo, '', slaDeadline, ts, ts);
         // Optional photo
         if (b.photo) {
           processPhotosTyped([b.photo], me.id, null, id, 'general');
@@ -1146,6 +1187,7 @@ const server = http.createServer(async (req, res) => {
         const ticket = ticketRow(db.prepare('SELECT t.*, NULL AS photo_files FROM tickets t WHERE t.id = ?').get(id));
         broadcast('ticket_created', { ticket });
         auditLog('order_created', me, ip, ua, { targetType: 'ticket', targetId: id, extra: { category, refNo, autoAssigned: !!workerUser } });
+        logEvent(db, 'ticket.submitted', 'ticket', id, me, { category, refNo, status: orderStatus, locationId: loc.id });
         return send(res, 200, { ticket, autoAssigned: !!workerUser });
       }
 
@@ -1174,7 +1216,7 @@ const server = http.createServer(async (req, res) => {
             return rated.length ? Math.round(rated.reduce((s,r) => s + r.rating_manager, 0) / rated.length * 10) / 10 : null;
           })();
           const openTickets = db.prepare(
-            "SELECT COUNT(*) AS c FROM tickets WHERE assigned_to=? AND status='open' AND deleted_at IS NULL"
+            "SELECT COUNT(*) AS c FROM tickets WHERE assigned_to=? AND status NOT IN ('completed','rejected','cancelled') AND deleted_at IS NULL"
           ).get(w.id).c;
           const locCount = db.prepare(
             "SELECT COUNT(*) AS c FROM assignments WHERE worker_id=?"
@@ -1371,8 +1413,8 @@ function autoSeedIfEmpty() {
     );
     db.prepare(`INSERT OR IGNORE INTO tickets
       (id,title,description,location_id,location_name_ar,location_name_en,
-       assigned_to,assigned_to_name,created_by,status,priority,notes,created_at,updated_at)
-      VALUES (?,?,?,?,?,?,?,?,'مدير النظافة','open','high','',?,?)
+       assigned_to,assigned_to_name,created_by,created_by_id,status,priority,notes,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,'مدير النظافة','u-clean-manager','assigned','high','',?,?)
     `).run('t-demo-1','تنظيف عاجل لمنطقة الضيافة','بيانات تجريبية فقط',
            'pantry-05','منطقة الضيافة - الخامس','Pantry - 5F','u-w6','عامل 6',ts,ts);
   })();

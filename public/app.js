@@ -107,6 +107,9 @@ const T = {
     addRole:'إضافة صلاحية',removeRole:'إزالة',rolesLabel:'الصلاحيات',
     complianceRate:'نسبة الالتزام',avgCompletionTime:'متوسط وقت الإنجاز',
     mins:'دقيقة',hours:'ساعة',
+    submitted:'تم الإرسال',assigned:'تم التعيين',accepted:'مقبول',
+    in_progress:'قيد التنفيذ',waiting_verification:'بانتظار التحقق',
+    reclean_required:'إعادة التنظيف مطلوبة',cancelled:'ملغي',
   },
   en:{
     app:'Facility Care Platform',sub:'Professional management for every facility, at any time',
@@ -179,6 +182,9 @@ const T = {
     addRole:'Add Role',removeRole:'Remove',rolesLabel:'Roles',
     complianceRate:'Compliance Rate',avgCompletionTime:'Avg Completion Time',
     mins:'min',hours:'hr',
+    submitted:'Submitted',assigned:'Assigned',accepted:'Accepted',
+    in_progress:'In Progress',waiting_verification:'Awaiting Verification',
+    reclean_required:'Re-clean Required',cancelled:'Cancelled',
   }
 };
 
@@ -267,7 +273,7 @@ function fmtDate(d){
 
 /* ── SLA helpers ─────────────────────────────────────────── */
 function slaInfo(ticket){
-  if(!ticket.slaDeadline || ticket.status !== 'open') return null;
+  if(!ticket.slaDeadline || ['completed','rejected','cancelled'].includes(ticket.status)) return null;
   const deadline = new Date(ticket.slaDeadline);
   const diffMs   = deadline - Date.now();
   const diffMins = Math.round(diffMs / 60_000);
@@ -827,7 +833,7 @@ function stats(){
     today,
     coverage: data.locations.length ? Math.round(covered/data.locations.length*100) : 0,
     pending: (data.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length,
-    openTickets: (data.tickets||[]).filter(t=>t.status==='open').length
+    openTickets: (data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length
   };
 }
 function qualityScore(r){
@@ -1357,7 +1363,7 @@ function ticketCards(items){
           ${t.referenceNo?`<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:2px;font-family:ui-monospace,monospace">${esc(t.referenceNo)}</div>`:''}
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-          <span class="badge ${t.status==='completed'?'ok':'bad'}">${tr(t.status==='completed'?'closed':'open')}</span>
+          <span class="badge ${t.status==='completed'?'ok':['reclean_required','rejected','cancelled'].includes(t.status)?'bad':['waiting_verification'].includes(t.status)?'warn':'brand'}">${tr(t.status)||t.status}</span>
           ${canEdit?`<button class="btn secondary sm" style="padding:3px 8px" onclick="editTicketModal('${t.id}')">${ic('edit',13)}</button>`:''}
           ${canDel?`<button class="btn danger sm" style="padding:3px 8px" onclick="deleteTicketConfirm('${t.id}')">${ic('trash',13)}</button>`:''}
         </div>
@@ -1377,7 +1383,7 @@ function ticketCards(items){
           <div class="timelineDot active"></div>
           <div class="timelineItem-body"><div class="timelineItem-label">${tr('open')}</div><div class="timelineItem-time">${fmt(t.createdAt)}</div></div>
         </div>
-        ${t.slaDeadline&&t.status==='open'?`<div class="timelineItem"><div class="timelineDot ${t.slaBreached?'breach':''}"></div><div class="timelineItem-body"><div class="timelineItem-label">${tr('slaDeadline')}</div><div class="timelineItem-time">${fmt(t.slaDeadline)}</div></div></div>`:''}
+        ${t.slaDeadline&&!['completed','rejected','cancelled'].includes(t.status)?`<div class="timelineItem"><div class="timelineDot ${t.slaBreached?'breach':''}"></div><div class="timelineItem-body"><div class="timelineItem-label">${tr('slaDeadline')}</div><div class="timelineItem-time">${fmt(t.slaDeadline)}</div></div></div>`:''}
         ${t.completedAt?`<div class="timelineItem"><div class="timelineDot"></div><div class="timelineItem-body"><div class="timelineItem-label">${tr('closed')}</div><div class="timelineItem-time">${fmt(t.completedAt)}</div></div></div>`:''}
       </div>
     </div>`;
@@ -2587,7 +2593,7 @@ function employeeHistory(orders){
             <div style="font-weight:800;font-size:var(--fs-sm);color:var(--ink)">${esc(t.title)}</div>
             ${t.referenceNo?`<div style="font-family:ui-monospace,monospace;font-size:var(--fs-xs);color:var(--brand-mid);margin-top:2px">${esc(t.referenceNo)}</div>`:''}
           </div>
-          <span class="badge ${stCls}">${tr(t.status==='completed'?'closed':'open')}</span>
+          <span class="badge ${stCls}">${tr(t.status)||t.status}</span>
         </div>
         <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           ${ic('locations',11)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}

@@ -231,6 +231,113 @@ const MIGRATIONS = {
     INSERT OR IGNORE INTO settings VALUES ('sla_restroom',     '30');
     INSERT OR IGNORE INTO settings VALUES ('sla_meeting_room', '60');
     INSERT OR IGNORE INTO settings VALUES ('sla_general',      '240');
+  `,
+
+  /* ── v4: Status model expansion + ref-seq key migration ──── */
+  4: `
+    ALTER TABLE tickets ADD COLUMN accepted_at               TEXT;
+    ALTER TABLE tickets ADD COLUMN started_at                TEXT;
+    ALTER TABLE tickets ADD COLUMN verification_requested_at TEXT;
+    ALTER TABLE tickets ADD COLUMN cancelled_at              TEXT;
+
+    UPDATE tickets SET status = 'submitted' WHERE status = 'open';
+
+    INSERT OR IGNORE INTO settings (key, value)
+      SELECT replace(key, 'ref_seq_', 'cln_ref_seq_'), value
+      FROM settings WHERE key LIKE 'ref_seq_%';
+  `,
+
+  /* ── v5: Approval history table ──────────────────────────── */
+  5: `
+    CREATE TABLE IF NOT EXISTS approval_history (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      entity_type   TEXT    NOT NULL DEFAULT '',
+      entity_id     TEXT    NOT NULL DEFAULT '',
+      level         INTEGER NOT NULL DEFAULT 1,
+      approver_id   TEXT    NOT NULL DEFAULT '',
+      approver_role TEXT    NOT NULL DEFAULT '',
+      action        TEXT    NOT NULL DEFAULT '',
+      notes         TEXT    NOT NULL DEFAULT '',
+      created_at    TEXT    NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_approval_entity   ON approval_history(entity_type, entity_id);
+    CREATE INDEX IF NOT EXISTS idx_approval_approver ON approval_history(approver_id);
+    CREATE INDEX IF NOT EXISTS idx_approval_ts       ON approval_history(created_at);
+  `,
+
+  /* ── v6: Event log table ─────────────────────────────────── */
+  6: `
+    CREATE TABLE IF NOT EXISTS event_log (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_type  TEXT NOT NULL,
+      module      TEXT NOT NULL DEFAULT 'cleaning',
+      entity_type TEXT NOT NULL DEFAULT '',
+      entity_id   TEXT NOT NULL DEFAULT '',
+      actor_id    TEXT NOT NULL DEFAULT '',
+      actor_role  TEXT NOT NULL DEFAULT '',
+      payload     TEXT NOT NULL DEFAULT '{}',
+      created_at  TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_events_type   ON event_log(event_type);
+    CREATE INDEX IF NOT EXISTS idx_events_entity ON event_log(entity_type, entity_id);
+    CREATE INDEX IF NOT EXISTS idx_events_module ON event_log(module);
+    CREATE INDEX IF NOT EXISTS idx_events_ts     ON event_log(created_at);
+  `,
+
+  /* ── v7: Attachment engine — platform entity pattern ──────── */
+  7: `
+    ALTER TABLE photos ADD COLUMN entity_type TEXT NOT NULL DEFAULT '';
+    ALTER TABLE photos ADD COLUMN entity_id   TEXT NOT NULL DEFAULT '';
+
+    UPDATE photos SET entity_type = 'report', entity_id = report_id
+      WHERE report_id IS NOT NULL AND report_id != '';
+
+    UPDATE photos SET entity_type = 'ticket', entity_id = ticket_id
+      WHERE ticket_id IS NOT NULL AND ticket_id != '' AND entity_type = '';
+
+    CREATE INDEX IF NOT EXISTS idx_photos_entity ON photos(entity_type, entity_id);
+  `,
+
+  /* ── v8: Location hierarchy (facility + building tables) ──── */
+  8: `
+    CREATE TABLE IF NOT EXISTS facilities (
+      id         TEXT PRIMARY KEY,
+      name_ar    TEXT NOT NULL DEFAULT '',
+      name_en    TEXT NOT NULL DEFAULT '',
+      active     INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS buildings (
+      id          TEXT PRIMARY KEY,
+      facility_id TEXT REFERENCES facilities(id),
+      name_ar     TEXT NOT NULL DEFAULT '',
+      name_en     TEXT NOT NULL DEFAULT '',
+      active      INTEGER NOT NULL DEFAULT 1,
+      created_at  TEXT NOT NULL,
+      updated_at  TEXT NOT NULL,
+      deleted_at  TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_buildings_facility ON buildings(facility_id);
+
+    ALTER TABLE locations ADD COLUMN facility_id TEXT;
+    ALTER TABLE locations ADD COLUMN building_id TEXT;
+    ALTER TABLE locations ADD COLUMN room        TEXT NOT NULL DEFAULT '';
+    ALTER TABLE locations ADD COLUMN space       TEXT NOT NULL DEFAULT '';
+
+    ALTER TABLE zones ADD COLUMN facility_id TEXT;
+    ALTER TABLE zones ADD COLUMN building_id TEXT;
+  `,
+
+  /* ── v9: module column on assignments and audit_logs ─────── */
+  9: `
+    ALTER TABLE assignments ADD COLUMN module TEXT NOT NULL DEFAULT 'cleaning';
+    ALTER TABLE audit_logs  ADD COLUMN module TEXT NOT NULL DEFAULT 'cleaning';
+
+    CREATE INDEX IF NOT EXISTS idx_assignments_module ON assignments(module);
+    CREATE INDEX IF NOT EXISTS idx_audit_module        ON audit_logs(module);
   `
 };
 
