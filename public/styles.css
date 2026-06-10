@@ -172,6 +172,7 @@ select{
   line-height:var(--ctrl-h);
   -webkit-appearance:none;appearance:none;
   box-sizing:border-box;
+  box-shadow:var(--shadow-xs);
   transition:border-color var(--transition-fast),box-shadow var(--transition-fast);
 }
 
@@ -201,6 +202,7 @@ textarea{
   padding:14px 16px;
   font-family:var(--font-body);font-size:var(--ctrl-font);font-weight:400;
   line-height:1.7;resize:vertical;box-sizing:border-box;
+  box-shadow:var(--shadow-xs);
   transition:border-color var(--transition-fast),box-shadow var(--transition-fast);
   -webkit-appearance:none;appearance:none;
 }
@@ -681,7 +683,7 @@ tbody tr:hover td{background:var(--surface-2)}
   height:var(--topbar-base);padding:0 20px;display:flex;align-items:center;justify-content:space-between;gap:14px;
 }
 .topbar-start{display:flex;align-items:center;gap:10px;flex-shrink:0}
-.topbar-end{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.topbar-end{display:flex;align-items:center;gap:12px;flex-shrink:0}
 .tb-back{transform:scaleX(-1);flex-shrink:0}
 [dir="ltr"] .tb-back{transform:scaleX(1)}
 .worker-back-btn{flex-shrink:0;margin-inline-end:4px}
@@ -1106,33 +1108,24 @@ tbody tr:hover td{background:var(--surface-2)}
   display:flex;flex-direction:column;
 }
 
-.workerTopbar{
-  position:sticky;top:0;z-index:50;
-  background:rgba(255,255,255,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+/* ─── Unified topbar — shared by Admin, Worker, Employee, Supervisor ── */
+.topbar,.workerTopbar{
+  position:sticky;top:0;z-index:100;height:var(--topbar-h);
+  padding-top:env(safe-area-inset-top,0px);
+  background:rgba(255,255,255,.92);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
   border-bottom:1px solid var(--line);
-  padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 10px; /* top pad includes iOS notch height */
-  display:flex;justify-content:space-between;align-items:center;gap:10px;
 }
-.workerTopbar-brand{display:flex;align-items:center;gap:9px;min-width:0;flex:1}
-.workerTopbar-icon{
-  width:36px;height:36px;border-radius:10px;overflow:hidden;flex-shrink:0;
-  background:linear-gradient(135deg,var(--brand-dark),var(--brand-mid));
-  display:grid;place-items:center;
-}
-.workerTopbar-icon img{width:100%;height:100%;object-fit:contain;padding:5px;filter:brightness(0) invert(1)}
-.workerTopbar-name{
-  font-family:var(--font-head);font-size:var(--fs-md);font-weight:800;color:var(--ink);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-}
-.workerTopbar-role{font-size:10px;color:var(--muted);display:block}
-.workerTopbar-actions{display:flex;gap:6px;flex-shrink:0}
 
-/* Worker / Employee / Supervisor content */
-.workerContent{flex:1;max-width:680px;width:100%;margin:0 auto;padding:14px 14px 100px}
-.workerContent--wide{max-width:1000px}
-@media(min-width:768px){
-  .workerContent{max-width:720px}
-}
+/* Worker / Employee / Supervisor content — full-width, progressive padding */
+.workerContent{flex:1;width:100%;padding:16px 16px 100px}
+@media(min-width:768px){.workerContent{padding:20px 32px 100px}}
+@media(min-width:1200px){.workerContent{padding:24px 48px 100px}}
+
+/* Supervisor multi-column sections grid */
+.supSectionsGrid{display:grid;grid-template-columns:1fr;gap:16px}
+@media(min-width:900px){.supSectionsGrid{grid-template-columns:1fr 1fr}}
+@media(min-width:1280px){.supSectionsGrid{grid-template-columns:repeat(3,1fr)}}
+.supSectionsGrid>.wCard--full{grid-column:1/-1}
 
 /* ─── Supervisor workspace ────────────────────────────────── */
 .supStats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}

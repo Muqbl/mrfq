@@ -1988,6 +1988,34 @@ function parseLoc(raw){
 }
 
 
+/* ── Shared field-workspace topbar (Worker / Employee / Supervisor) ── */
+function fieldTopbar(me, opts={}){
+  const qSize = getQ().length;
+  return`
+<header class="workerTopbar">
+  <div class="topbar-inner">
+    <div class="topbar-start">
+      ${opts.back?`<button class="icon-btn tb-back worker-back-btn" onclick="workerGoBack()" title="${lang==='ar'?'رجوع':'Back'}">${ic('arrow',20)}</button>`:''}
+      <div class="tb-brand">
+        <div class="tb-brand-icon">
+          <img src="/assets/logos/logo-icon-dark.svg" onerror="this.style.display='none'" alt="REGA">
+        </div>
+        <div>
+          <div class="tb-brand-name">${esc(me.name)}</div>
+          <span class="tb-brand-sub">${roleLabel(me.role)}</span>
+        </div>
+      </div>
+    </div>
+    <div class="topbar-end">
+      ${qSize>0?`<button class="tb-sync pending" onclick="flushOfflineQueue()" title="${tr('sync')}"><span class="tb-sync-dot pending"></span><span class="tb-sync-lbl">${qSize} ${lang==='ar'?'معلق':'pending'}</span></button>`:''}
+      ${me.roles&&me.roles.length>1?`<button class="tb-workspace" onclick="renderWorkspaceSwitcher()">${ic('layers',14)}<span class="tb-workspace-label">${roleLabel(me.role)}</span>${ic('chevron',14)}</button>`:''}
+      <button class="tb-lang" onclick="switchLang()">${tr('lang')}</button>
+      <button class="tb-logout icon-btn" onclick="logout()" title="${tr('logout')}">${ic('logout',18)}</button>
+    </div>
+  </div>
+</header>`;
+}
+
 function renderWorker(){
   setDoc();
   const assigned = ((data.assignments||[]).find(a=>a.workerId===me.id)?.locationIds)||[];
@@ -2001,35 +2029,8 @@ function renderWorker(){
 
   app.innerHTML=`
 <div class="workerPage">
-  <!-- PROTOTYPE BANNER -->
-  <div class="prototype-banner" role="alert">
-    ${lang==='ar'
-      ? '⚠ نسخة تجريبية — بيانات غير حقيقية'
-      : '⚠ Prototype — Demo Data Only'}
-  </div>
-  <!-- WORKER TOP BAR -->
-  <header class="workerTopbar">
-    <div class="workerTopbar-brand">
-      <button class="icon-btn worker-back-btn" onclick="workerGoBack()" title="${lang==='ar'?'رجوع':'Back'}">
-        <svg viewBox="0 0 24 24" style="transform:${lang==='ar'?'none':'scaleX(-1)'}"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <div class="workerTopbar-icon">
-        <img src="/assets/logos/logo-icon-dark.svg" onerror="this.style.display='none'" alt="REGA">
-      </div>
-      <div>
-        <div class="workerTopbar-name">${esc(me.name)}</div>
-        <span class="workerTopbar-role">${tr('cleaner')}</span>
-      </div>
-    </div>
-    <div class="workerTopbar-actions">
-      ${qSize>0?`<button class="offlineTag" onclick="flushOfflineQueue()">${ic('sync',14)} ${qSize} ${lang==='ar'?'معلق':'pending'}</button>`:''}
-      ${me.roles&&me.roles.length>1?`<button class="tb-workspace" onclick="renderWorkspaceSwitcher()">${ic('layers',13)}<span class="tb-workspace-label">${roleLabel(me.role)}</span>${ic('chevron',13)}</button>`:''}
-      <button class="icon-btn" onclick="switchLang()" title="${tr('lang')}">${tr('lang')}</button>
-      <button class="icon-btn" onclick="logout()" title="${tr('logout')}">${ic('logout',20)}</button>
-    </div>
-  </header>
-
-  <!-- CONTENT -->
+  <div class="prototype-banner" role="alert">${lang==='ar'?'⚠ نسخة تجريبية — بيانات غير حقيقية':'⚠ Prototype — Demo Data Only'}</div>
+  ${fieldTopbar(me,{back:true})}
   <div class="workerContent">
     <!-- My tickets -->
     ${myTickets.length?`
@@ -2506,23 +2507,8 @@ function renderEmployee(){
   const myOrders = (data.tickets||[]).filter(t=>t.createdById===me.id);
   app.innerHTML=`
 <div class="workerPage">
-  <div class="prototype-banner" role="alert">
-    ${lang==='ar'?'⚠ نسخة تجريبية — بيانات غير حقيقية':'⚠ Prototype — Demo Data Only'}
-  </div>
-  <header class="workerTopbar">
-    <div class="workerTopbar-brand">
-      <div class="workerTopbar-icon"><img src="/assets/logos/logo-icon-dark.svg" onerror="this.style.display='none'" alt="REGA"></div>
-      <div>
-        <div class="workerTopbar-name">${esc(me.name)}</div>
-        <span class="workerTopbar-role">${tr('employee')}</span>
-      </div>
-    </div>
-    <div class="workerTopbar-actions">
-      ${me.roles&&me.roles.length>1?`<button class="tb-workspace" onclick="renderWorkspaceSwitcher()">${ic('layers',13)}<span class="tb-workspace-label">${roleLabel(me.role)}</span>${ic('chevron',13)}</button>`:''}
-      <button class="icon-btn" onclick="switchLang()" title="${tr('lang')}">${tr('lang')}</button>
-      <button class="icon-btn" onclick="logout()" title="${tr('logout')}">${ic('logout',20)}</button>
-    </div>
-  </header>
+  <div class="prototype-banner" role="alert">${lang==='ar'?'⚠ نسخة تجريبية — بيانات غير حقيقية':'⚠ Prototype — Demo Data Only'}</div>
+  ${fieldTopbar(me)}
   <div class="workerContent">
     <!-- Tab bar -->
     <div class="empTabs">
@@ -2841,28 +2827,10 @@ function renderSupervisor(){
 
   app.innerHTML=`
 <div class="workerPage">
-  <div class="prototype-banner" role="alert">
-    ${lang==='ar'?'⚠ نسخة تجريبية — بيانات غير حقيقية':'⚠ Prototype — Demo Data Only'}
-  </div>
-  <header class="workerTopbar">
-    <div class="workerTopbar-brand">
-      <div class="workerTopbar-icon">
-        <img src="/assets/logos/logo-icon-dark.svg" onerror="this.style.display='none'" alt="REGA">
-      </div>
-      <div>
-        <div class="workerTopbar-name">${esc(me.name)}</div>
-        <span class="workerTopbar-role">${tr('cleaning_supervisor')}</span>
-      </div>
-    </div>
-    <div class="workerTopbar-actions">
-      ${qSize>0?`<span class="badge warn">${qSize} ${lang==='ar'?'معلق':'pending'}</span>`:''}
-      ${me.roles&&me.roles.length>1?`<button class="tb-workspace" onclick="renderWorkspaceSwitcher()">${ic('layers',13)}<span class="tb-workspace-label">${roleLabel(me.role)}</span>${ic('chevron',13)}</button>`:''}
-      <button class="icon-btn" onclick="switchLang()" title="${tr('lang')}">${tr('lang')}</button>
-      <button class="icon-btn" onclick="logout()" title="${tr('logout')}">${ic('logout',20)}</button>
-    </div>
-  </header>
+  <div class="prototype-banner" role="alert">${lang==='ar'?'⚠ نسخة تجريبية — بيانات غير حقيقية':'⚠ Prototype — Demo Data Only'}</div>
+  ${fieldTopbar(me)}
 
-  <div class="workerContent workerContent--wide">
+  <div class="workerContent">
 
     <!-- Quick Stats -->
     <div class="supStats">
@@ -2873,55 +2841,56 @@ function renderSupervisor(){
     </div>
 
     ${breached.length?`
-    <div class="wCard" style="border-color:rgba(200,50,50,.4)">
+    <div class="wCard wCard--full" style="border-color:rgba(200,50,50,.4);margin-bottom:16px">
       <div class="wCard-title" style="color:var(--bad)">${ic('bell',16)} ${lang==='ar'?'تنبيهات SLA':'SLA Alerts'} <span class="badge bad">${breached.length}</span></div>
-      <div class="wCard-list">
-        ${breached.map(t=>supTicketCard(t,'sla')).join('')}
+      <div class="wCard-list">${breached.map(t=>supTicketCard(t,'sla')).join('')}</div>
+    </div>`:''}
+
+    <div class="supSectionsGrid">
+
+      <!-- Open Requests -->
+      <div class="wCard">
+        <div class="wCard-title">${ic('tickets',16)} ${lang==='ar'?'الطلبات المفتوحة':'Open Requests'} <span class="badge bad">${submitted.length}</span></div>
+        ${submitted.length?`<div class="wCard-list">${submitted.map(t=>supTicketCard(t,'assign',workers)).join('')}</div>`:`
+        <div class="empty-state">
+          <div class="empty-icon">${ic('check',24)}</div>
+          <div class="empty-title">${lang==='ar'?'لا توجد طلبات مفتوحة':'No open requests'}</div>
+        </div>`}
       </div>
-    </div>`:''}
 
-    <!-- Open Requests -->
-    <div class="wCard">
-      <div class="wCard-title">${ic('tickets',16)} ${lang==='ar'?'الطلبات المفتوحة':'Open Requests'} <span class="badge bad">${submitted.length}</span></div>
-      ${submitted.length?`<div class="wCard-list">${submitted.map(t=>supTicketCard(t,'assign',workers)).join('')}</div>`:`
-      <div class="empty-state">
-        <div class="empty-icon">${ic('check',24)}</div>
-        <div class="empty-title">${lang==='ar'?'لا توجد طلبات مفتوحة':'No open requests'}</div>
-      </div>`}
+      ${waitingVerif.length?`
+      <!-- Pending Verification -->
+      <div class="wCard">
+        <div class="wCard-title">${ic('check',16)} ${lang==='ar'?'بانتظار التحقق':'Pending Verification'} <span class="badge warn">${waitingVerif.length}</span></div>
+        <div class="wCard-list">${waitingVerif.map(t=>supTicketCard(t,'verify',workers)).join('')}</div>
+      </div>`:''}
+
+      ${pendingRpts.length?`
+      <!-- Pending Reports -->
+      <div class="wCard">
+        <div class="wCard-title">${ic('reports',16)} ${lang==='ar'?'التقارير للمراجعة':'Reports for Review'} <span class="badge warn">${pendingRpts.length}</span></div>
+        <div class="wCard-list">${pendingRpts.slice(0,12).map(r=>supReportCard(r)).join('')}</div>
+      </div>`:''}
+
+      <!-- My Team -->
+      <div class="wCard">
+        <div class="wCard-title">${ic('users',16)} ${lang==='ar'?'الفريق':'Team'} <span class="badge brand">${workers.length}</span></div>
+        ${workers.length?`<div class="supTeamGrid">
+          ${workers.map(w=>{
+            const wActive=allTickets.filter(t=>t.assignedTo===w.id&&!['completed','rejected','cancelled'].includes(t.status));
+            return`<div class="supTeamCard">
+              <div class="supTeamCard-avatar">${esc(initials(w.name))}</div>
+              <div class="supTeamCard-info">
+                <div class="supTeamCard-name">${esc(w.name)}</div>
+                <div class="supTeamCard-meta">${wActive.length} ${lang==='ar'?'مهام نشطة':'active tasks'}</div>
+              </div>
+              ${wActive.length?`<span class="badge warn">${wActive.length}</span>`:`<span class="badge ok">${lang==='ar'?'متاح':'Free'}</span>`}
+            </div>`;
+          }).join('')}
+        </div>`:`<div class="empty-state"><div class="empty-icon">${ic('users',24)}</div><div class="empty-title">${lang==='ar'?'لا يوجد عمال':'No workers'}</div></div>`}
+      </div>
+
     </div>
-
-    ${waitingVerif.length?`
-    <!-- Pending Verification -->
-    <div class="wCard">
-      <div class="wCard-title">${ic('check',16)} ${lang==='ar'?'بانتظار التحقق':'Pending Verification'} <span class="badge warn">${waitingVerif.length}</span></div>
-      <div class="wCard-list">${waitingVerif.map(t=>supTicketCard(t,'verify',workers)).join('')}</div>
-    </div>`:''}
-
-    ${pendingRpts.length?`
-    <!-- Pending Reports -->
-    <div class="wCard">
-      <div class="wCard-title">${ic('reports',16)} ${lang==='ar'?'التقارير للمراجعة':'Reports for Review'} <span class="badge warn">${pendingRpts.length}</span></div>
-      <div class="wCard-list">${pendingRpts.slice(0,12).map(r=>supReportCard(r)).join('')}</div>
-    </div>`:''}
-
-    <!-- My Team -->
-    <div class="wCard">
-      <div class="wCard-title">${ic('users',16)} ${lang==='ar'?'الفريق':'Team'} <span class="badge brand">${workers.length}</span></div>
-      ${workers.length?`<div class="supTeamGrid">
-        ${workers.map(w=>{
-          const wActive=allTickets.filter(t=>t.assignedTo===w.id&&!['completed','rejected','cancelled'].includes(t.status));
-          return`<div class="supTeamCard">
-            <div class="supTeamCard-avatar">${esc(initials(w.name))}</div>
-            <div class="supTeamCard-info">
-              <div class="supTeamCard-name">${esc(w.name)}</div>
-              <div class="supTeamCard-meta">${wActive.length} ${lang==='ar'?'مهام نشطة':'active tasks'}</div>
-            </div>
-            ${wActive.length?`<span class="badge warn">${wActive.length}</span>`:`<span class="badge ok">${lang==='ar'?'متاح':'Free'}</span>`}
-          </div>`;
-        }).join('')}
-      </div>`:`<div class="empty-state"><div class="empty-icon">${ic('users',24)}</div><div class="empty-title">${lang==='ar'?'لا يوجد عمال':'No workers'}</div></div>`}
-    </div>
-
   </div>
 </div>`;
 }
