@@ -567,6 +567,7 @@ function render(){
   if(needsWorkspaceSelection()) return renderWorkspaceSelector();
   if(me.role==='cleaner') return renderWorker();
   if(me.role==='employee') return renderEmployee();
+  if(me.role==='cleaning_supervisor') return renderSupervisor();
   setDoc();
   if(_lastView==='users' && view!=='users'){ usersSearch=''; usersRoleFilter='all'; usersStatusFilter='all'; }
   if(_lastView==='locations' && view!=='locations'){ locsFloorFilter='all'; }
@@ -1797,7 +1798,7 @@ ${filtered.length===0
           <td>
             <div class="usersTable-roles">
               <span class="badge ${rCls}">${tr(u.role)}</span>
-              ${extraRoles.map(r=>`<span class="badge" style="font-size:10px">${tr(r)}</span>`).join('')}
+              ${extraRoles.map(r=>`<span class="badge ${roleBadgeClass(r)}">${tr(r)}</span>`).join('')}
             </div>
           </td>
           ${canEdit?`<td>
@@ -2023,9 +2024,7 @@ function renderWorker(){
     <div class="workerTopbar-actions">
       ${qSize>0?`<button class="offlineTag" onclick="flushOfflineQueue()">${ic('sync',14)} ${qSize} ${lang==='ar'?'معلق':'pending'}</button>`:''}
       ${me.roles&&me.roles.length>1?`<button class="tb-workspace" onclick="renderWorkspaceSwitcher()">${ic('layers',13)}<span class="tb-workspace-label">${roleLabel(me.role)}</span>${ic('chevron',13)}</button>`:''}
-      <button class="icon-btn tb-profile-btn" onclick="showProfileCenter()" title="${tr('myProfile')}">${esc(initials(me.name))}</button>
       <button class="icon-btn" onclick="switchLang()" title="${tr('lang')}">${tr('lang')}</button>
-      <button class="icon-btn" onclick="flushOfflineQueue()" title="${tr('sync')}">${ic('sync',20)}</button>
       <button class="icon-btn" onclick="logout()" title="${tr('logout')}">${ic('logout',20)}</button>
     </div>
   </header>
@@ -2520,7 +2519,6 @@ function renderEmployee(){
     </div>
     <div class="workerTopbar-actions">
       ${me.roles&&me.roles.length>1?`<button class="tb-workspace" onclick="renderWorkspaceSwitcher()">${ic('layers',13)}<span class="tb-workspace-label">${roleLabel(me.role)}</span>${ic('chevron',13)}</button>`:''}
-      <button class="icon-btn tb-profile-btn" onclick="showProfileCenter()" title="${tr('myProfile')}">${esc(initials(me.name))}</button>
       <button class="icon-btn" onclick="switchLang()" title="${tr('lang')}">${tr('lang')}</button>
       <button class="icon-btn" onclick="logout()" title="${tr('logout')}">${ic('logout',20)}</button>
     </div>
@@ -2825,6 +2823,197 @@ ${scored.map((w,i)=>`<tr>
   const w=window.open('','_blank','width=900,height=700');
   w.document.write(html); w.document.close();
   w.addEventListener('load',()=>w.print());
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SUPERVISOR WORKSPACE
+   ═══════════════════════════════════════════════════════════════ */
+function renderSupervisor(){
+  setDoc();
+  const allTickets = data.tickets||[];
+  const submitted   = allTickets.filter(t=>t.status==='submitted');
+  const waitingVerif = allTickets.filter(t=>t.status==='waiting_verification');
+  const inProgress  = allTickets.filter(t=>['assigned','accepted','in_progress'].includes(t.status));
+  const breached    = allTickets.filter(t=>t.slaBreached&&!['completed','rejected','cancelled'].includes(t.status));
+  const pendingRpts = (data.reports||[]).filter(r=>r.approvalStatus==='pending');
+  const workers     = (data.users||[]).filter(u=>(u.roles||[u.role]).includes('cleaner'));
+  const qSize = getQ().length;
+
+  app.innerHTML=`
+<div class="workerPage">
+  <div class="prototype-banner" role="alert">
+    ${lang==='ar'?'⚠ نسخة تجريبية — بيانات غير حقيقية':'⚠ Prototype — Demo Data Only'}
+  </div>
+  <header class="workerTopbar">
+    <div class="workerTopbar-brand">
+      <div class="workerTopbar-icon">
+        <img src="/assets/logos/logo-icon-dark.svg" onerror="this.style.display='none'" alt="REGA">
+      </div>
+      <div>
+        <div class="workerTopbar-name">${esc(me.name)}</div>
+        <span class="workerTopbar-role">${tr('cleaning_supervisor')}</span>
+      </div>
+    </div>
+    <div class="workerTopbar-actions">
+      ${qSize>0?`<span class="badge warn">${qSize} ${lang==='ar'?'معلق':'pending'}</span>`:''}
+      ${me.roles&&me.roles.length>1?`<button class="tb-workspace" onclick="renderWorkspaceSwitcher()">${ic('layers',13)}<span class="tb-workspace-label">${roleLabel(me.role)}</span>${ic('chevron',13)}</button>`:''}
+      <button class="icon-btn" onclick="switchLang()" title="${tr('lang')}">${tr('lang')}</button>
+      <button class="icon-btn" onclick="logout()" title="${tr('logout')}">${ic('logout',20)}</button>
+    </div>
+  </header>
+
+  <div class="workerContent workerContent--wide">
+
+    <!-- Quick Stats -->
+    <div class="supStats">
+      ${supStat(submitted.length,    lang==='ar'?'طلبات مفتوحة':'Open Requests',    'tickets', 'bad')}
+      ${supStat(waitingVerif.length, lang==='ar'?'بانتظار التحقق':'Pending Verify',  'check',   'warn')}
+      ${supStat(inProgress.length,   lang==='ar'?'جارٍ التنفيذ':'In Progress',       'sync',    'brand')}
+      ${supStat(pendingRpts.length,  lang==='ar'?'تقارير للمراجعة':'Reports to Review','reports', 'ok')}
+    </div>
+
+    ${breached.length?`
+    <div class="wCard" style="border-color:rgba(200,50,50,.4)">
+      <div class="wCard-title" style="color:var(--bad)">${ic('bell',16)} ${lang==='ar'?'تنبيهات SLA':'SLA Alerts'} <span class="badge bad">${breached.length}</span></div>
+      <div class="wCard-list">
+        ${breached.map(t=>supTicketCard(t,'sla')).join('')}
+      </div>
+    </div>`:''}
+
+    <!-- Open Requests -->
+    <div class="wCard">
+      <div class="wCard-title">${ic('tickets',16)} ${lang==='ar'?'الطلبات المفتوحة':'Open Requests'} <span class="badge bad">${submitted.length}</span></div>
+      ${submitted.length?`<div class="wCard-list">${submitted.map(t=>supTicketCard(t,'assign',workers)).join('')}</div>`:`
+      <div class="empty-state">
+        <div class="empty-icon">${ic('check',24)}</div>
+        <div class="empty-title">${lang==='ar'?'لا توجد طلبات مفتوحة':'No open requests'}</div>
+      </div>`}
+    </div>
+
+    ${waitingVerif.length?`
+    <!-- Pending Verification -->
+    <div class="wCard">
+      <div class="wCard-title">${ic('check',16)} ${lang==='ar'?'بانتظار التحقق':'Pending Verification'} <span class="badge warn">${waitingVerif.length}</span></div>
+      <div class="wCard-list">${waitingVerif.map(t=>supTicketCard(t,'verify',workers)).join('')}</div>
+    </div>`:''}
+
+    ${pendingRpts.length?`
+    <!-- Pending Reports -->
+    <div class="wCard">
+      <div class="wCard-title">${ic('reports',16)} ${lang==='ar'?'التقارير للمراجعة':'Reports for Review'} <span class="badge warn">${pendingRpts.length}</span></div>
+      <div class="wCard-list">${pendingRpts.slice(0,12).map(r=>supReportCard(r)).join('')}</div>
+    </div>`:''}
+
+    <!-- My Team -->
+    <div class="wCard">
+      <div class="wCard-title">${ic('users',16)} ${lang==='ar'?'الفريق':'Team'} <span class="badge brand">${workers.length}</span></div>
+      ${workers.length?`<div class="supTeamGrid">
+        ${workers.map(w=>{
+          const wActive=allTickets.filter(t=>t.assignedTo===w.id&&!['completed','rejected','cancelled'].includes(t.status));
+          return`<div class="supTeamCard">
+            <div class="supTeamCard-avatar">${esc(initials(w.name))}</div>
+            <div class="supTeamCard-info">
+              <div class="supTeamCard-name">${esc(w.name)}</div>
+              <div class="supTeamCard-meta">${wActive.length} ${lang==='ar'?'مهام نشطة':'active tasks'}</div>
+            </div>
+            ${wActive.length?`<span class="badge warn">${wActive.length}</span>`:`<span class="badge ok">${lang==='ar'?'متاح':'Free'}</span>`}
+          </div>`;
+        }).join('')}
+      </div>`:`<div class="empty-state"><div class="empty-icon">${ic('users',24)}</div><div class="empty-title">${lang==='ar'?'لا يوجد عمال':'No workers'}</div></div>`}
+    </div>
+
+  </div>
+</div>`;
+}
+
+function supStat(count, label, icon, color){
+  return`<div class="supStatCard supStatCard--${color}">
+    <div class="supStatCard-icon">${ic(icon,20)}</div>
+    <div class="supStatCard-count">${count}</div>
+    <div class="supStatCard-label">${label}</div>
+  </div>`;
+}
+
+function supTicketCard(t, mode, workers){
+  const prioClr=t.priority==='high'?'bad':t.priority==='low'?'info':'warn';
+  return`<div class="supTicketCard">
+    <div class="supTicketCard-head">
+      <div>
+        <div class="supTicketCard-title">${esc(t.title)}</div>
+        <div class="supTicketCard-meta">
+          ${ic('locations',11)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}
+          ${t.referenceNo?`<span class="badge">${esc(t.referenceNo)}</span>`:''}
+          · ${fmt(t.createdAt)}
+          ${t.assignedToName?`· ${ic('users',11)} ${esc(t.assignedToName)}`:''}
+        </div>
+      </div>
+      <span class="badge ${prioClr}">${tr(t.priority)}</span>
+    </div>
+    ${mode==='assign'&&workers?`
+    <div class="supTicketCard-actions">
+      <select class="supAssignSelect" id="sas-${t.id}">
+        <option value="">${lang==='ar'?'اختر عامل...':'Assign to...'}</option>
+        ${(workers).map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('')}
+      </select>
+      <button class="btn sm ok" onclick="supAssign('${t.id}',document.getElementById('sas-${t.id}').value)">${lang==='ar'?'تعيين':'Assign'}</button>
+    </div>`:mode==='verify'?`
+    <div class="supTicketCard-actions">
+      <button class="btn sm ok" onclick="supVerify('${t.id}','completed')">${ic('check',14)} ${lang==='ar'?'تحقق':'Verify'}</button>
+      <button class="btn sm warn" onclick="supVerify('${t.id}','reclean_required')">${ic('flip',14)} ${lang==='ar'?'إعادة تنظيف':'Reclean'}</button>
+    </div>`:mode==='sla'?`
+    <div class="supTicketCard-actions">
+      <span class="badge bad">${lang==='ar'?'تجاوز SLA':'SLA Breached'}</span>
+    </div>`:''}
+  </div>`;
+}
+
+function supReportCard(r){
+  return`<div class="supTicketCard">
+    <div class="supTicketCard-head">
+      <div>
+        <div class="supTicketCard-title">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</div>
+        <div class="supTicketCard-meta">${ic('users',11)} ${esc(r.workerName)} · ${fmt(r.createdAt)}</div>
+      </div>
+      <span class="badge ${r.status==='completed'?'ok':'brand'}">${tr(r.status)||r.status}</span>
+    </div>
+    <div class="supTicketCard-actions">
+      <button class="btn sm ok" onclick="supReview('${r.id}','approved','')">${ic('check',14)} ${lang==='ar'?'اعتماد':'Approve'}</button>
+      <button class="btn sm warn" onclick="supReviewPrompt('${r.id}','needs_recleaning')">${lang==='ar'?'إعادة تنظيف':'Reclean'}</button>
+      <button class="btn sm danger" onclick="supReviewPrompt('${r.id}','rejected')">${lang==='ar'?'رفض':'Reject'}</button>
+    </div>
+  </div>`;
+}
+
+async function supAssign(ticketId, workerId){
+  if(!workerId) return toast(lang==='ar'?'اختر عامل':'Select a worker','warn');
+  try{
+    await api(`/api/tickets/${ticketId}`,{method:'PUT',body:JSON.stringify({assignedTo:workerId,status:'assigned'})});
+    await load(); renderSupervisor();
+    toast(lang==='ar'?'تم التعيين':'Assigned','ok');
+  }catch(e){ toast(e.message,'bad'); }
+}
+
+async function supVerify(ticketId, status){
+  try{
+    await api(`/api/tickets/${ticketId}`,{method:'PUT',body:JSON.stringify({status})});
+    await load(); renderSupervisor();
+    const msg = status==='completed'?(lang==='ar'?'تم التحقق':'Verified'):(lang==='ar'?'طلب إعادة تنظيف':'Reclean requested');
+    toast(msg,'ok');
+  }catch(e){ toast(e.message,'bad'); }
+}
+
+async function supReview(reportId, status, note){
+  try{
+    await api('/api/reports/review',{method:'POST',body:JSON.stringify({id:reportId,status,note})});
+    await load(); renderSupervisor();
+    toast(lang==='ar'?'تمت المراجعة':'Reviewed','ok');
+  }catch(e){ toast(e.message,'bad'); }
+}
+
+function supReviewPrompt(reportId, status){
+  const note = prompt(lang==='ar'?'ملاحظة (اختياري):':'Note (optional):', '');
+  if(note===null) return;
+  supReview(reportId, status, note);
 }
 
 /* ═══════════════════════════════════════════════════════════════
