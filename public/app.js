@@ -665,8 +665,8 @@ function renderPlatformTopbar(me, opts={}){
 
 /* ── field workspace shell — Worker / Employee / Supervisor ─── */
 function fieldShell(me, contentHtml, opts={}){
-  const contentCls = 'workerContent' + (opts.noSticky ? ' workerContent--no-sticky' : '');
-  return`<div class="workerPage">
+  const contentCls = 'platform-content workerContent' + (opts.noSticky ? ' platform-content--no-sticky workerContent--no-sticky' : '');
+  return`<div class="platform-shell--field workerPage">
   <div class="prototype-banner" role="alert">${lang==='ar'?'⚠ نسخة تجريبية — بيانات غير حقيقية':'⚠ Prototype — Demo Data Only'}</div>
   ${renderPlatformTopbar(me, {back:opts.back||false, sync:opts.sync||false})}
   <div class="${contentCls}">${contentHtml}</div>
@@ -690,7 +690,7 @@ function render(){
   if(view==='performance'){
     shell(`<div style="text-align:center;padding:40px">${ic('clock',28)}</div>`);
     performance().then(html=>{
-      const main=document.querySelector('.mainContent .pageAnim');
+      const main=document.querySelector('.platform-main .pageAnim,.mainContent .pageAnim');
       if(main) main.innerHTML=html;
     });
     return;
@@ -698,7 +698,7 @@ function render(){
   if(view==='auditlog'){
     shell(`<div style="text-align:center;padding:40px">${ic('clock',28)}</div>`);
     auditLogPage().then(html=>{
-      const main=document.querySelector('.mainContent .pageAnim');
+      const main=document.querySelector('.platform-main .pageAnim,.mainContent .pageAnim');
       if(main) main.innerHTML=html;
     });
     return;
@@ -844,14 +844,14 @@ function shell(content){
   const openTickets   = (data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
   const pendingReports= (data.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
   app.innerHTML=`
-<div class="appShell">
+<div class="platform-shell appShell">
   <div class="prototype-banner" role="alert">${lang==='ar'?'⚠ نسخة تجريبية — بيانات غير حقيقية':'⚠ Prototype — Demo Data Only'}</div>
   ${renderPlatformTopbar(me, {search:false, notif:true, sync:true, adminMode:true, backBtn:viewHistory.length>0})}
 
   <!-- BODY -->
-  <div class="appBody">
+  <div class="platform-body appBody">
     <!-- SIDEBAR -->
-    <aside class="sidebar">
+    <aside class="platform-sidebar sidebar">
       <div class="sidebarInner">
         <div class="nav-section">
           <span class="nav-section-label">${tr('operations')}</span>
@@ -871,7 +871,7 @@ function shell(content){
     </aside>
 
     <!-- MAIN CONTENT -->
-    <main class="mainContent">
+    <main class="platform-main mainContent">
       <div class="pageAnim">
         ${content}
       </div>
@@ -2565,7 +2565,7 @@ async function submitEmployeeOrder(){
     currentPhotos = [];
     toast(tr('requestSubmitted'),'ok');
     // Show success card
-    const wc = document.querySelector('.workerContent');
+    const wc = document.querySelector('.platform-content,.workerContent');
     if(wc) wc.innerHTML=`
       <div class="wCard" style="text-align:center;padding:40px 24px;margin-top:24px">
         <div style="width:72px;height:72px;border-radius:50%;background:var(--ok-bg);margin:0 auto 16px;display:grid;place-items:center;color:var(--ok)">${ic('check',32)}</div>

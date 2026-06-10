@@ -678,7 +678,7 @@ tbody tr:hover td{background:var(--surface-2)}
 /* ═══════════════════════════════════════════════════════════════
    APP SHELL — TOP BAR
    ═══════════════════════════════════════════════════════════════ */
-.appShell{flex:1;width:100%;min-height:100dvh;display:flex;flex-direction:column}
+.platform-shell,.appShell{flex:1;width:100%;min-height:100dvh;display:flex;flex-direction:column}
 
 .topbar{
   position:sticky;top:0;z-index:100;height:var(--topbar-h);
@@ -800,17 +800,17 @@ tbody tr:hover td{background:var(--surface-2)}
 /* ═══════════════════════════════════════════════════════════════
    SIDEBAR
    ═══════════════════════════════════════════════════════════════ */
-.appBody{display:flex;flex:1;width:100%;min-height:calc(100vh - var(--topbar-h))}
-.sidebar{
+.platform-body,.appBody{display:flex;flex:1;width:100%;min-height:calc(100dvh - var(--topbar-h))}
+.platform-sidebar,.sidebar{
   width:var(--sidebar-w);flex-shrink:0;
   background:var(--surface);
   border-inline-end:1px solid var(--line);
-  position:sticky;top:var(--topbar-h);height:calc(100vh - var(--topbar-h));
+  position:sticky;top:var(--topbar-h);height:calc(100dvh - var(--topbar-h));
   overflow-y:auto;overflow-x:hidden;
   display:flex;flex-direction:column;
   scrollbar-width:none;
 }
-.sidebar::-webkit-scrollbar{display:none}
+.platform-sidebar::-webkit-scrollbar,.sidebar::-webkit-scrollbar{display:none}
 .sidebarInner{padding:14px 10px 10px;flex:1;display:flex;flex-direction:column;gap:2px}
 .nav-section{margin-bottom:6px}
 .nav-section-label{
@@ -847,7 +847,7 @@ tbody tr:hover td{background:var(--surface-2)}
 /* ═══════════════════════════════════════════════════════════════
    MAIN CONTENT
    ═══════════════════════════════════════════════════════════════ */
-.mainContent{flex:1;width:100%;min-width:0;padding:24px 24px 48px;overflow-x:hidden}
+.platform-main,.mainContent{flex:1;width:100%;min-width:0;padding:24px 24px 48px;overflow-x:hidden}
 .pageHeader{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;gap:16px;flex-wrap:wrap}
 .pageHeader-left{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}
 .pageHeader-actions,.pageActions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0}
@@ -1089,13 +1089,13 @@ tbody tr:hover td{background:var(--surface-2)}
 /* ═══════════════════════════════════════════════════════════════
    WORKER PAGE — MOBILE FIRST
    ═══════════════════════════════════════════════════════════════ */
-.workerPage{
+.platform-shell--field,.workerPage{
   min-height:100dvh;background:var(--bg);
   display:flex;flex-direction:column;
 }
 
 /* ─── Unified topbar — shared by Admin, Worker, Employee, Supervisor ── */
-.topbar,.workerTopbar{
+.topbar{
   position:sticky;top:0;z-index:100;height:var(--topbar-h);
   padding-top:env(safe-area-inset-top,0px);
   background:rgba(255,255,255,.92);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
@@ -1103,11 +1103,11 @@ tbody tr:hover td{background:var(--surface-2)}
 }
 
 /* Worker / Employee / Supervisor content — full-width, progressive padding */
-.workerContent{flex:1;width:100%;padding:16px 16px 80px}
-@media(min-width:768px){.workerContent{padding:20px 32px 80px}}
-@media(min-width:1200px){.workerContent{padding:24px 48px 80px}}
+.platform-content,.workerContent{flex:1;width:100%;padding:16px 16px 80px}
+@media(min-width:769px){.platform-content,.workerContent{padding:20px 32px 80px}}
+@media(min-width:1200px){.platform-content,.workerContent{padding:24px 48px 80px}}
 /* Roles without sticky submit (supervisor) use reduced bottom padding */
-.workerContent--no-sticky{padding-bottom:24px!important}
+.platform-content--no-sticky,.workerContent--no-sticky{padding-bottom:24px!important}
 
 /* Supervisor multi-column sections grid */
 .supSectionsGrid{display:grid;grid-template-columns:1fr;gap:16px}
@@ -1332,69 +1332,108 @@ tbody tr:hover td{background:var(--surface-2)}
 
 
 /* ═══════════════════════════════════════════════════════════════
-   RESPONSIVE
+   RESPONSIVE — PLATFORM SHELL
    ═══════════════════════════════════════════════════════════════ */
+
+/* ─── Large tablet / small desktop (≤1200px) ─────────────────── */
 @media(max-width:1200px){
   .kpiGrid{grid-template-columns:repeat(2,1fr)}
   .analyticsGrid{grid-template-columns:1fr 1fr;row-gap:14px}
   .analyticsGrid>.chartCard:first-child{grid-column:1/-1}
   .contentGrid{grid-template-columns:1fr}
 }
+
+/* ─── Tablet (≤1040px) ────────────────────────────────────────── */
 @media(max-width:1040px){
   :root{--sidebar-w:220px}
-  .mainContent{padding:20px 18px 40px}
+  .platform-main,.mainContent{padding:20px 18px 40px}
 }
+
+/* ─── Tablet narrow (≤840px) ─────────────────────────────────── */
 @media(max-width:840px){
-  :root{--sidebar-w:0px;--topbar-base:60px}
-  .appBody{flex-direction:column}
-  .sidebar{
-    width:100%;height:auto;position:sticky;top:var(--topbar-h);z-index:90;
-    border-inline-end:0;border-bottom:1px solid var(--line);
-    flex-direction:row;overflow-x:auto;overflow-y:hidden;
-    -webkit-overflow-scrolling:touch;scrollbar-width:none;
-  }
-  .sidebar::-webkit-scrollbar{display:none}
-  .sidebarInner{
-    flex-direction:row;padding:6px 10px;gap:4px;
-    align-items:center;min-width:max-content;flex-wrap:nowrap;
-    width:max-content;
-  }
-  .nav-section{display:contents}
-  .nav-section-label{display:none}
-  .navBtn{
-    width:auto;min-width:auto;padding:7px 14px;white-space:nowrap;
-    border-radius:var(--r-full);flex-shrink:0;
-  }
-  .navBtn-icon{width:24px;height:24px;border-radius:6px}
-  .navBtn-icon svg{width:13px;height:13px}
-  .mainContent{padding:14px 14px 32px}
+  :root{--sidebar-w:200px;--topbar-base:60px}
+  .platform-main,.mainContent{padding:14px 14px 32px}
   .kpiGrid{grid-template-columns:1fr 1fr}
   .analyticsGrid{grid-template-columns:1fr}
   .contentGrid{grid-template-columns:1fr}
   .dashHero{flex-direction:column;align-items:flex-start;padding:20px 22px}
   .dashHero-right{flex-wrap:wrap;width:100%;justify-content:flex-start}
   .tb-sync .tb-sync-lbl{display:none}
-  /* Topbar compact on tablet */
   .tb-brand-name{font-size:13px}
+  .supStats{grid-template-columns:repeat(2,1fr)}
 }
-@media(max-width:540px){
-  :root{--topbar-base:56px}
-  .kpiGrid{grid-template-columns:1fr}
-  .kpiCard-value{font-size:28px}
+
+/* ─── MOBILE (≤768px) — no sidebar, full-width content ───────── */
+@media(max-width:768px){
+  :root{--sidebar-w:0px;--topbar-base:56px}
+
+  /* Body becomes block — sidebar hidden, main fills width */
+  .platform-body,.appBody{display:block}
+  .platform-sidebar,.sidebar{display:none!important}
+
+  /* Main content and field content — full width */
+  .platform-main,.mainContent{width:100%;padding:12px 12px 32px}
+  .platform-content,.workerContent{width:100%}
+
+  /* Topbar compact */
   .topbar-inner{padding:0 10px;gap:6px}
   .tb-brand-name{font-size:12px}
-  .tb-sync .tb-sync-lbl{display:none}
   .tb-sync{padding:5px 8px}
+  .tb-sync .tb-sync-lbl{display:none}
   .tb-lang{padding:5px 8px;font-size:10px}
+
+  /* KPI grid — 2 compact columns on mobile */
+  .kpiGrid{grid-template-columns:1fr 1fr}
+  .kpiCard{padding:14px 16px}
+  .kpiCard-value{font-size:26px}
+
+  /* DashHero — compact on mobile */
+  .dashHero{padding:14px 16px;margin-bottom:14px}
+  .dashHero-title{font-size:var(--fs-xl)}
+  .dashHero-right{gap:8px}
+  .dashHero-stat{min-width:60px;padding:8px 10px}
+  .dashHero-stat-val{font-size:18px}
+
+  /* Content grids single column */
   .reportGrid{grid-template-columns:1fr}
   .ticketGrid{grid-template-columns:1fr}
   .locGrid{grid-template-columns:1fr}
+  .analyticsGrid{grid-template-columns:1fr}
+
+  /* Form controls single column */
   .formGrid{grid-template-columns:1fr}
+
+  /* Login — panel only */
   .loginBox{grid-template-columns:1fr}
   .loginHero{display:none}
   .loginPanel{padding:24px}
-  .analyticsGrid{grid-template-columns:1fr}
+
+  /* Employee tabs compact */
+  .empTabs{padding:12px 12px 0}
+
+  /* Modal bottom-sheet on mobile */
+  .modal-overlay{align-items:flex-end;padding:0}
+  .modal-box{
+    width:100%!important;margin:0!important;
+    border-radius:var(--r-lg) var(--r-lg) 0 0!important;
+    max-height:90dvh;overflow-y:auto;
+    padding-bottom:calc(env(safe-area-inset-bottom,0px) + 24px);
+  }
+
+  /* Page title smaller */
+  .pageTitle{font-size:var(--fs-lg)}
+  .pageHeader{margin-bottom:var(--sp-4)}
+
+  /* Demo misc */
   .demoAccounts{grid-template-columns:1fr 1fr}
+}
+
+/* ─── Very small phones (≤400px) ─────────────────────────────── */
+@media(max-width:400px){
+  .kpiGrid{grid-template-columns:1fr}
+  .kpiCard-value{font-size:24px}
+  .wsGrid{grid-template-columns:1fr 1fr}
+  .userSummaryGrid{grid-template-columns:1fr}
 }
 
 /* ─── ANIMATIONS ─────────────────────────────────────────────── */
@@ -1749,17 +1788,7 @@ tbody tr:hover td{background:var(--surface-2)}
 .wsBtn.active .wsBtn-icon{opacity:1}
 .wsBtn-label{line-height:1.3;text-align:center}
 
-/* Workspace pill in sidebar */
-.workspacePill{
-  display:flex;align-items:center;gap:6px;padding:7px 12px;
-  border-radius:var(--r);background:rgba(10,78,91,.07);
-  color:var(--brand);font-size:var(--fs-xs);font-weight:700;cursor:pointer;
-  margin:0 0 8px;transition:background .15s;border:1.5px solid rgba(10,78,91,.14);
-}
-.workspacePill:hover{background:var(--brand);color:#fff}
-.workspacePill span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* RTL pill arrow */
-[dir="rtl"] .workspacePill svg:last-child{transform:rotate(180deg)}
+/* .workspacePill removed — sidebar pill no longer used */
 
 /* ═══════════════════════════════════════════════════════════════
    AUDIT LOG TABLE
@@ -1770,7 +1799,7 @@ tbody tr:hover td{background:var(--surface-2)}
 .auditCell-time{color:var(--muted);white-space:nowrap;font-size:10px}
 
 /* ═══════════════════════════════════════════════════════════════
-   RESPONSIVE
+   RESPONSIVE — COMPONENTS
    ═══════════════════════════════════════════════════════════════ */
 @media(max-width:1040px){
   .userSummaryGrid{grid-template-columns:repeat(2,1fr)}
@@ -1789,22 +1818,15 @@ tbody tr:hover td{background:var(--surface-2)}
   .usersTable-roles{min-width:auto}
 }
 @media(max-width:600px){
-  .modal-box{margin:12px;width:calc(100vw - 24px)!important;border-radius:var(--r-lg)}
   .roles-grid{grid-template-columns:1fr 1fr}
   .auditTable{font-size:10px}
   .auditTable th,.auditTable td{padding:7px 8px}
-  .pageTitle{font-size:var(--fs-lg)}
-  .pageHeader{margin-bottom:var(--sp-4)}
   .userSummaryGrid{grid-template-columns:repeat(2,1fr)}
   .formGrid{grid-template-columns:1fr}
   .formGrid-4{grid-template-columns:1fr}
   .usersFilterBar{padding:10px 12px}
   .reportCard-actions{flex-direction:column;align-items:stretch}
   .reportCard-actions-primary,.reportCard-actions-secondary{width:100%}
-}
-@media(max-width:400px){
-  .wsGrid{grid-template-columns:1fr 1fr}
-  .userSummaryGrid{grid-template-columns:1fr}
 }
 
 
