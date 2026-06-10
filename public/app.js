@@ -626,7 +626,7 @@ function renderPlatformTopbar(me, opts={}){
   const pendingRpts = (data?.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
 
   const wsSwitcher = me.roles&&me.roles.length>1
-    ?`<button class="tb-workspace" onclick="renderWorkspaceSwitcher()" title="${tr('switchWorkspace')}">${ic('layers',15)}<span class="tb-workspace-label">${tr(me.role)}</span>${ic('chevron',13)}</button>`:'';
+    ?`<button class="icon-btn tb-workspace" onclick="renderWorkspaceSwitcher()" title="${tr('switchWorkspace')}">${ic('layers',20)}</button>`:'';
 
   const syncBtn = qSize>0
     ?`<button class="tb-sync pending" onclick="flushOfflineQueue()" title="${tr('sync')}"><span class="tb-sync-dot pending"></span><span class="tb-sync-lbl">${qSize} ${lang==='ar'?'معلق':'pending'}</span></button>`
@@ -867,9 +867,6 @@ function shell(content){
           ${canReview()?navItem('performance',tr('performance'),'bar-chart',0):''}
           ${canManage()?navItem('auditlog',tr('auditLog'),'log',0):''}
         </div>
-      </div>
-      <div class="sidebar-footer">
-        ${me.roles&&me.roles.length>1?`<button class="sidebar-ws-btn" onclick="renderWorkspaceSwitcher()" title="${tr('switchWorkspace')}">${ic('layers',13)}</button>`:''}
       </div>
     </aside>
 
