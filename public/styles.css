@@ -163,7 +163,8 @@ img{max-width:100%;display:block}
 .btn.wide{width:100%}
 .btn.sm{min-height:34px;padding:6px 12px;font-size:var(--fs-xs);border-radius:var(--r-xs)}
 .icon-btn{
-  width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center;
+  width:44px;height:44px;min-width:44px;min-height:44px;
+  display:inline-flex;align-items:center;justify-content:center;
   border-radius:var(--r-sm);background:transparent;color:var(--muted);
   transition:background var(--t-fast),color var(--t-fast);flex-shrink:0;
 }
@@ -192,6 +193,8 @@ select{
   height:var(--ctrl-h);min-height:var(--ctrl-h);
   padding:0 var(--sp-4);
   line-height:var(--ctrl-h);
+  /* Ensure iOS select renders at the same height as input */
+  vertical-align:middle;
 }
 
 /* Select — same geometry as input, arrow via background */
@@ -210,18 +213,6 @@ textarea{
   height:auto;min-height:120px;
   padding:14px var(--sp-4);
   line-height:1.7;resize:vertical;
-}
-
-textarea{
-  width:100%;height:auto;min-height:120px;
-  background:var(--ctrl-bg);color:var(--ink);
-  border:var(--ctrl-border);border-radius:var(--ctrl-radius);
-  padding:14px 16px;
-  font-family:var(--font-body);font-size:var(--ctrl-font);font-weight:400;
-  line-height:1.7;resize:vertical;box-sizing:border-box;
-  box-shadow:var(--shadow-xs);
-  transition:border-color var(--transition-fast),box-shadow var(--transition-fast);
-  -webkit-appearance:none;appearance:none;
 }
 
 input:focus,select:focus,textarea:focus{
@@ -786,13 +777,14 @@ tbody tr:hover td{background:var(--surface-2)}
   padding:6px 11px;border-radius:var(--r-sm);background:var(--surface-2);
   border:1.5px solid var(--line);font-size:11px;font-weight:800;
   font-family:var(--font-head);color:var(--ink-soft);transition:all var(--t-fast);
+  min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;
 }
 .tb-lang:hover{border-color:var(--brand-mid);color:var(--brand);background:var(--surface)}
 
 
 /* Logout */
 .tb-logout.icon-btn{
-  width:36px;height:36px;border-radius:var(--r-sm);
+  width:44px;height:44px;min-width:44px;min-height:44px;border-radius:var(--r-sm);
   background:var(--surface-2);border:1.5px solid var(--line);
   color:var(--ink-soft);transition:all var(--t-fast);flex-shrink:0;
 }
@@ -807,7 +799,7 @@ tbody tr:hover td{background:var(--surface-2)}
 /* ═══════════════════════════════════════════════════════════════
    SIDEBAR
    ═══════════════════════════════════════════════════════════════ */
-.appBody{display:flex;flex:1;min-height:calc(100vh - var(--topbar-h))}
+.appBody{display:flex;flex:1;width:100%;min-height:calc(100vh - var(--topbar-h))}
 .sidebar{
   width:var(--sidebar-w);flex-shrink:0;
   background:var(--surface);
@@ -867,7 +859,7 @@ tbody tr:hover td{background:var(--surface-2)}
 /* ═══════════════════════════════════════════════════════════════
    MAIN CONTENT
    ═══════════════════════════════════════════════════════════════ */
-.mainContent{flex:1;min-width:0;padding:24px 24px 48px;overflow-x:hidden}
+.mainContent{flex:1;width:100%;min-width:0;padding:24px 24px 48px;overflow-x:hidden}
 .pageHeader{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;gap:16px;flex-wrap:wrap}
 .pageHeader-left{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}
 .pageHeader-actions,.pageActions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0}
@@ -1123,9 +1115,11 @@ tbody tr:hover td{background:var(--surface-2)}
 }
 
 /* Worker / Employee / Supervisor content — full-width, progressive padding */
-.workerContent{flex:1;width:100%;padding:16px 16px 100px}
-@media(min-width:768px){.workerContent{padding:20px 32px 100px}}
-@media(min-width:1200px){.workerContent{padding:24px 48px 100px}}
+.workerContent{flex:1;width:100%;padding:16px 16px 80px}
+@media(min-width:768px){.workerContent{padding:20px 32px 80px}}
+@media(min-width:1200px){.workerContent{padding:24px 48px 80px}}
+/* Roles without sticky submit (supervisor) use reduced bottom padding */
+.workerContent--no-sticky{padding-bottom:24px!important}
 
 /* Supervisor multi-column sections grid */
 .supSectionsGrid{display:grid;grid-template-columns:1fr;gap:16px}
@@ -1135,15 +1129,18 @@ tbody tr:hover td{background:var(--surface-2)}
 
 /* ─── Supervisor workspace ────────────────────────────────── */
 .supStats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
-@media(max-width:580px){.supStats{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:580px){.supStats{grid-template-columns:repeat(2,1fr);gap:8px}}
+@media(max-width:480px){.supStats{gap:6px}}
 
 .supStatCard{padding:14px 12px;text-align:center}
+@media(max-width:480px){.supStatCard{padding:10px 8px}}
 .supStatCard--bad{border-color:rgba(200,50,50,.3);background:var(--bad-bg)}
 .supStatCard--warn{border-color:rgba(166,98,0,.2);background:var(--warn-bg)}
 .supStatCard--brand{border-color:rgba(10,78,91,.2);background:rgba(10,78,91,.06)}
 .supStatCard--ok{border-color:rgba(22,136,77,.2);background:var(--ok-bg)}
 .supStatCard-icon{color:var(--muted);margin-bottom:4px}
 .supStatCard-count{font-family:var(--font-body);font-size:28px;font-weight:800;line-height:1;color:var(--ink)}
+@media(max-width:480px){.supStatCard-count{font-size:20px}}
 .supStatCard-label{font-size:10px;font-weight:700;color:var(--muted);font-family:var(--font-head);margin-top:4px;line-height:1.3}
 
 .supTicketCard{padding:12px 14px;border-bottom:1px solid var(--line-soft)}
@@ -1182,6 +1179,7 @@ tbody tr:hover td{background:var(--surface-2)}
 
 /* Worker cards */
 .wCard{border-radius:var(--r-lg);padding:18px;margin-bottom:12px}
+.wCard--compact{padding:12px 14px}
 .wCard-title{
   font-family:var(--font-head);font-size:var(--fs-md);font-weight:800;color:var(--ink);
   margin-bottom:14px;display:flex;align-items:center;gap:9px;
@@ -1639,15 +1637,20 @@ tbody tr:hover td{background:var(--surface-2)}
    TOPBAR WORKSPACE SWITCHER
    ═══════════════════════════════════════════════════════════════ */
 .tb-workspace{
-  display:flex;align-items:center;gap:5px;
-  padding:6px 10px;border-radius:var(--r-sm);
-  background:rgba(10,78,91,.09);border:1.5px solid rgba(10,78,91,.25);
+  display:flex;align-items:center;gap:6px;
+  padding:0 12px;border-radius:var(--r-sm);
+  background:rgba(10,78,91,.10);border:1.5px solid rgba(10,78,91,.30);
   color:var(--brand);cursor:pointer;
   transition:all var(--t-fast);
-  min-height:36px;min-width:36px;
+  min-height:44px;min-width:44px;
+  font-family:var(--font-head);font-size:12px;font-weight:700;
 }
 .tb-workspace:hover{background:var(--brand);color:#fff;border-color:var(--brand);box-shadow:var(--shadow-brand)}
 .tb-workspace svg{flex-shrink:0}
+.tb-workspace-label{
+  max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:inherit;font-size:12px;font-weight:700;font-family:var(--font-head);
+}
 
 /* ═══════════════════════════════════════════════════════════════
    USER CARDS
@@ -1801,7 +1804,7 @@ tbody tr:hover td{background:var(--surface-2)}
   .usersTable th:nth-child(2),.usersTable td:nth-child(2){display:none}
 }
 @media(max-width:840px){
-  .tb-workspace{max-width:120px}
+  .tb-workspace{max-width:140px}
   .formGrid{grid-template-columns:1fr 1fr}
   .formGrid-4{grid-template-columns:repeat(2,1fr)}
   .usersFilterBar{gap:8px}
@@ -1822,7 +1825,8 @@ tbody tr:hover td{background:var(--surface-2)}
   .userSummaryGrid{grid-template-columns:repeat(2,1fr)}
   .formGrid{grid-template-columns:1fr}
   .formGrid-4{grid-template-columns:1fr}
-  .tb-workspace{max-width:100px;font-size:11px}
+  .tb-workspace{max-width:90px;font-size:11px}
+  .tb-workspace-label{max-width:60px}
   .usersFilterBar{padding:10px 12px}
   .reportCard-actions{flex-direction:column;align-items:stretch}
   .reportCard-actions-primary,.reportCard-actions-secondary{width:100%}

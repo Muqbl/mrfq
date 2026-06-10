@@ -110,8 +110,6 @@ const T = {
     submitted:'تم الإرسال',assigned:'تم التعيين',accepted:'مقبول',
     in_progress:'قيد التنفيذ',waiting_verification:'بانتظار التحقق',
     reclean_required:'إعادة التنظيف مطلوبة',cancelled:'ملغي',
-    myProfile:'ملفي الشخصي',profileCenter:'مركز الملف الشخصي',
-    changePassword:'تغيير كلمة المرور',lastPwdChange:'آخر تغيير للكلمة السرية',
     rolesLabel:'الصلاحيات',workspacesLabel:'مساحات العمل',
     requester:'مقدم الطلب',activeTickets:'البلاغات النشطة',
     closeModal:'إغلاق',activeTicket:'بلاغ نشط',
@@ -190,8 +188,6 @@ const T = {
     submitted:'Submitted',assigned:'Assigned',accepted:'Accepted',
     in_progress:'In Progress',waiting_verification:'Awaiting Verification',
     reclean_required:'Re-clean Required',cancelled:'Cancelled',
-    myProfile:'My Profile',profileCenter:'Profile Center',
-    changePassword:'Change Password',lastPwdChange:'Last Password Change',
     rolesLabel:'Roles',workspacesLabel:'Workspaces',
     requester:'Requester',activeTickets:'Active Tickets',
     closeModal:'Close',activeTicket:'Active ticket',
@@ -630,7 +626,7 @@ function renderPlatformTopbar(me, opts={}){
   const pendingRpts = (data?.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
 
   const wsSwitcher = me.roles&&me.roles.length>1
-    ?`<button class="tb-workspace" onclick="renderWorkspaceSwitcher()" title="${tr('switchWorkspace')}">${ic('layers',14)}${ic('chevron',14)}</button>`:'';
+    ?`<button class="tb-workspace" onclick="renderWorkspaceSwitcher()" title="${tr('switchWorkspace')}">${ic('layers',15)}<span class="tb-workspace-label">${tr(me.role)}</span>${ic('chevron',13)}</button>`:'';
 
   const syncBtn = qSize>0
     ?`<button class="tb-sync pending" onclick="flushOfflineQueue()" title="${tr('sync')}"><span class="tb-sync-dot pending"></span><span class="tb-sync-lbl">${qSize} ${lang==='ar'?'معلق':'pending'}</span></button>`
@@ -643,10 +639,8 @@ function renderPlatformTopbar(me, opts={}){
     ?`<button class="icon-btn tb-back worker-back-btn" onclick="workerGoBack()" title="${lang==='ar'?'رجوع':'Back'}">${ic('arrow',20)}</button>`
     :(opts.backBtn?`<button class="icon-btn tb-back" onclick="goBack()" title="${lang==='ar'?'رجوع':'Back'}">${ic('arrow',20)}</button>`:'');
 
-  /* Admin: show platform name; Field: show user name only */
-  const brandInner = opts.adminMode
-    ?`<span class="tb-brand-name">${lang==='ar'?'منصة العناية بالمرافق':'Facility Care Platform'}</span>`
-    :`<span class="tb-brand-name">${esc(me.name)}</span>`;
+  /* Unified brand — same platform name for all roles */
+  const brandInner = `<span class="tb-brand-name">${lang==='ar'?'منصة العناية بالمرافق':'Facility Care Platform'}</span>`;
 
   return`
 <header class="topbar">
@@ -671,10 +665,11 @@ function renderPlatformTopbar(me, opts={}){
 
 /* ── field workspace shell — Worker / Employee / Supervisor ─── */
 function fieldShell(me, contentHtml, opts={}){
+  const contentCls = 'workerContent' + (opts.noSticky ? ' workerContent--no-sticky' : '');
   return`<div class="workerPage">
   <div class="prototype-banner" role="alert">${lang==='ar'?'⚠ نسخة تجريبية — بيانات غير حقيقية':'⚠ Prototype — Demo Data Only'}</div>
   ${renderPlatformTopbar(me, {back:opts.back||false, sync:opts.sync||false})}
-  <div class="workerContent">${contentHtml}</div>
+  <div class="${contentCls}">${contentHtml}</div>
 </div>`;
 }
 
@@ -938,7 +933,7 @@ function dash(){
     : (hour<12?'Good morning':'Good afternoon');
 
   return `
-<!-- HERO BANNER -->
+<!-- HERO BANNER — greeting only; all KPIs in the grid below -->
 <div class="dashHero">
   <div class="dashHero-left">
     <span class="dashHero-greeting">${greeting}،</span>
@@ -947,16 +942,12 @@ function dash(){
   </div>
   <div class="dashHero-right">
     <div class="dashHero-stat">
-      <div class="dashHero-stat-val">${num(s.today.length)}</div>
-      <div class="dashHero-stat-lbl">${tr('today')}</div>
-    </div>
-    <div class="dashHero-stat">
-      <div class="dashHero-stat-val">${num(s.coverage)}%</div>
-      <div class="dashHero-stat-lbl">${tr('coverage')}</div>
-    </div>
-    <div class="dashHero-stat">
       <div class="dashHero-stat-val">${num(data.locations.length)}</div>
       <div class="dashHero-stat-lbl">${tr('locationsCount')}</div>
+    </div>
+    <div class="dashHero-stat">
+      <div class="dashHero-stat-val">${num(avgQ)}%</div>
+      <div class="dashHero-stat-lbl">${lang==='ar'?'جودة التقارير':'Report Quality'}</div>
     </div>
   </div>
 </div>
@@ -2043,7 +2034,7 @@ function renderWorker(){
         </div>
       </div>`;
     })()}
-    <div class="wCard">
+    <div class="wCard wCard--compact">
       <div class="wCard-title"><span class="wCard-number">1</span>${tr('step1')}</div>
       ${fc(lang==='ar'?'كود الموقع':'Location Code',`<div class="locInput-wrap">${inp('locCode',{cls:'ltr', value:param, placeholder:'wc-gf-a'})}<button class="locInput-scan" onclick="openQRScanner()" title="${tr('scanQR')}">${ic('qr',18)}</button></div>`)}
       <button class="btn wide" style="min-height:52px" onclick="startForm()">${ic('arrow',16)} ${tr('start')}</button>
@@ -2471,7 +2462,7 @@ function employeeSubmitForm(){
   const CATS = ['general','spill','restroom','meeting_room','emergency'];
   const CAT_ICONS = {general:'locations',spill:'alert-circle',restroom:'locations',meeting_room:'users',emergency:'bell'};
   return`
-<div class="wCard">
+<div class="wCard wCard--compact">
   <div class="wCard-title"><span class="wCard-number">1</span>${lang==='ar'?'حدد الموقع':'Select Location'}</div>
   <div class="field">
     <label>${lang==='ar'?'كود الموقع':'Location Code'}</label>
@@ -2801,7 +2792,7 @@ function renderSupervisor(){
       </div>
     </div>`;
 
-  app.innerHTML = fieldShell(me, supContent, {sync:true});
+  app.innerHTML = fieldShell(me, supContent, {sync:true, noSticky:true});
 }
 
 function supStat(count, label, icon, color){
