@@ -902,10 +902,10 @@ function dash(){
 
 <!-- KPI CARDS -->
 <div class="kpiGrid">
-  ${kpiCard(num(s.today.length),tr('today'),'reports','brand','rgba(10,78,91,.10)','var(--brand-mid)')}
-  ${kpiCard(num(s.coverage)+'%',tr('coverage'),'locations','ok','rgba(22,136,77,.10)','var(--ok)')}
-  ${kpiCard(num(s.pending),tr('pending'),'bell','warn','rgba(166,98,0,.10)','var(--warn)')}
-  ${kpiCard(num(s.openTickets),tr('openTickets'),'tickets','bad','rgba(200,50,50,.10)','var(--bad)')}
+  ${kpiCard(num(s.today.length),tr('today'),'reports','brand')}
+  ${kpiCard(num(s.coverage)+'%',tr('coverage'),'locations','ok')}
+  ${kpiCard(num(s.pending),tr('pending'),'bell','warn')}
+  ${kpiCard(num(s.openTickets),tr('openTickets'),'tickets','bad')}
 </div>
 
 <!-- ANALYTICS ROW -->
@@ -936,18 +936,18 @@ function dash(){
       <span class="chartCard-title">${tr('quality')}</span>
       <span class="badge gold">${num(avgQ)}%</span>
     </div>
-    <div style="display:grid;gap:12px;margin-top:8px">
+    <div class="perfStatGrid">
       <div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-          <span style="font-size:var(--fs-xs);color:var(--muted);font-weight:700">${lang==='ar'?'جودة التقارير':'Report quality'}</span>
-          <span style="font-size:var(--fs-xs);font-weight:800;font-family:var(--font-body)">${num(avgQ)}%</span>
+        <div class="perfStatRow">
+          <span class="perfStatLabel">${lang==='ar'?'جودة التقارير':'Report quality'}</span>
+          <span class="perfStatValue">${num(avgQ)}%</span>
         </div>
         <div class="progress-track"><div class="progress-fill ${avgQ>=70?'ok':avgQ>=40?'gold':'warn'}" style="width:${avgQ}%"></div></div>
       </div>
       <div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-          <span style="font-size:var(--fs-xs);color:var(--muted);font-weight:700">${lang==='ar'?'التغطية اليومية':'Daily coverage'}</span>
-          <span style="font-size:var(--fs-xs);font-weight:800;font-family:var(--font-body)">${num(s.coverage)}%</span>
+        <div class="perfStatRow">
+          <span class="perfStatLabel">${lang==='ar'?'التغطية اليومية':'Daily coverage'}</span>
+          <span class="perfStatValue">${num(s.coverage)}%</span>
         </div>
         <div class="progress-track"><div class="progress-fill ${s.coverage>=80?'ok':s.coverage>=50?'gold':'warn'}" style="width:${s.coverage}%"></div></div>
       </div>
@@ -960,7 +960,7 @@ function dash(){
       <span class="chartCard-title">${tr('sla')}</span>
       <span class="badge ${s.openTickets===0?'ok':s.openTickets<=2?'warn':'bad'}">${s.openTickets===0?tr('good'):`${num(s.openTickets)} ${tr('open')}`}</span>
     </div>
-    <div class="slaIndicator" style="margin-top:8px;padding:14px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface-2)">
+    <div class="slaIndicator">
       <div class="slaStatus ${s.openTickets===0?'ok':s.openTickets<=2?'warn':'bad'}">${s.openTickets===0?(lang==='ar'?'كل البلاغات مغلقة':'All tickets resolved'):lang==='ar'?`${num(s.openTickets)} بلاغ مفتوح`:`${num(s.openTickets)} open tickets`}</div>
       <div class="progress-track" style="margin-top:8px"><div class="progress-fill ${slaPct>70?'ok':slaPct>40?'gold':'bad'}" style="width:${slaPct}%"></div></div>
       <p style="font-size:var(--fs-xs);color:var(--muted);margin-top:8px;line-height:1.6">${lang==='ar'?'مؤشر يعتمد على البلاغات المفتوحة':'Based on open ticket count'}</p>
@@ -987,13 +987,13 @@ function dash(){
 </div>`;
 }
 
-function kpiCard(value,label,icon,color,bg,stroke){
+function kpiCard(value,label,icon,color){
   return `<div class="kpiCard">
     <div class="kpiCard-body">
       <div class="kpiCard-label">${label}</div>
       <div class="kpiCard-value">${value}</div>
     </div>
-    <div class="kpiCard-icon" style="background:${bg};color:${stroke}">${ic(icon,22)}</div>
+    <div class="kpiCard-icon ${color}">${ic(icon,22)}</div>
   </div>`;
 }
 
@@ -1717,28 +1717,28 @@ function users(){
 <!-- Summary stats -->
 <div class="userSummaryGrid">
   <div class="userSummaryCard">
-    <div class="userSummaryCard-icon" style="background:rgba(10,78,91,.08);color:var(--brand)">${ic('users',20)}</div>
+    <div class="userSummaryCard-icon brand">${ic('users',20)}</div>
     <div class="userSummaryCard-body">
       <div class="userSummaryCard-value">${num(total)}</div>
       <div class="userSummaryCard-label">${lang==='ar'?'إجمالي المستخدمين':'Total Users'}</div>
     </div>
   </div>
   <div class="userSummaryCard">
-    <div class="userSummaryCard-icon" style="background:var(--ok-bg);color:var(--ok)">${ic('check',20)}</div>
+    <div class="userSummaryCard-icon ok">${ic('check',20)}</div>
     <div class="userSummaryCard-body">
       <div class="userSummaryCard-value">${num(active)}</div>
       <div class="userSummaryCard-label">${lang==='ar'?'نشط':'Active'}</div>
     </div>
   </div>
   <div class="userSummaryCard">
-    <div class="userSummaryCard-icon" style="background:var(--bad-bg);color:var(--bad)">${ic('x',20)}</div>
+    <div class="userSummaryCard-icon bad">${ic('x',20)}</div>
     <div class="userSummaryCard-body">
       <div class="userSummaryCard-value">${num(inactive)}</div>
       <div class="userSummaryCard-label">${lang==='ar'?'معطل':'Inactive'}</div>
     </div>
   </div>
   <div class="userSummaryCard">
-    <div class="userSummaryCard-icon" style="background:rgba(185,154,95,.10);color:var(--gold)">${ic('layers',20)}</div>
+    <div class="userSummaryCard-icon gold">${ic('layers',20)}</div>
     <div class="userSummaryCard-body">
       <div class="userSummaryCard-value">${num(multiRole)}</div>
       <div class="userSummaryCard-label">${lang==='ar'?'متعدد الصلاحيات':'Multi-Role'}</div>
@@ -2036,11 +2036,11 @@ function renderWorker(){
     ${myTickets.length?`
     <div class="wCard">
       <div class="wCard-title"><span class="wCard-number">!</span>${tr('myTickets')}</div>
-      <div style="display:grid;gap:8px">
+      <div class="wCard-list">
         ${myTickets.map(t=>`
-          <button style="width:100%;text-align:inherit;padding:14px 16px;border:1.5px solid rgba(200,50,50,.2);background:var(--bad-bg);border-radius:var(--r);cursor:pointer" onclick="startTicketWorker('${t.id}')">
-            <div style="font-weight:800;font-size:var(--fs-sm);color:var(--ink)">${esc(t.title)}</div>
-            <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:3px">${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</div>
+          <button class="workerTicketItem" onclick="startTicketWorker('${t.id}')">
+            <div class="workerTicketItem-title">${esc(t.title)}</div>
+            <div class="workerTicketItem-loc">${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</div>
           </button>`).join('')}
       </div>
     </div>`:''}
@@ -2052,23 +2052,25 @@ function renderWorker(){
       if(!reviewed.length) return '';
       return `<div class="wCard">
         <div class="wCard-title"><span class="wCard-number">${ic('bell',16)}</span>${lang==='ar'?'حالة تقاريري':'My Reports Status'}</div>
-        <div style="display:grid;gap:8px">
+        <div class="wCard-list">
           ${reviewed.map(r=>{
             const st=r.approvalStatus;
             const stLabel={approved:lang==='ar'?'معتمد':'Approved',rejected:lang==='ar'?'مرفوض':'Rejected',needs_recleaning:lang==='ar'?'إعادة تنظيف':'Re-clean'}[st]||st;
             const stColor=st==='approved'?'ok':st==='rejected'?'bad':'warn';
             const actionable=st==='rejected'||st==='needs_recleaning';
+            const borderClr=actionable?'rgba(200,50,50,.25)':'var(--line)';
+            const iconBorderClr=stColor==='ok'?'var(--ok)':stColor==='bad'?'var(--bad)':'var(--warn)';
             return `<div class="workerReportItem ${actionable?'actionable':''}" ${actionable?`onclick="document.getElementById('locCode').value='${r.locationId}';startForm()"`:''}
-              style="padding:12px 14px;border:1.5px solid ${actionable?'rgba(200,50,50,.25)':'var(--line)'};border-radius:var(--r);display:flex;align-items:center;gap:12px;background:var(--${stColor}-bg);${actionable?'cursor:pointer':''}">
-              <div style="width:36px;height:36px;border-radius:50%;background:var(--${stColor}-bg);border:2px solid ${stColor==='ok'?'var(--ok)':stColor==='bad'?'var(--bad)':'var(--warn)'};display:grid;place-items:center;flex-shrink:0">
+              style="border-color:${borderClr};background:var(--${stColor}-bg)">
+              <div class="workerReportItem-icon" style="background:var(--${stColor}-bg);border-color:${iconBorderClr}">
                 ${ic(st==='approved'?'check':st==='rejected'?'x':'flip',16)}
               </div>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:var(--fs-sm);font-weight:700;color:var(--ink)">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</div>
-                <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:2px">${fmt(r.approvedAt||r.createdAt)}${r.reviewNote?' · '+esc(r.reviewNote):''}</div>
+              <div class="workerReportItem-body">
+                <div class="workerReportItem-name">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</div>
+                <div class="workerReportItem-meta">${fmt(r.approvedAt||r.createdAt)}${r.reviewNote?' · '+esc(r.reviewNote):''}</div>
                 <span class="badge ${stColor}" style="margin-top:6px">${stLabel}</span>
               </div>
-              ${actionable?`<div style="color:var(--${stColor});flex-shrink:0;font-size:var(--fs-xs);font-weight:700;display:flex;align-items:center;gap:4px">${lang==='ar'?'إعادة':'Redo'} ${ic('arrow',14)}</div>`:''}
+              ${actionable?`<div class="workerReportItem-action" style="color:var(--${stColor})">${lang==='ar'?'إعادة':'Redo'} ${ic('arrow',14)}</div>`:''}
             </div>`;
           }).join('')}
         </div>
@@ -2594,35 +2596,35 @@ function employeeSubmitForm(){
 
 function employeeHistory(orders){
   if(!orders.length) return`
-<div class="wCard" style="text-align:center;padding:40px 24px">
-  <div style="color:var(--muted);margin-bottom:12px">${ic('list',36)}</div>
-  <div style="font-family:var(--font-head);font-size:var(--fs-lg);font-weight:800;color:var(--ink)">${lang==='ar'?'لا توجد طلبات بعد':'No requests yet'}</div>
-  <p style="color:var(--muted);margin-top:8px;font-size:var(--fs-sm)">${lang==='ar'?'قدّم أول طلب تنظيف من التبويب الأول':'Submit your first cleaning request from the first tab'}</p>
-</div>`;
+<div class="wCard"><div class="empty-state">
+  <div class="empty-icon">${ic('list',36)}</div>
+  <div class="empty-title">${lang==='ar'?'لا توجد طلبات بعد':'No requests yet'}</div>
+  <p class="empty-sub">${lang==='ar'?'قدّم أول طلب تنظيف من التبويب الأول':'Submit your first cleaning request from the first tab'}</p>
+</div></div>`;
 
   return`
 <div class="wCard">
   <div class="wCard-title">${ic('list',16)} ${tr('myRequests')} (${orders.length})</div>
-  <div style="display:grid;gap:10px">
+  <div class="wCard-list" style="gap:10px">
     ${orders.map(t=>{
       const stCls = t.status==='completed'?'ok':['reclean_required','rejected','cancelled'].includes(t.status)?'bad':t.status==='waiting_verification'?'warn':'brand';
       const catLabel = tr('cat_'+(t.category||'general'));
-      return`<div style="padding:14px 16px;border:1.5px solid var(--line);border-radius:var(--r);background:var(--surface)">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+      return`<div class="empOrderCard">
+        <div class="empOrderCard-head">
           <div>
-            <div style="font-weight:800;font-size:var(--fs-sm);color:var(--ink)">${esc(t.title)}</div>
-            ${t.referenceNo?`<div style="font-family:ui-monospace,monospace;font-size:var(--fs-xs);color:var(--brand-mid);margin-top:2px">${esc(t.referenceNo)}</div>`:''}
+            <div class="empOrderCard-title">${esc(t.title)}</div>
+            ${t.referenceNo?`<div class="empOrderCard-ref">${esc(t.referenceNo)}</div>`:''}
           </div>
           <span class="badge ${stCls}">${tr(t.status)||t.status}</span>
         </div>
-        <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <div class="empOrderCard-meta">
           ${ic('locations',11)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}
           <span>·</span>
-          <span class="badge" style="font-size:10px">${catLabel}</span>
+          <span class="badge">${catLabel}</span>
           <span>·</span>
           ${fmt(t.createdAt)}
         </div>
-        ${t.assignedToName?`<div style="font-size:var(--fs-xs);color:var(--ok);margin-top:4px;display:flex;align-items:center;gap:4px">${ic('users',11)} ${lang==='ar'?'تم التعيين لـ:':'Assigned to:'} ${esc(t.assignedToName)}</div>`:`<div style="font-size:var(--fs-xs);color:var(--warn);margin-top:4px">${lang==='ar'?'في قائمة انتظار المشرف':'In supervisor queue'}</div>`}
+        ${t.assignedToName?`<div class="empOrderCard-assigned">${ic('users',11)} ${lang==='ar'?'تم التعيين لـ:':'Assigned to:'} ${esc(t.assignedToName)}</div>`:`<div class="empOrderCard-queue">${lang==='ar'?'في قائمة انتظار المشرف':'In supervisor queue'}</div>`}
       </div>`;
     }).join('')}
   </div>
