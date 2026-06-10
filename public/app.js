@@ -643,13 +643,10 @@ function renderPlatformTopbar(me, opts={}){
     ?`<button class="icon-btn tb-back worker-back-btn" onclick="workerGoBack()" title="${lang==='ar'?'رجوع':'Back'}">${ic('arrow',20)}</button>`
     :(opts.backBtn?`<button class="icon-btn tb-back" onclick="goBack()" title="${lang==='ar'?'رجوع':'Back'}">${ic('arrow',20)}</button>`:'');
 
-  /* Admin mode: show platform name + user chip; Field mode: show user name + role in brand */
+  /* Admin: show platform name; Field: show user name + role */
   const brandInner = opts.adminMode
-    ?`<span class="tb-brand-name">${lang==='ar'?'منصة العناية بالمرافق':'Facility Care Platform'}</span>`
+    ?`<div><span class="tb-brand-name">${lang==='ar'?'منصة العناية بالمرافق':'Facility Care Platform'}</span><span class="tb-brand-sub">${roleLabel(me.role)}</span></div>`
     :`<div><div class="tb-brand-name">${esc(me.name)}</div><span class="tb-brand-sub">${roleLabel(me.role)}</span></div>`;
-
-  const userChip = opts.adminMode
-    ?`<div class="tb-user"><div class="tb-avatar">${esc(initials(me.name))}</div><div><div class="tb-user-name">${esc(me.name.split(' ')[0])}</div><span class="tb-user-role">${roleLabel(me.role)}</span></div></div>`:'';
 
   return`
 <header class="topbar">
@@ -664,7 +661,6 @@ function renderPlatformTopbar(me, opts={}){
     <div class="topbar-end">
       ${syncBtn}
       ${notifBtn}
-      ${userChip}
       ${wsSwitcher}
       <button class="tb-lang" onclick="switchLang()">${tr('lang')}</button>
       <button class="tb-logout icon-btn" onclick="logout()" title="${tr('logout')}">${ic('logout',18)}</button>
