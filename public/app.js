@@ -779,13 +779,13 @@ function shell(content){
           ${pendingReports>0||openTickets>0?`<span class="tb-notif-badge"></span>`:''}
         </button>
         <button class="tb-lang" onclick="switchLang()">${tr('lang')}</button>
-        <button class="tb-user" onclick="showProfileCenter()" title="${tr('myProfile')}">
+        <div class="tb-user">
           <div class="tb-avatar">${esc(initials(me.name))}</div>
           <div>
             <div class="tb-user-name">${esc(me.name.split(' ')[0])}</div>
             <span class="tb-user-role">${roleLabel(me.role)}</span>
           </div>
-        </button>
+        </div>
         <button class="tb-logout icon-btn" onclick="logout()" title="${tr('logout')}">${ic('logout',18)}</button>
       </div>
     </div>
@@ -2851,25 +2851,35 @@ function renderSupervisor(){
       <!-- Open Requests -->
       <div class="wCard">
         <div class="wCard-title">${ic('tickets',16)} ${lang==='ar'?'الطلبات المفتوحة':'Open Requests'} <span class="badge bad">${submitted.length}</span></div>
-        ${submitted.length?`<div class="wCard-list">${submitted.map(t=>supTicketCard(t,'assign',workers)).join('')}</div>`:`
+        ${submitted.length?`<div class="wCard-list">${submitted.slice(0,8).map(t=>supTicketCard(t,'assign',workers)).join('')}</div>`:`
         <div class="empty-state">
           <div class="empty-icon">${ic('check',24)}</div>
           <div class="empty-title">${lang==='ar'?'لا توجد طلبات مفتوحة':'No open requests'}</div>
         </div>`}
       </div>
 
-      ${waitingVerif.length?`
       <!-- Pending Verification -->
       <div class="wCard">
         <div class="wCard-title">${ic('check',16)} ${lang==='ar'?'بانتظار التحقق':'Pending Verification'} <span class="badge warn">${waitingVerif.length}</span></div>
-        <div class="wCard-list">${waitingVerif.map(t=>supTicketCard(t,'verify',workers)).join('')}</div>
+        ${waitingVerif.length?`<div class="wCard-list">${waitingVerif.slice(0,8).map(t=>supTicketCard(t,'verify',workers)).join('')}</div>`:`
+        <div class="empty-state">
+          <div class="empty-icon">${ic('check',24)}</div>
+          <div class="empty-title">${lang==='ar'?'لا يوجد ما يحتاج تحقق':'Nothing pending verification'}</div>
+        </div>`}
+      </div>
+
+      <!-- Team Queue (In Progress) -->
+      ${inProgress.length?`
+      <div class="wCard">
+        <div class="wCard-title">${ic('sync',16)} ${lang==='ar'?'قيد التنفيذ':'Team Queue'} <span class="badge brand">${inProgress.length}</span></div>
+        <div class="wCard-list">${inProgress.slice(0,8).map(t=>supTicketCard(t,'view',workers)).join('')}</div>
       </div>`:''}
 
       ${pendingRpts.length?`
       <!-- Pending Reports -->
       <div class="wCard">
         <div class="wCard-title">${ic('reports',16)} ${lang==='ar'?'التقارير للمراجعة':'Reports for Review'} <span class="badge warn">${pendingRpts.length}</span></div>
-        <div class="wCard-list">${pendingRpts.slice(0,12).map(r=>supReportCard(r)).join('')}</div>
+        <div class="wCard-list">${pendingRpts.slice(0,10).map(r=>supReportCard(r)).join('')}</div>
       </div>`:''}
 
       <!-- My Team -->
@@ -2932,7 +2942,13 @@ function supTicketCard(t, mode, workers){
     </div>`:mode==='sla'?`
     <div class="supTicketCard-actions">
       <span class="badge bad">${lang==='ar'?'تجاوز SLA':'SLA Breached'}</span>
+      ${t.assignedToName?`<span class="badge brand">${esc(t.assignedToName)}</span>`:''}
+    </div>`:mode==='view'?`
+    <div class="supTicketCard-actions">
+      <span class="badge brand">${tr(t.status)||t.status}</span>
+      ${t.assignedToName?`<span style="font-size:var(--fs-xs);color:var(--muted)">${ic('users',11)} ${esc(t.assignedToName)}</span>`:''}
     </div>`:''}
+    ${t.slaBreached&&mode!=='sla'?`<div style="font-size:10px;color:var(--bad);font-weight:700;margin-top:6px">${ic('bell',10)} ${lang==='ar'?'تجاوز SLA':'SLA Breached'}</div>`:''}
   </div>`;
 }
 
@@ -3036,116 +3052,8 @@ function renderWorkspaceSwitcher(){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   PROFILE CENTER
+   AUDIT LOG PAGE
    ═══════════════════════════════════════════════════════════════ */
-function showProfileCenter(){
-  document.getElementById('profileModal')?.remove();
-  const modal = document.createElement('div');
-  modal.id = 'profileModal';
-  modal.className = 'modal-overlay';
-  const myRoles = me.roles || [me.role];
-  modal.innerHTML=`
-<div class="modal-box profile-modal">
-  <div class="modal-header">
-    <div class="modal-title">${ic('user',16)} ${tr('profileCenter')}</div>
-    <button class="icon-btn" onclick="document.getElementById('profileModal').remove()">${ic('x',18)}</button>
-  </div>
-
-  <!-- Identity -->
-  <div class="profile-identity">
-    <div class="profile-avatar">${esc(initials(me.name))}</div>
-    <div class="profile-info">
-      <div class="profile-name">${esc(me.name)}</div>
-      <div class="profile-username">@${esc(me.username)}</div>
-      ${me.employeeNo?`<div class="profile-empno">${lang==='ar'?'رقم الموظف:':'Emp. No:'} <strong>${esc(me.employeeNo)}</strong></div>`:''}
-    </div>
-  </div>
-
-  <!-- Roles -->
-  <div class="profile-section">
-    <div class="profile-section-label">${tr('rolesLabel')}</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
-      ${myRoles.map((r,i)=>`<span class="badge ${i===0?'brand':''}">${roleLabel(r)}</span>`).join('')}
-    </div>
-  </div>
-
-  <!-- Workspaces -->
-  ${myRoles.length>1?`
-  <div class="profile-section">
-    <div class="profile-section-label">${tr('workspacesLabel')}</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
-      ${myRoles.map(r=>`
-        <button class="wsBtn${r===me.role?' active':''}" style="flex:0 0 auto;min-width:0" onclick="document.getElementById('profileModal').remove();switchWorkspace('${r}')">
-          <div class="wsBtn-icon">${ic(r==='system_admin'?'shield':r.includes('manager')||r==='facility_manager'?'building':r==='cleaner'?'check':'assignments',16)}</div>
-          <div class="wsBtn-label">${roleLabel(r)}</div>
-        </button>`).join('')}
-    </div>
-  </div>`:''}
-
-  <!-- Last Password Change -->
-  ${me.lastPasswordChange?`
-  <div class="profile-section">
-    <div class="profile-section-label">${tr('lastPwdChange')}</div>
-    <div class="profile-value">${fmt(me.lastPasswordChange)}</div>
-  </div>`:''}
-
-  <!-- Language -->
-  <div class="profile-section">
-    <div class="profile-section-label">${lang==='ar'?'اللغة':'Language'}</div>
-    <button class="btn secondary sm" style="margin-top:6px" onclick="document.getElementById('profileModal').remove();switchLang()">
-      ${lang==='ar'?'التغيير إلى English':'Switch to العربية'}
-    </button>
-  </div>
-
-  <!-- Change Password -->
-  <div class="profile-section">
-    <div class="profile-section-label">${tr('changePassword')}</div>
-    <div class="formGrid" style="margin-top:8px">
-      <div class="field">
-        <label>${lang==='ar'?'كلمة المرور الجديدة':'New Password'}</label>
-        <input type="password" id="profileNewPwd" class="ltr" placeholder="••••••••" autocomplete="new-password">
-      </div>
-      <div class="field">
-        <label>${lang==='ar'?'تأكيد كلمة المرور':'Confirm Password'}</label>
-        <input type="password" id="profileConfirmPwd" class="ltr" placeholder="••••••••" autocomplete="new-password">
-      </div>
-    </div>
-    <div id="profilePwdError" style="color:var(--bad);font-size:var(--fs-xs);min-height:16px;margin-top:2px"></div>
-    <button class="btn sm" style="margin-top:8px" onclick="profileChangePassword()">
-      ${ic('lock',14)} ${lang==='ar'?'تغيير':'Change'}
-    </button>
-  </div>
-
-  <div class="modal-footer">
-    <button class="btn danger" onclick="logout()">${ic('logout',15)} ${lang==='ar'?'تسجيل الخروج':'Logout'}</button>
-    <button class="btn secondary" onclick="document.getElementById('profileModal').remove()">${tr('closeModal')}</button>
-  </div>
-</div>`;
-  modal.addEventListener('click', e=>{ if(e.target===modal) modal.remove(); });
-  document.body.appendChild(modal);
-}
-
-async function profileChangePassword(){
-  const newPwd = document.getElementById('profileNewPwd')?.value || '';
-  const confirm = document.getElementById('profileConfirmPwd')?.value || '';
-  const errEl = document.getElementById('profilePwdError');
-  if(!errEl) return;
-  errEl.textContent = '';
-  if(newPwd.length < 6){ errEl.textContent = lang==='ar'?'كلمة المرور قصيرة (٦ أحرف على الأقل)':'Password too short (min 6 chars)'; return; }
-  if(newPwd !== confirm){ errEl.textContent = lang==='ar'?'كلمتا المرور غير متطابقتين':'Passwords do not match'; return; }
-  try{
-    await api('/change-password',{method:'POST',body:JSON.stringify({newPassword:newPwd})});
-    toast(lang==='ar'?'تم تغيير كلمة المرور بنجاح':'Password changed successfully','ok');
-    document.getElementById('profileModal')?.remove();
-    await load();
-  }catch(e){
-    const msg = e.message==='SAME_PASSWORD'
-      ? (lang==='ar'?'لا يمكن استخدام كلمة المرور القديمة':'Cannot reuse the old password')
-      : (lang==='ar'?'حدث خطأ':'Error');
-    if(errEl) errEl.textContent = msg;
-  }
-}
-
 /* ═══════════════════════════════════════════════════════════════
    AUDIT LOG PAGE
    ═══════════════════════════════════════════════════════════════ */
