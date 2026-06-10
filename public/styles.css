@@ -617,8 +617,8 @@ tbody tr:hover td{background:var(--surface-2)}
   display:block;
 }
 
-.loginPanel .input-wrap .form-control{
-  padding-inline-end:48px !important; /* reserve space for icon button */
+.loginPanel .input-wrap .ctrl,.loginPanel .input-wrap input{
+  padding-inline-end:48px;
 }
 
 .loginPanel .input-icon{
@@ -1144,7 +1144,10 @@ tbody tr:hover td{background:var(--surface-2)}
 .supTicketCard-title{font-weight:700;font-size:var(--fs-sm);color:var(--ink);line-height:1.35}
 .supTicketCard-meta{font-size:var(--fs-xs);color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .supTicketCard-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.supAssignSelect{flex:1;min-width:140px;height:34px;font-size:var(--fs-xs)}
+/* ctrl size variants */
+.ctrl-sm{height:34px;min-height:34px;line-height:34px;font-size:var(--fs-xs);padding:0 10px}
+.ctrl-sm.ctrl{height:34px;min-height:34px}
+.ctrl-flex{flex:1;min-width:150px}
 
 .supTeamGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-top:4px}
 .supTeamCard{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface-2)}
@@ -1211,7 +1214,9 @@ tbody tr:hover td{background:var(--surface-2)}
 .locInput-scan svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
 /* Assigned locations */
-.assignedList{display:grid;gap:7px;margin-top:12px}
+.assignedList-section{margin-top:16px}
+.assignedList-header{font-size:var(--fs-xs);font-weight:800;color:var(--muted);margin-bottom:10px;font-family:var(--font-head);letter-spacing:.3px}
+.assignedList{display:grid;gap:7px;margin-top:4px}
 .assignedItem{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
   padding:12px 14px;border:1.5px solid var(--line);border-radius:var(--r);
@@ -1688,6 +1693,7 @@ tbody tr:hover td{background:var(--surface-2)}
   animation:modalIn .18s var(--ease-spring);
 }
 .modal-box--wide{width:min(720px,100%)}
+.modal-box--narrow{width:min(420px,100%)}
 @keyframes modalIn{from{opacity:0;transform:scale(.95) translateY(8px)}to{opacity:1;transform:none}}
 .modal-header{
   display:flex;align-items:flex-start;justify-content:space-between;

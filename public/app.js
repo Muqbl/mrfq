@@ -559,6 +559,129 @@ function activityFeed(){
   }).join('')}</div>`;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   SHARED UI HELPERS — Form controls, Modal, Topbar, Shell
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── field container ───────────────────────────────────────── */
+function fc(label, controlHtml, opts={}){
+  return `<div class="field${opts.cls?' '+opts.cls:''}">${label?`<label>${label}</label>`:''}${controlHtml}</div>`;
+}
+
+/* ── text / password / search input ────────────────────────── */
+function inp(id, opts={}){
+  const type = opts.type||'text';
+  const classes=['ctrl', opts.cls||''].filter(Boolean).join(' ');
+  const val = opts.value!==undefined?` value="${esc(String(opts.value))}"`:'' ;
+  const ph  = opts.placeholder?` placeholder="${esc(opts.placeholder)}"`:'' ;
+  const ac  = opts.autocomplete?` autocomplete="${opts.autocomplete}"`:'' ;
+  const ro  = opts.readonly?' readonly':'' ;
+  const ev  = opts.oninput?` oninput="${opts.oninput}"`:'' ;
+  const ev2 = opts.onchange?` onchange="${opts.onchange}"`:'' ;
+  return `<input id="${esc(id)}" type="${type}" class="${classes}"${val}${ph}${ac}${ro}${ev}${ev2}>`;
+}
+
+/* ── select ─────────────────────────────────────────────────── */
+function sel(id, items, opts={}){
+  const classes=['ctrl', opts.cls||''].filter(Boolean).join(' ');
+  const ev = opts.onchange?` onchange="${opts.onchange}"`:'' ;
+  const options = items.map(it=>{
+    const v = typeof it==='object'?it.v:it;
+    const l = typeof it==='object'?it.l:it;
+    const s = typeof it==='object'&&it.sel?' selected':'';
+    return `<option value="${esc(String(v))}"${s}>${esc(String(l))}</option>`;
+  }).join('');
+  return `<select id="${esc(id)}" class="${classes}"${ev}>${options}</select>`;
+}
+
+/* ── textarea ───────────────────────────────────────────────── */
+function ta(id, value, opts={}){
+  const classes=['ctrl', opts.cls||''].filter(Boolean).join(' ');
+  const ph = opts.placeholder?` placeholder="${esc(opts.placeholder)}"`:'' ;
+  const rows = opts.rows||4;
+  return `<textarea id="${esc(id)}" class="${classes}" rows="${rows}"${ph}>${esc(value||'')}</textarea>`;
+}
+
+/* ── modal lifecycle ────────────────────────────────────────── */
+function showModal(id, title, bodyHtml, footerHtml, opts={}){
+  document.getElementById(id)?.remove();
+  const sizeClass = opts.wide?'modal-box--wide':opts.narrow?'modal-box--narrow':'';
+  const el = document.createElement('div');
+  el.id = id;
+  el.className = 'modal-overlay';
+  el.innerHTML=`
+<div class="modal-box${sizeClass?' '+sizeClass:''}">
+  <div class="modal-header">
+    <h3 class="modal-title">${title}</h3>
+    <button class="icon-btn" onclick="document.getElementById('${esc(id)}').remove()">${ic('x',18)}</button>
+  </div>
+  ${bodyHtml}
+  ${footerHtml?`<div class="modal-footer">${footerHtml}</div>`:''}
+</div>`;
+  el.addEventListener('click',e=>{ if(e.target===el) el.remove(); });
+  document.body.appendChild(el);
+  return el;
+}
+
+/* ── platform topbar — ONE component for ALL roles ──────────── */
+function renderPlatformTopbar(me, opts={}){
+  const qSize = getQ().length;
+  const openTickets = (data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
+  const pendingRpts = (data?.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
+
+  const wsSwitcher = me.roles&&me.roles.length>1
+    ?`<button class="tb-workspace" onclick="renderWorkspaceSwitcher()">${ic('layers',14)}<span class="tb-workspace-label">${roleLabel(me.role)}</span>${ic('chevron',14)}</button>`:'';
+
+  const syncBtn = qSize>0
+    ?`<button class="tb-sync pending" onclick="flushOfflineQueue()" title="${tr('sync')}"><span class="tb-sync-dot pending"></span><span class="tb-sync-lbl">${qSize} ${lang==='ar'?'معلق':'pending'}</span></button>`
+    :(opts.sync?`<button class="tb-sync" onclick="flushOfflineQueue()" title="${tr('sync')}"><span class="tb-sync-dot"></span><span class="tb-sync-lbl">${tr('sync')}</span></button>`:'');
+
+  const notifBtn = opts.notif
+    ?`<button class="icon-btn tb-notif" id="tb-notif-btn" onclick="toggleNotif(event)" title="${lang==='ar'?'الإشعارات':'Notifications'}">${ic('bell',20)}${pendingRpts>0||openTickets>0?`<span class="tb-notif-badge"></span>`:''}</button>`:'';
+
+  const backBtn = opts.back
+    ?`<button class="icon-btn tb-back worker-back-btn" onclick="workerGoBack()" title="${lang==='ar'?'رجوع':'Back'}">${ic('arrow',20)}</button>`
+    :(opts.backBtn?`<button class="icon-btn tb-back" onclick="goBack()" title="${lang==='ar'?'رجوع':'Back'}">${ic('arrow',20)}</button>`:'');
+
+  /* Admin mode: show platform name + user chip; Field mode: show user name + role in brand */
+  const brandInner = opts.adminMode
+    ?`<span class="tb-brand-name">${lang==='ar'?'منصة العناية بالمرافق':'Facility Care Platform'}</span>`
+    :`<div><div class="tb-brand-name">${esc(me.name)}</div><span class="tb-brand-sub">${roleLabel(me.role)}</span></div>`;
+
+  const userChip = opts.adminMode
+    ?`<div class="tb-user"><div class="tb-avatar">${esc(initials(me.name))}</div><div><div class="tb-user-name">${esc(me.name.split(' ')[0])}</div><span class="tb-user-role">${roleLabel(me.role)}</span></div></div>`:'';
+
+  return`
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="topbar-start">
+      ${backBtn}
+      <div class="tb-brand">
+        <div class="tb-brand-icon"><img src="/assets/logos/logo-icon-dark.svg" onerror="this.style.display='none'" alt="REGA"></div>
+        ${brandInner}
+      </div>
+    </div>
+    <div class="topbar-end">
+      ${syncBtn}
+      ${notifBtn}
+      ${userChip}
+      ${wsSwitcher}
+      <button class="tb-lang" onclick="switchLang()">${tr('lang')}</button>
+      <button class="tb-logout icon-btn" onclick="logout()" title="${tr('logout')}">${ic('logout',18)}</button>
+    </div>
+  </div>
+</header>`;
+}
+
+/* ── field workspace shell — Worker / Employee / Supervisor ─── */
+function fieldShell(me, contentHtml, opts={}){
+  return`<div class="workerPage">
+  <div class="prototype-banner" role="alert">${lang==='ar'?'⚠ نسخة تجريبية — بيانات غير حقيقية':'⚠ Prototype — Demo Data Only'}</div>
+  ${renderPlatformTopbar(me, {back:opts.back||false, sync:opts.sync||false})}
+  <div class="workerContent">${contentHtml}</div>
+</div>`;
+}
+
 /* ─── RENDER DISPATCHER ──────────────────────────────────────── */
 let _lastView = null;
 function render(){
@@ -635,20 +758,8 @@ function loginPage(){
         <img src="/assets/logos/logo-icon-dark.svg" onerror="this.src='/assets/logos/logo-icon-light.svg'" alt="REGA">
       </div>
       <h2 class="loginPanel-title">${tr('app')}</h2>
-      <div class="field">
-        <label>${tr('user')}</label>
-        <div class="input-wrap">
-          <input id="lu" class="form-control" type="text" autocomplete="username" placeholder="${tr('user')}" />
-          <span class="input-icon" aria-hidden="true">${ic('user',16)}</span>
-        </div>
-      </div>
-      <div class="field">
-        <label>${tr('pass')}</label>
-        <div class="input-wrap">
-          <input id="lp" class="form-control" type="password" autocomplete="current-password" placeholder="${tr('pass')}" />
-          <button class="input-icon input-icon-btn" id="pwdToggle" onclick="togglePwd()" type="button" tabindex="-1" aria-label="${lang==='ar'?'إظهار/إخفاء كلمة المرور':'Toggle password visibility'}">${ic('eye-off',16)}</button>
-        </div>
-      </div>
+      ${fc(tr('user'), inp('lu',{type:'text', autocomplete:'username', placeholder:tr('user')}))}
+      ${fc(tr('pass'),`<div class="input-wrap">${inp('lp',{type:'password', autocomplete:'current-password', placeholder:tr('pass')})}<button class="input-icon input-icon-btn" id="pwdToggle" onclick="togglePwd()" type="button" tabindex="-1" aria-label="${lang==='ar'?'إظهار/إخفاء كلمة المرور':'Toggle password visibility'}">${ic('eye-off',16)}</button></div>`)}
       <button class="btn wide" onclick="login()">${tr('login')}</button>
       <button class="btn secondary wide" style="margin-top:10px" onclick="switchLang()">${tr('lang')}</button>
       <div class="prototype-notice-login">
@@ -739,57 +850,10 @@ async function submitForcePassword(){
    APP SHELL
    ═══════════════════════════════════════════════════════════════ */
 function shell(content){
-  const qSize = getQ().length;
-  const openTickets = (data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
-  const pendingReports = (data.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
-
   app.innerHTML=`
 <div class="appShell">
-  <!-- PROTOTYPE BANNER -->
-  <div class="prototype-banner" role="alert">
-    ${lang==='ar'
-      ? '⚠ نسخة تجريبية — بيانات غير حقيقية — استخدام الهوية البصرية لأغراض المحاكاة فقط'
-      : '⚠ Prototype — Demo Data Only — Visual identity used for simulation purposes only'}
-  </div>
-  <!-- TOP BAR -->
-  <header class="topbar">
-    <div class="topbar-inner">
-      <div class="topbar-start">
-        ${viewHistory.length?`<button class="icon-btn tb-back" onclick="goBack()" title="${lang==='ar'?'رجوع':'Back'}">${ic('arrow',20)}</button>`:''}
-        <div class="tb-brand">
-          <div class="tb-brand-icon">
-            <img src="/assets/logos/logo-icon-dark.svg" onerror="this.style.display='none'" alt="REGA">
-          </div>
-          <span class="tb-brand-name">منصة العناية بالمرافق</span>
-        </div>
-      </div>
-      <div class="topbar-end">
-        ${me.roles&&me.roles.length>1?`<button class="tb-workspace" onclick="renderWorkspaceSwitcher()">
-          ${ic('layers',14)}<span class="tb-workspace-label">${roleLabel(me.role)}</span>${ic('chevron',14)}
-        </button>`:''}
-        ${qSize>0?`<button class="tb-sync pending" onclick="flushOfflineQueue()" title="${tr('sync')}">
-          <span class="tb-sync-dot pending"></span>
-          <span class="tb-sync-lbl">${qSize} ${lang==='ar'?'معلق':'pending'}</span>
-        </button>`:`<button class="tb-sync" onclick="flushOfflineQueue()" title="${tr('sync')}">
-          <span class="tb-sync-dot"></span>
-          <span class="tb-sync-lbl">${tr('sync')}</span>
-        </button>`}
-        <button class="icon-btn tb-notif" id="tb-notif-btn" onclick="toggleNotif(event)" title="${lang==='ar'?'الإشعارات':'Notifications'}">
-          ${ic('bell',20)}
-          ${pendingReports>0||openTickets>0?`<span class="tb-notif-badge"></span>`:''}
-        </button>
-        <button class="tb-lang" onclick="switchLang()">${tr('lang')}</button>
-        <div class="tb-user">
-          <div class="tb-avatar">${esc(initials(me.name))}</div>
-          <div>
-            <div class="tb-user-name">${esc(me.name.split(' ')[0])}</div>
-            <span class="tb-user-role">${roleLabel(me.role)}</span>
-          </div>
-        </div>
-        <button class="tb-logout icon-btn" onclick="logout()" title="${tr('logout')}">${ic('logout',18)}</button>
-      </div>
-    </div>
-  </header>
+  <div class="prototype-banner" role="alert">${lang==='ar'?'⚠ نسخة تجريبية — بيانات غير حقيقية':'⚠ Prototype — Demo Data Only'}</div>
+  ${renderPlatformTopbar(me, {search:false, notif:true, sync:true, adminMode:true, backBtn:viewHistory.length>0})}
 
   <!-- BODY -->
   <div class="appBody">
@@ -1322,22 +1386,18 @@ ${canTicket()?`
     <span class="badge bad">${lang==='ar'?'بلاغ جديد':'New Ticket'}</span>
   </div>
   <div class="formGrid">
-    <div class="field"><label>${tr('title')}</label><input id="tt" value="${lang==='ar'?'بلاغ نظافة':'Cleaning Ticket'}"></div>
-    <div class="field"><label>${tr('reqCategory')}</label><select id="tc">
-      <option value="general">${tr('cat_general')}</option>
-      <option value="spill">${tr('cat_spill')}</option>
-      <option value="restroom">${tr('cat_restroom')}</option>
-      <option value="meeting_room">${tr('cat_meeting_room')}</option>
-      <option value="emergency">${tr('cat_emergency')}</option>
-    </select></div>
-    <div class="field"><label>${tr('location')}</label><select id="tl">${(data.locations||[]).map(l=>`<option value="${l.id}">${esc(locName(l))}</option>`).join('')}</select></div>
-    <div class="field"><label>${tr('assignedTo')} (${lang==='ar'?'اختياري':'optional'})</label><select id="tw">
-      <option value="">${lang==='ar'?'— تعيين تلقائي —':'— Auto-Assign —'}</option>
-      ${workers.map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('')}
-    </select></div>
-    <div class="field"><label>${tr('priority')}</label><select id="tp"><option value="high">${tr('high')}</option><option value="medium" selected>${tr('medium')}</option><option value="low">${tr('low')}</option></select></div>
+    ${fc(tr('title'), inp('tt',{value:lang==='ar'?'بلاغ نظافة':'Cleaning Ticket'}))}
+    ${fc(tr('reqCategory'), sel('tc',[
+      {v:'general',l:tr('cat_general')},{v:'spill',l:tr('cat_spill')},
+      {v:'restroom',l:tr('cat_restroom')},{v:'meeting_room',l:tr('cat_meeting_room')},
+      {v:'emergency',l:tr('cat_emergency')}
+    ]))}
+    ${fc(tr('location'), sel('tl',(data.locations||[]).map(l=>({v:l.id,l:locName(l)}))))}
+    ${fc(`${tr('assignedTo')} (${lang==='ar'?'اختياري':'optional'})`, sel('tw',[{v:'',l:lang==='ar'?'— تعيين تلقائي —':'— Auto-Assign —'},...workers.map(w=>({v:w.id,l:w.name}))]))}
+    ${fc(tr('priority'), sel('tp',[{v:'high',l:tr('high')},{v:'medium',l:tr('medium'),sel:true},{v:'low',l:tr('low')}]))}
   </div>
-  <div class="field" style="margin-bottom:14px"><label>${tr('description')}</label><textarea id="td" rows="2" placeholder="${lang==='ar'?'وصف البلاغ...':'Describe the issue...'}"></textarea></div>
+  ${fc(tr('description'), ta('td','',{rows:2, placeholder:lang==='ar'?'وصف البلاغ...':'Describe the issue...'}))}
+
   <button class="btn" onclick="createTicket()">${ic('plus',16)} ${tr('createTicket')}</button>
 </div>`:''}
 ${ticketCards(data.tickets||[])}`;
@@ -1413,44 +1473,22 @@ function editTicketModal(id){
   const t=(data.tickets||[]).find(x=>x.id===id);
   if(!t) return;
   const workers=(data.users||[]).filter(u=>u.role==='cleaner');
-  document.getElementById('editTicketModal')?.remove();
-  const modal=document.createElement('div');
-  modal.className='modal-overlay';modal.id='editTicketModal';
-  modal.innerHTML=`
-<div class="modal-box">
-  <div class="modal-header">
-    <div class="modal-title">${ic('edit',16)} ${lang==='ar'?'تعديل البلاغ':'Edit Ticket'}</div>
-    <button class="icon-btn" onclick="document.getElementById('editTicketModal').remove()">${ic('x',18)}</button>
+  const statuses=['submitted','assigned','accepted','in_progress','waiting_verification','completed','reclean_required','rejected','cancelled'];
+  const body=`
+  <div class="formGrid">
+    ${fc(tr('title'), inp('et-title',{value:t.title}))}
+    ${fc(tr('priority'), sel('et-priority',[
+      {v:'high',  l:tr('high'),   sel:t.priority==='high'},
+      {v:'medium',l:tr('medium'), sel:t.priority==='medium'},
+      {v:'low',   l:tr('low'),    sel:t.priority==='low'}
+    ]))}
+    ${fc(tr('status'), sel('et-status', statuses.map(s=>({v:s,l:tr(s)||s,sel:t.status===s}))))}
+    ${fc(tr('assignedTo'), sel('et-worker',[{v:'',l:tr('unassigned'),sel:!t.assignedTo},...workers.map(w=>({v:w.id,l:w.name,sel:t.assignedTo===w.id}))]))}
   </div>
-  <div class="formGrid" style="padding:4px 0">
-    <div class="field"><label>${tr('title')}</label><input id="et-title" value="${esc(t.title)}"></div>
-    <div class="field"><label>${tr('priority')}</label>
-      <select id="et-priority">
-        <option value="high"${t.priority==='high'?' selected':''}>${tr('high')}</option>
-        <option value="medium"${t.priority==='medium'?' selected':''}>${tr('medium')}</option>
-        <option value="low"${t.priority==='low'?' selected':''}>${tr('low')}</option>
-      </select>
-    </div>
-    <div class="field"><label>${tr('status')}</label>
-      <select id="et-status">
-        ${ ['submitted','assigned','accepted','in_progress','waiting_verification','completed','reclean_required','rejected','cancelled'].map(s=>`<option value="${s}"${t.status===s?' selected':''}>${tr(s)||s}</option>`).join('') }
-      </select>
-    </div>
-    <div class="field"><label>${tr('assignedTo')}</label>
-      <select id="et-worker">
-        <option value="">${tr('unassigned')}</option>
-        ${workers.map(w=>`<option value="${w.id}"${t.assignedTo===w.id?' selected':''}>${esc(w.name)}</option>`).join('')}
-      </select>
-    </div>
-  </div>
-  <div class="field" style="margin-top:4px"><label>${tr('description')}</label><textarea id="et-desc" rows="3">${esc(t.description||'')}</textarea></div>
-  <div class="modal-footer">
-    <button class="btn" onclick="saveEditTicket('${id}')">${ic('check',16)} ${tr('save')}</button>
-    <button class="btn secondary" onclick="document.getElementById('editTicketModal').remove()">${tr('cancel')}</button>
-  </div>
-</div>`;
-  modal.addEventListener('click',e=>{if(e.target===modal)modal.remove()});
-  document.body.appendChild(modal);
+  ${fc(tr('description'), ta('et-desc', t.description||'', {rows:3}))}`;
+  const foot=`<button class="btn" onclick="saveEditTicket('${esc(id)}')">${ic('check',16)} ${tr('save')}</button>
+    <button class="btn secondary" onclick="document.getElementById('editTicketModal').remove()">${tr('cancel')}</button>`;
+  showModal('editTicketModal', `${ic('edit',16)} ${lang==='ar'?'تعديل البلاغ':'Edit Ticket'}`, body, foot);
 }
 
 async function saveEditTicket(id){
@@ -1509,13 +1547,13 @@ ${canManage()?`
     <span class="card-title">${ic('plus',16)} ${lang==='ar'?'إضافة مرفق':'Add Facility'}</span>
   </div>
   <div class="formGrid-4">
-    <div class="field"><label>ID</label><input id="lid" class="ltr" placeholder="office-01-a"></div>
-    <div class="field"><label>${tr('type')}</label><select id="ltype">${TYPES.map(t=>`<option value="${t}">${tr(t)}</option>`).join('')}</select></div>
-    <div class="field"><label>${lang==='ar'?'الاسم العربي':'Arabic Name'}</label><input id="lar" placeholder="الاسم العربي"></div>
-    <div class="field"><label>${lang==='ar'?'الاسم الإنجليزي':'English Name'}</label><input id="len" class="ltr" placeholder="English name"></div>
-    <div class="field"><label>${tr('floor')}</label><select id="lf">${FACILITY_FLOORS.map(f=>`<option value="${esc(f)}">${esc(f)}</option>`).join('')}</select></div>
-    <div class="field"><label>${tr('zone')}</label><select id="lz">${FACILITY_ZONES.map(z=>`<option value="${esc(z)}">${esc(z)}</option>`).join('')}</select></div>
-    <div class="field"><label>${tr('priority')}</label><select id="lpri"><option value="high">${tr('high')}</option><option value="medium" selected>${tr('medium')}</option><option value="low">${tr('low')}</option></select></div>
+    ${fc('ID', inp('lid',{cls:'ltr', placeholder:'office-01-a'}))}
+    ${fc(tr('type'), sel('ltype', TYPES.map(t=>({v:t,l:tr(t)}))))}
+    ${fc(lang==='ar'?'الاسم العربي':'Arabic Name', inp('lar',{placeholder:'الاسم العربي'}))}
+    ${fc(lang==='ar'?'الاسم الإنجليزي':'English Name', inp('len',{cls:'ltr', placeholder:'English name'}))}
+    ${fc(tr('floor'), sel('lf', FACILITY_FLOORS.map(f=>({v:f,l:f}))))}
+    ${fc(tr('zone'), sel('lz', FACILITY_ZONES.map(z=>({v:z,l:z}))))}
+    ${fc(tr('priority'), sel('lpri',[{v:'high',l:tr('high')},{v:'medium',l:tr('medium'),sel:true},{v:'low',l:tr('low')}]))}
     <div class="field" style="align-self:flex-end"><button class="btn wide" onclick="addLoc()">${ic('plus',16)} ${tr('save')}</button></div>
   </div>
 </div>`:''}
@@ -1819,34 +1857,20 @@ function showUserFormModal(id){
   const editableRoles = me.role==='system_admin'?ROLES:['cleaning_supervisor','cleaner'];
   const u = id?(data.users||[]).find(x=>x.id===id):null;
   editUserId = id||null;
-
-  document.getElementById('userFormModal')?.remove();
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay';
-  modal.id = 'userFormModal';
-  modal.innerHTML=`<div class="modal-box">
-    <div class="modal-header">
-      <div>
-        <div class="modal-title">${u?`${ic('edit',16)} ${tr('edit')}`:ic('plus',16)+' '+tr('addUser')}</div>
-        ${me.role==='cleaning_manager'?`<div class="modal-subtitle">${lang==='ar'?'تدير العمال والمشرفين':'Manages workers & supervisors'}</div>`:''}
-      </div>
-      <button class="icon-btn" onclick="hideUserFormModal()">${ic('x',18)}</button>
-    </div>
-    <div class="formGrid" style="padding:0 0 4px">
-      <div class="field"><label>${tr('name')}</label><input id="un" value="${u?esc(u.name):''}"></div>
-      <div class="field"><label>${tr('username')}</label><input id="uu" class="ltr" value="${u?esc(u.username):''}"></div>
-      <div class="field"><label>${tr('password')}</label><input id="up" class="ltr" placeholder="••••••••"></div>
-      <div class="field"><label>${tr('role')}</label><select id="ur">${editableRoles.map(r=>`<option value="${r}"${u&&u.role===r?' selected':''}>${tr(r)}</option>`).join('')}</select></div>
-      <div class="field"><label>${tr('employeeNo')}</label><input id="ue" class="ltr" value="${u&&u.employeeNo?esc(u.employeeNo):''}"></div>
-      <div class="field"><label>${tr('status')}</label><select id="ua"><option value="true"${u&&u.active?' selected':''}>${tr('activeUser')}</option><option value="false"${u&&!u.active?' selected':''}>${tr('inactive')}</option></select></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="saveUser()">${ic('check',16)} ${tr('save')}</button>
-      <button class="btn secondary" onclick="hideUserFormModal()">${tr('cancel')}</button>
-    </div>
+  const titleHtml = `<div>${u?`${ic('edit',16)} ${tr('edit')}`:ic('plus',16)+' '+tr('addUser')}${me.role==='cleaning_manager'?`<div class="modal-subtitle">${lang==='ar'?'تدير العمال والمشرفين':'Manages workers & supervisors'}</div>`:''}</div>`;
+  const body=`
+  <div class="formGrid">
+    ${fc(tr('name'),    inp('un',{value:u?.name||''}))}
+    ${fc(tr('username'),inp('uu',{value:u?.username||'', cls:'ltr'}))}
+    ${fc(tr('password'),inp('up',{type:'password', placeholder:'••••••••', cls:'ltr'}))}
+    ${fc(tr('role'),    sel('ur', editableRoles.map(r=>({v:r,l:tr(r),sel:u?.role===r}))))}
+    ${fc(tr('employeeNo'),inp('ue',{value:u?.employeeNo||'', cls:'ltr'}))}
+    ${fc(tr('status'),  sel('ua',[{v:'true',l:tr('activeUser'),sel:u?.active},{v:'false',l:tr('inactive'),sel:u&&!u.active}]))}
   </div>`;
-  modal.addEventListener('click',e=>{if(e.target===modal)hideUserFormModal();});
-  document.body.appendChild(modal);
+  const foot=`<button class="btn" onclick="saveUser()">${ic('check',16)} ${tr('save')}</button>
+    <button class="btn secondary" onclick="hideUserFormModal()">${tr('cancel')}</button>`;
+  const el = showModal('userFormModal', titleHtml, body, foot);
+  el.addEventListener('click',e=>{if(e.target===el)hideUserFormModal();});
 }
 
 function hideUserFormModal(){
@@ -1917,25 +1941,9 @@ function showAddRoleModal(userId){
     }).join('');
   }
 
-  document.getElementById('rolesModal')?.remove();
-  const modal=document.createElement('div');
-  modal.className='modal-overlay';
-  modal.id='rolesModal';
-  modal.innerHTML=`<div class="modal-box roles-modal-box">
-    <div class="modal-header">
-      <div>
-        <div class="modal-title">${tr('rolesLabel')}</div>
-        <div class="modal-subtitle">${esc(u.name)}</div>
-      </div>
-      <button class="icon-btn" onclick="document.getElementById('rolesModal').remove()">${ic('x',18)}</button>
-    </div>
-    <div class="roles-grid" id="rolesGrid">${buildRoleCards()}</div>
-    <div class="modal-footer">
-      <button class="btn secondary" onclick="document.getElementById('rolesModal').remove()">${tr('cancel')}</button>
-    </div>
-  </div>`;
-  modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
-  document.body.appendChild(modal);
+  const titleHtml = `<div><div class="modal-title">${tr('rolesLabel')}</div><div class="modal-subtitle">${esc(u.name)}</div></div>`;
+  const foot = `<button class="btn secondary" onclick="document.getElementById('rolesModal').remove()">${tr('cancel')}</button>`;
+  showModal('rolesModal', titleHtml, `<div class="roles-grid" id="rolesGrid">${buildRoleCards()}</div>`, foot, {narrow:true});
 
   window._rolesModalUserId = userId;
   window._rolesModalRefresh = async ()=>{
@@ -1988,34 +1996,6 @@ function parseLoc(raw){
 }
 
 
-/* ── Shared field-workspace topbar (Worker / Employee / Supervisor) ── */
-function fieldTopbar(me, opts={}){
-  const qSize = getQ().length;
-  return`
-<header class="workerTopbar">
-  <div class="topbar-inner">
-    <div class="topbar-start">
-      ${opts.back?`<button class="icon-btn tb-back worker-back-btn" onclick="workerGoBack()" title="${lang==='ar'?'رجوع':'Back'}">${ic('arrow',20)}</button>`:''}
-      <div class="tb-brand">
-        <div class="tb-brand-icon">
-          <img src="/assets/logos/logo-icon-dark.svg" onerror="this.style.display='none'" alt="REGA">
-        </div>
-        <div>
-          <div class="tb-brand-name">${esc(me.name)}</div>
-          <span class="tb-brand-sub">${roleLabel(me.role)}</span>
-        </div>
-      </div>
-    </div>
-    <div class="topbar-end">
-      ${qSize>0?`<button class="tb-sync pending" onclick="flushOfflineQueue()" title="${tr('sync')}"><span class="tb-sync-dot pending"></span><span class="tb-sync-lbl">${qSize} ${lang==='ar'?'معلق':'pending'}</span></button>`:''}
-      ${me.roles&&me.roles.length>1?`<button class="tb-workspace" onclick="renderWorkspaceSwitcher()">${ic('layers',14)}<span class="tb-workspace-label">${roleLabel(me.role)}</span>${ic('chevron',14)}</button>`:''}
-      <button class="tb-lang" onclick="switchLang()">${tr('lang')}</button>
-      <button class="tb-logout icon-btn" onclick="logout()" title="${tr('logout')}">${ic('logout',18)}</button>
-    </div>
-  </div>
-</header>`;
-}
-
 function renderWorker(){
   setDoc();
   const assigned = ((data.assignments||[]).find(a=>a.workerId===me.id)?.locationIds)||[];
@@ -2027,12 +2007,7 @@ function renderWorker(){
   if(param) sessionStorage.removeItem('qr_loc');
   const qSize = getQ().length;
 
-  app.innerHTML=`
-<div class="workerPage">
-  <div class="prototype-banner" role="alert">${lang==='ar'?'⚠ نسخة تجريبية — بيانات غير حقيقية':'⚠ Prototype — Demo Data Only'}</div>
-  ${fieldTopbar(me,{back:true})}
-  <div class="workerContent">
-    <!-- My tickets -->
+  const workerContent=`
     ${myTickets.length?`
     <div class="wCard">
       <div class="wCard-title"><span class="wCard-number">!</span>${tr('myTickets')}</div>
@@ -2044,8 +2019,6 @@ function renderWorker(){
           </button>`).join('')}
       </div>
     </div>`:''}
-
-    <!-- Recent report statuses (approvals/rejections) -->
     ${(()=>{
       const myReports=(data.reports||[]).filter(r=>r.workerId===me.id).slice(0,8);
       const reviewed=myReports.filter(r=>r.approvalStatus&&r.approvalStatus!=='pending');
@@ -2062,9 +2035,7 @@ function renderWorker(){
             const iconBorderClr=stColor==='ok'?'var(--ok)':stColor==='bad'?'var(--bad)':'var(--warn)';
             return `<div class="workerReportItem ${actionable?'actionable':''}" ${actionable?`onclick="document.getElementById('locCode').value='${r.locationId}';startForm()"`:''}
               style="border-color:${borderClr};background:var(--${stColor}-bg)">
-              <div class="workerReportItem-icon" style="background:var(--${stColor}-bg);border-color:${iconBorderClr}">
-                ${ic(st==='approved'?'check':st==='rejected'?'x':'flip',16)}
-              </div>
+              <div class="workerReportItem-icon" style="background:var(--${stColor}-bg);border-color:${iconBorderClr}">${ic(st==='approved'?'check':st==='rejected'?'x':'flip',16)}</div>
               <div class="workerReportItem-body">
                 <div class="workerReportItem-name">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</div>
                 <div class="workerReportItem-meta">${fmt(r.approvedAt||r.createdAt)}${r.reviewNote?' · '+esc(r.reviewNote):''}</div>
@@ -2076,42 +2047,25 @@ function renderWorker(){
         </div>
       </div>`;
     })()}
-
-    <!-- Location selector -->
     <div class="wCard">
       <div class="wCard-title"><span class="wCard-number">1</span>${tr('step1')}</div>
-      <div class="field" style="margin-bottom:12px">
-        <label>${lang==='ar'?'كود الموقع':'Location Code'}</label>
-        <div class="locInput-wrap">
-          <input id="locCode" class="ltr" value="${esc(param)}" placeholder="wc-gf-a">
-          <button class="locInput-scan" onclick="openQRScanner()" title="${tr('scanQR')}">${ic('qr',18)}</button>
-        </div>
-      </div>
+      ${fc(lang==='ar'?'كود الموقع':'Location Code',`<div class="locInput-wrap">${inp('locCode',{cls:'ltr', value:param, placeholder:'wc-gf-a'})}<button class="locInput-scan" onclick="openQRScanner()" title="${tr('scanQR')}">${ic('qr',18)}</button></div>`)}
       <button class="btn wide" style="min-height:52px" onclick="startForm()">${ic('arrow',16)} ${tr('start')}</button>
-
       ${locs.length?`
-      <div style="margin-top:16px">
-        <div style="font-size:var(--fs-xs);font-weight:800;color:var(--muted);margin-bottom:10px;font-family:var(--font-head);letter-spacing:.3px">${tr('assigned').toUpperCase()}</div>
+      <div class="assignedList-section">
+        <div class="assignedList-header">${tr('assigned').toUpperCase()}</div>
         <div class="assignedList">
           ${locs.map(l=>`
             <div class="assignedItem" onclick="document.getElementById('locCode').value='${l.id}';startForm()">
-              <div>
-                <div class="assignedItem-name">${esc(locName(l))}</div>
-                <div class="assignedItem-sub">${tr(l.type)} · ${l.floor||'—'}</div>
-              </div>
+              <div><div class="assignedItem-name">${esc(locName(l))}</div><div class="assignedItem-sub">${tr(l.type)} · ${l.floor||'—'}</div></div>
               <span>${ic('arrow',16)}</span>
             </div>`).join('')}
         </div>
       </div>`:''}
     </div>
+    <div id="workerForm"></div>`;
 
-    <!-- Worker form area -->
-    <div id="workerForm"></div>
-
-    <!-- Fullscreen camera (ensureCameraOverlay injects into body) -->
-  </div>
-</div>`;
-
+  app.innerHTML = fieldShell(me, workerContent, {back:true, sync:true});
   if(param) setTimeout(startForm, 150);
 }
 
@@ -2211,7 +2165,7 @@ function startForm(){
       </div>
       <div class="field" style="margin-top:16px">
         <label>${tr('notes')}</label>
-        <textarea id="wkNotes" rows="2" placeholder="${lang==='ar'?'ملاحظات اختيارية...':'Optional notes...'}"></textarea>
+        ${ta('wkNotes','',{rows:2, placeholder:lang==='ar'?'ملاحظات اختيارية...':'Optional notes...'})}
       </div>
     </div>
 
@@ -2505,22 +2459,16 @@ async function submitReport(locationId){
 function renderEmployee(){
   setDoc();
   const myOrders = (data.tickets||[]).filter(t=>t.createdById===me.id);
-  app.innerHTML=`
-<div class="workerPage">
-  <div class="prototype-banner" role="alert">${lang==='ar'?'⚠ نسخة تجريبية — بيانات غير حقيقية':'⚠ Prototype — Demo Data Only'}</div>
-  ${fieldTopbar(me)}
-  <div class="workerContent">
-    <!-- Tab bar -->
+  const activeCount = myOrders.filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
+  const empContent=`
     <div class="empTabs">
       <button class="empTab${employeeTab==='submit'?' active':''}" onclick="employeeTab='submit';renderEmployee()">${ic('send',15)} ${tr('submitRequest')}</button>
       <button class="empTab${employeeTab==='history'?' active':''}" onclick="employeeTab='history';renderEmployee()">
-        ${ic('list',15)} ${tr('myRequests')}
-        ${myOrders.filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length?`<span class="empTab-badge">${myOrders.filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length}</span>`:''}
+        ${ic('list',15)} ${tr('myRequests')}${activeCount?`<span class="empTab-badge">${activeCount}</span>`:''}
       </button>
     </div>
-    ${employeeTab==='submit' ? employeeSubmitForm() : employeeHistory(myOrders)}
-  </div>
-</div>`;
+    ${employeeTab==='submit' ? employeeSubmitForm() : employeeHistory(myOrders)}`;
+  app.innerHTML = fieldShell(me, empContent);
 }
 
 function employeeSubmitForm(){
@@ -2561,7 +2509,7 @@ function employeeSubmitForm(){
   <div class="wCard-title"><span class="wCard-number">3</span>${lang==='ar'?'تفاصيل الطلب':'Request Details'}</div>
   <div class="field">
     <label>${tr('description')} <span style="color:var(--muted);font-weight:400">(${lang==='ar'?'اختياري':'optional'})</span></label>
-    <textarea id="empDesc" rows="3" placeholder="${lang==='ar'?'صف المشكلة بالتفصيل...':'Describe the issue in detail...'}"></textarea>
+    ${ta('empDesc','',{rows:3, placeholder:lang==='ar'?'صف المشكلة بالتفصيل...':'Describe the issue in detail...'})}
   </div>
   <div class="field">
     <label>${lang==='ar'?'صورة (اختياري)':'Photo (optional)'}</label>
@@ -2825,84 +2773,39 @@ function renderSupervisor(){
   const workers     = (data.users||[]).filter(u=>(u.roles||[u.role]).includes('cleaner'));
   const qSize = getQ().length;
 
-  app.innerHTML=`
-<div class="workerPage">
-  <div class="prototype-banner" role="alert">${lang==='ar'?'⚠ نسخة تجريبية — بيانات غير حقيقية':'⚠ Prototype — Demo Data Only'}</div>
-  ${fieldTopbar(me)}
-
-  <div class="workerContent">
-
-    <!-- Quick Stats -->
+  const supContent=`
     <div class="supStats">
       ${supStat(submitted.length,    lang==='ar'?'طلبات مفتوحة':'Open Requests',    'tickets', 'bad')}
       ${supStat(waitingVerif.length, lang==='ar'?'بانتظار التحقق':'Pending Verify',  'check',   'warn')}
       ${supStat(inProgress.length,   lang==='ar'?'جارٍ التنفيذ':'In Progress',       'sync',    'brand')}
       ${supStat(pendingRpts.length,  lang==='ar'?'تقارير للمراجعة':'Reports to Review','reports', 'ok')}
     </div>
-
     ${breached.length?`
-    <div class="wCard wCard--full" style="border-color:rgba(200,50,50,.4);margin-bottom:16px">
+    <div class="wCard" style="border-color:rgba(200,50,50,.4);margin-bottom:16px">
       <div class="wCard-title" style="color:var(--bad)">${ic('bell',16)} ${lang==='ar'?'تنبيهات SLA':'SLA Alerts'} <span class="badge bad">${breached.length}</span></div>
       <div class="wCard-list">${breached.map(t=>supTicketCard(t,'sla')).join('')}</div>
     </div>`:''}
-
     <div class="supSectionsGrid">
-
-      <!-- Open Requests -->
       <div class="wCard">
         <div class="wCard-title">${ic('tickets',16)} ${lang==='ar'?'الطلبات المفتوحة':'Open Requests'} <span class="badge bad">${submitted.length}</span></div>
-        ${submitted.length?`<div class="wCard-list">${submitted.slice(0,8).map(t=>supTicketCard(t,'assign',workers)).join('')}</div>`:`
-        <div class="empty-state">
-          <div class="empty-icon">${ic('check',24)}</div>
-          <div class="empty-title">${lang==='ar'?'لا توجد طلبات مفتوحة':'No open requests'}</div>
-        </div>`}
+        ${submitted.length?`<div class="wCard-list">${submitted.slice(0,8).map(t=>supTicketCard(t,'assign',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد طلبات مفتوحة':'No open requests'}</div></div>`}
       </div>
-
-      <!-- Pending Verification -->
       <div class="wCard">
         <div class="wCard-title">${ic('check',16)} ${lang==='ar'?'بانتظار التحقق':'Pending Verification'} <span class="badge warn">${waitingVerif.length}</span></div>
-        ${waitingVerif.length?`<div class="wCard-list">${waitingVerif.slice(0,8).map(t=>supTicketCard(t,'verify',workers)).join('')}</div>`:`
-        <div class="empty-state">
-          <div class="empty-icon">${ic('check',24)}</div>
-          <div class="empty-title">${lang==='ar'?'لا يوجد ما يحتاج تحقق':'Nothing pending verification'}</div>
-        </div>`}
+        ${waitingVerif.length?`<div class="wCard-list">${waitingVerif.slice(0,8).map(t=>supTicketCard(t,'verify',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا يوجد ما يحتاج تحقق':'Nothing pending'}</div></div>`}
       </div>
-
-      <!-- Team Queue (In Progress) -->
-      ${inProgress.length?`
-      <div class="wCard">
-        <div class="wCard-title">${ic('sync',16)} ${lang==='ar'?'قيد التنفيذ':'Team Queue'} <span class="badge brand">${inProgress.length}</span></div>
-        <div class="wCard-list">${inProgress.slice(0,8).map(t=>supTicketCard(t,'view',workers)).join('')}</div>
-      </div>`:''}
-
-      ${pendingRpts.length?`
-      <!-- Pending Reports -->
-      <div class="wCard">
-        <div class="wCard-title">${ic('reports',16)} ${lang==='ar'?'التقارير للمراجعة':'Reports for Review'} <span class="badge warn">${pendingRpts.length}</span></div>
-        <div class="wCard-list">${pendingRpts.slice(0,10).map(r=>supReportCard(r)).join('')}</div>
-      </div>`:''}
-
-      <!-- My Team -->
+      ${inProgress.length?`<div class="wCard"><div class="wCard-title">${ic('sync',16)} ${lang==='ar'?'قيد التنفيذ':'Team Queue'} <span class="badge brand">${inProgress.length}</span></div><div class="wCard-list">${inProgress.slice(0,8).map(t=>supTicketCard(t,'view',workers)).join('')}</div></div>`:''}
+      ${pendingRpts.length?`<div class="wCard"><div class="wCard-title">${ic('reports',16)} ${lang==='ar'?'التقارير للمراجعة':'Reports for Review'} <span class="badge warn">${pendingRpts.length}</span></div><div class="wCard-list">${pendingRpts.slice(0,10).map(r=>supReportCard(r)).join('')}</div></div>`:''}
       <div class="wCard">
         <div class="wCard-title">${ic('users',16)} ${lang==='ar'?'الفريق':'Team'} <span class="badge brand">${workers.length}</span></div>
-        ${workers.length?`<div class="supTeamGrid">
-          ${workers.map(w=>{
-            const wActive=allTickets.filter(t=>t.assignedTo===w.id&&!['completed','rejected','cancelled'].includes(t.status));
-            return`<div class="supTeamCard">
-              <div class="supTeamCard-avatar">${esc(initials(w.name))}</div>
-              <div class="supTeamCard-info">
-                <div class="supTeamCard-name">${esc(w.name)}</div>
-                <div class="supTeamCard-meta">${wActive.length} ${lang==='ar'?'مهام نشطة':'active tasks'}</div>
-              </div>
-              ${wActive.length?`<span class="badge warn">${wActive.length}</span>`:`<span class="badge ok">${lang==='ar'?'متاح':'Free'}</span>`}
-            </div>`;
-          }).join('')}
-        </div>`:`<div class="empty-state"><div class="empty-icon">${ic('users',24)}</div><div class="empty-title">${lang==='ar'?'لا يوجد عمال':'No workers'}</div></div>`}
+        ${workers.length?`<div class="supTeamGrid">${workers.map(w=>{
+          const wActive=allTickets.filter(t=>t.assignedTo===w.id&&!['completed','rejected','cancelled'].includes(t.status));
+          return`<div class="supTeamCard"><div class="supTeamCard-avatar">${esc(initials(w.name))}</div><div class="supTeamCard-info"><div class="supTeamCard-name">${esc(w.name)}</div><div class="supTeamCard-meta">${wActive.length} ${lang==='ar'?'مهام نشطة':'active'}</div></div>${wActive.length?`<span class="badge warn">${wActive.length}</span>`:`<span class="badge ok">${lang==='ar'?'متاح':'Free'}</span>`}</div>`;
+        }).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('users',24)}</div><div class="empty-title">${lang==='ar'?'لا يوجد عمال':'No workers'}</div></div>`}
       </div>
+    </div>`;
 
-    </div>
-  </div>
-</div>`;
+  app.innerHTML = fieldShell(me, supContent, {sync:true});
 }
 
 function supStat(count, label, icon, color){
@@ -2930,10 +2833,7 @@ function supTicketCard(t, mode, workers){
     </div>
     ${mode==='assign'&&workers?`
     <div class="supTicketCard-actions">
-      <select class="supAssignSelect" id="sas-${t.id}">
-        <option value="">${lang==='ar'?'اختر عامل...':'Assign to...'}</option>
-        ${(workers).map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('')}
-      </select>
+      ${sel(`sas-${t.id}`,[{v:'',l:lang==='ar'?'اختر عامل...':'Assign to...'},...workers.map(w=>({v:w.id,l:w.name}))], {cls:'ctrl-sm'})}
       <button class="btn sm ok" onclick="supAssign('${t.id}',document.getElementById('sas-${t.id}').value)">${lang==='ar'?'تعيين':'Assign'}</button>
     </div>`:mode==='verify'?`
     <div class="supTicketCard-actions">
@@ -3029,31 +2929,17 @@ function renderWorkspaceSelector(){
 function renderWorkspaceSwitcher(){
   const roles = (me.roles||[me.role]);
   if(roles.length<=1) return;
-  const existing=document.getElementById('wsModal');
-  if(existing){existing.remove();return;}
-  const modal=document.createElement('div');
-  modal.id='wsModal';
-  modal.className='modal-overlay';
-  modal.innerHTML=`<div class="modal-box" style="max-width:380px">
-    <div class="modal-header">
-      <h3>${tr('switchWorkspace')}</h3>
-      <button class="icon-btn" onclick="document.getElementById('wsModal').remove()">${ic('x',18)}</button>
-    </div>
-    <div class="wsGrid" style="margin-top:12px">
-      ${roles.map(r=>`
-        <button class="wsBtn${r===me.role?' active':''}" onclick="document.getElementById('wsModal').remove();switchWorkspace('${r}')">
-          <div class="wsBtn-icon">${ic(r==='system_admin'?'shield':r.includes('manager')||r==='facility_manager'?'building':r==='cleaner'?'check':'assignments',20)}</div>
-          <div class="wsBtn-label">${roleLabel(r)}</div>
-        </button>`).join('')}
-    </div>
+  if(document.getElementById('wsModal')){document.getElementById('wsModal').remove();return;}
+  const wsIcon = r => r==='system_admin'?'shield':r.includes('manager')||r==='facility_manager'?'building':r==='cleaner'?'check':'assignments';
+  const body = `<div class="wsGrid">
+    ${roles.map(r=>`<button class="wsBtn${r===me.role?' active':''}" onclick="document.getElementById('wsModal').remove();switchWorkspace('${r}')">
+      <div class="wsBtn-icon">${ic(wsIcon(r),20)}</div>
+      <div class="wsBtn-label">${roleLabel(r)}</div>
+    </button>`).join('')}
   </div>`;
-  modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
-  document.body.appendChild(modal);
+  showModal('wsModal', tr('switchWorkspace'), body, null, {narrow:true});
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   AUDIT LOG PAGE
-   ═══════════════════════════════════════════════════════════════ */
 /* ═══════════════════════════════════════════════════════════════
    AUDIT LOG PAGE
    ═══════════════════════════════════════════════════════════════ */
@@ -3075,13 +2961,9 @@ async function auditLogPage(){
     };
     return`<div class="pageTitle">${tr('auditLog')}</div>
     <div class="card" style="margin-bottom:12px">
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <input id="auditFilter" class="input sm" style="flex:1;min-width:150px"
-          placeholder="${lang==='ar'?'فلتر بالإجراء':'Filter by action'}"
-          value="${esc(action)}" onkeydown="if(event.key==='Enter')navigateTo('auditlog')">
-        <input id="auditUser" class="input sm" style="flex:1;min-width:150px"
-          placeholder="${lang==='ar'?'فلتر بالمستخدم':'Filter by user'}"
-          value="${esc(user)}" onkeydown="if(event.key==='Enter')navigateTo('auditlog')">
+      <div class="filterBar">
+        ${inp('auditFilter',{value:action, placeholder:lang==='ar'?'فلتر بالإجراء':'Filter by action', cls:'ctrl-flex', onchange:"if(event.key==='Enter')navigateTo('auditlog')"})}
+        ${inp('auditUser',{value:user, placeholder:lang==='ar'?'فلتر بالمستخدم':'Filter by user', cls:'ctrl-flex', onchange:"if(event.key==='Enter')navigateTo('auditlog')"})}
         <button class="btn sm" onclick="navigateTo('auditlog')">${ic('filter',14)} ${lang==='ar'?'تطبيق':'Apply'}</button>
       </div>
     </div>
