@@ -630,7 +630,7 @@ function renderPlatformTopbar(me, opts={}){
   const pendingRpts = (data?.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
 
   const wsSwitcher = me.roles&&me.roles.length>1
-    ?`<button class="tb-workspace" onclick="renderWorkspaceSwitcher()">${ic('layers',14)}<span class="tb-workspace-label">${roleLabel(me.role)}</span>${ic('chevron',14)}</button>`:'';
+    ?`<button class="tb-workspace" onclick="renderWorkspaceSwitcher()" title="${tr('switchWorkspace')}">${ic('layers',14)}${ic('chevron',14)}</button>`:'';
 
   const syncBtn = qSize>0
     ?`<button class="tb-sync pending" onclick="flushOfflineQueue()" title="${tr('sync')}"><span class="tb-sync-dot pending"></span><span class="tb-sync-lbl">${qSize} ${lang==='ar'?'معلق':'pending'}</span></button>`
@@ -643,10 +643,10 @@ function renderPlatformTopbar(me, opts={}){
     ?`<button class="icon-btn tb-back worker-back-btn" onclick="workerGoBack()" title="${lang==='ar'?'رجوع':'Back'}">${ic('arrow',20)}</button>`
     :(opts.backBtn?`<button class="icon-btn tb-back" onclick="goBack()" title="${lang==='ar'?'رجوع':'Back'}">${ic('arrow',20)}</button>`:'');
 
-  /* Admin: show platform name; Field: show user name + role */
+  /* Admin: show platform name; Field: show user name only */
   const brandInner = opts.adminMode
-    ?`<div><span class="tb-brand-name">${lang==='ar'?'منصة العناية بالمرافق':'Facility Care Platform'}</span><span class="tb-brand-sub">${roleLabel(me.role)}</span></div>`
-    :`<div><div class="tb-brand-name">${esc(me.name)}</div><span class="tb-brand-sub">${roleLabel(me.role)}</span></div>`;
+    ?`<span class="tb-brand-name">${lang==='ar'?'منصة العناية بالمرافق':'Facility Care Platform'}</span>`
+    :`<span class="tb-brand-name">${esc(me.name)}</span>`;
 
   return`
 <header class="topbar">
@@ -874,9 +874,7 @@ function shell(content){
         </div>
       </div>
       <div class="sidebar-footer">
-        <div class="sidebar-workspace-badge">
-          ${ic('layers',13)}<span>${roleLabel(me.role)}</span>
-        </div>
+        ${me.roles&&me.roles.length>1?`<button class="sidebar-ws-btn" onclick="renderWorkspaceSwitcher()" title="${tr('switchWorkspace')}">${ic('layers',13)}</button>`:''}
       </div>
     </aside>
 
