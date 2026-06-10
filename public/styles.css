@@ -229,14 +229,14 @@ label{
 }
 .field{display:flex;flex-direction:column;margin-bottom:14px}
 .field:last-child{margin-bottom:0}
-.formGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;align-items:start}
+.formGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
 .formGrid .field{margin-bottom:0}
 .formGrid .full{grid-column:1/-1}
-.formGrid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:end}
+.formGrid-4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:end}
 .formGrid-4 .field{margin-bottom:0}
 
 /* ─── USER SUMMARY CARDS ─────────────────────────────────────── */
-.userSummaryGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.userSummaryGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}
 .userSummaryCard{padding:16px 18px;display:flex;align-items:center;gap:12px}
 .userSummaryCard-icon{width:40px;height:40px;border-radius:var(--r-sm);display:grid;place-items:center;flex-shrink:0}
 .userSummaryCard-icon.brand{background:rgba(10,78,91,.08);color:var(--brand)}
@@ -678,7 +678,7 @@ tbody tr:hover td{background:var(--surface-2)}
 /* ═══════════════════════════════════════════════════════════════
    APP SHELL — TOP BAR
    ═══════════════════════════════════════════════════════════════ */
-.platform-shell,.appShell{flex:1;width:100%;min-height:100dvh;display:flex;flex-direction:column}
+.platform-shell{flex:1;width:100%;min-height:100dvh;display:flex;flex-direction:column}
 
 .topbar{
   position:sticky;top:0;z-index:100;height:var(--topbar-h);
@@ -800,8 +800,8 @@ tbody tr:hover td{background:var(--surface-2)}
 /* ═══════════════════════════════════════════════════════════════
    SIDEBAR
    ═══════════════════════════════════════════════════════════════ */
-.platform-body,.appBody{display:flex;flex:1;width:100%;min-height:calc(100dvh - var(--topbar-h))}
-.platform-sidebar,.sidebar{
+.platform-body{display:flex;flex:1;width:100%;min-height:calc(100dvh - var(--topbar-h))}
+.platform-sidebar{
   width:var(--sidebar-w);flex-shrink:0;
   background:var(--surface);
   border-inline-end:1px solid var(--line);
@@ -810,7 +810,7 @@ tbody tr:hover td{background:var(--surface-2)}
   display:flex;flex-direction:column;
   scrollbar-width:none;
 }
-.platform-sidebar::-webkit-scrollbar,.sidebar::-webkit-scrollbar{display:none}
+.platform-sidebar::-webkit-scrollbar{display:none}
 .sidebarInner{padding:14px 10px 10px;flex:1;display:flex;flex-direction:column;gap:2px}
 .nav-section{margin-bottom:6px}
 .nav-section-label{
@@ -847,7 +847,7 @@ tbody tr:hover td{background:var(--surface-2)}
 /* ═══════════════════════════════════════════════════════════════
    MAIN CONTENT
    ═══════════════════════════════════════════════════════════════ */
-.platform-main,.mainContent{flex:1;width:100%;min-width:0;padding:24px 24px 48px;overflow-x:hidden}
+.platform-main{flex:1;width:100%;min-width:0;padding:24px 24px 48px;overflow-x:hidden}
 .pageHeader{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;gap:16px;flex-wrap:wrap}
 .pageHeader-left{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}
 .pageHeader-actions,.pageActions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0}
@@ -862,7 +862,7 @@ tbody tr:hover td{background:var(--surface-2)}
 .sec-head h3{font-family:var(--font-head);font-size:var(--fs-md);font-weight:700;color:var(--ink)}
 
 /* ─── KPI GRID ───────────────────────────────────────────────── */
-.kpiGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.kpiGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:20px}
 .kpiCard{padding:18px 20px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .kpiCard-body{min-width:0;flex:1}
 .kpiCard-label{font-size:var(--fs-xs);color:var(--muted);font-weight:700;font-family:var(--font-head);margin-bottom:6px;letter-spacing:.2px}
@@ -903,7 +903,7 @@ tbody tr:hover td{background:var(--surface-2)}
 .dashHero-stat-lbl{font-size:10px;color:rgba(255,255,255,.60);font-weight:700;font-family:var(--font-head);margin-top:4px}
 
 /* ─── ANALYTICS GRID ─────────────────────────────────────────── */
-.analyticsGrid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:14px;margin-bottom:20px}
+.analyticsGrid{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr);gap:14px;margin-bottom:20px}
 .chartCard{padding:18px 20px}
 .chartCard-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
 .chartCard-title{font-family:var(--font-head);font-size:var(--fs-sm);font-weight:700;color:var(--ink)}
@@ -1089,35 +1089,21 @@ tbody tr:hover td{background:var(--surface-2)}
 /* ═══════════════════════════════════════════════════════════════
    WORKER PAGE — MOBILE FIRST
    ═══════════════════════════════════════════════════════════════ */
-.platform-shell--field,.workerPage{
-  min-height:100dvh;background:var(--bg);
-  display:flex;flex-direction:column;
-}
+/* Field worker / Employee / Supervisor — full-width content, large bottom gap for sticky submit */
+/* Uses double-class specificity so it overrides .platform-main responsive rules */
+.platform-main.platform-main--field{flex:1;width:100%;min-width:0;padding:16px 16px 80px;overflow-x:hidden}
+@media(min-width:769px){.platform-main.platform-main--field{padding:20px 32px 80px}}
+@media(min-width:1041px){.platform-main.platform-main--field{padding:24px 48px 80px}}
+/* Roles without sticky submit use reduced bottom padding */
+.platform-main.platform-main--no-sticky{padding-bottom:24px!important}
 
-/* ─── Unified topbar — shared by Admin, Worker, Employee, Supervisor ── */
-.topbar{
-  position:sticky;top:0;z-index:100;height:var(--topbar-h);
-  padding-top:env(safe-area-inset-top,0px);
-  background:rgba(255,255,255,.92);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
-  border-bottom:1px solid var(--line);
-}
-
-/* Worker / Employee / Supervisor content — full-width, progressive padding */
-.platform-content,.workerContent{flex:1;width:100%;padding:16px 16px 80px}
-@media(min-width:769px){.platform-content,.workerContent{padding:20px 32px 80px}}
-@media(min-width:1200px){.platform-content,.workerContent{padding:24px 48px 80px}}
-/* Roles without sticky submit (supervisor) use reduced bottom padding */
-.platform-content--no-sticky,.workerContent--no-sticky{padding-bottom:24px!important}
-
-/* Supervisor multi-column sections grid */
-.supSectionsGrid{display:grid;grid-template-columns:1fr;gap:16px}
-@media(min-width:900px){.supSectionsGrid{grid-template-columns:1fr 1fr}}
-@media(min-width:1280px){.supSectionsGrid{grid-template-columns:repeat(3,1fr)}}
+/* Supervisor multi-column sections grid — auto-fill, no breakpoints needed */
+.supSectionsGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
 .supSectionsGrid>.wCard--full{grid-column:1/-1}
 
 /* ─── Supervisor workspace ────────────────────────────────── */
-.supStats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
-@media(max-width:580px){.supStats{grid-template-columns:repeat(2,1fr);gap:8px}}
+.supStats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+@media(max-width:580px){.supStats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}}
 @media(max-width:480px){.supStats{gap:6px}}
 
 .supStatCard{padding:14px 12px;text-align:center}
@@ -1335,32 +1321,24 @@ tbody tr:hover td{background:var(--surface-2)}
    RESPONSIVE — PLATFORM SHELL
    ═══════════════════════════════════════════════════════════════ */
 
-/* ─── Large tablet / small desktop (≤1200px) ─────────────────── */
+/* ─── Large desktop (≤1200px) — analytics grid reflow only ──── */
 @media(max-width:1200px){
-  .kpiGrid{grid-template-columns:repeat(2,1fr)}
-  .analyticsGrid{grid-template-columns:1fr 1fr;row-gap:14px}
+  .analyticsGrid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);row-gap:14px}
   .analyticsGrid>.chartCard:first-child{grid-column:1/-1}
-  .contentGrid{grid-template-columns:1fr}
 }
 
 /* ─── Tablet (≤1040px) ────────────────────────────────────────── */
 @media(max-width:1040px){
-  :root{--sidebar-w:220px}
-  .platform-main,.mainContent{padding:20px 18px 40px}
-}
-
-/* ─── Tablet narrow (≤840px) ─────────────────────────────────── */
-@media(max-width:840px){
   :root{--sidebar-w:200px;--topbar-base:60px}
-  .platform-main,.mainContent{padding:14px 14px 32px}
-  .kpiGrid{grid-template-columns:1fr 1fr}
+  .platform-main{padding:18px 16px 36px}
+  .kpiGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .analyticsGrid{grid-template-columns:1fr}
   .contentGrid{grid-template-columns:1fr}
   .dashHero{flex-direction:column;align-items:flex-start;padding:20px 22px}
   .dashHero-right{flex-wrap:wrap;width:100%;justify-content:flex-start}
   .tb-sync .tb-sync-lbl{display:none}
   .tb-brand-name{font-size:13px}
-  .supStats{grid-template-columns:repeat(2,1fr)}
+  .supStats{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 
 /* ─── MOBILE (≤768px) — no sidebar, full-width content ───────── */
@@ -1368,12 +1346,11 @@ tbody tr:hover td{background:var(--surface-2)}
   :root{--sidebar-w:0px;--topbar-base:56px}
 
   /* Body becomes block — sidebar hidden, main fills width */
-  .platform-body,.appBody{display:block}
-  .platform-sidebar,.sidebar{display:none!important}
+  .platform-body{display:block}
+  .platform-sidebar{display:none!important}
 
-  /* Main content and field content — full width */
-  .platform-main,.mainContent{width:100%;padding:12px 12px 32px}
-  .platform-content,.workerContent{width:100%}
+  /* Main content — full width, compact padding */
+  .platform-main{width:100%;padding:12px 12px 32px}
 
   /* Topbar compact */
   .topbar-inner{padding:0 10px;gap:6px}
@@ -1495,8 +1472,8 @@ tbody tr:hover td{background:var(--surface-2)}
 
 /* Print */
 @media print{
-  .topbar,.sidebar,.stickySubmit,.cameraFull,.toast,.btn.secondary,.btn.ghost{display:none!important}
-  .mainContent{padding:0}
+  .topbar,.platform-sidebar,.stickySubmit,.cameraFull,.toast,.btn.secondary,.btn.ghost{display:none!important}
+  .platform-main{padding:0}
   .card,.reportCard{break-inside:avoid;box-shadow:none}
 }
 
@@ -1802,13 +1779,9 @@ tbody tr:hover td{background:var(--surface-2)}
    RESPONSIVE — COMPONENTS
    ═══════════════════════════════════════════════════════════════ */
 @media(max-width:1040px){
-  .userSummaryGrid{grid-template-columns:repeat(2,1fr)}
-  .formGrid-4{grid-template-columns:repeat(2,1fr)}
+  .userSummaryGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .formGrid-4{grid-template-columns:repeat(2,minmax(0,1fr))}
   .usersTable th:nth-child(2),.usersTable td:nth-child(2){display:none}
-}
-@media(max-width:840px){
-  .formGrid{grid-template-columns:1fr 1fr}
-  .formGrid-4{grid-template-columns:repeat(2,1fr)}
   .usersFilterBar{gap:8px}
   .usersFilterBar-sep{display:none}
 }
@@ -1818,10 +1791,10 @@ tbody tr:hover td{background:var(--surface-2)}
   .usersTable-roles{min-width:auto}
 }
 @media(max-width:600px){
-  .roles-grid{grid-template-columns:1fr 1fr}
+  .roles-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .auditTable{font-size:10px}
   .auditTable th,.auditTable td{padding:7px 8px}
-  .userSummaryGrid{grid-template-columns:repeat(2,1fr)}
+  .userSummaryGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .formGrid{grid-template-columns:1fr}
   .formGrid-4{grid-template-columns:1fr}
   .usersFilterBar{padding:10px 12px}
