@@ -35,9 +35,9 @@ function setSecurityHeaders(res) {
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline'",   // required for current single-file architecture
-    "style-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https://api.qrserver.com",
-    "font-src 'self'",
+    "font-src 'self' https://fonts.gstatic.com",
     "connect-src 'self'",
     "media-src 'self' blob:",
     "worker-src 'self' blob:",

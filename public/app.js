@@ -850,6 +850,8 @@ async function submitForcePassword(){
    APP SHELL
    ═══════════════════════════════════════════════════════════════ */
 function shell(content){
+  const openTickets   = (data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
+  const pendingReports= (data.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
   app.innerHTML=`
 <div class="appShell">
   <div class="prototype-banner" role="alert">${lang==='ar'?'⚠ نسخة تجريبية — بيانات غير حقيقية':'⚠ Prototype — Demo Data Only'}</div>
