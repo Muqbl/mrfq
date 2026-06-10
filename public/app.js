@@ -782,16 +782,10 @@ function showForcePasswordChange(){
     </div>
     <h2 class="fpBox-title">${lang==='ar'?'تغيير كلمة المرور':'Change Password'}</h2>
     <p class="fpBox-sub">${lang==='ar'?'يجب تغيير كلمة المرور المؤقتة قبل استخدام النظام':'You must change your temporary password before using the system'}</p>
-    <div class="field">
-      <label>${lang==='ar'?'كلمة المرور الجديدة':'New Password'}</label>
-      <input id="fpNewPwd" type="password" oninput="checkPwdStrength()">
-    </div>
-    <div id="pwdStrength" style="margin-bottom:8px"></div>
-    <div class="field">
-      <label>${lang==='ar'?'تأكيد كلمة المرور':'Confirm Password'}</label>
-      <input id="fpConfirmPwd" type="password">
-    </div>
-    <div id="fpError" style="color:var(--bad);font-size:var(--fs-xs);min-height:20px;margin-bottom:8px"></div>
+    ${fc(lang==='ar'?'كلمة المرور الجديدة':'New Password', inp('fpNewPwd',{type:'password', oninput:'checkPwdStrength()', autocomplete:'new-password'}))}
+    <div id="pwdStrength" class="pwdStrength"></div>
+    ${fc(lang==='ar'?'تأكيد كلمة المرور':'Confirm Password', inp('fpConfirmPwd',{type:'password', autocomplete:'new-password'}))}
+    <div id="fpError" class="formError"></div>
     <button class="btn wide" onclick="submitForcePassword()">${lang==='ar'?'حفظ كلمة المرور الجديدة':'Save New Password'}</button>
     <button class="btn secondary wide" style="margin-top:10px" onclick="logout()">${lang==='ar'?'تسجيل خروج':'Logout'}</button>
   </div>
@@ -1522,8 +1516,8 @@ ${canManage()?`
   </div>
   <div class="zone-chips">
     ${(data.zones||[]).map(z=>`<span class="zone-chip">${esc(z)}<button class="zone-del" onclick="deleteZone('${esc(z)}')" title="${lang==='ar'?'حذف':'Delete'}">×</button></span>`).join('')}
-    <div style="display:flex;gap:6px;align-items:center">
-      <input id="new-zone" style="width:100px" placeholder="${lang==='ar'?'منطقة جديدة':'New zone'}">
+    <div class="zone-add">
+      ${inp('new-zone',{placeholder:lang==='ar'?'منطقة جديدة':'New zone'})}
       <button class="btn sm" onclick="addZone()">${ic('plus',14)} ${lang==='ar'?'إضافة':'Add'}</button>
     </div>
   </div>
@@ -1645,9 +1639,7 @@ function assignments(){
 <div class="card">
   <div class="field">
     <label>${tr('selectWorker')}</label>
-    <select id="aw" onchange="fillAssign()">
-      ${workers.map(w=>`<option value="${w.id}">${esc(w.name)} — ${esc(w.username)}</option>`).join('')}
-    </select>
+    ${sel('aw', workers.map(w=>({v:w.id,l:`${w.name} - ${w.username}`})), {onchange:'fillAssign()'})}
   </div>
   <!-- FLOOR FILTER -->
   <div class="filterBar" style="margin-bottom:16px">
@@ -1662,17 +1654,16 @@ function assignments(){
 
   <div class="assignGrid" style="margin-top:0">
     ${(data.locations||[]).map(l=>`
-      <label class="assignItem" data-floor="${esc(l.floor||'')}"
-        style="${assignFloorFilter!=='all'&&(l.floor||'')!==assignFloorFilter?'display:none':''}">
+      <label class="assignItem${assignFloorFilter!=='all'&&(l.floor||'')!==assignFloorFilter?' is-hidden':''}" data-floor="${esc(l.floor||'')}">
         <input class="asgCheck" type="checkbox" value="${l.id}">
-        <div style="flex:1;min-width:0">
+        <div class="assignItem-body">
           <div class="assignItem-label">${esc(locName(l))}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(l.id)}</div>
-          <span class="badge" style="margin-top:4px">${tr(l.type)}</span>
+          <div class="assignItem-id">${esc(l.id)}</div>
+          <span class="badge">${tr(l.type)}</span>
         </div>
       </label>`).join('')}
   </div>
-  <div style="margin-top:18px">
+  <div class="assignActions">
     <button class="btn" onclick="saveAssign()">${ic('check',16)} ${tr('save')}</button>
   </div>
 </div>`;
@@ -1682,7 +1673,7 @@ function filterAssignFloor(floor){
   assignFloorFilter = floor;
   // show/hide items in-place — checkboxes keep their checked state
   document.querySelectorAll('.assignItem[data-floor]').forEach(el=>{
-    el.style.display = (floor==='all' || el.dataset.floor===floor) ? '' : 'none';
+    el.classList.toggle('is-hidden', !(floor==='all' || el.dataset.floor===floor));
   });
   // update active chip without re-render
   document.querySelectorAll('.asgFloorBtn').forEach(btn=>{
@@ -1773,18 +1764,14 @@ function users(){
 
 <!-- Filter bar -->
 <div class="usersFilterBar">
-  <input type="search" placeholder="${lang==='ar'?'بحث...':'Search users...'}" value="${esc(usersSearch)}"
-    oninput="usersSearch=this.value;render()">
+  ${inp('usersSearch',{type:'search', placeholder:lang==='ar'?'بحث...':'Search users...', value:usersSearch, oninput:'usersSearch=this.value;render()'})}
   <div class="usersFilterBar-sep"></div>
-  <select onchange="usersRoleFilter=this.value;render()">
-    <option value="all"${usersRoleFilter==='all'?' selected':''}>${lang==='ar'?'كل الصلاحيات':'All Roles'}</option>
-    ${ROLES.map(r=>`<option value="${r}"${usersRoleFilter===r?' selected':''}>${tr(r)}</option>`).join('')}
-  </select>
-  <select onchange="usersStatusFilter=this.value;render()">
-    <option value="all"${usersStatusFilter==='all'?' selected':''}>${lang==='ar'?'كل الحالات':'All Status'}</option>
-    <option value="active"${usersStatusFilter==='active'?' selected':''}>${tr('activeUser')}</option>
-    <option value="inactive"${usersStatusFilter==='inactive'?' selected':''}>${tr('inactive')}</option>
-  </select>
+  ${sel('usersRoleFilter', [{v:'all',l:lang==='ar'?'كل الصلاحيات':'All Roles',sel:usersRoleFilter==='all'},...ROLES.map(r=>({v:r,l:tr(r),sel:usersRoleFilter===r}))], {onchange:'usersRoleFilter=this.value;render()'})}
+  ${sel('usersStatusFilter', [
+    {v:'all',l:lang==='ar'?'كل الحالات':'All Status',sel:usersStatusFilter==='all'},
+    {v:'active',l:tr('activeUser'),sel:usersStatusFilter==='active'},
+    {v:'inactive',l:tr('inactive'),sel:usersStatusFilter==='inactive'}
+  ], {onchange:'usersStatusFilter=this.value;render()'})}
 </div>
 
 <!-- Enterprise table -->
@@ -2121,13 +2108,10 @@ function startForm(){
         </div>
         <span class="badge brand">${tr('autoTime')}</span>
       </div>
-      <div class="field" style="margin-bottom:14px">
-        <label>${tr('status')}</label>
-        <select id="wkStatus">
-          <option value="completed">${tr('completed')}</option>
-          <option value="needs_followup">${tr('needs_followup')}</option>
-        </select>
-      </div>
+      ${fc(tr('status'), sel('wkStatus', [
+        {v:'completed',l:tr('completed')},
+        {v:'needs_followup',l:tr('needs_followup')}
+      ]), {cls:'field-spaced'})}
     </div>
 
     <div class="wCard">
@@ -2466,7 +2450,7 @@ function employeeSubmitForm(){
   <div class="field">
     <label>${lang==='ar'?'كود الموقع':'Location Code'}</label>
     <div class="locInput-wrap">
-      <input id="empLocCode" class="ltr" placeholder="wc-gf-a">
+      ${inp('empLocCode',{cls:'ltr', placeholder:'wc-gf-a'})}
       <button class="locInput-scan" onclick="openQRScanner()" title="${tr('scanQR')}">${ic('qr',18)}</button>
     </div>
   </div>
@@ -3020,4 +3004,3 @@ async function auditLogPage(){
     }
   }catch(e){ loginPage(); }
 })();
-
