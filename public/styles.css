@@ -695,7 +695,8 @@ tbody tr:hover td{background:var(--surface-2)}
 .topbar .icon-btn,
 .topbar .tb-logout.icon-btn,
 .topbar .tb-workspace.icon-btn,
-.topbar .tb-notif.icon-btn{
+.topbar .tb-notif.icon-btn,
+.topbar .tb-lang.icon-btn{
   width:38px;height:38px;min-width:38px;min-height:38px;
   border:0;border-radius:0;background:transparent;box-shadow:none;
   color:var(--ink-soft);padding:0;
@@ -703,7 +704,8 @@ tbody tr:hover td{background:var(--surface-2)}
 .topbar .icon-btn:hover,
 .topbar .tb-logout.icon-btn:hover,
 .topbar .tb-workspace.icon-btn:hover,
-.topbar .tb-notif.icon-btn:hover{
+.topbar .tb-notif.icon-btn:hover,
+.topbar .tb-lang.icon-btn:hover{
   background:transparent;color:var(--brand);border-color:transparent;box-shadow:none;transform:none;
 }
 .topbar .icon-btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
@@ -787,13 +789,7 @@ tbody tr:hover td{background:var(--surface-2)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
 /* Lang */
-.tb-lang{
-  padding:6px 8px;border-radius:0;background:transparent;
-  border:0;font-size:11px;font-weight:800;
-  font-family:var(--font-head);color:var(--ink-soft);transition:all var(--t-fast);
-  min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;
-}
-.tb-lang:hover{color:var(--brand);background:transparent}
+.tb-lang{transition:all var(--t-fast);flex-shrink:0}
 
 
 /* Logout */
@@ -1396,7 +1392,8 @@ tbody tr:hover td{background:var(--surface-2)}
   .topbar .icon-btn,
   .topbar .tb-logout.icon-btn,
   .topbar .tb-workspace.icon-btn,
-  .topbar .tb-notif.icon-btn{
+  .topbar .tb-notif.icon-btn,
+  .topbar .tb-lang.icon-btn{
     width:36px;height:36px;min-width:36px;min-height:36px;
     border:0;border-radius:0;background:transparent;box-shadow:none;
     color:var(--ink-soft);padding:0;
@@ -1404,7 +1401,8 @@ tbody tr:hover td{background:var(--surface-2)}
   .topbar .icon-btn:hover,
   .topbar .tb-logout.icon-btn:hover,
   .topbar .tb-workspace.icon-btn:hover,
-  .topbar .tb-notif.icon-btn:hover{
+  .topbar .tb-notif.icon-btn:hover,
+  .topbar .tb-lang.icon-btn:hover{
     background:transparent;color:var(--brand);box-shadow:none;transform:none;
   }
   .topbar .icon-btn svg,
@@ -1421,11 +1419,6 @@ tbody tr:hover td{background:var(--surface-2)}
   }
   .tb-sync .tb-sync-lbl{display:none}
   .tb-sync-dot{width:8px;height:8px}
-  .tb-lang{
-    min-width:36px;min-height:36px;padding:0;border:0;border-radius:0;
-    background:transparent;color:var(--ink-soft);font-size:11px;box-shadow:none;
-  }
-  .tb-lang:hover{background:transparent;color:var(--brand);border-color:transparent}
 
   /* KPI grid — 2 compact columns on mobile */
   .kpiGrid{grid-template-columns:1fr 1fr}
@@ -1483,7 +1476,7 @@ tbody tr:hover td{background:var(--surface-2)}
 
 @media(max-width:430px){
   .tb-brand-name{max-width:118px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .tb-lang{min-width:40px;padding:0 6px}
+  .tb-lang.icon-btn{width:36px;height:36px;min-width:36px;min-height:36px;padding:0}
   .tb-sync{width:40px;min-width:40px;padding:0}
   .tb-workspace.icon-btn,.tb-logout.icon-btn{width:36px;height:36px;min-width:36px;min-height:36px}
 }
