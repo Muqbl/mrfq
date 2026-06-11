@@ -253,6 +253,8 @@ let reportFilter = 'all';
 let usersSearch = '', usersRoleFilter = 'all', usersStatusFilter = 'all';
 let locsFloorFilter = 'all';
 let assignFloorFilter = 'all';
+let showTicketCreate = false, showLocCreate = false, showZoneCreate = false;
+let mobileNavActive = '';
 let viewHistory = [];
 let eventSource = null;
 let forcePasswordChange = false;
@@ -466,6 +468,7 @@ function connectSSE(){
 /* ─── BACK NAVIGATION ──────────────────────────────────────── */
 function navigateTo(v){
   if(view!==v) viewHistory.push(view);
+  mobileNavActive = v;
   view=v; render();
 }
 function goBack(){
@@ -743,14 +746,14 @@ function loginPage(){
       </div>
     </div>
     <div class="loginPanel">
+      <button class="loginLangBtn" onclick="switchLang()" type="button" aria-label="${tr('lang')}" title="${tr('lang')}">${ic('language',22)}</button>
       <div class="loginPanel-logo">
         <img src="/assets/logos/logo-icon-dark.svg" onerror="this.src='/assets/logos/logo-icon-light.svg'" alt="REGA">
       </div>
       <h2 class="loginPanel-title">${tr('app')}</h2>
-      ${fc(tr('user'), inp('lu',{type:'text', autocomplete:'username', placeholder:tr('user')}))}
-      ${fc(tr('pass'),`<div class="input-wrap">${inp('lp',{type:'password', autocomplete:'current-password', placeholder:tr('pass')})}<button class="input-icon input-icon-btn" id="pwdToggle" onclick="togglePwd()" type="button" tabindex="-1" aria-label="${lang==='ar'?'إظهار/إخفاء كلمة المرور':'Toggle password visibility'}">${ic('eye-off',16)}</button></div>`)}
+      ${fc(tr('user'), `<div class="input-wrap login-input-wrap"><span class="input-icon input-icon-static">${ic('user',16)}</span>${inp('lu',{type:'text', autocomplete:'username', placeholder:tr('user'), cls:'login-input'})}</div>`)}
+      ${fc(tr('pass'),`<div class="input-wrap login-input-wrap">${inp('lp',{type:'password', autocomplete:'current-password', placeholder:tr('pass'), cls:'login-input login-input--with-action'})}<button class="input-icon input-icon-btn" id="pwdToggle" onclick="togglePwd()" type="button" tabindex="-1" aria-label="${lang==='ar'?'إظهار/إخفاء كلمة المرور':'Toggle password visibility'}">${ic('eye-off',16)}</button></div>`)}
       <button class="btn wide" onclick="login()">${tr('login')}</button>
-      <button class="btn secondary wide" style="margin-top:10px" onclick="switchLang()">${tr('lang')}</button>
       <div class="prototype-notice-login">
         ${lang==='ar'
           ? 'نسخة تجريبية — بيانات غير حقيقية. للمحاكاة البصرية فقط.'
@@ -880,29 +883,30 @@ function navItem(v,label,icon,count){
 
 function renderMobileBottomNav(openTickets=0, pendingReports=0){
   const role = me?.role || '';
-  const isAdmin = canManage() || canReview() || role==='cleaning_manager' || role==='facility_manager';
+  const isAdmin = !['employee','cleaner','cleaning_supervisor'].includes(role) && (canManage() || canReview() || role==='cleaning_manager' || role==='facility_manager');
+  const activeKey = mobileNavActive || view;
   let primary = [];
   if(role==='employee'){
     const activeCount = (data?.tickets||[]).filter(t=>t.createdById===me.id&&!['completed','rejected','cancelled'].includes(t.status)).length;
     primary = [
-      {v:'employee-home', label:lang==='ar'?'الرئيسية':'Home', icon:'dashboard', count:0, action:"employeeTab='submit';renderEmployee()", active:employeeTab==='submit'},
-      {v:'employee-new', label:lang==='ar'?'طلب جديد':'New', icon:'send', count:0, action:"employeeTab='submit';renderEmployee()", active:false},
-      {v:'employee-history', label:tr('myRequests'), icon:'list', count:activeCount, action:"employeeTab='history';renderEmployee()", active:employeeTab==='history'},
-      {v:'employee-notif', label:lang==='ar'?'تنبيهات':'Alerts', icon:'bell', count:pendingReports, action:"document.getElementById('tb-notif-btn')?.click()"}
+      {v:'employee-home', label:lang==='ar'?'الرئيسية':'Home', icon:'dashboard', count:0, action:"mobileNavActive='employee-home';employeeTab='submit';renderEmployee()", active:activeKey==='employee-home'||(!mobileNavActive&&employeeTab==='submit')},
+      {v:'employee-new', label:lang==='ar'?'طلب جديد':'New', icon:'send', count:0, action:"mobileNavActive='employee-new';employeeTab='submit';renderEmployee()", active:activeKey==='employee-new'},
+      {v:'employee-history', label:tr('myRequests'), icon:'list', count:activeCount, action:"mobileNavActive='employee-history';employeeTab='history';renderEmployee()", active:activeKey==='employee-history'||(!mobileNavActive&&employeeTab==='history')},
+      {v:'employee-notif', label:lang==='ar'?'تنبيهات':'Alerts', icon:'bell', count:pendingReports, action:"mobileNavActive='employee-notif';document.getElementById('tb-notif-btn')?.click()", active:activeKey==='employee-notif'}
     ];
   }else if(role==='cleaner'){
     primary = [
-      {v:'worker-current', label:lang==='ar'?'المهمة':'Task', icon:'check', count:openTickets, action:'renderWorker()', active:true},
-      {v:'worker-requests', label:lang==='ar'?'بلاغاتي':'Requests', icon:'tickets', count:openTickets, action:'renderWorker()'},
-      {v:'worker-photos', label:lang==='ar'?'الصور':'Photos', icon:'camera', count:0, action:"document.querySelector('.cameraBtn')?.scrollIntoView({behavior:'smooth',block:'center'})"},
-      {v:'worker-notif', label:lang==='ar'?'تنبيهات':'Alerts', icon:'bell', count:pendingReports, action:"document.getElementById('tb-notif-btn')?.click()"}
+      {v:'worker-current', label:lang==='ar'?'المهمة':'Task', icon:'check', count:openTickets, action:"mobileNavActive='worker-current';renderWorker()", active:activeKey==='worker-current'||!mobileNavActive},
+      {v:'worker-requests', label:lang==='ar'?'بلاغاتي':'Requests', icon:'tickets', count:openTickets, action:"mobileNavActive='worker-requests';renderWorker()"},
+      {v:'worker-photos', label:lang==='ar'?'الصور':'Photos', icon:'camera', count:0, action:"mobileNavActive='worker-photos';document.querySelector('.cameraBtn')?.scrollIntoView({behavior:'smooth',block:'center'})"},
+      {v:'worker-notif', label:lang==='ar'?'تنبيهات':'Alerts', icon:'bell', count:pendingReports, action:"mobileNavActive='worker-notif';document.getElementById('tb-notif-btn')?.click()"}
     ];
   }else if(role==='cleaning_supervisor'){
     primary = [
-      {v:'supervisor-home', label:tr('dashboard'), icon:'dashboard', count:0, action:'renderSupervisor()', active:true},
-      {v:'supervisor-requests', label:lang==='ar'?'الطلبات':'Requests', icon:'tickets', count:openTickets, action:"document.querySelector('.supTicketCard,.wCard')?.scrollIntoView({behavior:'smooth',block:'start'})"},
-      {v:'supervisor-team', label:lang==='ar'?'الفريق':'Team', icon:'users', count:0, action:"document.querySelector('.supTeamCard')?.scrollIntoView({behavior:'smooth',block:'center'})"},
-      {v:'supervisor-reports', label:tr('reports'), icon:'reports', count:pendingReports, action:"document.querySelector('.workerReportItem,.reportCard')?.scrollIntoView({behavior:'smooth',block:'center'})"}
+      {v:'supervisor-home', label:tr('dashboard'), icon:'dashboard', count:0, action:"mobileNavActive='supervisor-home';renderSupervisor()", active:activeKey==='supervisor-home'||!mobileNavActive},
+      {v:'supervisor-requests', label:lang==='ar'?'الطلبات':'Requests', icon:'tickets', count:openTickets, action:"mobileNavActive='supervisor-requests';document.querySelector('.supTicketCard,.wCard')?.scrollIntoView({behavior:'smooth',block:'start'})"},
+      {v:'supervisor-team', label:lang==='ar'?'الفريق':'Team', icon:'users', count:0, action:"mobileNavActive='supervisor-team';document.querySelector('.supTeamCard')?.scrollIntoView({behavior:'smooth',block:'center'})"},
+      {v:'supervisor-reports', label:tr('reports'), icon:'reports', count:pendingReports, action:"mobileNavActive='supervisor-reports';document.querySelector('.workerReportItem,.reportCard')?.scrollIntoView({behavior:'smooth',block:'center'})"}
     ];
   }else{
     primary = [
@@ -915,7 +919,7 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
   const moreActive = isAdmin ? !primary.some(item=>item.v===view) : false;
   return `<nav class="mobileBottomNav" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
     ${primary.map(item=>`
-      <button class="mobileBottomNav-item${item.active||view===item.v?' active':''}" onclick="${item.action||`navigateTo('${item.v}')`}">
+      <button class="mobileBottomNav-item${item.active||activeKey===item.v?' active':''}" onclick="${item.action||`mobileNavActive='${item.v}';navigateTo('${item.v}')`}">
         <span class="mobileBottomNav-icon">${ic(item.icon,18)}${item.count>0?`<span class="mobileBottomNav-badge">${num(item.count)}</span>`:''}</span>
         <span class="mobileBottomNav-label">${item.label}</span>
       </button>
@@ -1350,7 +1354,20 @@ function toggleNotif(e){
       : `<div class="notifPanel-empty">${ic('check',20)}<br>${lang==='ar'?'لا توجد إشعارات جديدة':'No new notifications'}</div>`}
     </div>`;
 
-  btn.appendChild(panel);
+  document.body.appendChild(panel);
+  const rect = btn.getBoundingClientRect();
+  const panelWidth = Math.min(320, window.innerWidth - 24);
+  panel.style.width = `${panelWidth}px`;
+  panel.style.top = `${Math.min(rect.bottom + 10, window.innerHeight - 80)}px`;
+  const maxInset = Math.max(12, window.innerWidth - panelWidth - 12);
+  if(document.documentElement.dir==='rtl'){
+    panel.style.right = `${Math.min(maxInset, Math.max(12, window.innerWidth - rect.right))}px`;
+    panel.style.left = 'auto';
+  }else{
+    panel.style.left = `${Math.min(maxInset, Math.max(12, rect.left))}px`;
+    panel.style.right = 'auto';
+  }
+  panel.addEventListener('click', ev=>ev.stopPropagation());
   // Close on outside click
   setTimeout(()=>document.addEventListener('click',function h(){panel.remove();document.removeEventListener('click',h);}),0);
 }
@@ -1480,13 +1497,13 @@ function tickets(){
     <div class="pageTitle">${tr('tickets')}</div>
     <div class="pageSub">${num((data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length)} ${lang==='ar'?'بلاغ نشط':'active tickets'}</div>
   </div>
-  ${canTicket()?`<button class="btn sm" onclick="document.querySelector('.card').scrollIntoView({behavior:'smooth'})">${ic('plus',14)} ${tr('createTicket')}</button>`:''}
+  ${canTicket()?`<button class="btn sm" onclick="showTicketCreate=!showTicketCreate;render()">${ic('plus',14)} ${tr('createTicket')}</button>`:''}
 </div>
-${canTicket()?`
+${canTicket()&&showTicketCreate?`
 <div class="card" style="margin-bottom:20px">
   <div class="card-head">
     <span class="card-title">${ic('plus',16)} ${tr('createTicket')}</span>
-    <span class="badge bad">${lang==='ar'?'بلاغ جديد':'New Ticket'}</span>
+    <button class="icon-btn" onclick="showTicketCreate=false;render()" title="${tr('cancel')}">${ic('x',18)}</button>
   </div>
   <div class="formGrid">
     ${fc(tr('title'), inp('tt',{value:lang==='ar'?'بلاغ نظافة':'Cleaning Ticket'}))}
@@ -1525,7 +1542,7 @@ function ticketCards(items){
     <div class="empty-icon">${ic('tickets',28)}</div>
     <div class="empty-title">${tr('noTickets')}</div>
     <p class="empty-sub">${lang==='ar'?'لا توجد بلاغات مفتوحة. يمكنك إنشاء بلاغ جديد من الأعلى.':'No open tickets. Create a new ticket using the form above.'}</p>
-    ${canTicket()?`<button class="btn sm" style="margin-top:8px" onclick="window.scrollTo({top:0,behavior:'smooth'})">${ic('plus',14)} ${tr('createTicket')}</button>`:''}
+    ${canTicket()?`<button class="btn sm" style="margin-top:8px" onclick="showTicketCreate=true;render()">${ic('plus',14)} ${tr('createTicket')}</button>`:''}
   </div></div>`;
   return`<div class="ticketGrid">${items.map(t=>{
     const prCls = t.priority==='high'?'bad':t.priority==='low'?'info':'warn';
@@ -1605,6 +1622,7 @@ async function saveEditTicket(id){
   await api('/tickets/'+id,{method:'PUT',body:JSON.stringify(payload)});
   document.getElementById('editTicketModal')?.remove();
   toast(tr('saved'),'ok');
+  showTicketCreate = false;
   await load();
 }
 
@@ -1629,6 +1647,7 @@ function locations(){
     <div class="pageSub">${num((data.locations||[]).length)} ${lang==='ar'?'مرفق':'facilities'}</div>
   </div>
   <div class="pageActions">
+    ${canManage()?`<button class="btn sm" onclick="showLocCreate=!showLocCreate;render()">${ic('plus',14)} ${lang==='ar'?'إضافة مرفق':'Add Facility'}</button>`:''}
     <button class="btn secondary sm" onclick="window.print()">${ic('qr',14)} ${tr('printQR')}</button>
   </div>
 </div>
@@ -1636,18 +1655,23 @@ ${canManage()?`
 <div class="card" style="margin-bottom:16px">
   <div class="card-head">
     <span class="card-title">${ic('locations',16)} ${lang==='ar'?'إدارة المناطق':'Zones'}</span>
+    <button class="btn secondary sm" onclick="showZoneCreate=!showZoneCreate;render()">${ic('plus',13)} ${lang==='ar'?'منطقة':'Zone'}</button>
   </div>
   <div class="zone-chips">
     ${(data.zones||[]).map(z=>`<span class="zone-chip">${esc(z)}<button class="zone-del" onclick="deleteZone('${esc(z)}')" title="${lang==='ar'?'حذف':'Delete'}">×</button></span>`).join('')}
+    ${showZoneCreate?`
     <div class="zone-add">
       ${inp('new-zone',{placeholder:lang==='ar'?'منطقة جديدة':'New zone'})}
       <button class="btn sm" onclick="addZone()">${ic('plus',14)} ${lang==='ar'?'إضافة':'Add'}</button>
     </div>
+    `:''}
   </div>
 </div>
+${showLocCreate?`
 <div class="card" style="margin-bottom:20px">
   <div class="card-head">
     <span class="card-title">${ic('plus',16)} ${lang==='ar'?'إضافة مرفق':'Add Facility'}</span>
+    <button class="icon-btn" onclick="showLocCreate=false;render()" title="${tr('cancel')}">${ic('x',18)}</button>
   </div>
   <div class="formGrid-4">
     ${fc('ID', inp('lid',{cls:'ltr', placeholder:'office-01-a'}))}
@@ -1659,7 +1683,7 @@ ${canManage()?`
     ${fc(tr('priority'), sel('lpri',[{v:'high',l:tr('high')},{v:'medium',l:tr('medium'),sel:true},{v:'low',l:tr('low')}]))}
     <div class="field" style="align-self:flex-end"><button class="btn wide" onclick="addLoc()">${ic('plus',16)} ${tr('save')}</button></div>
   </div>
-</div>`:''}
+</div>`:''}`:''}
 <!-- FLOOR FILTER -->
 <div class="filterBar" style="margin-bottom:16px">
   <div class="filterChips">
@@ -1720,6 +1744,7 @@ async function addLoc(){
     priority:document.getElementById('lpri').value
   })});
   toast(tr('saved'),'ok');
+  showLocCreate = false;
   await load();
 }
 
@@ -1727,6 +1752,7 @@ async function addZone(){
   const v=(document.getElementById('new-zone')||{}).value?.trim();
   if(!v) return;
   await api('/zones',{method:'POST',body:JSON.stringify({zone:v})});
+  showZoneCreate = false;
   toast(tr('saved'),'ok'); await load();
 }
 async function deleteZone(z){
@@ -1918,10 +1944,9 @@ ${filtered.length===0
         const rCls = roleBadgeClass(u.role);
         const extraRoles = (u.roles||[]).filter(r=>r!==u.role);
         return`<tr>
-          <td>
-            <div class="userRow-cell-name">
-              <div class="userRow-avatar">${esc(initials(u.name))}</div>
-              <div>
+	          <td>
+	            <div class="userRow-cell-name">
+	              <div>
                 <div class="userRow-name">${esc(u.name)}</div>
                 <div class="userRow-username">${esc(u.username)}</div>
               </div>
@@ -2721,8 +2746,6 @@ async function performance(){
     return {...w, weighted};
   }).sort((a,b)=>b.weighted-a.weighted);
 
-  const medals = ['🥇','🥈','🥉'];
-
   return`
 <div class="pageHeader">
   <div class="pageHeader-left">
@@ -2744,8 +2767,7 @@ ${scored.length>=1?`
   <div class="recognitionPodium">
     ${scored.slice(0,3).map((w,i)=>`
       <div class="podiumCard ${i===0?'gold':i===1?'silver':'bronze'}">
-        <div class="podiumCard-medal">${medals[i]||''}</div>
-        <div class="podiumCard-avatar">${esc(initials(w.name))}</div>
+        <div class="podiumCard-rank">${num(i+1)}</div>
         <div class="podiumCard-name">${esc(w.name)}</div>
         <div class="podiumCard-score">${w.weighted}${lang==='ar'?'%':''}</div>
         <div class="podiumCard-stats">
@@ -2782,7 +2804,6 @@ ${scored.length>=1?`
           return`<tr>
             <td>
               <div style="display:flex;align-items:center;gap:8px">
-                <div style="width:32px;height:32px;border-radius:50%;background:var(--surface-3);display:grid;place-items:center;font-size:var(--fs-xs);font-weight:800;flex-shrink:0;color:var(--brand)">${esc(initials(w.name))}</div>
                 <div>
                   <div style="font-weight:700;font-size:var(--fs-sm)">${esc(w.name)}</div>
                   <div style="font-size:var(--fs-xs);color:var(--muted)">${esc(w.username)}</div>
@@ -2898,7 +2919,7 @@ function renderSupervisor(){
         <div class="wCard-title">${ic('users',16)} ${lang==='ar'?'الفريق':'Team'} <span class="badge brand">${workers.length}</span></div>
         ${workers.length?`<div class="supTeamGrid">${workers.map(w=>{
           const wActive=allTickets.filter(t=>t.assignedTo===w.id&&!['completed','rejected','cancelled'].includes(t.status));
-          return`<div class="supTeamCard"><div class="supTeamCard-avatar">${esc(initials(w.name))}</div><div class="supTeamCard-info"><div class="supTeamCard-name">${esc(w.name)}</div><div class="supTeamCard-meta">${wActive.length} ${lang==='ar'?'مهام نشطة':'active'}</div></div>${wActive.length?`<span class="badge warn">${wActive.length}</span>`:`<span class="badge ok">${lang==='ar'?'متاح':'Free'}</span>`}</div>`;
+	          return`<div class="supTeamCard"><div class="supTeamCard-info"><div class="supTeamCard-name">${esc(w.name)}</div><div class="supTeamCard-meta">${wActive.length} ${lang==='ar'?'مهام نشطة':'active'}</div></div>${wActive.length?`<span class="badge warn">${wActive.length}</span>`:`<span class="badge ok">${lang==='ar'?'متاح':'Free'}</span>`}</div>`;
         }).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('users',24)}</div><div class="empty-title">${lang==='ar'?'لا يوجد عمال':'No workers'}</div></div>`}
       </div>
     </div>`;
