@@ -295,6 +295,16 @@ label{
 .badge.info{background:var(--info-bg);color:var(--info);border-color:rgba(0,132,141,.16)}
 .badge.brand{background:rgba(0,82,87,.08);color:var(--brand);border-color:rgba(0,82,87,.12)}
 .badge.gold{background:rgba(168,111,42,.10);color:var(--rega-brown);border-color:rgba(168,111,42,.18)}
+.countBubble{
+  width:24px;height:24px;min-width:24px;min-height:24px;padding:0;
+  border-radius:50%;display:inline-grid;place-items:center;
+  font-family:var(--font-body);font-size:12px;font-weight:800;line-height:1;
+  background:var(--brand);color:#fff;border:1px solid rgba(0,82,87,.12);
+}
+.countBubble.bad{background:var(--bad-bg);color:var(--bad);border-color:rgba(222,117,89,.18)}
+.countBubble.warn{background:var(--warn-bg);color:var(--warn);border-color:rgba(230,158,51,.18)}
+.countBubble.ok{background:var(--ok-bg);color:var(--ok);border-color:rgba(0,164,136,.14)}
+.countBubble.info{background:var(--info-bg);color:var(--info);border-color:rgba(0,132,141,.16)}
 
 /* ─── ROLE BADGES ────────────────────────────────────────────── */
 .badge.role-admin{background:rgba(0,82,87,.08);color:var(--rega-dark-teal);border-color:rgba(0,82,87,.16)}
@@ -781,8 +791,7 @@ tbody tr:hover td{background:var(--surface-2)}
 .fieldTab.active{background:#fff;color:var(--brand-dark);box-shadow:var(--shadow-xs)}
 .fieldTab-icon{display:grid;place-items:center;color:currentColor}
 .fieldTab-count{
-  min-width:20px;height:20px;border-radius:999px;padding:0 6px;
-  display:grid;place-items:center;background:var(--brand);color:#fff;font-size:10px;
+  width:24px;height:24px;min-width:24px;min-height:24px;padding:0;font-size:12px;
 }
 
 /* Search */
@@ -913,9 +922,7 @@ tbody tr:hover td{background:var(--surface-2)}
 .navBtn:hover:not(.active) .navBtn-icon{background:rgba(14,111,104,.08);color:var(--brand-mid)}
 .navBtn-label{flex:1;min-width:0;font-size:var(--fs-sm)}
 .navBtn-badge{
-  min-width:18px;height:18px;border-radius:var(--r-full);padding:0 5px;
-  background:var(--bad);color:#fff;font-size:10px;font-weight:800;
-  display:grid;place-items:center;flex-shrink:0;font-family:var(--font-body);
+  flex-shrink:0;
 }
 .navBtn.active .navBtn-badge{background:rgba(255,255,255,.22);color:#fff}
 
@@ -1245,13 +1252,13 @@ tbody tr:hover td{background:var(--surface-2)}
   font-family:var(--font-head);font-size:var(--fs-xs);font-weight:800;cursor:pointer;white-space:nowrap;
 }
 .supervisorSlaLink:hover{color:var(--brand)}
-.supTicketList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.supTicketCard{padding:14px;border-bottom:0}
+.supTicketList{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:14px}
+.supTicketCard{padding:16px;border-bottom:0}
 .supTicketCard:last-child{border-bottom:0}
 .supTicketCard-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:0}
 .supTicketCard-main{min-width:0}
-.supTicketCard-title{font-weight:800;font-size:var(--fs-sm);color:var(--ink);line-height:1.35}
-.supTicketCard-meta{font-size:var(--fs-xs);color:var(--muted);margin-top:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.supTicketCard-title{font-family:var(--font-head);font-weight:800;font-size:var(--fs-sm);color:var(--ink);line-height:1.4}
+.supTicketCard-meta{font-size:11px;color:var(--muted);margin-top:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;line-height:1.55}
 .supTicketCard-badges{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:0}
 .supTicketCard-badges .badge,
 .supTicketCard-badges .slaBadge{
@@ -1297,11 +1304,11 @@ tbody tr:hover td{background:var(--surface-2)}
   margin-bottom:14px;display:flex;align-items:center;gap:9px;line-height:1.2;
 }
 .wCard-title>svg{width:18px;height:18px;flex:0 0 18px;align-self:center}
-.wCard-title .badge{display:inline-grid;place-items:center;line-height:1;align-self:center}
+.wCard-title .badge,.wCard-title .countBubble{display:inline-grid;place-items:center;line-height:1;align-self:center}
 .wCard-number{
-  width:28px;height:28px;border-radius:50%;display:inline-grid;place-items:center;
-  line-height:1;flex:0 0 28px;font-family:var(--font-head);font-weight:800;
-  background:var(--surface-2);border:1px solid var(--line);color:var(--brand-mid);
+  width:24px;height:24px;min-width:24px;min-height:24px;border-radius:50%;display:inline-grid;place-items:center;
+  line-height:1;flex:0 0 24px;font-family:var(--font-body);font-size:12px;font-weight:800;
+  background:var(--brand);border:1px solid rgba(0,82,87,.12);color:#fff;
 }
 .wCard-num{
   width:28px;height:28px;border-radius:50%;
@@ -1668,6 +1675,20 @@ tbody tr:hover td{background:var(--surface-2)}
    MOBILE APP EXPERIENCE — Employee-page patterns applied globally
    ═══════════════════════════════════════════════════════════════ */
 .mobileBottomNav{display:none}
+.mobileMoreGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.mobileMoreItem{
+  min-height:54px;border:1.5px solid var(--line);border-radius:var(--r);
+  background:var(--surface-2);display:flex;align-items:center;gap:12px;
+  padding:12px 14px;text-align:inherit;color:var(--ink);
+  font-family:var(--font-head);font-size:var(--fs-sm);font-weight:800;
+}
+.mobileMoreItem.active{background:var(--bg-soft);border-color:rgba(0,132,141,.22);color:var(--brand-dark)}
+.mobileMoreIcon{
+  width:34px;height:34px;border-radius:var(--r-sm);
+  display:grid;place-items:center;background:var(--surface);color:var(--brand-mid);
+  flex-shrink:0;
+}
+.mobileMoreIcon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
 @media(max-width:768px){
   .notifPanel{
@@ -1706,6 +1727,7 @@ tbody tr:hover td{background:var(--surface-2)}
     min-width:0;min-height:48px;border-radius:var(--r-sm);
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
     color:var(--muted);font-family:var(--font-head);font-size:10px;font-weight:800;
+    position:relative;
   }
   .mobileBottomNav-item.active{
     background:var(--bg-soft);color:var(--brand-dark);
@@ -1714,27 +1736,13 @@ tbody tr:hover td{background:var(--surface-2)}
   .mobileBottomNav-icon svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .mobileBottomNav-badge{
     position:absolute;top:-8px;inset-inline-end:-10px;
-    min-width:17px;height:17px;border-radius:999px;padding:0 4px;
-    display:grid;place-items:center;background:var(--bad);color:#fff;
-    border:2px solid #fff;font-size:9px;line-height:1;
+    width:20px;height:20px;min-width:20px;min-height:20px;
+    border:2px solid #fff;font-size:10px;
   }
   .mobileBottomNav-label{
     max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   }
-  .mobileMoreGrid{display:grid;grid-template-columns:1fr;gap:8px}
-  .mobileMoreItem{
-    min-height:52px;border:1.5px solid var(--line);border-radius:var(--r);
-    background:var(--surface-2);display:flex;align-items:center;gap:10px;
-    padding:12px 14px;text-align:inherit;color:var(--ink);
-    font-family:var(--font-head);font-size:var(--fs-sm);font-weight:800;
-  }
-  .mobileMoreItem.active{background:var(--bg-soft);border-color:rgba(0,132,141,.22);color:var(--brand-dark)}
-  .mobileMoreIcon{
-    width:34px;height:34px;border-radius:var(--r-sm);
-    display:grid;place-items:center;background:var(--surface);color:var(--brand-mid);
-    flex-shrink:0;
-  }
-  .mobileMoreIcon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .mobileMoreGrid{grid-template-columns:1fr;gap:8px}
 
   .pageAnim{display:grid;gap:12px}
   .pageHeader{
@@ -2090,11 +2098,11 @@ tbody tr:hover td{background:var(--surface-2)}
 .empCatBtn.active .empCatBtn-icon{background:rgba(10,78,91,.12);color:var(--brand)}
 
 /* ── Employee order history cards ───────────────────────────── */
-.empOrderCard{padding:14px 16px;border:1.5px solid var(--line);border-radius:var(--r);background:var(--surface)}
-.empOrderCard-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
-.empOrderCard-title{font-weight:800;font-size:var(--fs-sm);color:var(--ink)}
-.empOrderCard-ref{font-family:ui-monospace,monospace;font-size:var(--fs-xs);color:var(--brand-mid);margin-top:2px}
-.empOrderCard-meta{font-size:var(--fs-xs);color:var(--muted);margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.empOrderCard{padding:16px}
+.empOrderCard-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.empOrderCard-title{font-family:var(--font-head);font-weight:800;font-size:var(--fs-sm);color:var(--ink);line-height:1.4}
+.empOrderCard-ref{font-size:var(--fs-xs);color:var(--muted);margin-top:2px;font-family:ui-monospace,monospace}
+.empOrderCard-meta{font-size:11px;color:var(--muted);margin-top:0;display:flex;gap:10px;flex-wrap:wrap;align-items:center;line-height:1.55}
 .empOrderCard-assigned{font-size:var(--fs-xs);color:var(--ok);margin-top:4px;display:flex;align-items:center;gap:4px}
 .empOrderCard-queue{font-size:var(--fs-xs);color:var(--warn);margin-top:4px}
 

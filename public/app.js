@@ -725,7 +725,7 @@ function renderFieldTabs(){
     <button class="fieldTab${active?' active':''}" onclick="${action}">
       <span class="fieldTab-icon">${ic(icon,16)}</span>
       <span>${label}</span>
-      ${count?`<span class="fieldTab-count">${num(count)}</span>`:''}
+    ${count?`<span class="countBubble fieldTab-count">${num(count)}</span>`:''}
     </button>`;
   if(me.role==='cleaning_supervisor'){
     const openTickets = (data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
@@ -997,8 +997,12 @@ function navItem(v,label,icon,count){
   return `<button class="navBtn${view===v?' active':''}" onclick="navigateTo('${v}')">
     <span class="navBtn-icon">${ic(icon,18)}</span>
     <span class="navBtn-label">${label}</span>
-    ${count>0?`<span class="navBtn-badge">${num(count)}</span>`:''}
+    ${count>0?`<span class="countBubble navBtn-badge">${num(count)}</span>`:''}
   </button>`;
+}
+
+function countBubble(value, tone='brand'){
+  return `<span class="countBubble ${tone}">${num(value)}</span>`;
 }
 
 function renderMobileBottomNav(openTickets=0, pendingReports=0){
@@ -1045,7 +1049,8 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
   return `<nav class="mobileBottomNav" style="--mobile-nav-count:${navCount}" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
     ${primary.map(item=>`
       <button class="mobileBottomNav-item${item.active||activeKey===item.v?' active':''}" onclick="${item.action||`mobileNavActive='${item.v}';navigateTo('${item.v}')`}">
-        <span class="mobileBottomNav-icon">${ic(item.icon,18)}${item.count>0?`<span class="mobileBottomNav-badge">${num(item.count)}</span>`:''}</span>
+        <span class="mobileBottomNav-icon">${ic(item.icon,18)}</span>
+        ${item.count>0?`<span class="countBubble mobileBottomNav-badge">${num(item.count)}</span>`:''}
         <span class="mobileBottomNav-label">${item.label}</span>
       </button>
     `).join('')}
@@ -2746,7 +2751,7 @@ function employeeHome(orders, activeCount){
       <div class="empHomeSummary-title">${lang==='ar'?'خدمات النظافة والمرافق':'Cleaning and facility services'}</div>
       <div class="empHomeSummary-sub">${activeCount?`${num(activeCount)} ${lang==='ar'?'طلبات قيد المتابعة':'active requests'}`:(lang==='ar'?'لا توجد طلبات مفتوحة':'No open requests')}</div>
     </div>
-    <span class="badge brand">${num(orders.length)}</span>
+    ${countBubble(orders.length)}
   </div>
   <button class="btn wide" onclick="employeeView='new';mobileNavActive='employee-new';renderEmployee()">${ic('send',18)} ${tr('submitRequest')}</button>
 </div>
@@ -2756,15 +2761,15 @@ ${latest.length?`
   <div class="wCard-list" style="gap:10px">
     ${latest.map(t=>{
       const stCls = t.status==='completed'?'ok':['reclean_required','rejected','cancelled'].includes(t.status)?'bad':t.status==='waiting_verification'?'warn':'brand';
-      return`<div class="empOrderCard">
-        <div class="empOrderCard-head">
-          <div>
-            <div class="empOrderCard-title">${esc(t.title)}</div>
-            ${t.referenceNo?`<div class="empOrderCard-ref">${esc(t.referenceNo)}</div>`:''}
+      return`<div class="ticketCard empOrderCard">
+        <div class="ticketCard-top empOrderCard-head">
+          <div class="ticketCard-main">
+            <div class="ticketCard-title empOrderCard-title">${esc(t.title)}</div>
+            ${t.referenceNo?`<div class="ticketCard-ref empOrderCard-ref">${esc(t.referenceNo)}</div>`:''}
           </div>
           <span class="badge ${stCls}">${tr(t.status)||t.status}</span>
         </div>
-        <div class="empOrderCard-meta">${ic('locations',11)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)} · ${fmt(t.createdAt)}</div>
+        <div class="ticketCard-meta empOrderCard-meta"><span>${ic('locations',12)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</span><span>${fmt(t.createdAt)}</span></div>
       </div>`;
     }).join('')}
   </div>
@@ -2853,20 +2858,20 @@ function employeeHistory(orders){
     ${orders.map(t=>{
       const stCls = t.status==='completed'?'ok':['reclean_required','rejected','cancelled'].includes(t.status)?'bad':t.status==='waiting_verification'?'warn':'brand';
       const catLabel = tr('cat_'+(t.category||'general'));
-      return`<div class="empOrderCard">
-        <div class="empOrderCard-head">
-          <div>
-            <div class="empOrderCard-title">${esc(t.title)}</div>
-            ${t.referenceNo?`<div class="empOrderCard-ref">${esc(t.referenceNo)}</div>`:''}
+      return`<div class="ticketCard empOrderCard">
+        <div class="ticketCard-top empOrderCard-head">
+          <div class="ticketCard-main">
+            <div class="ticketCard-title empOrderCard-title">${esc(t.title)}</div>
+            ${t.referenceNo?`<div class="ticketCard-ref empOrderCard-ref">${esc(t.referenceNo)}</div>`:''}
           </div>
           <span class="badge ${stCls}">${tr(t.status)||t.status}</span>
         </div>
-        <div class="empOrderCard-meta">
-          ${ic('locations',11)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}
-          <span>·</span>
+        <div class="ticketCard-meta empOrderCard-meta">
+          <span>${ic('locations',12)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</span>
+          <span>${fmt(t.createdAt)}</span>
+        </div>
+        <div class="ticketCard-badges">
           <span class="badge">${catLabel}</span>
-          <span>·</span>
-          ${fmt(t.createdAt)}
         </div>
         ${t.assignedToName?`<div class="empOrderCard-assigned">${ic('users',11)} ${lang==='ar'?'تم التعيين لـ:':'Assigned to:'} ${esc(t.assignedToName)}</div>`:`<div class="empOrderCard-queue">${lang==='ar'?'في قائمة انتظار المشرف':'In supervisor queue'}</div>`}
       </div>`;
@@ -3094,7 +3099,7 @@ function renderSupervisor(){
   const slaHtml = breached.length?`
     <div class="wCard supervisorSlaCard">
       <div class="supervisorSlaHead">
-        <div class="wCard-title supervisorSlaTitle">${ic('bell',16)} ${lang==='ar'?'تنبيهات SLA':'SLA Alerts'} <span class="badge bad">${breached.length}</span></div>
+        <div class="wCard-title supervisorSlaTitle">${ic('bell',16)} ${lang==='ar'?'تنبيهات SLA':'SLA Alerts'} ${countBubble(breached.length,'bad')}</div>
         <button class="linkBtn supervisorSlaLink" onclick="supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()">${lang==='ar'?'عرض الكل في الطلبات':'View all in requests'}</button>
       </div>
       <div class="wCard-list supTicketList">${breached.map(t=>supTicketCard(t,'sla')).join('')}</div>
@@ -3114,27 +3119,27 @@ function renderSupervisor(){
     <div class="supSectionsGrid">
       ${slaHtml?`<div class="wCard--full">${slaHtml}</div>`:''}
       <div class="wCard">
-        <div class="wCard-title">${ic('tickets',16)} ${lang==='ar'?'الطلبات المفتوحة':'Open Requests'} <span class="badge bad">${submitted.length}</span></div>
+        <div class="wCard-title">${ic('tickets',16)} ${lang==='ar'?'الطلبات المفتوحة':'Open Requests'} ${countBubble(submitted.length,'bad')}</div>
         ${submitted.length?`<div class="wCard-list">${submitted.map(t=>supTicketCard(t,'assign',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد طلبات مفتوحة':'No open requests'}</div></div>`}
       </div>
       <div class="wCard">
-        <div class="wCard-title">${ic('check',16)} ${lang==='ar'?'بانتظار التحقق':'Pending Verification'} <span class="badge warn">${waitingVerif.length}</span></div>
+        <div class="wCard-title">${ic('check',16)} ${lang==='ar'?'بانتظار التحقق':'Pending Verification'} ${countBubble(waitingVerif.length,'warn')}</div>
         ${waitingVerif.length?`<div class="wCard-list">${waitingVerif.map(t=>supTicketCard(t,'verify',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا يوجد ما يحتاج تحقق':'Nothing pending'}</div></div>`}
       </div>
       <div class="wCard wCard--full">
-        <div class="wCard-title">${ic('sync',16)} ${lang==='ar'?'قيد التنفيذ':'Team Queue'} <span class="badge brand">${inProgress.length}</span></div>
+        <div class="wCard-title">${ic('sync',16)} ${lang==='ar'?'قيد التنفيذ':'Team Queue'} ${countBubble(inProgress.length)}</div>
         ${inProgress.length?`<div class="wCard-list supTicketList">${inProgress.map(t=>supTicketCard(t,'view',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('sync',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد طلبات قيد التنفيذ':'No requests in progress'}</div></div>`}
       </div>
     </div>`;
 
   const reportsHtml=`<div class="wCard">
-    <div class="wCard-title">${ic('reports',16)} ${lang==='ar'?'التقارير للمراجعة':'Reports for Review'} <span class="badge warn">${pendingRpts.length}</span></div>
+    <div class="wCard-title">${ic('reports',16)} ${lang==='ar'?'التقارير للمراجعة':'Reports for Review'} ${countBubble(pendingRpts.length,'warn')}</div>
     ${pendingRpts.length?`<div class="wCard-list">${pendingRpts.map(r=>supReportCard(r)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد تقارير للمراجعة':'No reports to review'}</div></div>`}
   </div>`;
 
   const teamHtml=`
       <div class="wCard">
-        <div class="wCard-title">${ic('users',16)} ${lang==='ar'?'الفريق':'Team'} <span class="badge brand">${workers.length}</span></div>
+        <div class="wCard-title">${ic('users',16)} ${lang==='ar'?'الفريق':'Team'} ${countBubble(workers.length)}</div>
         ${workers.length?`<div class="supTeamGrid">${workers.map(w=>{
           const wActive=allTickets.filter(t=>t.assignedTo===w.id&&!['completed','rejected','cancelled'].includes(t.status));
 	          return`<div class="supTeamCard"><div class="supTeamCard-info"><div class="supTeamCard-name">${esc(w.name)}</div><div class="supTeamCard-meta">${wActive.length} ${lang==='ar'?'مهام نشطة':'active'}</div></div>${wActive.length?`<span class="badge warn">${wActive.length}</span>`:`<span class="badge ok">${lang==='ar'?'متاح':'Free'}</span>`}</div>`;
