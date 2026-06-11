@@ -3093,7 +3093,10 @@ function renderSupervisor(){
 
   const slaHtml = breached.length?`
     <div class="wCard supervisorSlaCard">
-      <div class="wCard-title supervisorSlaTitle">${ic('bell',16)} ${lang==='ar'?'تنبيهات SLA':'SLA Alerts'} <span class="badge bad">${breached.length}</span></div>
+      <div class="supervisorSlaHead">
+        <div class="wCard-title supervisorSlaTitle">${ic('bell',16)} ${lang==='ar'?'تنبيهات SLA':'SLA Alerts'} <span class="badge bad">${breached.length}</span></div>
+        <button class="linkBtn supervisorSlaLink" onclick="supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()">${lang==='ar'?'عرض الكل في الطلبات':'View all in requests'}</button>
+      </div>
       <div class="wCard-list supTicketList">${breached.map(t=>supTicketCard(t,'sla')).join('')}</div>
     </div>`:'';
 
@@ -3199,9 +3202,6 @@ function supTicketCard(t, mode, workers){
     <div class="supTicketCard-actions">
       <button class="btn sm ok" onclick="supVerify('${t.id}','completed')">${ic('check',14)} ${lang==='ar'?'تحقق':'Verify'}</button>
       <button class="btn sm warn" onclick="supVerify('${t.id}','reclean_required')">${ic('flip',14)} ${lang==='ar'?'إعادة تنظيف':'Reclean'}</button>
-    </div>`:mode==='sla'?`
-    <div class="supTicketCard-actions">
-      <button class="btn secondary sm" onclick="supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()">${lang==='ar'?'عرض في الطلبات':'View in requests'}</button>
     </div>`:''}
   </div>`;
 }
