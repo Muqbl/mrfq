@@ -873,7 +873,8 @@ function shell(content){
       </div>
     </main>
   </div>
-  <div style="position:fixed;bottom:8px;left:50%;transform:translateX(-50%);font-size:11px;color:var(--muted-light,rgba(0,0,0,.25));pointer-events:none;z-index:1;white-space:nowrap;font-family:var(--font-body)">By Abdulaziz M. AlMutairi</div>
+  ${renderMobileBottomNav(openTickets, pendingReports)}
+  <div class="prototype-credit">By Abdulaziz M. AlMutairi</div>
 </div>`;
 }
 
@@ -883,6 +884,48 @@ function navItem(v,label,icon,count){
     <span class="navBtn-label">${label}</span>
     ${count>0?`<span class="navBtn-badge">${num(count)}</span>`:''}
   </button>`;
+}
+
+function renderMobileBottomNav(openTickets=0, pendingReports=0){
+  const primary = [
+    {v:'dashboard', label:tr('dashboard'), icon:'dashboard', count:0},
+    {v:'tickets', label:tr('tickets'), icon:'tickets', count:openTickets},
+    {v:'reports', label:tr('reports'), icon:'reports', count:pendingReports},
+    {v:'locations', label:tr('locations'), icon:'locations', count:0}
+  ];
+  const moreActive = !primary.some(item=>item.v===view);
+  return `<nav class="mobileBottomNav" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
+    ${primary.map(item=>`
+      <button class="mobileBottomNav-item${view===item.v?' active':''}" onclick="navigateTo('${item.v}')">
+        <span class="mobileBottomNav-icon">${ic(item.icon,18)}${item.count>0?`<span class="mobileBottomNav-badge">${num(item.count)}</span>`:''}</span>
+        <span class="mobileBottomNav-label">${item.label}</span>
+      </button>
+    `).join('')}
+    <button class="mobileBottomNav-item${moreActive?' active':''}" onclick="showMobileNavMore()">
+      <span class="mobileBottomNav-icon">${ic('layers',18)}</span>
+      <span class="mobileBottomNav-label">${lang==='ar'?'المزيد':'More'}</span>
+    </button>
+  </nav>`;
+}
+
+function showMobileNavMore(){
+  const items = [
+    {v:'dashboard', label:tr('dashboard'), icon:'dashboard'},
+    {v:'tickets', label:tr('tickets'), icon:'tickets'},
+    {v:'reports', label:tr('reports'), icon:'reports'},
+    {v:'locations', label:tr('locations'), icon:'locations'},
+    {v:'assignments', label:tr('assignments'), icon:'assignments'},
+    ...(canUsers()?[{v:'users', label:tr('users'), icon:'users'}]:[]),
+    ...(canReview()?[{v:'performance', label:tr('performance'), icon:'bar-chart'}]:[]),
+    ...(canManage()?[{v:'auditlog', label:tr('auditLog'), icon:'log'}]:[])
+  ];
+  const body = `<div class="mobileMoreGrid">
+    ${items.map(item=>`<button class="mobileMoreItem${view===item.v?' active':''}" onclick="document.getElementById('mobileNavModal')?.remove();navigateTo('${item.v}')">
+      <span class="mobileMoreIcon">${ic(item.icon,18)}</span>
+      <span>${item.label}</span>
+    </button>`).join('')}
+  </div>`;
+  showModal('mobileNavModal', lang==='ar'?'التنقل':'Navigation', body, null, {narrow:true});
 }
 
 /* ═══════════════════════════════════════════════════════════════
