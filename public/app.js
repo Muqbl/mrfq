@@ -957,7 +957,7 @@ function shell(content){
   const openTickets   = (data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
   const pendingReports= (data.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
   app.innerHTML=`
-<div class="platform-shell">
+<div class="platform-shell platform-shell--admin">
   ${renderPlatformTopbar(me, {search:false, notif:true, sync:true, adminMode:true})}
 
   <!-- BODY -->
@@ -1388,7 +1388,7 @@ function reportCard(r,full){
             <button class="btn warn sm action-btn" onclick="reviewReport('${r.id}','needs_recleaning')">${ic('flip',13)} ${tr('reclean')}</button>
             <button class="btn danger sm action-btn" onclick="reviewReport('${r.id}','rejected')">${ic('x',13)} ${tr('reject')}</button>
           </div>
-          ${canDelete()?`<div class="reportCard-actions-danger"><button class="btn secondary sm action-btn danger-text" onclick="deleteReport('${r.id}')">${ic('trash',13)} ${lang==='ar'?'حذف':'Delete'}</button></div>`:''}
+          ${canDelete()?`<div class="reportCard-actions-danger"><button class="btn secondary sm action-btn reportDeleteBtn" onclick="deleteReport('${r.id}')" aria-label="${lang==='ar'?'حذف التقرير':'Delete report'}" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button></div>`:''}
         </div>
         <div class="ratingRow">
           <div class="ratingGroup">
@@ -3176,30 +3176,30 @@ function supStat(count, label, icon, color){
 
 function supTicketCard(t, mode, workers){
   const prioClr=t.priority==='high'?'bad':t.priority==='low'?'info':'warn';
-  return`<div class="supTicketCard">
-    <div class="supTicketCard-head">
-      <div class="supTicketCard-main">
-        <div class="supTicketCard-title">${esc(t.title)}</div>
-        <div class="supTicketCard-meta">
-          ${ic('locations',11)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}
-          <span>·</span>
-          <span>${fmt(t.createdAt)}</span>
-          ${t.referenceNo?`<span>·</span><span class="supTicketRefText">${esc(t.referenceNo)}</span>`:''}
-        </div>
+  const statusCls = t.status==='completed'?'ok':['reclean_required','rejected','cancelled'].includes(t.status)?'bad':t.status==='waiting_verification'?'warn':'brand';
+  return`<div class="ticketCard supTicketCard">
+    <div class="ticketCard-top supTicketCard-head">
+      <div class="ticketCard-main supTicketCard-main">
+        <div class="ticketCard-title supTicketCard-title">${esc(t.title)}</div>
+        ${t.referenceNo?`<div class="ticketCard-ref supTicketRefText">${esc(t.referenceNo)}</div>`:''}
       </div>
       <span class="badge ${prioClr}">${tr(t.priority)}</span>
     </div>
-    <div class="supTicketCard-badges">
+    <div class="ticketCard-meta supTicketCard-meta">
+      <span>${ic('locations',12)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</span>
+      <span>${fmt(t.createdAt)}</span>
+    </div>
+    <div class="ticketCard-badges supTicketCard-badges">
       ${t.assignedToName?`<span class="badge brand">${ic('users',11)} ${esc(t.assignedToName)}</span>`:''}
       ${mode==='sla'||t.slaBreached?slaBadge(t):''}
-      ${mode==='view'?`<span class="badge brand">${tr(t.status)||t.status}</span>`:''}
+      ${mode==='view'?`<span class="badge ${statusCls}">${tr(t.status)||t.status}</span>`:''}
     </div>
     ${mode==='assign'&&workers?`
-    <div class="supTicketCard-actions">
+    <div class="ticketCard-actions supTicketCard-actions">
       ${sel(`sas-${t.id}`,[{v:'',l:lang==='ar'?'اختر عامل...':'Assign to...'},...workers.map(w=>({v:w.id,l:w.name}))], {cls:'ctrl-sm'})}
       <button class="btn sm ok" onclick="supAssign('${t.id}',document.getElementById('sas-${t.id}').value)">${lang==='ar'?'تعيين':'Assign'}</button>
     </div>`:mode==='verify'?`
-    <div class="supTicketCard-actions">
+    <div class="ticketCard-actions supTicketCard-actions">
       <button class="btn sm ok" onclick="supVerify('${t.id}','completed')">${ic('check',14)} ${lang==='ar'?'تحقق':'Verify'}</button>
       <button class="btn sm warn" onclick="supVerify('${t.id}','reclean_required')">${ic('flip',14)} ${lang==='ar'?'إعادة تنظيف':'Reclean'}</button>
     </div>`:''}
@@ -3207,15 +3207,15 @@ function supTicketCard(t, mode, workers){
 }
 
 function supReportCard(r){
-  return`<div class="supTicketCard">
-    <div class="supTicketCard-head">
+  return`<div class="ticketCard supTicketCard">
+    <div class="ticketCard-top supTicketCard-head">
       <div>
-        <div class="supTicketCard-title">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</div>
-        <div class="supTicketCard-meta">${ic('users',11)} ${esc(r.workerName)} · ${fmt(r.createdAt)}</div>
+        <div class="ticketCard-title supTicketCard-title">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</div>
+        <div class="ticketCard-meta supTicketCard-meta"><span>${ic('users',12)} ${esc(r.workerName)}</span><span>${fmt(r.createdAt)}</span></div>
       </div>
       <span class="badge ${r.status==='completed'?'ok':'brand'}">${tr(r.status)||r.status}</span>
     </div>
-    <div class="supTicketCard-actions">
+    <div class="ticketCard-actions supTicketCard-actions">
       <button class="btn sm ok" onclick="supReview('${r.id}','approved','')">${ic('check',14)} ${lang==='ar'?'اعتماد':'Approve'}</button>
       <button class="btn sm warn" onclick="supReviewPrompt('${r.id}','needs_recleaning')">${lang==='ar'?'إعادة تنظيف':'Reclean'}</button>
       <button class="btn sm danger" onclick="supReviewPrompt('${r.id}','rejected')">${lang==='ar'?'رفض':'Reject'}</button>
