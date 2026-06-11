@@ -635,10 +635,6 @@ function renderPlatformTopbar(me, opts={}){
   const notifBtn = opts.notif
     ?`<button class="icon-btn tb-notif" id="tb-notif-btn" onclick="toggleNotif(event)" title="${lang==='ar'?'الإشعارات':'Notifications'}">${ic('bell',20)}${pendingRpts>0||openTickets>0?`<span class="tb-notif-badge"></span>`:''}</button>`:'';
 
-  const backBtn = opts.back
-    ?`<button class="icon-btn tb-back worker-back-btn" onclick="workerGoBack()" title="${lang==='ar'?'رجوع':'Back'}">${ic('arrow',20)}</button>`
-    :(opts.backBtn?`<button class="icon-btn tb-back" onclick="goBack()" title="${lang==='ar'?'رجوع':'Back'}">${ic('arrow',20)}</button>`:'');
-
   /* Unified brand — same platform name for all roles */
   const brandInner = `<span class="tb-brand-name">${lang==='ar'?'منصة العناية بالمرافق':'Facility Care Platform'}</span>`;
 
@@ -646,7 +642,6 @@ function renderPlatformTopbar(me, opts={}){
 <header class="topbar">
   <div class="topbar-inner">
     <div class="topbar-start">
-      ${backBtn}
       <div class="tb-brand">
         <div class="tb-brand-icon"><img src="/assets/logos/logo-icon-dark.svg" onerror="this.style.display='none'" alt="REGA"></div>
         ${brandInner}
@@ -668,7 +663,7 @@ function fieldShell(me, contentHtml, opts={}){
   const mainCls = 'platform-main platform-main--field' + (opts.noSticky ? ' platform-main--no-sticky' : '');
   return`<div class="platform-shell">
   <div class="prototype-banner" role="alert">${lang==='ar'?'⚠ نسخة تجريبية — بيانات غير حقيقية':'⚠ Prototype — Demo Data Only'}</div>
-  ${renderPlatformTopbar(me, {back:opts.back||false, sync:opts.sync||false})}
+  ${renderPlatformTopbar(me, {sync:opts.sync||false})}
   <div class="platform-body">
     <main class="${mainCls}">${contentHtml}</main>
   </div>
@@ -842,7 +837,7 @@ function shell(content){
   app.innerHTML=`
 <div class="platform-shell">
   <div class="prototype-banner" role="alert">${lang==='ar'?'⚠ نسخة تجريبية — بيانات غير حقيقية':'⚠ Prototype — Demo Data Only'}</div>
-  ${renderPlatformTopbar(me, {search:false, notif:true, sync:true, adminMode:true, backBtn:viewHistory.length>0})}
+  ${renderPlatformTopbar(me, {search:false, notif:true, sync:true, adminMode:true})}
 
   <!-- BODY -->
   <div class="platform-body">
@@ -967,23 +962,33 @@ function dash(){
   const greeting = lang==='ar'
     ? (hour<12?'صباح الخير':'مساء الخير')
     : (hour<12?'Good morning':'Good afternoon');
+  const attentionCount = s.pending + s.openTickets;
+  const roleContext = lang==='ar'
+    ? `${tr(me.role)} · مركز العمليات`
+    : `${tr(me.role)} · Operations center`;
+  const summaryText = lang==='ar'
+    ? `${num(attentionCount)} عنصر يحتاج متابعة · ${num(s.coverage)}% تغطية اليوم`
+    : `${num(attentionCount)} items need attention · ${num(s.coverage)}% coverage today`;
 
   return `
-<!-- HERO BANNER — greeting only; all KPIs in the grid below -->
 <div class="dashHero">
   <div class="dashHero-left">
-    <span class="dashHero-greeting">${greeting}،</span>
-    <div class="dashHero-title">${esc(me.name.split(' ')[0])}</div>
-    <p class="dashHero-sub">${tr('opsCenter')} · ${fmtDate(new Date())}</p>
+    <span class="dashHero-greeting">${roleContext}</span>
+    <div class="dashHero-title">${lang==='ar'?'ملخص التشغيل':'Executive Summary'}</div>
+    <p class="dashHero-sub">${summaryText}</p>
+    <div class="dashHero-actions">
+      <button class="dashHero-action" onclick="navigateTo('tickets')">${ic('tickets',14)} ${tr('tickets')}</button>
+      <button class="dashHero-action" onclick="navigateTo('reports')">${ic('reports',14)} ${tr('reports')}</button>
+    </div>
   </div>
   <div class="dashHero-right">
     <div class="dashHero-stat">
-      <div class="dashHero-stat-val">${num(data.locations.length)}</div>
-      <div class="dashHero-stat-lbl">${tr('locationsCount')}</div>
+      <div class="dashHero-stat-val">${num(attentionCount)}</div>
+      <div class="dashHero-stat-lbl">${lang==='ar'?'تحتاج متابعة':'Attention'}</div>
     </div>
     <div class="dashHero-stat">
-      <div class="dashHero-stat-val">${num(avgQ)}%</div>
-      <div class="dashHero-stat-lbl">${lang==='ar'?'جودة التقارير':'Report Quality'}</div>
+      <div class="dashHero-stat-val">${num(s.coverage)}%</div>
+      <div class="dashHero-stat-lbl">${tr('coverage')}</div>
     </div>
   </div>
 </div>
@@ -1080,6 +1085,7 @@ function kpiCard(value,label,icon,color){
     <div class="kpiCard-body">
       <div class="kpiCard-label">${label}</div>
       <div class="kpiCard-value">${value}</div>
+      <div class="kpiCard-status ${color}"></div>
     </div>
     <div class="kpiCard-icon ${color}">${ic(icon,22)}</div>
   </div>`;
