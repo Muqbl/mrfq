@@ -477,6 +477,16 @@ function navigateTo(v){
 function goBack(){
   if(viewHistory.length){ view=viewHistory.pop(); render(); }
 }
+function appHasBackTarget(){
+  if(!me) return false;
+  if(me.role==='cleaning_supervisor') return supervisorView!=='dashboard';
+  if(me.role==='cleaner'){
+    const form=document.getElementById('workerForm');
+    return !!(form&&form.innerHTML.trim()) || workerView!=='task';
+  }
+  if(me.role==='employee') return employeeView!=='home';
+  return viewHistory.length>0 || view!=='dashboard';
+}
 function appBack(){
   if(!me) return history.back();
   if(me.role==='cleaning_supervisor'){
@@ -509,7 +519,9 @@ function appBack(){
     goBack();
     return;
   }else if(view!=='dashboard'){
-    navigateTo('dashboard');
+    view='dashboard';
+    mobileNavActive='dashboard';
+    render();
     return;
   }
   history.back();
@@ -680,7 +692,7 @@ function renderPlatformTopbar(me, opts={}){
 
   /* Unified brand — same platform name for all roles */
   const brandInner = `<span class="tb-brand-name">إدارة المرافق</span>`;
-  const showBack = opts.back !== false;
+  const showBack = opts.back === true || (opts.back !== false && appHasBackTarget());
   const backBtn = showBack
     ? `<button class="icon-btn tb-back" onclick="${opts.backAction||'appBack()'}" aria-label="${lang==='ar'?'رجوع':'Back'}" title="${lang==='ar'?'رجوع':'Back'}">${ic(lang==='ar'?'arrow':'arrow-left',20)}</button>`
     : '';
@@ -707,6 +719,45 @@ function renderPlatformTopbar(me, opts={}){
 }
 
 /* ── field workspace shell — Worker / Employee / Supervisor ─── */
+function renderFieldTabs(){
+  if(!me) return '';
+  const mk = (active, icon, label, action, count=0) => `
+    <button class="fieldTab${active?' active':''}" onclick="${action}">
+      <span class="fieldTab-icon">${ic(icon,16)}</span>
+      <span>${label}</span>
+      ${count?`<span class="fieldTab-count">${num(count)}</span>`:''}
+    </button>`;
+  if(me.role==='cleaning_supervisor'){
+    const openTickets = (data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
+    const pendingReports = (data?.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
+    const workers = (data?.users||[]).filter(u=>(u.roles||[u.role]).includes('cleaner')).length;
+    return `<div class="fieldTabs" role="tablist">
+      ${mk(supervisorView==='dashboard','dashboard',tr('dashboard'),"supervisorView='dashboard';mobileNavActive='supervisor-dashboard';renderSupervisor()")}
+      ${mk(supervisorView==='requests','tickets',lang==='ar'?'الطلبات':'Requests',"supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()",openTickets)}
+      ${mk(supervisorView==='team','users',lang==='ar'?'الفريق':'Team',"supervisorView='team';mobileNavActive='supervisor-team';renderSupervisor()",workers)}
+      ${mk(supervisorView==='reports','reports',tr('reports'),"supervisorView='reports';mobileNavActive='supervisor-reports';renderSupervisor()",pendingReports)}
+    </div>`;
+  }
+  if(me.role==='cleaner'){
+    const assignedCount = ((data?.assignments||[]).find(a=>a.workerId===me?.id)?.locationIds||[]).length;
+    const reportCount = (data?.reports||[]).filter(r=>r.workerId===me.id).length;
+    return `<div class="fieldTabs" role="tablist">
+      ${mk(workerView==='task','check',lang==='ar'?'المهمة':'Task',"workerView='task';mobileNavActive='worker-task';renderWorker()")}
+      ${mk(workerView==='assigned','locations',lang==='ar'?'المسندة':'Assigned',"workerView='assigned';mobileNavActive='worker-assigned';renderWorker()",assignedCount)}
+      ${mk(workerView==='reports','reports',lang==='ar'?'تقاريري':'Reports',"workerView='reports';mobileNavActive='worker-reports';renderWorker()",reportCount)}
+    </div>`;
+  }
+  if(me.role==='employee'){
+    const activeCount = (data?.tickets||[]).filter(t=>t.createdById===me.id&&!['completed','rejected','cancelled'].includes(t.status)).length;
+    return `<div class="fieldTabs" role="tablist">
+      ${mk(employeeView==='home','dashboard',lang==='ar'?'الرئيسية':'Home',"employeeView='home';mobileNavActive='employee-home';renderEmployee()")}
+      ${mk(employeeView==='new','send',lang==='ar'?'طلب جديد':'New',"employeeView='new';mobileNavActive='employee-new';renderEmployee()")}
+      ${mk(employeeView==='history','list',tr('myRequests'),"employeeView='history';mobileNavActive='employee-history';renderEmployee()",activeCount)}
+      ${mk(employeeView==='more','layers',lang==='ar'?'المزيد':'More',"employeeView='more';mobileNavActive='employee-more';renderEmployee()")}
+    </div>`;
+  }
+  return '';
+}
 function fieldShell(me, contentHtml, opts={}){
   const mainCls = 'platform-main platform-main--field' + (opts.noSticky ? ' platform-main--no-sticky' : '');
   const openTickets = (data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
@@ -714,7 +765,10 @@ function fieldShell(me, contentHtml, opts={}){
   return`<div class="platform-shell">
   ${renderPlatformTopbar(me, {sync:true, back:opts.back, backAction:opts.backAction})}
   <div class="platform-body">
-    <main class="${mainCls}">${contentHtml}</main>
+    <main class="${mainCls}">
+      ${renderFieldTabs()}
+      ${contentHtml}
+    </main>
   </div>
   ${renderMobileBottomNav(openTickets, pendingReports)}
 </div>`;
@@ -1608,37 +1662,32 @@ function ticketCards(items){
     const requesterUser = (data.users||[]).find(u=>u.id===t.createdById);
     const requesterUsername = requesterUser?.username || '';
     const requesterEmpNo = requesterUser?.employeeNo || '';
-    return`<div class="ticketCard priority-${t.priority||'medium'}">
+    return`<div class="ticketCard">
       <div class="ticketCard-top">
-        <div>
+        <div class="ticketCard-main">
           <div class="ticketCard-title">${esc(t.title)}</div>
-          ${t.referenceNo?`<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:2px;font-family:ui-monospace,monospace">${esc(t.referenceNo)}</div>`:''}
+          ${t.referenceNo?`<div class="ticketCard-ref">${esc(t.referenceNo)}</div>`:''}
         </div>
-        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-          <span class="badge ${statusCls}">${tr(t.status)||t.status}</span>
-          ${canEdit?`<button class="btn secondary sm" style="padding:3px 8px" onclick="editTicketModal('${t.id}')">${ic('edit',13)}</button>`:''}
-          ${canDel?`<button class="btn danger sm" style="padding:3px 8px" onclick="deleteTicketConfirm('${t.id}')">${ic('trash',13)}</button>`:''}
-        </div>
+        <span class="badge ${statusCls}">${tr(t.status)||t.status}</span>
       </div>
-      <div class="ticketCard-meta">${ic('locations',12)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)} &nbsp;·&nbsp; ${ic('users',12)} ${esc(t.assignedToName||tr('unassigned'))}</div>
+      <div class="ticketCard-meta">
+        <span>${ic('locations',12)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</span>
+        <span>${ic('users',12)} ${esc(t.assignedToName||tr('unassigned'))}</span>
+      </div>
       ${t.createdBy?`<div class="ticketCard-requester">${ic('user',12)} <span class="ticketCard-requester-label">${tr('requester')}:</span> <span class="ticketCard-requester-name">${esc(t.createdBy)}</span>${requesterUsername?`<span class="ticketCard-requester-username">@${esc(requesterUsername)}</span>`:''}${requesterEmpNo?`<span class="ticketCard-requester-empno">${esc(requesterEmpNo)}</span>`:''}</div>`:''}
-      ${t.description?`<p style="font-size:var(--fs-sm);color:var(--ink-soft);line-height:1.6">${esc(t.description)}</p>`:''}
+      ${t.description?`<p class="ticketCard-desc">${esc(t.description)}</p>`:''}
       <div class="ticketCard-badges">
         ${t.category&&t.category!=='general'?`<span class="badge ${catClr}">${catLabel}</span>`:''}
-        <span class="badge ${prCls}">${lang==='ar'?'أولوية:':''} ${tr(t.priority||'medium')}</span>
-        <span class="badge brand">${fmt(t.createdAt)}</span>
-        ${!t.assignedToName?`<span class="badge warn">${tr('supervisorQueue')}</span>`:''}
+        <span class="badge ${prCls}">${tr(t.priority||'medium')}</span>
+        <span class="badge">${fmt(t.createdAt)}</span>
         ${slaBadge(t)}
-        ${t.completionTimeMins!=null?`<span class="slaBadge sla-done">${ic('check',11)} ${t.completionTimeMins<60?t.completionTimeMins+tr('mins'):Math.round(t.completionTimeMins/60)+tr('hours')}</span>`:''}
+        ${!t.assignedToName?`<span class="badge warn">${tr('supervisorQueue')}</span>`:''}
+        ${t.completionTimeMins!=null?`<span class="badge ok">${ic('check',11)} ${t.completionTimeMins<60?t.completionTimeMins+tr('mins'):Math.round(t.completionTimeMins/60)+tr('hours')}</span>`:''}
       </div>
-      <div class="timeline">
-        <div class="timelineItem">
-          <div class="timelineDot active"></div>
-          <div class="timelineItem-body"><div class="timelineItem-label">${tr('open')}</div><div class="timelineItem-time">${fmt(t.createdAt)}</div></div>
-        </div>
-        ${t.slaDeadline&&!['completed','rejected','cancelled'].includes(t.status)?`<div class="timelineItem"><div class="timelineDot ${t.slaBreached?'breach':''}"></div><div class="timelineItem-body"><div class="timelineItem-label">${tr('slaDeadline')}</div><div class="timelineItem-time">${fmt(t.slaDeadline)}</div></div></div>`:''}
-        ${t.completedAt?`<div class="timelineItem"><div class="timelineDot"></div><div class="timelineItem-body"><div class="timelineItem-label">${tr('closed')}</div><div class="timelineItem-time">${fmt(t.completedAt)}</div></div></div>`:''}
-      </div>
+      ${(canEdit||canDel)?`<div class="ticketCard-actions">
+        ${canEdit?`<button class="btn secondary sm" onclick="editTicketModal('${t.id}')">${ic('edit',13)} ${lang==='ar'?'تعديل':'Edit'}</button>`:''}
+        ${canDel?`<button class="btn danger sm" onclick="deleteTicketConfirm('${t.id}')">${ic('trash',13)} ${lang==='ar'?'حذف':'Delete'}</button>`:''}
+      </div>`:''}
     </div>`;
   }).join('')}</div>`;
 }
@@ -1706,7 +1755,7 @@ function locations(){
   </div>
 </div>
 ${canManage()?`
-<div class="card" style="margin-bottom:16px">
+<div class="card locationsZonesCard">
   <div class="card-head">
     <span class="card-title">${ic('locations',16)} ${lang==='ar'?'إدارة المناطق':'Zones'}</span>
     <button class="btn secondary sm" onclick="showZoneCreate=!showZoneCreate;render()">${ic('plus',13)} ${lang==='ar'?'منطقة':'Zone'}</button>
@@ -1755,7 +1804,7 @@ ${showLocCreate?`
   }).map(l=>{
     const last = data.reports.find(r=>r.locationId===l.id);
     const late = !last||Date.now()-new Date(last.createdAt).getTime()>(data.settings.frequencyMinutes||120)*60000;
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(location.origin+'/?loc='+l.id)}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(l.id)}`;
     return`<div class="locCard">
       <div class="locCard-head">
         <div>
@@ -2011,14 +2060,14 @@ ${filtered.length===0
           <td>
             <div class="usersTable-roles">
               <span class="badge ${rCls}">${tr(u.role)}</span>
-              ${extraRoles.map(r=>`<span class="badge ${roleBadgeClass(r)}">${tr(r)}</span>`).join('')}
+              ${extraRoles.length?`<span class="badge">+${num(extraRoles.length)}</span>`:''}
             </div>
           </td>
           ${canEdit?`<td>
             <div class="usersTable-actions">
-              <button class="btn secondary sm" onclick="showAddRoleModal('${u.id}')" title="${lang==='ar'?'إدارة الصلاحيات':'Manage Roles'}">${ic('shield',13)} ${lang==='ar'?'الصلاحيات':'Roles'}</button>
-              <button class="btn secondary sm" onclick="showUserFormModal('${u.id}')" title="${lang==='ar'?'تعديل':'Edit'}">${ic('edit',13)}</button>
-              ${canDel?`<button class="btn danger sm" onclick="deleteUserConfirm('${u.id}')" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button>`:''}
+              <button class="btn secondary sm rolesActionBtn" onclick="showAddRoleModal('${u.id}')" title="${lang==='ar'?'إدارة الصلاحيات':'Manage Roles'}">${ic('shield',13)} <span>${lang==='ar'?'الصلاحيات':'Roles'}</span></button>
+              <button class="btn secondary sm iconOnlyBtn" onclick="showUserFormModal('${u.id}')" title="${lang==='ar'?'تعديل':'Edit'}">${ic('edit',13)}</button>
+              ${canDel?`<button class="btn danger sm iconOnlyBtn" onclick="deleteUserConfirm('${u.id}')" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button>`:''}
             </div>
           </td>`:''}
         </tr>`;
@@ -2153,20 +2202,21 @@ async function removeUserRole(userId, role){
    ═══════════════════════════════════════════════════════════════ */
 function parseLoc(raw){
   raw = String(raw||'').trim();
+  if(!raw) return '';
 
   // Full URL support: ...?loc=wc-gf-a
   try{
     const u = new URL(raw);
-    const param = u.searchParams.get('loc');
-    if(param) return String(param).trim();
+    const param = u.searchParams.get('loc') || u.searchParams.get('location') || u.searchParams.get('code');
+    if(param) return String(decodeURIComponent(param)).trim();
     // If URL doesn't have loc param, fallback to last path segment
     const last = u.pathname.split('/').filter(Boolean).pop();
-    return last ? String(last).trim() : raw;
+    return last ? String(decodeURIComponent(last)).trim() : raw;
   }catch(e){
     // Direct code support or string with ?loc= somewhere inside
-    const m = raw.match(/[?&]loc=([^&#]+)/);
+    const m = raw.match(/[?&](?:loc|location|code)=([^&#]+)/);
     if(m && m[1]) return String(decodeURIComponent(m[1])).trim();
-    return raw;
+    return raw.replace(/^loc:/i,'').replace(/^location:/i,'').trim();
   }
 }
 
@@ -2557,12 +2607,6 @@ function openQRScanner(){
 
       closeQRScanner();
 
-      const empInput = document.getElementById('empLocCode');
-      const locInput = document.getElementById('locCode');
-      const isEmployee = !!empInput;
-      const targetInput = isEmployee ? empInput : locInput;
-      if(targetInput) targetInput.value = loc;
-
       const parsed = parseLoc(loc);
       if(!parsed){
         toast(lang==='ar'?'رمز QR غير صالح':'Invalid QR code','bad');
@@ -2572,6 +2616,14 @@ function openQRScanner(){
       if(!facility){
         toast(lang==='ar'?`الموقع "${parsed}" غير موجود في النظام`:`Location "${parsed}" not found`,'bad');
         return;
+      }
+      const empInput = document.getElementById('empLocCode');
+      const locInput = document.getElementById('locCode');
+      const isEmployee = !!empInput;
+      const targetInput = isEmployee ? empInput : locInput;
+      if(targetInput){
+        targetInput.value = parsed;
+        targetInput.dispatchEvent(new Event('input',{bubbles:true}));
       }
       toast(lang==='ar'?`تم التعرف على: ${locName(facility)}`:`Found: ${locName(facility)}`,'ok');
       if(!isEmployee) setTimeout(()=>startForm(), 200);
@@ -3293,7 +3345,7 @@ async function auditLogPage(){
 (function(){
   try{
     const u = new URL(location.href);
-    const loc = u.searchParams.get('loc');
+    const loc = u.searchParams.get('loc') || u.searchParams.get('location') || u.searchParams.get('code') || u.href;
     if(loc){
       const parsed = parseLoc(loc);
       if(parsed) sessionStorage.setItem('qr_loc', parsed);
@@ -3307,14 +3359,18 @@ async function auditLogPage(){
     await load();
     // After successful load, handle queued QR location
     const queued = sessionStorage.getItem('qr_loc');
-    if(queued && me && me.role==='cleaner'){
+    if(queued && me && (me.role==='cleaner'||me.role==='employee')){
       const id = parseLoc(queued);
       sessionStorage.removeItem('qr_loc');
       const facility = (data && data.locations||[]).find(l=>l.id===id);
       if(facility){
         setTimeout(()=>{
-          const el = document.getElementById('locCode');
-          if(el){ el.value = id; startForm(); }
+          const el = document.getElementById(me.role==='employee'?'empLocCode':'locCode');
+          if(el){
+            el.value = id;
+            el.dispatchEvent(new Event('input',{bubbles:true}));
+            if(me.role==='cleaner') startForm();
+          }
         },150);
       }
     }
