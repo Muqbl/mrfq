@@ -3123,7 +3123,7 @@ function renderSupervisor(){
       </div>
       <div class="wCard">
         <div class="wCard-title">${ic('sync',16)} ${lang==='ar'?'قيد التنفيذ':'Team Queue'} <span class="badge brand">${inProgress.length}</span></div>
-        ${inProgress.length?`<div class="wCard-list">${inProgress.map(t=>supTicketCard(t,'view',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('sync',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد طلبات قيد التنفيذ':'No requests in progress'}</div></div>`}
+        ${inProgress.length?`<div class="wCard-list supTicketList">${inProgress.map(t=>supTicketCard(t,'view',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('sync',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد طلبات قيد التنفيذ':'No requests in progress'}</div></div>`}
       </div>
     </div>`;
 
@@ -3184,12 +3184,12 @@ function supTicketCard(t, mode, workers){
           ${ic('locations',11)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}
           <span>·</span>
           <span>${fmt(t.createdAt)}</span>
+          ${t.referenceNo?`<span>·</span><span class="supTicketRefText">${esc(t.referenceNo)}</span>`:''}
         </div>
       </div>
       <span class="badge ${prioClr}">${tr(t.priority)}</span>
     </div>
     <div class="supTicketCard-badges">
-      ${t.referenceNo?`<span class="badge supTicketRef">${esc(t.referenceNo)}</span>`:''}
       ${t.assignedToName?`<span class="badge brand">${ic('users',11)} ${esc(t.assignedToName)}</span>`:''}
       ${mode==='sla'||t.slaBreached?slaBadge(t):''}
       ${mode==='view'?`<span class="badge brand">${tr(t.status)||t.status}</span>`:''}

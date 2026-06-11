@@ -1255,7 +1255,10 @@ tbody tr:hover td{background:var(--surface-2)}
 .supTicketCard-badges .slaBadge{
   min-height:24px;padding:3px 9px;font-size:11px;display:inline-flex;align-items:center;gap:4px;
 }
-.supTicketRef{font-family:ui-monospace,Consolas,monospace}
+.supTicketRefText{
+  font-family:ui-monospace,Consolas,monospace;
+  color:var(--ink-soft);font-weight:700;direction:ltr;unicode-bidi:embed;
+}
 .supTicketCard-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
 /* ctrl size variants */
 .ctrl-sm{height:34px;min-height:34px;line-height:34px;font-size:var(--fs-xs);padding:0 10px}
