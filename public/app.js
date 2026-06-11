@@ -213,6 +213,7 @@ const IC = {
   qr:`<svg viewBox="0 0 24 24"><rect x="3" y="3" width="5" height="5" rx=".5"/><rect x="16" y="3" width="5" height="5" rx=".5"/><rect x="3" y="16" width="5" height="5" rx=".5"/><path d="M21 16h-3v3"/><path d="M21 21v-3"/><path d="M16 21h-3v-3"/><path d="M13 16v-3h3"/><path d="M8 3H3v5"/><path d="M3 8v5h5"/></svg>`,
   logout:`<svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`,
   arrow:`<svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>`,
+  'arrow-left':`<svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>`,
   edit:`<svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
   trash:`<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`,
   plus:`<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
@@ -258,7 +259,9 @@ let mobileNavActive = '';
 let viewHistory = [];
 let eventSource = null;
 let forcePasswordChange = false;
-let employeeTab = 'submit'; // 'submit' | 'history'
+let employeeView = 'home';
+let workerView = 'task';
+let supervisorView = 'dashboard';
 let perfData = null; // cached performance data
 let workspaceSelected = false; // true after user picks workspace this session
 
@@ -640,11 +643,15 @@ function renderPlatformTopbar(me, opts={}){
 
   /* Unified brand — same platform name for all roles */
   const brandInner = `<span class="tb-brand-name">إدارة المرافق</span>`;
+  const backBtn = opts.back
+    ? `<button class="icon-btn tb-back" onclick="${opts.backAction||'history.back()'}" aria-label="${lang==='ar'?'رجوع':'Back'}" title="${lang==='ar'?'رجوع':'Back'}">${ic(lang==='ar'?'arrow':'arrow-left',20)}</button>`
+    : '';
 
   return`
 <header class="topbar">
   <div class="topbar-inner">
     <div class="topbar-start">
+      ${backBtn}
       <div class="tb-brand">
         <div class="tb-brand-icon"><img src="/assets/logos/logo-icon-dark.svg" onerror="this.style.display='none'" alt="REGA"></div>
         ${brandInner}
@@ -667,12 +674,33 @@ function fieldShell(me, contentHtml, opts={}){
   const openTickets = (data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
   const pendingReports = (data?.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
   return`<div class="platform-shell">
-  ${renderPlatformTopbar(me, {sync:true})}
+  ${renderPlatformTopbar(me, {sync:true, back:opts.back, backAction:opts.backAction})}
   <div class="platform-body">
     <main class="${mainCls}">${contentHtml}</main>
   </div>
   ${renderMobileBottomNav(openTickets, pendingReports)}
 </div>`;
+}
+
+function setTopbarBackButton(show, action='history.back()'){
+  const start = document.querySelector('.topbar-start');
+  if(!start) return;
+  const existing = start.querySelector('.tb-back');
+  if(!show){
+    existing?.remove();
+    return;
+  }
+  if(existing){
+    existing.setAttribute('onclick', action);
+    return;
+  }
+  const btn = document.createElement('button');
+  btn.className = 'icon-btn tb-back';
+  btn.setAttribute('onclick', action);
+  btn.setAttribute('aria-label', lang==='ar'?'رجوع':'Back');
+  btn.setAttribute('title', lang==='ar'?'رجوع':'Back');
+  btn.innerHTML = ic(lang==='ar'?'arrow':'arrow-left',20);
+  start.prepend(btn);
 }
 
 /* ─── RENDER DISPATCHER ──────────────────────────────────────── */
@@ -752,7 +780,7 @@ function loginPage(){
       </div>
       <h2 class="loginPanel-title">${tr('app')}</h2>
       ${fc(tr('user'), `<div class="input-wrap login-input-wrap"><span class="input-icon input-icon-static">${ic('user',16)}</span>${inp('lu',{type:'text', autocomplete:'username', placeholder:tr('user'), cls:'login-input'})}</div>`)}
-      ${fc(tr('pass'),`<div class="input-wrap login-input-wrap">${inp('lp',{type:'password', autocomplete:'current-password', placeholder:tr('pass'), cls:'login-input login-input--with-action'})}<button class="input-icon input-icon-btn" id="pwdToggle" onclick="togglePwd()" type="button" tabindex="-1" aria-label="${lang==='ar'?'إظهار/إخفاء كلمة المرور':'Toggle password visibility'}">${ic('eye-off',16)}</button></div>`)}
+      ${fc(tr('pass'),`<div class="input-wrap login-input-wrap"><span class="input-icon input-icon-static">${ic('lock',16)}</span>${inp('lp',{type:'password', autocomplete:'current-password', placeholder:tr('pass'), cls:'login-input login-input--with-action'})}<button class="input-icon input-icon-btn" id="pwdToggle" onclick="togglePwd()" type="button" tabindex="-1" aria-label="${lang==='ar'?'إظهار/إخفاء كلمة المرور':'Toggle password visibility'}">${ic('eye-off',16)}</button></div>`)}
       <button class="btn wide" onclick="login()">${tr('login')}</button>
       <div class="prototype-notice-login">
         ${lang==='ar'
@@ -886,27 +914,31 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
   const isAdmin = !['employee','cleaner','cleaning_supervisor'].includes(role) && (canManage() || canReview() || role==='cleaning_manager' || role==='facility_manager');
   const activeKey = mobileNavActive || view;
   let primary = [];
+  let showMore = isAdmin;
   if(role==='employee'){
     const activeCount = (data?.tickets||[]).filter(t=>t.createdById===me.id&&!['completed','rejected','cancelled'].includes(t.status)).length;
+    showMore = false;
     primary = [
-      {v:'employee-home', label:lang==='ar'?'الرئيسية':'Home', icon:'dashboard', count:0, action:"mobileNavActive='employee-home';employeeTab='submit';renderEmployee()", active:activeKey==='employee-home'||(!mobileNavActive&&employeeTab==='submit')},
-      {v:'employee-new', label:lang==='ar'?'طلب جديد':'New', icon:'send', count:0, action:"mobileNavActive='employee-new';employeeTab='submit';renderEmployee()", active:activeKey==='employee-new'},
-      {v:'employee-history', label:tr('myRequests'), icon:'list', count:activeCount, action:"mobileNavActive='employee-history';employeeTab='history';renderEmployee()", active:activeKey==='employee-history'||(!mobileNavActive&&employeeTab==='history')},
-      {v:'employee-notif', label:lang==='ar'?'تنبيهات':'Alerts', icon:'bell', count:pendingReports, action:"mobileNavActive='employee-notif';document.getElementById('tb-notif-btn')?.click()", active:activeKey==='employee-notif'}
+      {v:'employee-home', label:lang==='ar'?'الرئيسية':'Home', icon:'dashboard', count:0, action:"employeeView='home';mobileNavActive='employee-home';renderEmployee()", active:employeeView==='home'},
+      {v:'employee-new', label:lang==='ar'?'طلب جديد':'New', icon:'send', count:0, action:"employeeView='new';mobileNavActive='employee-new';renderEmployee()", active:employeeView==='new'},
+      {v:'employee-history', label:tr('myRequests'), icon:'list', count:activeCount, action:"employeeView='history';mobileNavActive='employee-history';renderEmployee()", active:employeeView==='history'},
+      {v:'employee-more', label:lang==='ar'?'المزيد':'More', icon:'layers', count:0, action:"employeeView='more';mobileNavActive='employee-more';renderEmployee()", active:employeeView==='more'}
     ];
   }else if(role==='cleaner'){
+    const assignedCount = ((data?.assignments||[]).find(a=>a.workerId===me?.id)?.locationIds||[]).length;
+    showMore = false;
     primary = [
-      {v:'worker-current', label:lang==='ar'?'المهمة':'Task', icon:'check', count:openTickets, action:"mobileNavActive='worker-current';renderWorker()", active:activeKey==='worker-current'||!mobileNavActive},
-      {v:'worker-requests', label:lang==='ar'?'بلاغاتي':'Requests', icon:'tickets', count:openTickets, action:"mobileNavActive='worker-requests';renderWorker()"},
-      {v:'worker-photos', label:lang==='ar'?'الصور':'Photos', icon:'camera', count:0, action:"mobileNavActive='worker-photos';document.querySelector('.cameraBtn')?.scrollIntoView({behavior:'smooth',block:'center'})"},
-      {v:'worker-notif', label:lang==='ar'?'تنبيهات':'Alerts', icon:'bell', count:pendingReports, action:"mobileNavActive='worker-notif';document.getElementById('tb-notif-btn')?.click()"}
+      {v:'worker-task', label:lang==='ar'?'المهمة':'Task', icon:'check', count:openTickets, action:"workerView='task';mobileNavActive='worker-task';renderWorker()", active:workerView==='task'},
+      {v:'worker-assigned', label:lang==='ar'?'المسندة':'Assigned', icon:'locations', count:assignedCount, action:"workerView='assigned';mobileNavActive='worker-assigned';renderWorker()", active:workerView==='assigned'},
+      {v:'worker-reports', label:lang==='ar'?'تقاريري':'Reports', icon:'reports', count:pendingReports, action:"workerView='reports';mobileNavActive='worker-reports';renderWorker()", active:workerView==='reports'}
     ];
   }else if(role==='cleaning_supervisor'){
+    showMore = false;
     primary = [
-      {v:'supervisor-home', label:tr('dashboard'), icon:'dashboard', count:0, action:"mobileNavActive='supervisor-home';renderSupervisor()", active:activeKey==='supervisor-home'||!mobileNavActive},
-      {v:'supervisor-requests', label:lang==='ar'?'الطلبات':'Requests', icon:'tickets', count:openTickets, action:"mobileNavActive='supervisor-requests';document.querySelector('.supTicketCard,.wCard')?.scrollIntoView({behavior:'smooth',block:'start'})"},
-      {v:'supervisor-team', label:lang==='ar'?'الفريق':'Team', icon:'users', count:0, action:"mobileNavActive='supervisor-team';document.querySelector('.supTeamCard')?.scrollIntoView({behavior:'smooth',block:'center'})"},
-      {v:'supervisor-reports', label:tr('reports'), icon:'reports', count:pendingReports, action:"mobileNavActive='supervisor-reports';document.querySelector('.workerReportItem,.reportCard')?.scrollIntoView({behavior:'smooth',block:'center'})"}
+      {v:'supervisor-dashboard', label:tr('dashboard'), icon:'dashboard', count:0, action:"supervisorView='dashboard';mobileNavActive='supervisor-dashboard';renderSupervisor()", active:supervisorView==='dashboard'},
+      {v:'supervisor-requests', label:lang==='ar'?'الطلبات':'Requests', icon:'tickets', count:openTickets, action:"supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()", active:supervisorView==='requests'},
+      {v:'supervisor-team', label:lang==='ar'?'الفريق':'Team', icon:'users', count:0, action:"supervisorView='team';mobileNavActive='supervisor-team';renderSupervisor()", active:supervisorView==='team'},
+      {v:'supervisor-reports', label:tr('reports'), icon:'reports', count:pendingReports, action:"supervisorView='reports';mobileNavActive='supervisor-reports';renderSupervisor()", active:supervisorView==='reports'}
     ];
   }else{
     primary = [
@@ -917,17 +949,18 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
     ];
   }
   const moreActive = isAdmin ? !primary.some(item=>item.v===view) : false;
-  return `<nav class="mobileBottomNav" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
+  const navCount = primary.length + (showMore ? 1 : 0);
+  return `<nav class="mobileBottomNav" style="--mobile-nav-count:${navCount}" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
     ${primary.map(item=>`
       <button class="mobileBottomNav-item${item.active||activeKey===item.v?' active':''}" onclick="${item.action||`mobileNavActive='${item.v}';navigateTo('${item.v}')`}">
         <span class="mobileBottomNav-icon">${ic(item.icon,18)}${item.count>0?`<span class="mobileBottomNav-badge">${num(item.count)}</span>`:''}</span>
         <span class="mobileBottomNav-label">${item.label}</span>
       </button>
     `).join('')}
-    <button class="mobileBottomNav-item${moreActive?' active':''}" onclick="showMobileNavMore()">
+    ${showMore?`<button class="mobileBottomNav-item${moreActive?' active':''}" onclick="showMobileNavMore()">
       <span class="mobileBottomNav-icon">${ic('layers',18)}</span>
       <span class="mobileBottomNav-label">${lang==='ar'?'المزيد':'More'}</span>
-    </button>
+    </button>`:''}
   </nav>`;
 }
 
@@ -935,19 +968,21 @@ function showMobileNavMore(){
   const role = me?.role || '';
   const items = role==='employee'
     ? [
-      {v:'employee-new', label:tr('submitRequest'), icon:'send', action:"employeeTab='submit';renderEmployee()"},
-      {v:'employee-history', label:tr('myRequests'), icon:'list', action:"employeeTab='history';renderEmployee()"}
+      {v:'employee-new', label:tr('submitRequest'), icon:'send', action:"employeeView='new';renderEmployee()"},
+      {v:'employee-history', label:tr('myRequests'), icon:'list', action:"employeeView='history';renderEmployee()"}
     ]
     : role==='cleaner'
       ? [
-        {v:'worker-current', label:lang==='ar'?'المهمة الحالية':'Current task', icon:'check', action:'renderWorker()'},
-        {v:'worker-photos', label:lang==='ar'?'الصور والقائمة':'Photos / checklist', icon:'camera', action:"document.querySelector('.cameraBtn,.taskChecklist')?.scrollIntoView({behavior:'smooth',block:'center'})"}
+        {v:'worker-task', label:lang==='ar'?'المهمة الحالية':'Current task', icon:'check', action:"workerView='task';renderWorker()"},
+        {v:'worker-assigned', label:lang==='ar'?'المسندة':'Assigned', icon:'locations', action:"workerView='assigned';renderWorker()"},
+        {v:'worker-reports', label:lang==='ar'?'تقاريري':'Reports', icon:'reports', action:"workerView='reports';renderWorker()"}
       ]
       : role==='cleaning_supervisor'
         ? [
-          {v:'supervisor-home', label:tr('dashboard'), icon:'dashboard', action:'renderSupervisor()'},
-          {v:'supervisor-team', label:lang==='ar'?'الفريق':'Team', icon:'users', action:"document.querySelector('.supTeamCard')?.scrollIntoView({behavior:'smooth',block:'center'})"},
-          {v:'supervisor-reports', label:tr('reports'), icon:'reports', action:"document.querySelector('.workerReportItem,.reportCard')?.scrollIntoView({behavior:'smooth',block:'center'})"}
+          {v:'supervisor-dashboard', label:tr('dashboard'), icon:'dashboard', action:"supervisorView='dashboard';renderSupervisor()"},
+          {v:'supervisor-requests', label:lang==='ar'?'الطلبات':'Requests', icon:'tickets', action:"supervisorView='requests';renderSupervisor()"},
+          {v:'supervisor-team', label:lang==='ar'?'الفريق':'Team', icon:'users', action:"supervisorView='team';renderSupervisor()"},
+          {v:'supervisor-reports', label:tr('reports'), icon:'reports', action:"supervisorView='reports';renderSupervisor()"}
         ]
         : [
           {v:'dashboard', label:tr('dashboard'), icon:'dashboard'},
@@ -2126,9 +2161,10 @@ function renderWorker(){
   const qrFromStorage = sessionStorage.getItem('qr_loc')||'';
   const param = parseLoc(qrFromUrl || qrFromStorage);
   if(param) sessionStorage.removeItem('qr_loc');
-  const qSize = getQ().length;
+  const myReports=(data.reports||[]).filter(r=>r.workerId===me.id).slice(0,12);
+  const reviewed=myReports.filter(r=>r.approvalStatus&&r.approvalStatus!=='pending');
 
-  const workerContent=`
+  const ticketsBlock = myTickets.length?`
     ${myTickets.length?`
     <div class="wCard">
       <div class="wCard-title"><span class="wCard-number">!</span>${tr('myTickets')}</div>
@@ -2139,22 +2175,21 @@ function renderWorker(){
             <div class="workerTicketItem-loc">${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</div>
           </button>`).join('')}
       </div>
-    </div>`:''}
-    ${(()=>{
-      const myReports=(data.reports||[]).filter(r=>r.workerId===me.id).slice(0,8);
-      const reviewed=myReports.filter(r=>r.approvalStatus&&r.approvalStatus!=='pending');
-      if(!reviewed.length) return '';
-      return `<div class="wCard">
-        <div class="wCard-title"><span class="wCard-number">${ic('bell',16)}</span>${lang==='ar'?'حالة تقاريري':'My Reports Status'}</div>
+    </div>`:''}`:'';
+
+  const reportsBlock = `
+      <div class="wCard">
+        <div class="wCard-title"><span class="wCard-number">${ic('reports',16)}</span>${lang==='ar'?'حالة تقاريري':'My Reports Status'}</div>
+        ${myReports.length?`
         <div class="wCard-list">
-          ${reviewed.map(r=>{
-            const st=r.approvalStatus;
-            const stLabel={approved:lang==='ar'?'معتمد':'Approved',rejected:lang==='ar'?'مرفوض':'Rejected',needs_recleaning:lang==='ar'?'إعادة تنظيف':'Re-clean'}[st]||st;
-            const stColor=st==='approved'?'ok':st==='rejected'?'bad':'warn';
+          ${myReports.map(r=>{
+            const st=r.approvalStatus||'pending';
+            const stLabel={pending:lang==='ar'?'معلق':'Pending',approved:lang==='ar'?'معتمد':'Approved',rejected:lang==='ar'?'مرفوض':'Rejected',needs_recleaning:lang==='ar'?'إعادة تنظيف':'Re-clean'}[st]||st;
+            const stColor=st==='approved'?'ok':st==='rejected'?'bad':st==='needs_recleaning'?'warn':'brand';
             const actionable=st==='rejected'||st==='needs_recleaning';
             const borderClr=actionable?'rgba(200,50,50,.25)':'var(--line)';
             const iconBorderClr=stColor==='ok'?'var(--ok)':stColor==='bad'?'var(--bad)':'var(--warn)';
-            return `<div class="workerReportItem ${actionable?'actionable':''}" ${actionable?`onclick="document.getElementById('locCode').value='${r.locationId}';startForm()"`:''}
+            return `<div class="workerReportItem ${actionable?'actionable':''}" ${actionable?`onclick="workerStartLocation('${r.locationId}')"`:''}
               style="border-color:${borderClr};background:var(--${stColor}-bg)">
               <div class="workerReportItem-icon" style="background:var(--${stColor}-bg);border-color:${iconBorderClr}">${ic(st==='approved'?'check':st==='rejected'?'x':'flip',16)}</div>
               <div class="workerReportItem-body">
@@ -2165,28 +2200,36 @@ function renderWorker(){
               ${actionable?`<div class="workerReportItem-action" style="color:var(--${stColor})">${lang==='ar'?'إعادة':'Redo'} ${ic('arrow',14)}</div>`:''}
             </div>`;
           }).join('')}
-        </div>
+        </div>`:`<div class="empty-state"><div class="empty-icon">${ic('reports',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد تقارير':'No reports yet'}</div></div>`}
       </div>`;
-    })()}
+
+  const startBlock = `
     <div class="wCard wCard--compact">
       <div class="wCard-title"><span class="wCard-number">1</span>${tr('step1')}</div>
       ${fc(lang==='ar'?'كود الموقع':'Location Code',`<div class="locInput-row"><button class="locInput-scan" onclick="openQRScanner()" title="${tr('scanQR')}" aria-label="${tr('scanQR')}">${ic('qr',18)}</button><div class="locInput-field">${inp('locCode',{cls:'ltr', value:param, placeholder:'wc-gf-a'})}</div></div>`)}
       <button class="btn wide" style="min-height:52px" onclick="startForm()">${ic('arrow',16)} ${tr('start')}</button>
-      ${locs.length?`
-      <div class="assignedList-section">
-        <div class="assignedList-header">${tr('assigned').toUpperCase()}</div>
-        <div class="assignedList">
-          ${locs.map(l=>`
-            <div class="assignedItem" onclick="document.getElementById('locCode').value='${l.id}';startForm()">
-              <div><div class="assignedItem-name">${esc(locName(l))}</div><div class="assignedItem-sub">${tr(l.type)} · ${l.floor||'—'}</div></div>
-              <span>${ic('arrow',16)}</span>
-            </div>`).join('')}
-        </div>
-      </div>`:''}
     </div>
     <div id="workerForm"></div>`;
 
-  app.innerHTML = fieldShell(me, workerContent, {back:true, sync:true});
+  const assignedBlock = `<div class="wCard">
+    <div class="wCard-title">${ic('locations',16)} ${tr('assigned')} <span class="badge brand">${locs.length}</span></div>
+    ${locs.length?`
+    <div class="assignedList">
+      ${locs.map(l=>`
+        <button class="assignedItem" onclick="workerStartLocation('${l.id}')">
+          <div><div class="assignedItem-name">${esc(locName(l))}</div><div class="assignedItem-sub">${tr(l.type)} · ${l.floor||'—'} · ${l.id}</div></div>
+          <span>${ic('arrow',16)}</span>
+        </button>`).join('')}
+    </div>`:`<div class="empty-state"><div class="empty-icon">${ic('locations',24)}</div><div class="empty-title">${tr('notAssigned')}</div></div>`}
+  </div>`;
+
+  const workerContent = workerView==='reports'
+    ? reportsBlock
+    : workerView==='assigned'
+      ? assignedBlock
+      : `${ticketsBlock}${reviewed.length?reportsBlock:''}${startBlock}`;
+
+  app.innerHTML = fieldShell(me, workerContent, {sync:true});
   if(param) setTimeout(startForm, 150);
 }
 
@@ -2221,16 +2264,27 @@ function workerGoBack(){
     form.innerHTML='';
     currentPhotos=[]; currentBeforePhotos=[]; currentAfterPhotos=[];
     if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
+    setTopbarBackButton(false);
     window.scrollTo({top:0,behavior:'smooth'});
     return;
   }
-  history.back();
+  workerView='task';
+  renderWorker();
 }
 function startTicketWorker(id){
   const t = (data.tickets||[]).find(x=>x.id===id);
-  currentTicketId = id;
-  const el = document.getElementById('locCode');
-  if(el){el.value=t.locationId;startForm()}
+  if(!t) return;
+  workerStartLocation(t.locationId, id);
+}
+
+function workerStartLocation(locationId, ticketId=''){
+  workerView='task';
+  currentTicketId = ticketId || null;
+  renderWorker();
+  setTimeout(()=>{
+    const el = document.getElementById('locCode');
+    if(el){el.value=locationId;startForm()}
+  },0);
 }
 
 function startForm(){
@@ -2247,6 +2301,7 @@ function startForm(){
   if(asg&&asg.locationIds.length&&!asg.locationIds.includes(id)) return toast(tr('notAssigned'),'bad');
   currentBeforePhotos = []; currentAfterPhotos = [];
   const tasks = taskSetFor(loc.type);
+  setTopbarBackButton(true, 'workerGoBack()');
   document.getElementById('workerForm').innerHTML=`
     <div class="wCard">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px">
@@ -2578,20 +2633,69 @@ function renderEmployee(){
   setDoc();
   const myOrders = (data.tickets||[]).filter(t=>t.createdById===me.id);
   const activeCount = myOrders.filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
+  const panel = employeeView==='new'
+    ? employeeSubmitForm()
+    : employeeView==='history'
+      ? employeeHistory(myOrders)
+      : employeeView==='more'
+        ? employeeMore()
+        : employeeHome(myOrders, activeCount);
   const empContent=`
     <div class="empPage">
-      <div class="empTabs" role="tablist" aria-label="${lang==='ar'?'تنقل الطلبات':'Request navigation'}">
-        <button class="empTab${employeeTab==='submit'?' active':''}" role="tab" aria-selected="${employeeTab==='submit'}" onclick="employeeTab='submit';renderEmployee()">${ic('send',15)} ${tr('submitRequest')}</button>
-        <button class="empTab${employeeTab==='history'?' active':''}" role="tab" aria-selected="${employeeTab==='history'}" onclick="employeeTab='history';renderEmployee()">
-          ${ic('list',15)} ${tr('myRequests')}${activeCount?`<span class="empTab-badge">${activeCount}</span>`:''}
-        </button>
-      </div>
       <div class="empPanel">
-        ${employeeTab==='submit' ? employeeSubmitForm() : employeeHistory(myOrders)}
+        ${panel}
       </div>
     </div>
     `;
   app.innerHTML = fieldShell(me, empContent);
+}
+
+function employeeHome(orders, activeCount){
+  const latest = orders.slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)).slice(0,3);
+  return`
+<div class="wCard wCard--compact">
+  <div class="wCard-title">${ic('dashboard',16)} ${lang==='ar'?'الرئيسية':'Home'}</div>
+  <div class="empHomeSummary">
+    <div>
+      <div class="empHomeSummary-kicker">${tr('app')}</div>
+      <div class="empHomeSummary-title">${lang==='ar'?'خدمات النظافة والمرافق':'Cleaning and facility services'}</div>
+      <div class="empHomeSummary-sub">${activeCount?`${num(activeCount)} ${lang==='ar'?'طلبات قيد المتابعة':'active requests'}`:(lang==='ar'?'لا توجد طلبات مفتوحة':'No open requests')}</div>
+    </div>
+    <span class="badge brand">${num(orders.length)}</span>
+  </div>
+  <button class="btn wide" onclick="employeeView='new';mobileNavActive='employee-new';renderEmployee()">${ic('send',18)} ${tr('submitRequest')}</button>
+</div>
+${latest.length?`
+<div class="wCard">
+  <div class="wCard-title">${ic('list',16)} ${lang==='ar'?'آخر طلباتي':'Recent requests'}</div>
+  <div class="wCard-list" style="gap:10px">
+    ${latest.map(t=>{
+      const stCls = t.status==='completed'?'ok':['reclean_required','rejected','cancelled'].includes(t.status)?'bad':t.status==='waiting_verification'?'warn':'brand';
+      return`<div class="empOrderCard">
+        <div class="empOrderCard-head">
+          <div>
+            <div class="empOrderCard-title">${esc(t.title)}</div>
+            ${t.referenceNo?`<div class="empOrderCard-ref">${esc(t.referenceNo)}</div>`:''}
+          </div>
+          <span class="badge ${stCls}">${tr(t.status)||t.status}</span>
+        </div>
+        <div class="empOrderCard-meta">${ic('locations',11)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)} · ${fmt(t.createdAt)}</div>
+      </div>`;
+    }).join('')}
+  </div>
+  <button class="btn secondary wide" style="margin-top:12px" onclick="employeeView='history';mobileNavActive='employee-history';renderEmployee()">${tr('myRequests')}</button>
+</div>`:''}`;
+}
+
+function employeeMore(){
+  return`<div class="wCard">
+    <div class="wCard-title">${ic('layers',16)} ${lang==='ar'?'المزيد':'More'}</div>
+    <div class="empty-state">
+      <div class="empty-icon">${ic('layers',28)}</div>
+      <div class="empty-title">${lang==='ar'?'لا توجد خيارات إضافية':'No additional options'}</div>
+      <p class="empty-sub">${lang==='ar'?'الإشعارات واللغة وتسجيل الخروج متاحة من الشريط العلوي.':'Notifications, language, and logout are available in the topbar.'}</p>
+    </div>
+  </div>`;
 }
 
 function employeeSubmitForm(){
@@ -2711,9 +2815,10 @@ async function submitEmployeeOrder(){
         <div style="font-family:var(--font-head);font-size:var(--fs-xl);font-weight:800;color:var(--ink)">${tr('requestSubmitted')}</div>
         ${res.ticket.referenceNo?`<div style="font-family:ui-monospace,monospace;font-size:var(--fs-sm);color:var(--brand-mid);margin-top:8px">${esc(res.ticket.referenceNo)}</div>`:''}
         <p style="color:var(--muted);margin-top:8px;font-size:var(--fs-sm)">${res.autoAssigned?(lang==='ar'?'تم التعيين التلقائي لعامل النظافة':'Auto-assigned to a cleaning worker'):(lang==='ar'?'تم إرسال الطلب للمشرف':'Sent to supervisor queue')}</p>
-        <button class="btn wide" style="margin-top:20px" onclick="employeeTab='submit';renderEmployee()">${lang==='ar'?'طلب جديد':'New Request'}</button>
-        <button class="btn secondary wide" style="margin-top:10px" onclick="employeeTab='history';load().then(renderEmployee)">${tr('myRequests')}</button>
+        <button class="btn wide" style="margin-top:20px" onclick="employeeView='new';mobileNavActive='employee-new';renderEmployee()">${lang==='ar'?'طلب جديد':'New Request'}</button>
+        <button class="btn secondary wide" style="margin-top:10px" onclick="employeeView='history';mobileNavActive='employee-history';load().then(renderEmployee)">${tr('myRequests')}</button>
       </div>`;
+      setTopbarBackButton(true, "employeeView='new';mobileNavActive='employee-new';renderEmployee()");
   }catch(e){
     if(btn){btn.disabled=false;btn.innerHTML=`${ic('send',18)} ${tr('submitRequest')}`}
     toast(lang==='ar'?'حدث خطأ، حاول مرة أخرى':'Error, please try again','bad');
@@ -2890,39 +2995,72 @@ function renderSupervisor(){
   const breached    = allTickets.filter(t=>t.slaBreached&&!['completed','rejected','cancelled'].includes(t.status));
   const pendingRpts = (data.reports||[]).filter(r=>r.approvalStatus==='pending');
   const workers     = (data.users||[]).filter(u=>(u.roles||[u.role]).includes('cleaner'));
-  const qSize = getQ().length;
-
-  const supContent=`
+  const statsHtml=`
     <div class="supStats">
       ${supStat(submitted.length,    lang==='ar'?'طلبات مفتوحة':'Open Requests',    'tickets', 'bad')}
       ${supStat(waitingVerif.length, lang==='ar'?'بانتظار التحقق':'Pending Verify',  'check',   'warn')}
       ${supStat(inProgress.length,   lang==='ar'?'جارٍ التنفيذ':'In Progress',       'sync',    'brand')}
       ${supStat(pendingRpts.length,  lang==='ar'?'تقارير للمراجعة':'Reports to Review','reports', 'ok')}
-    </div>
-    ${breached.length?`
+    </div>`;
+
+  const slaHtml = breached.length?`
     <div class="wCard" style="border-color:rgba(200,50,50,.4);margin-bottom:16px">
       <div class="wCard-title" style="color:var(--bad)">${ic('bell',16)} ${lang==='ar'?'تنبيهات SLA':'SLA Alerts'} <span class="badge bad">${breached.length}</span></div>
-      <div class="wCard-list">${breached.map(t=>supTicketCard(t,'sla')).join('')}</div>
-    </div>`:''}
+      <div class="wCard-list">${breached.slice(0,3).map(t=>supTicketCard(t,'sla')).join('')}</div>
+      ${breached.length>3?`<button class="btn secondary wide" style="margin-top:12px" onclick="supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()">${lang==='ar'?'عرض كل الطلبات':'View all requests'}</button>`:''}
+    </div>`:'';
+
+  const requestsHtml=`
     <div class="supSectionsGrid">
       <div class="wCard">
         <div class="wCard-title">${ic('tickets',16)} ${lang==='ar'?'الطلبات المفتوحة':'Open Requests'} <span class="badge bad">${submitted.length}</span></div>
-        ${submitted.length?`<div class="wCard-list">${submitted.slice(0,8).map(t=>supTicketCard(t,'assign',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد طلبات مفتوحة':'No open requests'}</div></div>`}
+        ${submitted.length?`<div class="wCard-list">${submitted.map(t=>supTicketCard(t,'assign',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد طلبات مفتوحة':'No open requests'}</div></div>`}
       </div>
       <div class="wCard">
         <div class="wCard-title">${ic('check',16)} ${lang==='ar'?'بانتظار التحقق':'Pending Verification'} <span class="badge warn">${waitingVerif.length}</span></div>
-        ${waitingVerif.length?`<div class="wCard-list">${waitingVerif.slice(0,8).map(t=>supTicketCard(t,'verify',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا يوجد ما يحتاج تحقق':'Nothing pending'}</div></div>`}
+        ${waitingVerif.length?`<div class="wCard-list">${waitingVerif.map(t=>supTicketCard(t,'verify',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا يوجد ما يحتاج تحقق':'Nothing pending'}</div></div>`}
       </div>
-      ${inProgress.length?`<div class="wCard"><div class="wCard-title">${ic('sync',16)} ${lang==='ar'?'قيد التنفيذ':'Team Queue'} <span class="badge brand">${inProgress.length}</span></div><div class="wCard-list">${inProgress.slice(0,8).map(t=>supTicketCard(t,'view',workers)).join('')}</div></div>`:''}
-      ${pendingRpts.length?`<div class="wCard"><div class="wCard-title">${ic('reports',16)} ${lang==='ar'?'التقارير للمراجعة':'Reports for Review'} <span class="badge warn">${pendingRpts.length}</span></div><div class="wCard-list">${pendingRpts.slice(0,10).map(r=>supReportCard(r)).join('')}</div></div>`:''}
+      <div class="wCard">
+        <div class="wCard-title">${ic('sync',16)} ${lang==='ar'?'قيد التنفيذ':'Team Queue'} <span class="badge brand">${inProgress.length}</span></div>
+        ${inProgress.length?`<div class="wCard-list">${inProgress.map(t=>supTicketCard(t,'view',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('sync',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد طلبات قيد التنفيذ':'No requests in progress'}</div></div>`}
+      </div>
+    </div>`;
+
+  const reportsHtml=`<div class="wCard">
+    <div class="wCard-title">${ic('reports',16)} ${lang==='ar'?'التقارير للمراجعة':'Reports for Review'} <span class="badge warn">${pendingRpts.length}</span></div>
+    ${pendingRpts.length?`<div class="wCard-list">${pendingRpts.map(r=>supReportCard(r)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد تقارير للمراجعة':'No reports to review'}</div></div>`}
+  </div>`;
+
+  const teamHtml=`
       <div class="wCard">
         <div class="wCard-title">${ic('users',16)} ${lang==='ar'?'الفريق':'Team'} <span class="badge brand">${workers.length}</span></div>
         ${workers.length?`<div class="supTeamGrid">${workers.map(w=>{
           const wActive=allTickets.filter(t=>t.assignedTo===w.id&&!['completed','rejected','cancelled'].includes(t.status));
 	          return`<div class="supTeamCard"><div class="supTeamCard-info"><div class="supTeamCard-name">${esc(w.name)}</div><div class="supTeamCard-meta">${wActive.length} ${lang==='ar'?'مهام نشطة':'active'}</div></div>${wActive.length?`<span class="badge warn">${wActive.length}</span>`:`<span class="badge ok">${lang==='ar'?'متاح':'Free'}</span>`}</div>`;
         }).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('users',24)}</div><div class="empty-title">${lang==='ar'?'لا يوجد عمال':'No workers'}</div></div>`}
+      </div>`;
+
+  const dashboardHtml=`
+    ${statsHtml}
+    ${slaHtml}
+    <div class="supSectionsGrid">
+      <div class="wCard">
+        <div class="wCard-title">${ic('tickets',16)} ${lang==='ar'?'ملخص الطلبات':'Requests summary'}</div>
+        <div class="quickActionGrid">
+          <button class="quickAction" onclick="supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()"><span>${ic('tickets',18)}</span><b>${lang==='ar'?'الطلبات':'Requests'}</b><small>${num(submitted.length+waitingVerif.length+inProgress.length)}</small></button>
+          <button class="quickAction" onclick="supervisorView='reports';mobileNavActive='supervisor-reports';renderSupervisor()"><span>${ic('reports',18)}</span><b>${tr('reports')}</b><small>${num(pendingRpts.length)}</small></button>
+        </div>
       </div>
+      ${teamHtml}
     </div>`;
+
+  const supContent = supervisorView==='requests'
+    ? requestsHtml
+    : supervisorView==='team'
+      ? teamHtml
+      : supervisorView==='reports'
+        ? reportsHtml
+        : dashboardHtml;
 
   app.innerHTML = fieldShell(me, supContent, {sync:true, noSticky:true});
 }
