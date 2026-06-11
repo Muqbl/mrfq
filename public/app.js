@@ -477,6 +477,43 @@ function navigateTo(v){
 function goBack(){
   if(viewHistory.length){ view=viewHistory.pop(); render(); }
 }
+function appBack(){
+  if(!me) return history.back();
+  if(me.role==='cleaning_supervisor'){
+    if(supervisorView!=='dashboard'){
+      supervisorView='dashboard';
+      mobileNavActive='supervisor-dashboard';
+      renderSupervisor();
+      return;
+    }
+  }else if(me.role==='cleaner'){
+    const form=document.getElementById('workerForm');
+    if(form&&form.innerHTML.trim()){
+      workerGoBack();
+      return;
+    }
+    if(workerView!=='task'){
+      workerView='task';
+      mobileNavActive='worker-task';
+      renderWorker();
+      return;
+    }
+  }else if(me.role==='employee'){
+    if(employeeView!=='home'){
+      employeeView='home';
+      mobileNavActive='employee-home';
+      renderEmployee();
+      return;
+    }
+  }else if(viewHistory.length){
+    goBack();
+    return;
+  }else if(view!=='dashboard'){
+    navigateTo('dashboard');
+    return;
+  }
+  history.back();
+}
 
 /* ─── CORE FLOW ──────────────────────────────────────────────── */
 function setDoc(){
@@ -643,8 +680,9 @@ function renderPlatformTopbar(me, opts={}){
 
   /* Unified brand — same platform name for all roles */
   const brandInner = `<span class="tb-brand-name">إدارة المرافق</span>`;
-  const backBtn = opts.back
-    ? `<button class="icon-btn tb-back" onclick="${opts.backAction||'history.back()'}" aria-label="${lang==='ar'?'رجوع':'Back'}" title="${lang==='ar'?'رجوع':'Back'}">${ic(lang==='ar'?'arrow':'arrow-left',20)}</button>`
+  const showBack = opts.back !== false;
+  const backBtn = showBack
+    ? `<button class="icon-btn tb-back" onclick="${opts.backAction||'appBack()'}" aria-label="${lang==='ar'?'رجوع':'Back'}" title="${lang==='ar'?'رجوع':'Back'}">${ic(lang==='ar'?'arrow':'arrow-left',20)}</button>`
     : '';
 
   return`
@@ -965,35 +1003,16 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
 }
 
 function showMobileNavMore(){
-  const role = me?.role || '';
-  const items = role==='employee'
-    ? [
-      {v:'employee-new', label:tr('submitRequest'), icon:'send', action:"employeeView='new';renderEmployee()"},
-      {v:'employee-history', label:tr('myRequests'), icon:'list', action:"employeeView='history';renderEmployee()"}
-    ]
-    : role==='cleaner'
-      ? [
-        {v:'worker-task', label:lang==='ar'?'المهمة الحالية':'Current task', icon:'check', action:"workerView='task';renderWorker()"},
-        {v:'worker-assigned', label:lang==='ar'?'المسندة':'Assigned', icon:'locations', action:"workerView='assigned';renderWorker()"},
-        {v:'worker-reports', label:lang==='ar'?'تقاريري':'Reports', icon:'reports', action:"workerView='reports';renderWorker()"}
-      ]
-      : role==='cleaning_supervisor'
-        ? [
-          {v:'supervisor-dashboard', label:tr('dashboard'), icon:'dashboard', action:"supervisorView='dashboard';renderSupervisor()"},
-          {v:'supervisor-requests', label:lang==='ar'?'الطلبات':'Requests', icon:'tickets', action:"supervisorView='requests';renderSupervisor()"},
-          {v:'supervisor-team', label:lang==='ar'?'الفريق':'Team', icon:'users', action:"supervisorView='team';renderSupervisor()"},
-          {v:'supervisor-reports', label:tr('reports'), icon:'reports', action:"supervisorView='reports';renderSupervisor()"}
-        ]
-        : [
-          {v:'dashboard', label:tr('dashboard'), icon:'dashboard'},
-          {v:'tickets', label:tr('tickets'), icon:'tickets'},
-          {v:'reports', label:tr('reports'), icon:'reports'},
-          {v:'locations', label:tr('locations'), icon:'locations'},
-          {v:'assignments', label:tr('assignments'), icon:'assignments'},
-          ...(canUsers()?[{v:'users', label:tr('users'), icon:'users'}]:[]),
-          ...(canReview()?[{v:'performance', label:tr('performance'), icon:'bar-chart'}]:[]),
-          ...(canManage()?[{v:'auditlog', label:tr('auditLog'), icon:'log'}]:[])
-        ];
+  const items = [
+    {v:'dashboard', label:tr('dashboard'), icon:'dashboard'},
+    {v:'tickets', label:tr('tickets'), icon:'tickets'},
+    {v:'reports', label:tr('reports'), icon:'reports'},
+    {v:'locations', label:tr('locations'), icon:'locations'},
+    {v:'assignments', label:tr('assignments'), icon:'assignments'},
+    ...(canUsers()?[{v:'users', label:tr('users'), icon:'users'}]:[]),
+    ...(canReview()?[{v:'performance', label:tr('performance'), icon:'bar-chart'}]:[]),
+    ...(canManage()?[{v:'auditlog', label:tr('auditLog'), icon:'log'}]:[])
+  ];
   const body = `<div class="mobileMoreGrid">
     ${items.map(item=>`<button class="mobileMoreItem${view===item.v?' active':''}" onclick="document.getElementById('mobileNavModal')?.remove();${item.action||`navigateTo('${item.v}')`}">
       <span class="mobileMoreIcon">${ic(item.icon,18)}</span>
@@ -3006,12 +3025,22 @@ function renderSupervisor(){
   const slaHtml = breached.length?`
     <div class="wCard" style="border-color:rgba(200,50,50,.4);margin-bottom:16px">
       <div class="wCard-title" style="color:var(--bad)">${ic('bell',16)} ${lang==='ar'?'تنبيهات SLA':'SLA Alerts'} <span class="badge bad">${breached.length}</span></div>
-      <div class="wCard-list">${breached.slice(0,3).map(t=>supTicketCard(t,'sla')).join('')}</div>
-      ${breached.length>3?`<button class="btn secondary wide" style="margin-top:12px" onclick="supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()">${lang==='ar'?'عرض كل الطلبات':'View all requests'}</button>`:''}
+      <div class="wCard-list">${breached.map(t=>supTicketCard(t,'sla')).join('')}</div>
     </div>`:'';
+
+  const slaSummaryHtml = `<div class="wCard supervisorDashboardAlert">
+    <div>
+      <div class="supervisorDashboardAlert-title">${ic(breached.length?'bell':'check',16)} ${lang==='ar'?'حالة SLA':'SLA status'}</div>
+      <div class="supervisorDashboardAlert-sub">${breached.length
+        ? (lang==='ar'?`${num(breached.length)} بلاغ يحتاج متابعة عاجلة`:`${breached.length} requests need urgent follow-up`)
+        : (lang==='ar'?'لا توجد تجاوزات SLA حالياً':'No active SLA breaches')}</div>
+    </div>
+    <button class="btn secondary sm" onclick="supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()">${lang==='ar'?'الطلبات':'Requests'}</button>
+  </div>`;
 
   const requestsHtml=`
     <div class="supSectionsGrid">
+      ${slaHtml?`<div class="wCard--full">${slaHtml}</div>`:''}
       <div class="wCard">
         <div class="wCard-title">${ic('tickets',16)} ${lang==='ar'?'الطلبات المفتوحة':'Open Requests'} <span class="badge bad">${submitted.length}</span></div>
         ${submitted.length?`<div class="wCard-list">${submitted.map(t=>supTicketCard(t,'assign',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد طلبات مفتوحة':'No open requests'}</div></div>`}
@@ -3041,17 +3070,17 @@ function renderSupervisor(){
       </div>`;
 
   const dashboardHtml=`
-    ${statsHtml}
-    ${slaHtml}
-    <div class="supSectionsGrid">
+    <div class="supervisorDashboard">
+      ${statsHtml}
+      ${slaSummaryHtml}
       <div class="wCard">
-        <div class="wCard-title">${ic('tickets',16)} ${lang==='ar'?'ملخص الطلبات':'Requests summary'}</div>
-        <div class="quickActionGrid">
+        <div class="wCard-title">${ic('dashboard',16)} ${lang==='ar'?'اختصارات التشغيل':'Operational shortcuts'}</div>
+        <div class="quickActionGrid quickActionGrid--supervisor">
           <button class="quickAction" onclick="supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()"><span>${ic('tickets',18)}</span><b>${lang==='ar'?'الطلبات':'Requests'}</b><small>${num(submitted.length+waitingVerif.length+inProgress.length)}</small></button>
+          <button class="quickAction" onclick="supervisorView='team';mobileNavActive='supervisor-team';renderSupervisor()"><span>${ic('users',18)}</span><b>${lang==='ar'?'الفريق':'Team'}</b><small>${num(workers.length)}</small></button>
           <button class="quickAction" onclick="supervisorView='reports';mobileNavActive='supervisor-reports';renderSupervisor()"><span>${ic('reports',18)}</span><b>${tr('reports')}</b><small>${num(pendingRpts.length)}</small></button>
         </div>
       </div>
-      ${teamHtml}
     </div>`;
 
   const supContent = supervisorView==='requests'

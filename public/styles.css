@@ -1301,6 +1301,7 @@ tbody tr:hover td{background:var(--surface-2)}
 .assignedItem svg{color:var(--muted-light);flex-shrink:0}
 
 .quickActionGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.quickActionGrid--supervisor{grid-template-columns:repeat(3,minmax(0,1fr))}
 .quickAction{
   min-height:76px;border:1.5px solid var(--line);border-radius:var(--r);
   background:var(--surface-2);color:var(--ink);display:grid;gap:4px;
@@ -1309,6 +1310,18 @@ tbody tr:hover td{background:var(--surface-2)}
 .quickAction span{color:var(--brand-mid)}
 .quickAction b{font-size:var(--fs-sm)}
 .quickAction small{font-size:var(--fs-xs);font-weight:800;color:var(--muted)}
+
+.supervisorDashboard{display:grid;gap:14px}
+.supervisorDashboard .supStats{margin-bottom:0}
+.supervisorDashboardAlert{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  border-color:rgba(222,117,89,.22);
+}
+.supervisorDashboardAlert-title{
+  display:flex;align-items:center;gap:6px;
+  font-family:var(--font-head);font-weight:800;color:var(--ink);font-size:var(--fs-sm);
+}
+.supervisorDashboardAlert-sub{font-size:var(--fs-xs);color:var(--muted);margin-top:4px;line-height:1.35}
 
 .empHomeSummary{
   display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
@@ -1691,6 +1704,14 @@ tbody tr:hover td{background:var(--surface-2)}
   }
   .kpiCard-icon svg,.userSummaryCard-icon svg,.supStatCard-icon svg{width:19px;height:19px;stroke-width:1.9}
   .kpiCard-status{width:32px;height:3px;margin-top:11px}
+  .platform-main--field .supervisorDashboard{gap:12px}
+  .platform-main--field .supStats{gap:10px;margin-bottom:12px}
+  .platform-main--field .supStatCard{min-height:74px;padding:10px 8px}
+  .platform-main--field .supStatCard-count{font-size:20px}
+  .platform-main--field .supStatCard-label{font-size:10px}
+  .platform-main--field .quickActionGrid--supervisor{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .platform-main--field .quickAction{min-height:68px;padding:10px 6px}
+  .platform-main--field .quickAction b{font-size:12px}
 
   .analyticsGrid,.contentGrid,.reportGrid,.ticketGrid,.locGrid,.assignGrid,.supSectionsGrid,.supTeamGrid{
     display:grid;grid-template-columns:1fr!important;gap:12px;margin:0;
@@ -1849,6 +1870,9 @@ tbody tr:hover td{background:var(--surface-2)}
   .mobileBottomNav-item{font-size:9px}
   .kpiGrid,.userSummaryGrid,.supStats{gap:7px}
   .kpiCard,.userSummaryCard,.supStatCard{padding:11px;min-height:88px}
+  .platform-main--field .supStatCard{min-height:70px;padding:9px 7px}
+  .platform-main--field .quickActionGrid--supervisor{grid-template-columns:1fr;gap:8px}
+  .platform-main--field .quickAction{min-height:52px;grid-template-columns:auto 1fr auto;place-items:center start;text-align:inherit}
   .photoGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .empCatGrid{grid-template-columns:1fr}
 }
