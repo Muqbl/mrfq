@@ -1,12 +1,12 @@
 {
-  "name": "REGA Facility Care Pro",
-  "short_name": "REGA Care",
-  "description": "منصة العناية بالمرافق",
+  "name": "إدارة المرافق",
+  "short_name": "إدارة المرافق",
+  "description": "إدارة المرافق",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#083B46",
-  "theme_color": "#083B46",
+  "background_color": "#F8FAF9",
+  "theme_color": "#005257",
   "icons": [
     {
       "src": "/assets/logos/icon-192.png",

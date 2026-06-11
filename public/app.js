@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════════════
-   REGA FACILITY CARE — App v16
+   REGA FACILITIES — App v16
    Complete Frontend Rebuild — inspired by وفّر design language
    ══════════════════════════════════════════════════════════════ */
 
@@ -38,8 +38,8 @@ const TASKS = {
 /* ─── TRANSLATIONS ────────────────────────────────────────────── */
 const T = {
   ar:{
-    app:'منصة العناية بالمرافق',sub:'إدارة احترافية لكل مرفق، في كل وقت',
-    loginTitle:'منصة ذكية لمرافق<br>أكثر كفاءة',welcomeBack:'مرحباً بعودتك',
+    app:'إدارة المرافق',sub:'إدارة احترافية لكل مرفق، في كل وقت',
+    loginTitle:'إدارة المرافق',welcomeBack:'مرحباً بعودتك',
     login:'تسجيل الدخول',user:'اسم المستخدم',pass:'كلمة المرور',lang:'English',logout:'خروج',
     dashboard:'لوحة التحكم',reports:'التقارير',users:'المستخدمون',locations:'المرافق',
     assignments:'التوزيع',tickets:'البلاغات',analytics:'التحليلات',
@@ -115,8 +115,8 @@ const T = {
     closeModal:'إغلاق',activeTicket:'بلاغ نشط',
   },
   en:{
-    app:'Facility Care Platform',sub:'Professional management for every facility, at any time',
-    loginTitle:'Smart Platform for Cleaner, More Efficient Facilities',welcomeBack:'Welcome Back',
+    app:'إدارة المرافق',sub:'Professional management for every facility, at any time',
+    loginTitle:'إدارة المرافق',welcomeBack:'Welcome Back',
     login:'Login',user:'Username',pass:'Password',lang:'العربية',logout:'Logout',
     dashboard:'Dashboard',reports:'Reports',users:'Users',locations:'Facilities',
     assignments:'Assignments',tickets:'Tickets',analytics:'Analytics',
@@ -636,7 +636,7 @@ function renderPlatformTopbar(me, opts={}){
   const notifBtn = `<button class="icon-btn tb-notif" id="tb-notif-btn" onclick="toggleNotif(event)" title="${lang==='ar'?'الإشعارات':'Notifications'}">${ic('bell',20)}${pendingRpts>0||openTickets>0?`<span class="tb-notif-badge"></span>`:''}</button>`;
 
   /* Unified brand — same platform name for all roles */
-  const brandInner = `<span class="tb-brand-name">${lang==='ar'?'منصة العناية بالمرافق':'Facility Care Platform'}</span>`;
+  const brandInner = `<span class="tb-brand-name">إدارة المرافق</span>`;
 
   return`
 <header class="topbar">
@@ -661,11 +661,14 @@ function renderPlatformTopbar(me, opts={}){
 /* ── field workspace shell — Worker / Employee / Supervisor ─── */
 function fieldShell(me, contentHtml, opts={}){
   const mainCls = 'platform-main platform-main--field' + (opts.noSticky ? ' platform-main--no-sticky' : '');
+  const openTickets = (data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
+  const pendingReports = (data?.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
   return`<div class="platform-shell">
   ${renderPlatformTopbar(me, {sync:true})}
   <div class="platform-body">
     <main class="${mainCls}">${contentHtml}</main>
   </div>
+  ${renderMobileBottomNav(openTickets, pendingReports)}
 </div>`;
 }
 
@@ -750,8 +753,8 @@ function loginPage(){
       <button class="btn secondary wide" style="margin-top:10px" onclick="switchLang()">${tr('lang')}</button>
       <div class="prototype-notice-login">
         ${lang==='ar'
-          ? '⚠ نسخة تجريبية — بيانات غير حقيقية. للمحاكاة البصرية فقط.'
-          : '⚠ Prototype — Demo data only. Visual simulation purposes only.'}
+          ? 'نسخة تجريبية — بيانات غير حقيقية. للمحاكاة البصرية فقط.'
+          : 'Prototype — Demo data only. Visual simulation purposes only.'}
       </div>
       <p class="loginPanel-foot">${lang==='ar'?'الدخول متاح فقط للمستخدمين المصرح لهم داخل المنصة.':'Access is restricted to authorized platform users only.'}</p>
     </div>
@@ -876,16 +879,43 @@ function navItem(v,label,icon,count){
 }
 
 function renderMobileBottomNav(openTickets=0, pendingReports=0){
-  const primary = [
-    {v:'dashboard', label:tr('dashboard'), icon:'dashboard', count:0},
-    {v:'tickets', label:tr('tickets'), icon:'tickets', count:openTickets},
-    {v:'reports', label:tr('reports'), icon:'reports', count:pendingReports},
-    {v:'locations', label:tr('locations'), icon:'locations', count:0}
-  ];
-  const moreActive = !primary.some(item=>item.v===view);
+  const role = me?.role || '';
+  const isAdmin = canManage() || canReview() || role==='cleaning_manager' || role==='facility_manager';
+  let primary = [];
+  if(role==='employee'){
+    const activeCount = (data?.tickets||[]).filter(t=>t.createdById===me.id&&!['completed','rejected','cancelled'].includes(t.status)).length;
+    primary = [
+      {v:'employee-home', label:lang==='ar'?'الرئيسية':'Home', icon:'dashboard', count:0, action:"employeeTab='submit';renderEmployee()", active:employeeTab==='submit'},
+      {v:'employee-new', label:lang==='ar'?'طلب جديد':'New', icon:'send', count:0, action:"employeeTab='submit';renderEmployee()", active:false},
+      {v:'employee-history', label:tr('myRequests'), icon:'list', count:activeCount, action:"employeeTab='history';renderEmployee()", active:employeeTab==='history'},
+      {v:'employee-notif', label:lang==='ar'?'تنبيهات':'Alerts', icon:'bell', count:pendingReports, action:"document.getElementById('tb-notif-btn')?.click()"}
+    ];
+  }else if(role==='cleaner'){
+    primary = [
+      {v:'worker-current', label:lang==='ar'?'المهمة':'Task', icon:'check', count:openTickets, action:'renderWorker()', active:true},
+      {v:'worker-requests', label:lang==='ar'?'بلاغاتي':'Requests', icon:'tickets', count:openTickets, action:'renderWorker()'},
+      {v:'worker-photos', label:lang==='ar'?'الصور':'Photos', icon:'camera', count:0, action:"document.querySelector('.cameraBtn')?.scrollIntoView({behavior:'smooth',block:'center'})"},
+      {v:'worker-notif', label:lang==='ar'?'تنبيهات':'Alerts', icon:'bell', count:pendingReports, action:"document.getElementById('tb-notif-btn')?.click()"}
+    ];
+  }else if(role==='cleaning_supervisor'){
+    primary = [
+      {v:'supervisor-home', label:tr('dashboard'), icon:'dashboard', count:0, action:'renderSupervisor()', active:true},
+      {v:'supervisor-requests', label:lang==='ar'?'الطلبات':'Requests', icon:'tickets', count:openTickets, action:"document.querySelector('.supTicketCard,.wCard')?.scrollIntoView({behavior:'smooth',block:'start'})"},
+      {v:'supervisor-team', label:lang==='ar'?'الفريق':'Team', icon:'users', count:0, action:"document.querySelector('.supTeamCard')?.scrollIntoView({behavior:'smooth',block:'center'})"},
+      {v:'supervisor-reports', label:tr('reports'), icon:'reports', count:pendingReports, action:"document.querySelector('.workerReportItem,.reportCard')?.scrollIntoView({behavior:'smooth',block:'center'})"}
+    ];
+  }else{
+    primary = [
+      {v:'dashboard', label:tr('dashboard'), icon:'dashboard', count:0},
+      {v:'tickets', label:tr('tickets'), icon:'tickets', count:openTickets},
+      {v:'reports', label:tr('reports'), icon:'reports', count:pendingReports},
+      {v:'locations', label:tr('locations'), icon:'locations', count:0}
+    ];
+  }
+  const moreActive = isAdmin ? !primary.some(item=>item.v===view) : false;
   return `<nav class="mobileBottomNav" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
     ${primary.map(item=>`
-      <button class="mobileBottomNav-item${view===item.v?' active':''}" onclick="navigateTo('${item.v}')">
+      <button class="mobileBottomNav-item${item.active||view===item.v?' active':''}" onclick="${item.action||`navigateTo('${item.v}')`}">
         <span class="mobileBottomNav-icon">${ic(item.icon,18)}${item.count>0?`<span class="mobileBottomNav-badge">${num(item.count)}</span>`:''}</span>
         <span class="mobileBottomNav-label">${item.label}</span>
       </button>
@@ -898,18 +928,35 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
 }
 
 function showMobileNavMore(){
-  const items = [
-    {v:'dashboard', label:tr('dashboard'), icon:'dashboard'},
-    {v:'tickets', label:tr('tickets'), icon:'tickets'},
-    {v:'reports', label:tr('reports'), icon:'reports'},
-    {v:'locations', label:tr('locations'), icon:'locations'},
-    {v:'assignments', label:tr('assignments'), icon:'assignments'},
-    ...(canUsers()?[{v:'users', label:tr('users'), icon:'users'}]:[]),
-    ...(canReview()?[{v:'performance', label:tr('performance'), icon:'bar-chart'}]:[]),
-    ...(canManage()?[{v:'auditlog', label:tr('auditLog'), icon:'log'}]:[])
-  ];
+  const role = me?.role || '';
+  const items = role==='employee'
+    ? [
+      {v:'employee-new', label:tr('submitRequest'), icon:'send', action:"employeeTab='submit';renderEmployee()"},
+      {v:'employee-history', label:tr('myRequests'), icon:'list', action:"employeeTab='history';renderEmployee()"}
+    ]
+    : role==='cleaner'
+      ? [
+        {v:'worker-current', label:lang==='ar'?'المهمة الحالية':'Current task', icon:'check', action:'renderWorker()'},
+        {v:'worker-photos', label:lang==='ar'?'الصور والقائمة':'Photos / checklist', icon:'camera', action:"document.querySelector('.cameraBtn,.taskChecklist')?.scrollIntoView({behavior:'smooth',block:'center'})"}
+      ]
+      : role==='cleaning_supervisor'
+        ? [
+          {v:'supervisor-home', label:tr('dashboard'), icon:'dashboard', action:'renderSupervisor()'},
+          {v:'supervisor-team', label:lang==='ar'?'الفريق':'Team', icon:'users', action:"document.querySelector('.supTeamCard')?.scrollIntoView({behavior:'smooth',block:'center'})"},
+          {v:'supervisor-reports', label:tr('reports'), icon:'reports', action:"document.querySelector('.workerReportItem,.reportCard')?.scrollIntoView({behavior:'smooth',block:'center'})"}
+        ]
+        : [
+          {v:'dashboard', label:tr('dashboard'), icon:'dashboard'},
+          {v:'tickets', label:tr('tickets'), icon:'tickets'},
+          {v:'reports', label:tr('reports'), icon:'reports'},
+          {v:'locations', label:tr('locations'), icon:'locations'},
+          {v:'assignments', label:tr('assignments'), icon:'assignments'},
+          ...(canUsers()?[{v:'users', label:tr('users'), icon:'users'}]:[]),
+          ...(canReview()?[{v:'performance', label:tr('performance'), icon:'bar-chart'}]:[]),
+          ...(canManage()?[{v:'auditlog', label:tr('auditLog'), icon:'log'}]:[])
+        ];
   const body = `<div class="mobileMoreGrid">
-    ${items.map(item=>`<button class="mobileMoreItem${view===item.v?' active':''}" onclick="document.getElementById('mobileNavModal')?.remove();navigateTo('${item.v}')">
+    ${items.map(item=>`<button class="mobileMoreItem${view===item.v?' active':''}" onclick="document.getElementById('mobileNavModal')?.remove();${item.action||`navigateTo('${item.v}')`}">
       <span class="mobileMoreIcon">${ic(item.icon,18)}</span>
       <span>${item.label}</span>
     </button>`).join('')}
@@ -1353,20 +1400,20 @@ function exportPDFReports(){
 <title>REGA — ${tr('reports')}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;padding:24px;color:#222;direction:${dir}}
-  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #0A4E5B}
-  .brand{color:#0A4E5B;font-size:20px;font-weight:800}
-  .meta{font-size:11px;color:#666;margin-top:4px}
+  body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;padding:24px;color:#123238;direction:${dir}}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #005257}
+  .brand{color:#005257;font-size:20px;font-weight:800}
+  .meta{font-size:11px;color:#6F787F;margin-top:4px}
   table{width:100%;border-collapse:collapse;font-size:12px;margin-top:16px}
-  th{background:#083B46;color:#fff;padding:9px 10px;text-align:${lang==='ar'?'right':'left'};font-weight:700}
-  td{padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top}
-  tr:nth-child(even) td{background:#f8f9fa}
-  .ok{color:#16884D;font-weight:700} .bad{color:#c83232;font-weight:700} .warn{color:#A66200;font-weight:700}
-  .footer{margin-top:16px;font-size:10px;color:#999;text-align:center}
+  th{background:#005257;color:#fff;padding:9px 10px;text-align:${lang==='ar'?'right':'left'};font-weight:700}
+  td{padding:8px 10px;border-bottom:1px solid #E1E9E6;vertical-align:top}
+  tr:nth-child(even) td{background:#F8FAF9}
+  .ok{color:#00A488;font-weight:700} .bad{color:#DE7559;font-weight:700} .warn{color:#E69E33;font-weight:700}
+  .footer{margin-top:16px;font-size:10px;color:#8A989C;text-align:center}
   @media print{body{padding:12px}@page{margin:15mm}}
 </style></head><body>
 <div class="header">
-  <div><div class="brand">REGA Facility Care Pro</div><div class="meta">${tr('reports')} · ${fmtDate(new Date())} · ${items.length} ${lang==='ar'?'تقرير':'records'}</div></div>
+  <div><div class="brand">إدارة المرافق</div><div class="meta">${tr('reports')} · ${fmtDate(new Date())} · ${items.length} ${lang==='ar'?'تقرير':'records'}</div></div>
   <div class="meta">${lang==='ar'?'مُصدَّر بواسطة: ':'Exported by: '}${esc(me.name)}</div>
 </div>
 <table><thead><tr>
@@ -1377,14 +1424,14 @@ ${items.map((r,i)=>{
   const st=r.approvalStatus||'pending_approval';
   const cls=st==='approved'?'ok':st==='rejected'||st==='needs_recleaning'?'bad':'warn';
   return`<tr><td>${i+1}</td><td>${esc(r.workerName)}</td>
-    <td>${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}<br><small style="color:#888">${tr(r.locationType||'other')}</small></td>
+    <td>${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}<br><small style="color:#8A989C">${tr(r.locationType||'other')}</small></td>
     <td>${qualityScore(r)}%</td>
     <td class="${cls}">${tr(st)}</td>
     <td style="white-space:nowrap">${fmt(r.createdAt)}</td>
-  </tr>${r.notes?`<tr><td></td><td colspan="5" style="font-size:11px;color:#666;padding-top:2px">${esc(r.notes)}</td></tr>`:''}`;
+  </tr>${r.notes?`<tr><td></td><td colspan="5" style="font-size:11px;color:#6F787F;padding-top:2px">${esc(r.notes)}</td></tr>`:''}`;
 }).join('')}
 </tbody></table>
-<div class="footer">REGA Facility Care Pro · ${new Date().toISOString().slice(0,10)}</div>
+<div class="footer">إدارة المرافق · ${new Date().toISOString().slice(0,10)}</div>
 </body></html>`;
   const w=window.open('','_blank','width=900,height=700');
   w.document.write(html);
@@ -1966,12 +2013,12 @@ function showAddRoleModal(userId){
   const existingRoles = u.roles||[u.role];
 
   const ROLE_COLORS = {
-    system_admin:       {bg:'#E6F4F2', color:'#0F3D3E'},
-    facility_manager:   {bg:'rgba(10,78,91,.12)', color:'var(--brand)'},
-    cleaning_manager:   {bg:'#F5E9FF', color:'#6B21A8'},
-    cleaning_supervisor:{bg:'rgba(26,105,164,.12)', color:'var(--info)'},
-    cleaner:            {bg:'rgba(22,136,77,.10)', color:'var(--ok)'},
-    employee:           {bg:'rgba(185,154,95,.12)', color:'var(--gold)'}
+    system_admin:       {bg:'var(--bg-soft)', color:'var(--rega-navy)'},
+    facility_manager:   {bg:'var(--bg-soft)', color:'var(--rega-dark-teal)'},
+    cleaning_manager:   {bg:'rgba(111,79,152,.12)', color:'var(--rega-purple)'},
+    cleaning_supervisor:{bg:'rgba(0,132,141,.12)', color:'var(--rega-teal)'},
+    cleaner:            {bg:'var(--ok-bg)', color:'var(--ok)'},
+    employee:           {bg:'rgba(117,206,200,.16)', color:'var(--rega-dark-teal)'}
   };
 
   function buildRoleCards(){
@@ -2774,15 +2821,15 @@ async function exportPerformancePDF(){
   const dir=lang==='ar'?'rtl':'ltr';
   const html=`<!DOCTYPE html><html lang="${lang}" dir="${dir}"><head><meta charset="utf-8">
 <title>REGA — ${tr('performance')}</title>
-<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:24px;color:#222;direction:${dir}}
-.header{display:flex;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #0A4E5B}
-.brand{color:#0A4E5B;font-size:20px;font-weight:800}.meta{font-size:11px;color:#666;margin-top:4px}
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:24px;color:#123238;direction:${dir}}
+.header{display:flex;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #005257}
+.brand{color:#005257;font-size:20px;font-weight:800}.meta{font-size:11px;color:#6F787F;margin-top:4px}
 table{width:100%;border-collapse:collapse;font-size:12px;margin-top:16px}
-th{background:#083B46;color:#fff;padding:9px 10px;text-align:${lang==='ar'?'right':'left'};font-weight:700}
-td{padding:8px 10px;border-bottom:1px solid #eee;vertical-align:top}
-tr:nth-child(even) td{background:#f8f9fa}
-.ok{color:#16884D;font-weight:700}.bad{color:#c83232;font-weight:700}.warn{color:#A66200;font-weight:700}
-.footer{margin-top:16px;font-size:10px;color:#999;text-align:center}
+th{background:#005257;color:#fff;padding:9px 10px;text-align:${lang==='ar'?'right':'left'};font-weight:700}
+td{padding:8px 10px;border-bottom:1px solid #E1E9E6;vertical-align:top}
+tr:nth-child(even) td{background:#F8FAF9}
+.ok{color:#00A488;font-weight:700}.bad{color:#DE7559;font-weight:700}.warn{color:#E69E33;font-weight:700}
+.footer{margin-top:16px;font-size:10px;color:#8A989C;text-align:center}
 @media print{body{padding:12px}@page{margin:15mm}}</style></head><body>
 <div class="header">
   <div><div class="brand">REGA — ${tr('performance')}</div><div class="meta">${new Date().toISOString().slice(0,10)} · ${lang==='ar'?'آخر 30 يوم':'Last 30 days'}</div></div>
@@ -2803,7 +2850,7 @@ ${scored.map((w,i)=>`<tr>
   <td><strong>${w.weighted}</strong></td>
 </tr>`).join('')}
 </tbody></table>
-<div class="footer">REGA Facility Care · ${new Date().toISOString().slice(0,10)}</div>
+<div class="footer">إدارة المرافق · ${new Date().toISOString().slice(0,10)}</div>
 </body></html>`;
   const w=window.open('','_blank','width=900,height=700');
   w.document.write(html); w.document.close();
