@@ -631,10 +631,9 @@ function renderPlatformTopbar(me, opts={}){
 
   const syncBtn = qSize>0
     ?`<button class="tb-sync pending" onclick="flushOfflineQueue()" title="${tr('sync')}"><span class="tb-sync-dot pending"></span><span class="tb-sync-lbl">${qSize} ${lang==='ar'?'معلق':'pending'}</span></button>`
-    :(opts.sync?`<button class="tb-sync" onclick="flushOfflineQueue()" title="${tr('sync')}"><span class="tb-sync-dot"></span><span class="tb-sync-lbl">${tr('sync')}</span></button>`:'');
+    :`<button class="tb-sync" onclick="flushOfflineQueue()" title="${tr('sync')}"><span class="tb-sync-dot"></span><span class="tb-sync-lbl">${tr('sync')}</span></button>`;
 
-  const notifBtn = opts.notif
-    ?`<button class="icon-btn tb-notif" id="tb-notif-btn" onclick="toggleNotif(event)" title="${lang==='ar'?'الإشعارات':'Notifications'}">${ic('bell',20)}${pendingRpts>0||openTickets>0?`<span class="tb-notif-badge"></span>`:''}</button>`:'';
+  const notifBtn = `<button class="icon-btn tb-notif" id="tb-notif-btn" onclick="toggleNotif(event)" title="${lang==='ar'?'الإشعارات':'Notifications'}">${ic('bell',20)}${pendingRpts>0||openTickets>0?`<span class="tb-notif-badge"></span>`:''}</button>`;
 
   /* Unified brand — same platform name for all roles */
   const brandInner = `<span class="tb-brand-name">${lang==='ar'?'منصة العناية بالمرافق':'Facility Care Platform'}</span>`;
@@ -663,8 +662,7 @@ function renderPlatformTopbar(me, opts={}){
 function fieldShell(me, contentHtml, opts={}){
   const mainCls = 'platform-main platform-main--field' + (opts.noSticky ? ' platform-main--no-sticky' : '');
   return`<div class="platform-shell">
-  <div class="prototype-banner" role="alert">${lang==='ar'?'⚠ نسخة تجريبية — بيانات غير حقيقية':'⚠ Prototype — Demo Data Only'}</div>
-  ${renderPlatformTopbar(me, {sync:opts.sync||false})}
+  ${renderPlatformTopbar(me, {sync:true})}
   <div class="platform-body">
     <main class="${mainCls}">${contentHtml}</main>
   </div>
@@ -740,7 +738,6 @@ function loginPage(){
             </div>`).join('')}
         </div>
       </div>
-      <div class="heroSignature">By Abdulaziz M. AlMutairi</div>
     </div>
     <div class="loginPanel">
       <div class="loginPanel-logo">
@@ -757,8 +754,6 @@ function loginPage(){
           : '⚠ Prototype — Demo data only. Visual simulation purposes only.'}
       </div>
       <p class="loginPanel-foot">${lang==='ar'?'الدخول متاح فقط للمستخدمين المصرح لهم داخل المنصة.':'Access is restricted to authorized platform users only.'}</p>
-      <p class="loginPanel-foot" style="font-size:10px;margin-top:6px;color:var(--muted)">${lang==='ar'?'استخدام الهوية البصرية لأغراض المحاكاة فقط — ليست نسخة إنتاجية':'Visual identity used for simulation purposes only — not a production deployment'}</p>
-      <p class="loginPanel-foot" style="font-size:9px;margin-top:4px;color:var(--muted-light);direction:ltr;text-align:center">build 20260609-2</p>
     </div>
   </div>
 </main>`;
@@ -837,7 +832,6 @@ function shell(content){
   const pendingReports= (data.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
   app.innerHTML=`
 <div class="platform-shell">
-  <div class="prototype-banner" role="alert">${lang==='ar'?'⚠ نسخة تجريبية — بيانات غير حقيقية':'⚠ Prototype — Demo Data Only'}</div>
   ${renderPlatformTopbar(me, {search:false, notif:true, sync:true, adminMode:true})}
 
   <!-- BODY -->
@@ -870,7 +864,6 @@ function shell(content){
     </main>
   </div>
   ${renderMobileBottomNav(openTickets, pendingReports)}
-  <div class="prototype-credit">By Abdulaziz M. AlMutairi</div>
 </div>`;
 }
 
@@ -975,8 +968,8 @@ function dash(){
 <div class="dashHero">
   <div class="dashHero-left">
     <span class="dashHero-greeting">${roleContext}</span>
-    <div class="dashHero-title">${lang==='ar'?'ملخص التشغيل':'Executive Summary'}</div>
-    <p class="dashHero-sub">${summaryText}</p>
+    <div class="dashHero-title">${greeting}، ${esc(me.name.split(' ')[0])}</div>
+    <p class="dashHero-sub">${summaryText} · ${fmtDate(new Date())}</p>
     <div class="dashHero-actions">
       <button class="dashHero-action" onclick="navigateTo('tickets')">${ic('tickets',14)} ${tr('tickets')}</button>
       <button class="dashHero-action" onclick="navigateTo('reports')">${ic('reports',14)} ${tr('reports')}</button>
@@ -984,12 +977,16 @@ function dash(){
   </div>
   <div class="dashHero-right">
     <div class="dashHero-stat">
+      <div class="dashHero-stat-val">${num(data.locations.length)}</div>
+      <div class="dashHero-stat-lbl">${tr('locationsCount')}</div>
+    </div>
+    <div class="dashHero-stat">
       <div class="dashHero-stat-val">${num(attentionCount)}</div>
       <div class="dashHero-stat-lbl">${lang==='ar'?'تحتاج متابعة':'Attention'}</div>
     </div>
     <div class="dashHero-stat">
-      <div class="dashHero-stat-val">${num(s.coverage)}%</div>
-      <div class="dashHero-stat-lbl">${tr('coverage')}</div>
+      <div class="dashHero-stat-val">${num(avgQ)}%</div>
+      <div class="dashHero-stat-lbl">${lang==='ar'?'جودة':'Quality'}</div>
     </div>
   </div>
 </div>
@@ -1150,13 +1147,18 @@ function reports(){
     <div class="pageTitle">${tr('reports')}</div>
     <div class="pageSub">${num(filtered.length)} ${lang==='ar'?'تقرير':'reports'}</div>
   </div>
-  <div class="pageActions">
-    <button class="btn secondary sm" onclick="exportExcelReports()">${ic('arrow',14)} ${lang==='ar'?'تصدير Excel':'Excel'}</button>
-    <button class="btn secondary sm" onclick="exportPDFReports()">${ic('reports',14)} ${lang==='ar'?'تصدير PDF':'PDF'}</button>
+  <div class="pageActions reportHeaderActions">
     <button class="btn secondary sm" onclick="load()">${ic('sync',14)} ${lang==='ar'?'تحديث':'Refresh'}</button>
+    <details class="exportMenu">
+      <summary class="btn secondary sm">${ic('reports',14)} ${lang==='ar'?'تصدير':'Export'}</summary>
+      <div class="exportMenu-list">
+        <button onclick="exportExcelReports()">${ic('arrow',14)} ${lang==='ar'?'Excel':'Excel'}</button>
+        <button onclick="exportPDFReports()">${ic('reports',14)} ${lang==='ar'?'PDF':'PDF'}</button>
+      </div>
+    </details>
   </div>
 </div>
-<div class="filterBar">
+<div class="filterBar reportTabs">
   <div class="filterChips">
     ${filters.map(f=>`<button class="filterChip${reportFilter===f.key?' active':''}" onclick="reportFilter='${f.key}';render()">${f.label}</button>`).join('')}
   </div>
@@ -1222,10 +1224,12 @@ function reportCard(r,full){
         <div class="reportCard-actions">
           <div class="reportCard-actions-primary">
             <button class="btn ok sm action-btn" onclick="reviewReport('${r.id}','approved')">${ic('check',13)} ${tr('approve')}</button>
+          </div>
+          <div class="reportCard-actions-secondary">
             <button class="btn warn sm action-btn" onclick="reviewReport('${r.id}','needs_recleaning')">${ic('flip',13)} ${tr('reclean')}</button>
             <button class="btn danger sm action-btn" onclick="reviewReport('${r.id}','rejected')">${ic('x',13)} ${tr('reject')}</button>
           </div>
-          ${canDelete()?`<div class="reportCard-actions-secondary"><button class="btn secondary sm action-btn" onclick="deleteReport('${r.id}')">${ic('trash',13)}</button></div>`:''}
+          ${canDelete()?`<div class="reportCard-actions-danger"><button class="btn secondary sm action-btn danger-text" onclick="deleteReport('${r.id}')">${ic('trash',13)} ${lang==='ar'?'حذف':'Delete'}</button></div>`:''}
         </div>
         <div class="ratingRow">
           <div class="ratingGroup">
@@ -1391,9 +1395,31 @@ ${items.map((r,i)=>{
 function openGallery(imgs,i=0){
   const box = document.createElement('div');
   box.className = 'lightbox';
-  box.innerHTML=`<button class="lightbox-close" onclick="this.parentElement.remove()">×</button><img src="${imgs[i]}" alt="">`;
+  const safeImgs = (imgs||[]).filter(Boolean);
+  const idx = Math.max(0,Math.min(i,safeImgs.length-1));
+  box.dataset.index = idx;
+  box.dataset.images = JSON.stringify(safeImgs);
+  box.innerHTML=`
+    <button class="lightbox-close" onclick="this.parentElement.remove()" aria-label="${tr('closeModal')}">${ic('x',22)}</button>
+    ${safeImgs.length>1?`<button class="lightbox-nav prev" onclick="event.stopPropagation();galleryMove(this,-1)" aria-label="${lang==='ar'?'السابق':'Previous'}">${ic('arrow',22)}</button>`:''}
+    <img src="${safeImgs[idx]||''}" alt="">
+    ${safeImgs.length>1?`<button class="lightbox-nav next" onclick="event.stopPropagation();galleryMove(this,1)" aria-label="${lang==='ar'?'التالي':'Next'}">${ic('arrow',22)}</button>`:''}
+    <div class="lightbox-count">${num(idx+1)} / ${num(safeImgs.length||1)}</div>`;
   box.addEventListener('click',e=>{if(e.target===box)box.remove()});
   document.body.appendChild(box);
+}
+
+function galleryMove(btn,dir){
+  const box = btn.closest('.lightbox');
+  if(!box) return;
+  const imgs = JSON.parse(box.dataset.images||'[]');
+  if(!imgs.length) return;
+  const next = (Number(box.dataset.index||0)+dir+imgs.length)%imgs.length;
+  box.dataset.index = next;
+  const img = box.querySelector('img');
+  if(img) img.src = imgs[next];
+  const count = box.querySelector('.lightbox-count');
+  if(count) count.textContent = `${num(next+1)} / ${num(imgs.length)}`;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2072,7 +2098,7 @@ function renderWorker(){
     })()}
     <div class="wCard wCard--compact">
       <div class="wCard-title"><span class="wCard-number">1</span>${tr('step1')}</div>
-      ${fc(lang==='ar'?'كود الموقع':'Location Code',`<div class="locInput-wrap">${inp('locCode',{cls:'ltr', value:param, placeholder:'wc-gf-a'})}<button class="locInput-scan" onclick="openQRScanner()" title="${tr('scanQR')}">${ic('qr',18)}</button></div>`)}
+      ${fc(lang==='ar'?'كود الموقع':'Location Code',`<div class="locInput-row"><button class="locInput-scan" onclick="openQRScanner()" title="${tr('scanQR')}" aria-label="${tr('scanQR')}">${ic('qr',18)}</button><div class="locInput-field">${inp('locCode',{cls:'ltr', value:param, placeholder:'wc-gf-a'})}</div></div>`)}
       <button class="btn wide" style="min-height:52px" onclick="startForm()">${ic('arrow',16)} ${tr('start')}</button>
       ${locs.length?`
       <div class="assignedList-section">
@@ -2481,13 +2507,18 @@ function renderEmployee(){
   const myOrders = (data.tickets||[]).filter(t=>t.createdById===me.id);
   const activeCount = myOrders.filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
   const empContent=`
-    <div class="empTabs">
-      <button class="empTab${employeeTab==='submit'?' active':''}" onclick="employeeTab='submit';renderEmployee()">${ic('send',15)} ${tr('submitRequest')}</button>
-      <button class="empTab${employeeTab==='history'?' active':''}" onclick="employeeTab='history';renderEmployee()">
-        ${ic('list',15)} ${tr('myRequests')}${activeCount?`<span class="empTab-badge">${activeCount}</span>`:''}
-      </button>
+    <div class="empPage">
+      <div class="empTabs" role="tablist" aria-label="${lang==='ar'?'تنقل الطلبات':'Request navigation'}">
+        <button class="empTab${employeeTab==='submit'?' active':''}" role="tab" aria-selected="${employeeTab==='submit'}" onclick="employeeTab='submit';renderEmployee()">${ic('send',15)} ${tr('submitRequest')}</button>
+        <button class="empTab${employeeTab==='history'?' active':''}" role="tab" aria-selected="${employeeTab==='history'}" onclick="employeeTab='history';renderEmployee()">
+          ${ic('list',15)} ${tr('myRequests')}${activeCount?`<span class="empTab-badge">${activeCount}</span>`:''}
+        </button>
+      </div>
+      <div class="empPanel">
+        ${employeeTab==='submit' ? employeeSubmitForm() : employeeHistory(myOrders)}
+      </div>
     </div>
-    ${employeeTab==='submit' ? employeeSubmitForm() : employeeHistory(myOrders)}`;
+    `;
   app.innerHTML = fieldShell(me, empContent);
 }
 
@@ -2499,9 +2530,9 @@ function employeeSubmitForm(){
   <div class="wCard-title"><span class="wCard-number">1</span>${lang==='ar'?'حدد الموقع':'Select Location'}</div>
   <div class="field">
     <label>${lang==='ar'?'كود الموقع':'Location Code'}</label>
-    <div class="locInput-wrap">
-      ${inp('empLocCode',{cls:'ltr', placeholder:'wc-gf-a'})}
-      <button class="locInput-scan" onclick="openQRScanner()" title="${tr('scanQR')}">${ic('qr',18)}</button>
+    <div class="locInput-row">
+      <button class="locInput-scan" onclick="openQRScanner()" title="${tr('scanQR')}" aria-label="${tr('scanQR')}">${ic('qr',18)}</button>
+      <div class="locInput-field">${inp('empLocCode',{cls:'ltr', placeholder:'wc-gf-a'})}</div>
     </div>
   </div>
   <div id="empLocName" style="font-size:var(--fs-xs);color:var(--brand-mid);min-height:18px;margin-top:4px"></div>
