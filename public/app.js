@@ -3121,7 +3121,7 @@ function renderSupervisor(){
         <div class="wCard-title">${ic('check',16)} ${lang==='ar'?'بانتظار التحقق':'Pending Verification'} <span class="badge warn">${waitingVerif.length}</span></div>
         ${waitingVerif.length?`<div class="wCard-list">${waitingVerif.map(t=>supTicketCard(t,'verify',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا يوجد ما يحتاج تحقق':'Nothing pending'}</div></div>`}
       </div>
-      <div class="wCard">
+      <div class="wCard wCard--full">
         <div class="wCard-title">${ic('sync',16)} ${lang==='ar'?'قيد التنفيذ':'Team Queue'} <span class="badge brand">${inProgress.length}</span></div>
         ${inProgress.length?`<div class="wCard-list supTicketList">${inProgress.map(t=>supTicketCard(t,'view',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('sync',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد طلبات قيد التنفيذ':'No requests in progress'}</div></div>`}
       </div>

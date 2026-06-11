@@ -1174,11 +1174,7 @@ tbody tr:hover td{background:var(--surface-2)}
 }
 .zone-del:hover{color:var(--bad);background:var(--bad-bg)}
 .zone-add{display:flex;gap:6px;align-items:center;min-width:220px}
-.zone-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:var(--surface-2);border:1.5px solid var(--line);border-radius:var(--r-full);font-size:var(--fs-xs);font-weight:700;color:var(--ink)}
-.zone-add{display:flex;gap:6px;align-items:center;min-width:220px}
 .zone-add .ctrl{height:38px;min-height:38px;min-width:120px}
-.zone-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:0;margin-inline-start:2px}
-.zone-del:hover{color:var(--bad)}
 
 /* ═══════════════════════════════════════════════════════════════
    USERS (legacy table helpers kept for usersTable)
@@ -1515,6 +1511,22 @@ tbody tr:hover td{background:var(--surface-2)}
   .tb-sync .tb-sync-lbl{display:none}
   .tb-brand-name{font-size:13px}
   .supStats{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+/* ─── iPad / tablet shell (769–1040px) — keep navigation available ─── */
+@media(min-width:769px) and (max-width:1040px){
+  :root{--sidebar-w:196px;--topbar-base:60px}
+  .platform-body{display:flex}
+  .platform-sidebar{
+    display:flex!important;width:var(--sidebar-w);
+    position:sticky;top:var(--topbar-h);height:calc(100dvh - var(--topbar-h));
+  }
+  .sidebarInner{padding:12px 8px 10px}
+  .nav-section-label{padding:7px 10px 4px;font-size:9px}
+  .navBtn{padding:9px 9px;gap:8px;border-radius:var(--r-sm)}
+  .navBtn-icon{width:28px;height:28px}
+  .navBtn-label{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .platform-main{padding:18px 16px 40px}
 }
 
 /* ─── MOBILE (≤768px) — compact single-column content ───────── */
