@@ -2204,20 +2204,32 @@ function parseLoc(raw){
   raw = String(raw||'').trim();
   if(!raw) return '';
 
-  // Full URL support: ...?loc=wc-gf-a
+  // Full URL support: ...?loc=wc-gf-a, ...?location=wc-gf-a, ...?code=wc-gf-a.
+  // A plain app URL is not a location code and should not be written back into the field.
   try{
     const u = new URL(raw);
     const param = u.searchParams.get('loc') || u.searchParams.get('location') || u.searchParams.get('code');
     if(param) return String(decodeURIComponent(param)).trim();
-    // If URL doesn't have loc param, fallback to last path segment
     const last = u.pathname.split('/').filter(Boolean).pop();
-    return last ? String(decodeURIComponent(last)).trim() : raw;
+    if(last && !/\.(html?|php|aspx?)$/i.test(last)) return String(decodeURIComponent(last)).trim();
+    return '';
   }catch(e){
     // Direct code support or string with ?loc= somewhere inside
     const m = raw.match(/[?&](?:loc|location|code)=([^&#]+)/);
     if(m && m[1]) return String(decodeURIComponent(m[1])).trim();
     return raw.replace(/^loc:/i,'').replace(/^location:/i,'').trim();
   }
+}
+
+function isLikelyUrl(raw){
+  return /^https?:\/\//i.test(String(raw||'').trim());
+}
+
+function invalidLocationToast(raw){
+  const msg = isLikelyUrl(raw)
+    ? (lang==='ar'?'رمز QR أو الرابط لا يحتوي على كود موقع صالح':'The QR code or link does not contain a valid location code')
+    : (lang==='ar'?'أدخل كود الموقع أو امسح QR':'Enter location code or scan QR');
+  toast(msg,'bad');
 }
 
 
@@ -2359,8 +2371,10 @@ function workerStartLocation(locationId, ticketId=''){
 function startForm(){
   const locCode = document.getElementById('locCode');
   if(!locCode) return;
-  const id = parseLoc(locCode.value);
-  if(!id) return toast(lang==='ar'?'أدخل كود الموقع أو امسح QR':'Enter location code or scan QR','bad');
+  const raw = locCode.value;
+  const id = parseLoc(raw);
+  if(!id) return invalidLocationToast(raw);
+  locCode.value = id;
   const loc = (data.locations||[]).find(l=>l.id===id);
   if(!loc){
     toast(lang==='ar'?`الموقع "${id}" غير موجود في النظام`:`Location "${id}" not found in system`,'bad');
@@ -2609,7 +2623,7 @@ function openQRScanner(){
 
       const parsed = parseLoc(loc);
       if(!parsed){
-        toast(lang==='ar'?'رمز QR غير صالح':'Invalid QR code','bad');
+        invalidLocationToast(loc);
         return;
       }
       const facility = (data.locations||[]).find(l=>l.id===parsed);
@@ -2784,7 +2798,7 @@ function employeeSubmitForm(){
   </div>
   <div id="empLocName" style="font-size:var(--fs-xs);color:var(--brand-mid);min-height:18px;margin-top:4px"></div>
   <script>document.getElementById('empLocCode')?.addEventListener('input',function(){
-    const id=this.value.trim();
+    const id=parseLoc(this.value);
     const loc=(data&&data.locations||[]).find(l=>l.id===id);
     const el=document.getElementById('empLocName');
     if(el)el.textContent=loc?(lang==='ar'?loc.nameAr:loc.nameEn):'';
@@ -2862,10 +2876,13 @@ function employeeHistory(orders){
 }
 
 async function submitEmployeeOrder(){
-  const locId = document.getElementById('empLocCode')?.value.trim();
+  const locInput = document.getElementById('empLocCode');
+  const rawLoc = locInput?.value || '';
+  const locId = parseLoc(rawLoc);
   const category = document.getElementById('empCatVal')?.value || 'general';
   const desc = document.getElementById('empDesc')?.value.trim() || '';
-  if(!locId) return toast(lang==='ar'?'أدخل كود الموقع':'Enter location code','bad');
+  if(!locId) return invalidLocationToast(rawLoc);
+  if(locInput) locInput.value = locId;
   const loc = (data.locations||[]).find(l=>l.id===locId);
   if(!loc) return toast(lang==='ar'?`الموقع "${locId}" غير موجود`:`Location "${locId}" not found`,'bad');
   const btn = document.querySelector('.submitBtn');
@@ -3075,9 +3092,9 @@ function renderSupervisor(){
     </div>`;
 
   const slaHtml = breached.length?`
-    <div class="wCard" style="border-color:rgba(200,50,50,.4);margin-bottom:16px">
-      <div class="wCard-title" style="color:var(--bad)">${ic('bell',16)} ${lang==='ar'?'تنبيهات SLA':'SLA Alerts'} <span class="badge bad">${breached.length}</span></div>
-      <div class="wCard-list">${breached.map(t=>supTicketCard(t,'sla')).join('')}</div>
+    <div class="wCard supervisorSlaCard">
+      <div class="wCard-title supervisorSlaTitle">${ic('bell',16)} ${lang==='ar'?'تنبيهات SLA':'SLA Alerts'} <span class="badge bad">${breached.length}</span></div>
+      <div class="wCard-list supTicketList">${breached.map(t=>supTicketCard(t,'sla')).join('')}</div>
     </div>`:'';
 
   const slaSummaryHtml = `<div class="wCard supervisorDashboardAlert">
@@ -3158,16 +3175,21 @@ function supTicketCard(t, mode, workers){
   const prioClr=t.priority==='high'?'bad':t.priority==='low'?'info':'warn';
   return`<div class="supTicketCard">
     <div class="supTicketCard-head">
-      <div>
+      <div class="supTicketCard-main">
         <div class="supTicketCard-title">${esc(t.title)}</div>
         <div class="supTicketCard-meta">
           ${ic('locations',11)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}
-          ${t.referenceNo?`<span class="badge">${esc(t.referenceNo)}</span>`:''}
-          · ${fmt(t.createdAt)}
-          ${t.assignedToName?`· ${ic('users',11)} ${esc(t.assignedToName)}`:''}
+          <span>·</span>
+          <span>${fmt(t.createdAt)}</span>
         </div>
       </div>
       <span class="badge ${prioClr}">${tr(t.priority)}</span>
+    </div>
+    <div class="supTicketCard-badges">
+      ${t.referenceNo?`<span class="badge supTicketRef">${esc(t.referenceNo)}</span>`:''}
+      ${t.assignedToName?`<span class="badge brand">${ic('users',11)} ${esc(t.assignedToName)}</span>`:''}
+      ${mode==='sla'||t.slaBreached?slaBadge(t):''}
+      ${mode==='view'?`<span class="badge brand">${tr(t.status)||t.status}</span>`:''}
     </div>
     ${mode==='assign'&&workers?`
     <div class="supTicketCard-actions">
@@ -3179,14 +3201,8 @@ function supTicketCard(t, mode, workers){
       <button class="btn sm warn" onclick="supVerify('${t.id}','reclean_required')">${ic('flip',14)} ${lang==='ar'?'إعادة تنظيف':'Reclean'}</button>
     </div>`:mode==='sla'?`
     <div class="supTicketCard-actions">
-      <span class="badge bad">${lang==='ar'?'تجاوز SLA':'SLA Breached'}</span>
-      ${t.assignedToName?`<span class="badge brand">${esc(t.assignedToName)}</span>`:''}
-    </div>`:mode==='view'?`
-    <div class="supTicketCard-actions">
-      <span class="badge brand">${tr(t.status)||t.status}</span>
-      ${t.assignedToName?`<span style="font-size:var(--fs-xs);color:var(--muted)">${ic('users',11)} ${esc(t.assignedToName)}</span>`:''}
+      <button class="btn secondary sm" onclick="supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()">${lang==='ar'?'عرض في الطلبات':'View in requests'}</button>
     </div>`:''}
-    ${t.slaBreached&&mode!=='sla'?`<div style="font-size:10px;color:var(--bad);font-weight:700;margin-top:6px">${ic('bell',10)} ${lang==='ar'?'تجاوز SLA':'SLA Breached'}</div>`:''}
   </div>`;
 }
 
@@ -3345,7 +3361,7 @@ async function auditLogPage(){
 (function(){
   try{
     const u = new URL(location.href);
-    const loc = u.searchParams.get('loc') || u.searchParams.get('location') || u.searchParams.get('code') || u.href;
+    const loc = u.searchParams.get('loc') || u.searchParams.get('location') || u.searchParams.get('code');
     if(loc){
       const parsed = parseLoc(loc);
       if(parsed) sessionStorage.setItem('qr_loc', parsed);
