@@ -3120,11 +3120,11 @@ function renderSupervisor(){
       ${slaHtml?`<div class="wCard--full">${slaHtml}</div>`:''}
       <div class="wCard">
         <div class="wCard-title">${ic('tickets',16)} ${lang==='ar'?'الطلبات المفتوحة':'Open Requests'} ${countBubble(submitted.length,'bad')}</div>
-        ${submitted.length?`<div class="wCard-list">${submitted.map(t=>supTicketCard(t,'assign',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد طلبات مفتوحة':'No open requests'}</div></div>`}
+        ${submitted.length?`<div class="wCard-list supTicketList">${submitted.map(t=>supTicketCard(t,'assign',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد طلبات مفتوحة':'No open requests'}</div></div>`}
       </div>
       <div class="wCard">
         <div class="wCard-title">${ic('check',16)} ${lang==='ar'?'بانتظار التحقق':'Pending Verification'} ${countBubble(waitingVerif.length,'warn')}</div>
-        ${waitingVerif.length?`<div class="wCard-list">${waitingVerif.map(t=>supTicketCard(t,'verify',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا يوجد ما يحتاج تحقق':'Nothing pending'}</div></div>`}
+        ${waitingVerif.length?`<div class="wCard-list supTicketList">${waitingVerif.map(t=>supTicketCard(t,'verify',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا يوجد ما يحتاج تحقق':'Nothing pending'}</div></div>`}
       </div>
       <div class="wCard wCard--full">
         <div class="wCard-title">${ic('sync',16)} ${lang==='ar'?'قيد التنفيذ':'Team Queue'} ${countBubble(inProgress.length)}</div>
@@ -3181,23 +3181,33 @@ function supStat(count, label, icon, color){
 
 function supTicketCard(t, mode, workers){
   const prioClr=t.priority==='high'?'bad':t.priority==='low'?'info':'warn';
+  const catLabel = tr('cat_'+(t.category||'general')) || (t.category||'general');
+  const catClr = t.category==='emergency'?'bad':t.category==='spill'?'warn':t.category==='meeting_room'?'brand':'';
   const statusCls = t.status==='completed'?'ok':['reclean_required','rejected','cancelled'].includes(t.status)?'bad':t.status==='waiting_verification'?'warn':'brand';
+  const requesterUser = (data.users||[]).find(u=>u.id===t.createdById);
+  const requesterUsername = requesterUser?.username || '';
+  const requesterEmpNo = requesterUser?.employeeNo || '';
   return`<div class="ticketCard supTicketCard">
-    <div class="ticketCard-top supTicketCard-head">
-      <div class="ticketCard-main supTicketCard-main">
-        <div class="ticketCard-title supTicketCard-title">${esc(t.title)}</div>
-        ${t.referenceNo?`<div class="ticketCard-ref supTicketRefText">${esc(t.referenceNo)}</div>`:''}
+    <div class="ticketCard-top">
+      <div class="ticketCard-main">
+        <div class="ticketCard-title">${esc(t.title)}</div>
+        ${t.referenceNo?`<div class="ticketCard-ref">${esc(t.referenceNo)}</div>`:''}
       </div>
-      <span class="badge ${prioClr}">${tr(t.priority)}</span>
+      <span class="badge ${statusCls}">${tr(t.status)||t.status}</span>
     </div>
-    <div class="ticketCard-meta supTicketCard-meta">
+    <div class="ticketCard-meta">
       <span>${ic('locations',12)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</span>
-      <span>${fmt(t.createdAt)}</span>
+      <span>${ic('users',12)} ${esc(t.assignedToName||tr('unassigned'))}</span>
     </div>
-    <div class="ticketCard-badges supTicketCard-badges">
-      ${t.assignedToName?`<span class="badge brand">${ic('users',11)} ${esc(t.assignedToName)}</span>`:''}
+    ${t.createdBy?`<div class="ticketCard-requester">${ic('user',12)} <span class="ticketCard-requester-label">${tr('requester')}:</span> <span class="ticketCard-requester-name">${esc(t.createdBy)}</span>${requesterUsername?`<span class="ticketCard-requester-username">@${esc(requesterUsername)}</span>`:''}${requesterEmpNo?`<span class="ticketCard-requester-empno">${esc(requesterEmpNo)}</span>`:''}</div>`:''}
+    ${t.description?`<p class="ticketCard-desc">${esc(t.description)}</p>`:''}
+    <div class="ticketCard-badges">
+      ${t.category&&t.category!=='general'?`<span class="badge ${catClr}">${catLabel}</span>`:''}
+      <span class="badge ${prioClr}">${tr(t.priority||'medium')}</span>
+      <span class="badge">${fmt(t.createdAt)}</span>
       ${mode==='sla'||t.slaBreached?slaBadge(t):''}
-      ${mode==='view'?`<span class="badge ${statusCls}">${tr(t.status)||t.status}</span>`:''}
+      ${!t.assignedToName?`<span class="badge warn">${tr('supervisorQueue')}</span>`:''}
+      ${t.completionTimeMins!=null?`<span class="badge ok">${ic('check',11)} ${t.completionTimeMins<60?t.completionTimeMins+tr('mins'):Math.round(t.completionTimeMins/60)+tr('hours')}</span>`:''}
     </div>
     ${mode==='assign'&&workers?`
     <div class="ticketCard-actions supTicketCard-actions">
