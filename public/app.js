@@ -3225,10 +3225,10 @@ function supTicketCard(t, mode, workers){
 
 function supReportCard(r){
   return`<div class="ticketCard supTicketCard">
-    <div class="ticketCard-top supTicketCard-head">
-      <div>
-        <div class="ticketCard-title supTicketCard-title">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</div>
-        <div class="ticketCard-meta supTicketCard-meta"><span>${ic('users',12)} ${esc(r.workerName)}</span><span>${fmt(r.createdAt)}</span></div>
+    <div class="ticketCard-top">
+      <div class="ticketCard-main">
+        <div class="ticketCard-title">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</div>
+        <div class="ticketCard-meta"><span>${ic('users',12)} ${esc(r.workerName)}</span><span>${fmt(r.createdAt)}</span></div>
       </div>
       <span class="badge ${r.status==='completed'?'ok':'brand'}">${tr(r.status)||r.status}</span>
     </div>

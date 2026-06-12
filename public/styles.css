@@ -327,6 +327,12 @@ label{
 .workerTicketItem,
 .workerReportItem,
 .assignedItem,
+.supTeamCard,
+.taskItem,
+.photoItem,
+.podiumCard,
+.roleCard,
+.wsCard,
 .kpiCard,
 .chartCard,
 .userCard,
@@ -347,6 +353,9 @@ label{
 .workerTicketItem,
 .workerReportItem,
 .assignedItem,
+.supTeamCard,
+.taskItem,
+.roleCard,
 .kpiCard,
 .userCard {
   transition:box-shadow var(--t-base),transform var(--t-base);
@@ -358,6 +367,9 @@ label{
 .workerTicketItem:hover,
 .workerReportItem:hover,
 .assignedItem:hover,
+.supTeamCard:hover,
+.taskItem:hover,
+.roleCard:hover:not(.locked),
 .kpiCard:hover,
 .userCard:hover {
   box-shadow:var(--shadow-md);
@@ -1282,7 +1294,7 @@ tbody tr:hover td{background:var(--surface-2)}
 .ctrl-flex{flex:1;min-width:150px}
 
 .supTeamGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-top:4px}
-.supTeamCard{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface-2)}
+.supTeamCard{display:flex;align-items:center;gap:10px;padding:12px 14px}
 .supTeamCard-info{flex:1;min-width:0}
 .supTeamCard-name{font-weight:700;font-size:var(--fs-sm);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .supTeamCard-meta{font-size:var(--fs-xs);color:var(--muted);margin-top:1px}
@@ -1406,8 +1418,7 @@ tbody tr:hover td{background:var(--surface-2)}
 .taskChecklist{display:grid;gap:7px}
 .taskItem{
   display:flex;align-items:center;gap:12px;
-  padding:12px 14px;border:1.5px solid var(--line);border-radius:var(--r);
-  background:var(--surface-2);cursor:pointer;transition:all var(--t-fast);
+  padding:12px 14px;cursor:pointer;
   min-height:52px;
 }
 .taskItem:hover{border-color:rgba(10,78,91,.18);background:var(--surface)}
@@ -1420,8 +1431,8 @@ tbody tr:hover td{background:var(--surface-2)}
 /* Photo preview */
 .photoGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-top:10px}
 .photoItem{
-  position:relative;border-radius:var(--r-sm);overflow:hidden;
-  background:var(--surface-3);aspect-ratio:1;
+  position:relative;aspect-ratio:1;
+  border-radius:var(--r-sm);
 }
 .photoItem img{width:100%;height:100%;object-fit:cover;display:block}
 .photoItem-del{
@@ -1885,13 +1896,13 @@ tbody tr:hover td{background:var(--surface-2)}
   .ticketCard--operational .ticketCard-badges,
   .ticketCard--operational .ticketCard-actions{grid-column:1;grid-row:auto}
   .ticketCard--operational .ticketCard-badges{max-width:none;align-self:auto}
-  .ticketCard-top,.locCard-head,.supTicketCard-head,.empOrderCard-head{
+  .ticketCard-top,.locCard-head,.empOrderCard-head{
     gap:10px;align-items:flex-start;
   }
-  .ticketCard-title,.locCard-name,.supTicketCard-title,.empOrderCard-title{
+  .ticketCard-title,.locCard-name,.empOrderCard-title{
     font-size:var(--fs-sm);line-height:1.4;
   }
-  .ticketCard-meta,.ticketCard-requester,.supTicketCard-meta,.empOrderCard-meta{
+  .ticketCard-meta,.ticketCard-requester,.empOrderCard-meta{
     white-space:normal;line-height:1.6;
   }
   .ticketCard-badges,.locCard-actions,.supTicketCard-actions{gap:8px}
@@ -1900,7 +1911,6 @@ tbody tr:hover td{background:var(--surface-2)}
   .ticketCard-actions .btn{flex:1;justify-content:center}
   .supTicketList{grid-template-columns:1fr}
   .supTicketList .supTicketCard{padding:14px;border-radius:var(--r-lg)}
-  .supTicketCard-badges .badge,.supTicketCard-badges .slaBadge{min-height:24px}
   .supTicketCard-actions .btn,.supTicketCard-actions .ctrl{width:100%;min-height:46px}
   .supTicketCard-actions .ctrl-sm{height:46px;min-height:46px;font-size:14px}
   .supTeamCard{min-height:58px;align-items:center}
@@ -2176,8 +2186,7 @@ tbody tr:hover td{background:var(--surface-2)}
 }
 .podiumCard{
   flex:1;min-width:140px;max-width:200px;
-  padding:20px 14px 16px;border-radius:var(--r-md);text-align:center;
-  border:1.5px solid var(--line);background:var(--surface-2);
+  padding:20px 14px 16px;text-align:center;
 }
 .podiumCard.gold{background:linear-gradient(135deg,rgba(185,154,95,.12),rgba(212,184,128,.06));border-color:rgba(185,154,95,.4)}
 .podiumCard.silver{background:rgba(160,170,180,.07);border-color:rgba(160,170,180,.3)}
@@ -2269,9 +2278,7 @@ tbody tr:hover td{background:var(--surface-2)}
 .roles-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:4px 0}
 .roleCard{
   display:flex;align-items:center;gap:10px;
-  padding:12px 14px;border-radius:var(--r);
-  border:2px solid var(--line);background:var(--surface-2);
-  cursor:pointer;transition:all .15s;user-select:none;position:relative;
+  padding:12px 14px;cursor:pointer;user-select:none;position:relative;
 }
 .roleCard:hover:not(.locked){border-color:var(--brand-mid);background:var(--surface);box-shadow:var(--shadow-xs)}
 .roleCard.active{border-color:var(--brand);background:rgba(10,78,91,.05)}
@@ -2303,7 +2310,6 @@ tbody tr:hover td{background:var(--surface-2)}
   background:radial-gradient(ellipse at 12% 18%,rgba(14,111,104,.10),transparent 30%),var(--bg);
 }
 .wsCard{
-  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);
   box-shadow:var(--shadow-lg);padding:36px 28px;width:min(440px,100%);
   display:flex;flex-direction:column;align-items:center;text-align:center;
 }
