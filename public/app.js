@@ -1531,10 +1531,14 @@ function exportPDFReports(){
   const html=`<!DOCTYPE html><html lang="${lang}" dir="${dir}"><head><meta charset="utf-8">
 <title>REGA — ${tr('reports')}</title>
 <style>
+  @font-face{font-family:'REGASa';src:url('/assets/fonts/REGAsa-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
+  @font-face{font-family:'REGASa';src:url('/assets/fonts/REGAsa-ExtraBold.ttf') format('truetype');font-weight:800;font-display:swap}
+  @font-face{font-family:'IBMPlexArabic';src:url('/assets/fonts/IBMPlexSansArabic-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
+  @font-face{font-family:'IBMPlexArabic';src:url('/assets/fonts/IBMPlexSansArabic-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;padding:24px;color:#123238;direction:${dir}}
+  body{font-family:'IBMPlexArabic',Tahoma,Arial,sans-serif;padding:24px;color:#123238;direction:${dir}}
   .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #005257}
-  .brand{color:#005257;font-size:20px;font-weight:800}
+  .brand{font-family:'REGASa','IBMPlexArabic',Tahoma,Arial,sans-serif;color:#005257;font-size:20px;font-weight:800}
   .meta{font-size:11px;color:#6F787F;margin-top:4px}
   table{width:100%;border-collapse:collapse;font-size:12px;margin-top:16px}
   th{background:#005257;color:#fff;padding:9px 10px;text-align:${lang==='ar'?'right':'left'};font-weight:700}
@@ -3021,7 +3025,7 @@ ${scored.length>=1?`
                 <div class="progress-fill ${w.workloadScore>80?'bad':w.workloadScore>40?'gold':'ok'}" style="width:${Math.min(100,w.workloadScore)}%"></div>
               </div>
             </td>
-            <td><span style="font-family:var(--font-head);font-weight:800;font-size:var(--fs-sm);color:${rank===0?'var(--gold)':rank<3?'var(--brand-mid)':'var(--ink)'}">${w.weighted}</span></td>
+            <td><span style="font-family:var(--font-body);font-weight:800;font-size:var(--fs-sm);color:${rank===0?'var(--gold)':rank<3?'var(--brand-mid)':'var(--ink)'}">${w.weighted}</span></td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -3042,9 +3046,14 @@ async function exportPerformancePDF(){
   const dir=lang==='ar'?'rtl':'ltr';
   const html=`<!DOCTYPE html><html lang="${lang}" dir="${dir}"><head><meta charset="utf-8">
 <title>REGA — ${tr('performance')}</title>
-<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:24px;color:#123238;direction:${dir}}
+<style>
+@font-face{font-family:'REGASa';src:url('/assets/fonts/REGAsa-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
+@font-face{font-family:'REGASa';src:url('/assets/fonts/REGAsa-ExtraBold.ttf') format('truetype');font-weight:800;font-display:swap}
+@font-face{font-family:'IBMPlexArabic';src:url('/assets/fonts/IBMPlexSansArabic-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
+@font-face{font-family:'IBMPlexArabic';src:url('/assets/fonts/IBMPlexSansArabic-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:'IBMPlexArabic',Arial,sans-serif;padding:24px;color:#123238;direction:${dir}}
 .header{display:flex;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #005257}
-.brand{color:#005257;font-size:20px;font-weight:800}.meta{font-size:11px;color:#6F787F;margin-top:4px}
+.brand{font-family:'REGASa','IBMPlexArabic',Arial,sans-serif;color:#005257;font-size:20px;font-weight:800}.meta{font-size:11px;color:#6F787F;margin-top:4px}
 table{width:100%;border-collapse:collapse;font-size:12px;margin-top:16px}
 th{background:#005257;color:#fff;padding:9px 10px;text-align:${lang==='ar'?'right':'left'};font-weight:700}
 td{padding:8px 10px;border-bottom:1px solid #E1E9E6;vertical-align:top}
