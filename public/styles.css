@@ -107,7 +107,7 @@
   --sidebar-w:252px;
   --topbar-base:68px; /* visual content height — exclude safe area */
   --topbar-h:calc(var(--topbar-base) + env(safe-area-inset-top,0px)); /* total height incl. iOS notch */
-  --mobile-nav-h:64px;
+  --mobile-nav-h:58px;
 
   /* ── Form control tokens (single source of truth) ── */
   --ctrl-h:48px;
@@ -1739,9 +1739,9 @@ tbody tr:hover td{background:var(--surface-2)}
   .fieldTabs{display:none}
 
   .mobileBottomNav{
-    position:fixed;inset-inline:0;bottom:0;z-index:70;
+    position:fixed;inset-inline:0;bottom:env(safe-area-inset-bottom,0px);z-index:70;
     display:grid;grid-template-columns:repeat(var(--mobile-nav-count,5),minmax(0,1fr));
-    gap:2px;padding:5px 8px calc(env(safe-area-inset-bottom,0px) + 5px);
+    gap:2px;padding:4px 8px;
     background:rgba(255,255,255,.94);
     border-top:1px solid var(--line);
     backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
@@ -1752,7 +1752,7 @@ tbody tr:hover td{background:var(--surface-2)}
     padding:10px 16px;
   }
   .mobileBottomNav-item{
-    min-width:0;min-height:48px;border-radius:var(--r-sm);
+    min-width:0;min-height:46px;border-radius:var(--r-sm);
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
     color:var(--muted);font-family:var(--font-ui);font-size:10px;font-weight:700;
     position:relative;
