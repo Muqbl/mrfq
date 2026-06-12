@@ -789,7 +789,9 @@ tbody tr:hover td{background:var(--surface-2)}
   color:var(--muted);background:transparent;padding:8px 10px;
 }
 .fieldTab.active{background:#fff;color:var(--brand-dark);box-shadow:var(--shadow-xs)}
+.fieldTab-main{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:0}
 .fieldTab-icon{display:grid;place-items:center;color:currentColor}
+.fieldTab-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fieldTab-count{
   width:24px;height:24px;min-width:24px;min-height:24px;padding:0;font-size:12px;
 }
@@ -1538,6 +1540,9 @@ tbody tr:hover td{background:var(--surface-2)}
   }
   .platform-shell--admin>.mobileBottomNav .mobileBottomNav-icon svg{width:20px;height:20px}
   .platform-shell--admin>.mobileBottomNav .mobileBottomNav-label{font-size:12px}
+  .platform-shell--admin>.mobileBottomNav .mobileBottomNav-badge{
+    position:static;order:3;width:24px;height:24px;min-width:24px;min-height:24px;font-size:12px;
+  }
   .supSectionsGrid{grid-template-columns:1fr}
   .supTicketList{grid-template-columns:1fr}
 }
@@ -1722,9 +1727,9 @@ tbody tr:hover td{background:var(--surface-2)}
   .mobileBottomNav-icon{position:relative;display:grid;place-items:center}
   .mobileBottomNav-icon svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .mobileBottomNav-badge{
-    position:absolute;top:-8px;inset-inline-end:-10px;
+    position:absolute;top:6px;inset-inline-end:clamp(8px,18%,18px);
     width:20px;height:20px;min-width:20px;min-height:20px;
-    border:2px solid #fff;font-size:10px;
+    border:2px solid #fff;font-size:10px;z-index:1;
   }
   .mobileBottomNav-label{
     max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;

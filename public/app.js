@@ -723,9 +723,11 @@ function renderFieldTabs(){
   if(!me) return '';
   const mk = (active, icon, label, action, count=0) => `
     <button class="fieldTab${active?' active':''}" onclick="${action}">
-      <span class="fieldTab-icon">${ic(icon,16)}</span>
-      <span>${label}</span>
-    ${count?`<span class="countBubble fieldTab-count">${num(count)}</span>`:''}
+      <span class="fieldTab-main">
+        <span class="fieldTab-icon">${ic(icon,16)}</span>
+        <span class="fieldTab-label">${label}</span>
+      </span>
+      ${count?`<span class="countBubble fieldTab-count">${num(count)}</span>`:''}
     </button>`;
   if(me.role==='cleaning_supervisor'){
     const openTickets = (data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
@@ -1050,8 +1052,8 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
     ${primary.map(item=>`
       <button class="mobileBottomNav-item${item.active||activeKey===item.v?' active':''}" onclick="${item.action||`mobileNavActive='${item.v}';navigateTo('${item.v}')`}">
         <span class="mobileBottomNav-icon">${ic(item.icon,18)}</span>
-        ${item.count>0?`<span class="countBubble mobileBottomNav-badge">${num(item.count)}</span>`:''}
         <span class="mobileBottomNav-label">${item.label}</span>
+        ${item.count>0?`<span class="countBubble mobileBottomNav-badge">${num(item.count)}</span>`:''}
       </button>
     `).join('')}
     ${showMore?`<button class="mobileBottomNav-item${moreActive?' active':''}" onclick="showMobileNavMore()">
