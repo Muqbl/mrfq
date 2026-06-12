@@ -1742,7 +1742,7 @@ tbody tr:hover td{background:var(--surface-2)}
   .fieldTabs{display:none}
 
   .mobileBottomNav{
-    position:fixed;inset-inline:0;bottom:env(safe-area-inset-bottom,0px);z-index:70;
+    position:fixed;inset-inline:0;bottom:0;z-index:70;
     display:grid;grid-template-columns:repeat(var(--mobile-nav-count,5),minmax(0,1fr));
     gap:2px;padding:4px 8px;
     background:rgba(255,255,255,.94);
