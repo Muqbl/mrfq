@@ -1553,7 +1553,8 @@ tbody tr:hover td{background:var(--surface-2)}
 /* ─── iPad / tablet shell (769–1040px) — keep navigation available ─── */
 @media(min-width:769px) and (max-width:1040px){
   :root{--sidebar-w:0px;--topbar-base:60px;--tablet-nav-h:62px}
-  .platform-body{display:block;padding-top:var(--tablet-nav-h)}
+  .platform-body{display:block;padding-top:0}
+  .platform-shell--admin .platform-body{padding-top:var(--tablet-nav-h)}
   .platform-sidebar{display:none!important}
   .platform-main{padding:18px 22px 44px}
   .platform-shell--admin>.mobileBottomNav{
