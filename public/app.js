@@ -3189,7 +3189,7 @@ function supTicketCard(t, mode, workers){
   const requesterUser = (data.users||[]).find(u=>u.id===t.createdById);
   const requesterUsername = requesterUser?.username || '';
   const requesterEmpNo = requesterUser?.employeeNo || '';
-  return`<div class="ticketCard supTicketCard">
+  return`<div class="ticketCard ticketCard--operational supTicketCard">
     <div class="ticketCard-top">
       <div class="ticketCard-main">
         <div class="ticketCard-title">${esc(t.title)}</div>

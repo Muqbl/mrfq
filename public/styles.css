@@ -323,6 +323,10 @@ label{
 .reportCard,
 .ticketCard,
 .locCard,
+.empOrderCard,
+.workerTicketItem,
+.workerReportItem,
+.assignedItem,
 .kpiCard,
 .chartCard,
 .userCard,
@@ -339,6 +343,10 @@ label{
 .reportCard,
 .ticketCard,
 .locCard,
+.empOrderCard,
+.workerTicketItem,
+.workerReportItem,
+.assignedItem,
 .kpiCard,
 .userCard {
   transition:box-shadow var(--t-base),transform var(--t-base);
@@ -346,6 +354,10 @@ label{
 .reportCard:hover,
 .ticketCard:hover,
 .locCard:hover,
+.empOrderCard:hover,
+.workerTicketItem:hover,
+.workerReportItem:hover,
+.assignedItem:hover,
 .kpiCard:hover,
 .userCard:hover {
   box-shadow:var(--shadow-md);
@@ -1148,6 +1160,13 @@ tbody tr:hover td{background:var(--surface-2)}
    ═══════════════════════════════════════════════════════════════ */
 .ticketGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:14px}
 .ticketCard{padding:16px;display:grid;gap:10px;position:relative}
+.ticketCard--operational{grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:18px;row-gap:10px}
+.ticketCard--operational .ticketCard-top,
+.ticketCard--operational .ticketCard-meta,
+.ticketCard--operational .ticketCard-requester,
+.ticketCard--operational .ticketCard-desc{grid-column:1}
+.ticketCard--operational .ticketCard-badges{grid-column:2;grid-row:1 / span 4;align-self:center;justify-content:flex-start;max-width:360px}
+.ticketCard--operational .ticketCard-actions{grid-column:1 / -1}
 .ticketCard-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
 .ticketCard-main{min-width:0}
 .ticketCard-title{font-family:var(--font-head);font-weight:800;font-size:var(--fs-sm);color:var(--ink);line-height:1.4}
@@ -1255,8 +1274,7 @@ tbody tr:hover td{background:var(--surface-2)}
 }
 .supervisorSlaLink:hover{color:var(--brand)}
 .supTicketList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.supTicketCard{padding:16px;border-bottom:0}
-.supTicketCard:last-child{border-bottom:0}
+.supTicketCard{padding:16px}
 .supTicketCard-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:0}
 /* ctrl size variants */
 .ctrl-sm{height:34px;min-height:34px;line-height:34px;font-size:var(--fs-xs);padding:0 10px}
@@ -1310,12 +1328,11 @@ tbody tr:hover td{background:var(--surface-2)}
 .wCard-list{display:grid;gap:8px}
 .workerTicketItem{
   width:100%;text-align:inherit;padding:14px 16px;
-  border:1.5px solid rgba(200,50,50,.2);background:var(--bad-bg);
-  border-radius:var(--r);cursor:pointer;
+  background:var(--surface);cursor:pointer;
 }
 .workerTicketItem-title{font-weight:800;font-size:var(--fs-sm);color:var(--ink)}
 .workerTicketItem-loc{font-size:var(--fs-xs);color:var(--muted);margin-top:3px}
-.workerReportItem{border-radius:var(--r);display:flex;align-items:center;gap:12px;padding:12px 14px;border-width:1.5px;border-style:solid}
+.workerReportItem{display:flex;align-items:center;gap:12px;padding:12px 14px}
 .workerReportItem.actionable{cursor:pointer}
 .workerReportItem-icon{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;flex-shrink:0;border-width:2px;border-style:solid}
 .workerReportItem-body{flex:1;min-width:0}
@@ -1347,8 +1364,7 @@ tbody tr:hover td{background:var(--surface-2)}
 .assignedItem{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
   width:100%;text-align:inherit;font-family:inherit;color:inherit;
-  padding:12px 14px;border:1.5px solid var(--line);border-radius:var(--r);
-  background:var(--surface-2);cursor:pointer;transition:all var(--t-fast);
+  padding:12px 14px;background:var(--surface);cursor:pointer;
 }
 .assignedItem:hover{border-color:var(--brand-mid);background:rgba(14,111,104,.04)}
 .assignedItem-name{font-weight:700;font-size:var(--fs-sm);color:var(--ink)}
@@ -1545,6 +1561,14 @@ tbody tr:hover td{background:var(--surface-2)}
   }
   .supSectionsGrid{grid-template-columns:1fr}
   .supTicketList{grid-template-columns:1fr}
+  .ticketCard--operational{grid-template-columns:1fr}
+  .ticketCard--operational .ticketCard-top,
+  .ticketCard--operational .ticketCard-meta,
+  .ticketCard--operational .ticketCard-requester,
+  .ticketCard--operational .ticketCard-desc,
+  .ticketCard--operational .ticketCard-badges,
+  .ticketCard--operational .ticketCard-actions{grid-column:1;grid-row:auto}
+  .ticketCard--operational .ticketCard-badges{max-width:none;align-self:auto}
 }
 
 /* ─── MOBILE (≤768px) — compact single-column content ───────── */
@@ -1853,6 +1877,14 @@ tbody tr:hover td{background:var(--surface-2)}
   .ticketCard,.locCard,.supTicketCard,.empOrderCard{
     padding:14px;gap:9px;border-radius:var(--r-lg);
   }
+  .ticketCard--operational{grid-template-columns:1fr}
+  .ticketCard--operational .ticketCard-top,
+  .ticketCard--operational .ticketCard-meta,
+  .ticketCard--operational .ticketCard-requester,
+  .ticketCard--operational .ticketCard-desc,
+  .ticketCard--operational .ticketCard-badges,
+  .ticketCard--operational .ticketCard-actions{grid-column:1;grid-row:auto}
+  .ticketCard--operational .ticketCard-badges{max-width:none;align-self:auto}
   .ticketCard-top,.locCard-head,.supTicketCard-head,.empOrderCard-head{
     gap:10px;align-items:flex-start;
   }
