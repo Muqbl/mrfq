@@ -496,7 +496,7 @@ tbody tr:hover td{background:var(--surface-2)}
   transition:all var(--t-fast);
 }
 .filterChip:hover{border-color:rgba(14,111,104,.25);color:var(--brand)}
-.filterChip.active{background:var(--brand-dark);color:#fff;border-color:var(--brand-dark)}
+.filterChip.active{background:var(--bg-soft);color:var(--brand-dark);border-color:rgba(0,82,87,.18)}
 
 /* ═══════════════════════════════════════════════════════════════
    LOGIN PAGE
@@ -1566,12 +1566,13 @@ tbody tr:hover td{background:var(--surface-2)}
   }
   .platform-shell--admin>.mobileBottomNav .mobileBottomNav-item{
     min-height:42px;padding:8px 10px;border-radius:var(--r);flex-direction:row;gap:7px;
+    color:var(--muted);font-family:var(--font-ui);font-size:var(--fs-xs);font-weight:700;
   }
   .platform-shell--admin>.mobileBottomNav .mobileBottomNav-item.active{
     background:#fff;color:var(--brand-dark);box-shadow:var(--shadow-xs);
   }
-  .platform-shell--admin>.mobileBottomNav .mobileBottomNav-icon svg{width:20px;height:20px}
-  .platform-shell--admin>.mobileBottomNav .mobileBottomNav-label{font-size:12px}
+  .platform-shell--admin>.mobileBottomNav .mobileBottomNav-icon svg{width:16px;height:16px}
+  .platform-shell--admin>.mobileBottomNav .mobileBottomNav-label{font-size:var(--fs-xs);font-weight:700;color:currentColor}
   .platform-shell--admin>.mobileBottomNav .mobileBottomNav-badge{
     position:static;order:3;width:24px;height:24px;min-width:24px;min-height:24px;font-size:12px;
   }
@@ -1749,25 +1750,25 @@ tbody tr:hover td{background:var(--surface-2)}
     background:rgba(255,255,255,.94);
     border-top:1px solid var(--line);
     backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-    box-shadow:0 -8px 24px rgba(13,43,48,.08);
+    box-shadow:0 -4px 18px rgba(13,43,48,.06);
   }
   .stickySubmit{
     bottom:calc(var(--mobile-nav-h) + env(safe-area-inset-bottom,0px));
     padding:10px 16px;
   }
   .mobileBottomNav-item{
-    min-width:0;min-height:46px;border-radius:var(--r-sm);
+    min-width:0;min-height:46px;border-radius:0;
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
     color:var(--muted);font-family:var(--font-ui);font-size:10px;font-weight:700;
     position:relative;
   }
   .mobileBottomNav-item.active{
-    background:var(--bg-soft);color:var(--brand-dark);
+    background:transparent;color:var(--brand-dark);
   }
   .mobileBottomNav-icon{position:relative;display:grid;place-items:center}
   .mobileBottomNav-icon svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .mobileBottomNav-badge{
-    position:absolute;top:6px;inset-inline-end:clamp(8px,18%,18px);
+    position:absolute;top:3px;inset-inline-end:clamp(14px,24%,26px);
     width:20px;height:20px;min-width:20px;min-height:20px;
     border:2px solid #fff;font-size:10px;z-index:1;
   }
