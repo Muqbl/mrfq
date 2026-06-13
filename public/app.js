@@ -126,6 +126,7 @@ const T = {
     safety:'السلامة',customerService:'خدمة العملاء',
     moduleStatusActive:'نشط',moduleStatusPlanned:'مخطط',
     systemAdminConsole:'لوحة النظام',
+    cleaningTeam:'فريق النظافة',facilityConsole:'لوحة مدير المرافق',
   },
   en:{
     app:'إدارة المرافق',sub:'Professional management for every facility, at any time',
@@ -217,6 +218,7 @@ const T = {
     safety:'Safety',customerService:'Customer Service',
     moduleStatusActive:'Active',moduleStatusPlanned:'Planned',
     systemAdminConsole:'System Console',
+    cleaningTeam:'Cleaning Team',facilityConsole:'Facility Manager Console',
   }
 };
 
@@ -633,6 +635,11 @@ function canManageUsers(){return ['system_admin','cleaning_manager'].includes(me
 function canManage(){return ['system_admin','facility_manager','cleaning_manager'].includes(me.role)}
 function canTicket(){return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(me.role)}
 function canReview(){return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(me.role)}
+function canAccessPlatformConsole(){return ['system_admin','facility_manager'].includes(me.role)}
+function canAccessGlobalSettings(){return me.role==='system_admin'}
+function canAccessRolesPermissions(){return me.role==='system_admin'}
+function canManageGlobalUsers(){return me.role==='system_admin'}
+function canViewCleaningTeam(){return me.role==='cleaning_manager'}
 function locName(l){return lang==='ar'?(l.nameAr||l.nameEn):(l.nameEn||l.nameAr)}
 
 function roleBadgeClass(role){
@@ -863,6 +870,7 @@ function render(){
   if(me.role==='employee') return renderEmployee();
   if(me.role==='cleaning_supervisor') return renderSupervisor();
   if(me.role==='system_admin' && !adminModuleContext) return renderSystemAdmin();
+  if(me.role==='facility_manager' && !adminModuleContext) return renderFacilityConsole();
   setDoc();
   if(_lastView==='users' && view!=='users'){ usersSearch=''; usersRoleFilter='all'; usersStatusFilter='all'; }
   if(_lastView==='locations' && view!=='locations'){ locsFloorFilter='all'; }
@@ -1026,7 +1034,7 @@ function shell(content){
           <span class="nav-section-label">${tr('management')}</span>
           ${navItem('locations',tr('locations'),'locations',0)}
           ${navItem('assignments',tr('assignments'),'assignments',0)}
-          ${canUsers()?navItem('users',tr('users'),'users',0):''}
+          ${canUsers()?navItem('users',canViewCleaningTeam()?tr('cleaningTeam'):tr('users'),'users',0):''}
           ${canReview()?navItem('performance',tr('performance'),'bar-chart',0):''}
         </div>
       </div>
@@ -1035,7 +1043,7 @@ function shell(content){
     <!-- MAIN CONTENT -->
     <main class="platform-main">
       <div class="pageAnim">
-        ${me.role==='system_admin'&&adminModuleContext==='cleaning'?moduleContextBar():''}
+        ${canAccessPlatformConsole()&&adminModuleContext==='cleaning'?moduleContextBar():''}
         ${content}
       </div>
     </main>
@@ -1126,7 +1134,7 @@ function showMobileNavMore(){
     {v:'reports', label:tr('reports'), icon:'reports'},
     {v:'locations', label:tr('locations'), icon:'locations'},
     {v:'assignments', label:tr('assignments'), icon:'assignments'},
-    ...(canUsers()?[{v:'users', label:tr('users'), icon:'users'}]:[]),
+    ...(canUsers()?[{v:'users', label:canViewCleaningTeam()?tr('cleaningTeam'):tr('users'), icon:'users'}]:[]),
     ...(canReview()?[{v:'performance', label:tr('performance'), icon:'bar-chart'}]:[])
   ];
   const body = `<div class="mobileMoreGrid">
@@ -1169,14 +1177,14 @@ function adminShell(content){
           <span class="nav-section-label">${tr('systemAdminConsole')}</span>
           ${adminNavItem('dashboard',tr('systemDashboard'),'dashboard')}
           ${adminNavItem('modules',tr('modules'),'layers')}
-          ${adminNavItem('users',tr('users'),'users')}
-          ${adminNavItem('roles',tr('rolesPermissions'),'shield')}
+          ${canManageGlobalUsers()?adminNavItem('users',tr('users'),'users'):''}
+          ${canAccessRolesPermissions()?adminNavItem('roles',tr('rolesPermissions'),'shield'):''}
           ${adminNavItem('locations',tr('locations'),'locations')}
           ${adminNavItem('assets',tr('assets'),'building')}
           ${adminNavItem('maps',tr('maps'),'map-pin')}
           ${adminNavItem('reports',tr('generalReports'),'reports')}
           ${adminNavItem('audit',tr('auditLog'),'list')}
-          ${adminNavItem('settings',tr('globalSettings'),'settings')}
+          ${canAccessGlobalSettings()?adminNavItem('settings',tr('globalSettings'),'settings'):''}
         </div>
       </div>
     </aside>
@@ -1222,13 +1230,93 @@ function renderAdminMobileBottomNav(){
 
 function showAdminNavMore(){
   const items = [
-    {v:'roles', label:tr('rolesPermissions'), icon:'shield'},
+    ...(canAccessRolesPermissions()?[{v:'roles', label:tr('rolesPermissions'), icon:'shield'}]:[]),
     {v:'locations', label:tr('locations'), icon:'locations'},
     {v:'assets', label:tr('assets'), icon:'building'},
     {v:'maps', label:tr('maps'), icon:'map-pin'},
     {v:'reports', label:tr('generalReports'), icon:'reports'},
     {v:'audit', label:tr('auditLog'), icon:'list'},
-    {v:'settings', label:tr('globalSettings'), icon:'settings'}
+    ...(canAccessGlobalSettings()?[{v:'settings', label:tr('globalSettings'), icon:'settings'}]:[])
+  ];
+  const body = `<div class="mobileMoreGrid">
+    ${items.map(item=>`<button class="mobileMoreItem${adminView===item.v?' active':''}" onclick="document.getElementById('mobileNavModal')?.remove();adminNavigateTo('${item.v}')">
+      <span class="mobileMoreIcon">${ic(item.icon,18)}</span>
+      <span>${item.label}</span>
+    </button>`).join('')}
+  </div>`;
+  showModal('mobileNavModal', lang==='ar'?'التنقل':'Navigation', body, null, {narrow:true});
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FACILITY MANAGER CONSOLE — platform-level console for facility_manager
+   ═══════════════════════════════════════════════════════════════ */
+function renderFacilityConsole(){
+  setDoc();
+  const fn = {
+    dashboard: adminDashboard,
+    modules: adminModules,
+    locations: locations,
+    reports: reports,
+    assets: adminAssets,
+    maps: adminMaps
+  }[adminView] || adminDashboard;
+  fmShell(fn());
+}
+
+function fmShell(content){
+  app.innerHTML=`
+<div class="platform-shell platform-shell--admin">
+  ${renderPlatformTopbar(me, {search:false, notif:true, sync:true, adminMode:true})}
+  <div class="platform-body">
+    <aside class="platform-sidebar">
+      <div class="sidebarInner">
+        <div class="nav-section">
+          <span class="nav-section-label">${tr('facilityConsole')}</span>
+          ${adminNavItem('dashboard',tr('dashboard'),'dashboard')}
+          ${adminNavItem('modules',tr('modules'),'layers')}
+          ${adminNavItem('locations',tr('locations'),'locations')}
+          ${adminNavItem('reports',tr('generalReports'),'reports')}
+          ${adminNavItem('assets',tr('assets'),'building')}
+          ${adminNavItem('maps',tr('maps'),'map-pin')}
+        </div>
+      </div>
+    </aside>
+    <main class="platform-main">
+      <div class="pageAnim">
+        ${content}
+      </div>
+    </main>
+  </div>
+  ${renderFmMobileBottomNav()}
+</div>`;
+}
+
+function renderFmMobileBottomNav(){
+  const primary = [
+    {v:'dashboard', label:tr('dashboard'), icon:'dashboard'},
+    {v:'modules', label:tr('modules'), icon:'layers'},
+    {v:'locations', label:tr('locations'), icon:'locations'}
+  ];
+  const moreActive = !primary.some(item=>item.v===adminView);
+  return `<nav class="mobileBottomNav" style="--mobile-nav-count:${primary.length+1}" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
+    ${primary.map(item=>`
+      <button class="mobileBottomNav-item${adminView===item.v?' active':''}" onclick="adminNavigateTo('${item.v}')">
+        <span class="mobileBottomNav-icon">${ic(item.icon,18)}</span>
+        <span class="mobileBottomNav-label">${item.label}</span>
+      </button>
+    `).join('')}
+    <button class="mobileBottomNav-item${moreActive?' active':''}" onclick="showFmNavMore()">
+      <span class="mobileBottomNav-icon">${ic('menu',18)}</span>
+      <span class="mobileBottomNav-label">${lang==='ar'?'المزيد':'More'}</span>
+    </button>
+  </nav>`;
+}
+
+function showFmNavMore(){
+  const items = [
+    {v:'reports', label:tr('generalReports'), icon:'reports'},
+    {v:'assets', label:tr('assets'), icon:'building'},
+    {v:'maps', label:tr('maps'), icon:'map-pin'}
   ];
   const body = `<div class="mobileMoreGrid">
     ${items.map(item=>`<button class="mobileMoreItem${adminView===item.v?' active':''}" onclick="document.getElementById('mobileNavModal')?.remove();adminNavigateTo('${item.v}')">
@@ -1265,7 +1353,7 @@ function adminDashboard(){
   return `
 <div class="dashHero">
   <div class="dashHero-left">
-    <span class="dashHero-greeting">${tr('systemAdminConsole')}</span>
+    <span class="dashHero-greeting">${me.role==='facility_manager'?tr('facilityConsole'):tr('systemAdminConsole')}</span>
     <div class="dashHero-title">${esc(T[lang].app)}</div>
     <p class="dashHero-sub">${tr('platformTagline')}</p>
   </div>
@@ -2384,7 +2472,10 @@ async function saveAssign(){
    USERS PAGE
    ═══════════════════════════════════════════════════════════════ */
 function users(){
-  const allUsers = data.users||[];
+  const cleaningTeamRoles = ['cleaning_manager','cleaning_supervisor','cleaner'];
+  const isCleaningTeam = canViewCleaningTeam();
+  const allUsers = isCleaningTeam ? (data.users||[]).filter(u=>cleaningTeamRoles.includes(u.role)) : (data.users||[]);
+  const roleOptions = isCleaningTeam ? cleaningTeamRoles : ROLES;
   const filtered = allUsers.filter(u=>{
     const matchSearch = !usersSearch
       || u.name.toLowerCase().includes(usersSearch.toLowerCase())
@@ -2403,7 +2494,7 @@ function users(){
   return`
 <div class="pageHeader">
   <div class="pageHeader-left">
-    <div class="pageTitle">${tr('users')}</div>
+    <div class="pageTitle">${isCleaningTeam?tr('cleaningTeam'):tr('users')}</div>
     <div class="pageSub">${num(filtered.length)}${filtered.length!==allUsers.length?' / '+num(allUsers.length):''} ${lang==='ar'?'مستخدم':'users'}</div>
   </div>
   <div class="pageHeader-actions">
@@ -2447,7 +2538,7 @@ function users(){
 <div class="usersFilterBar">
   ${inp('usersSearch',{type:'search', placeholder:lang==='ar'?'بحث...':'Search users...', value:usersSearch, oninput:'usersSearch=this.value;render()'})}
   <div class="usersFilterBar-sep"></div>
-  ${sel('usersRoleFilter', [{v:'all',l:lang==='ar'?'كل الصلاحيات':'All Roles',sel:usersRoleFilter==='all'},...ROLES.map(r=>({v:r,l:tr(r),sel:usersRoleFilter===r}))], {onchange:'usersRoleFilter=this.value;render()'})}
+  ${sel('usersRoleFilter', [{v:'all',l:lang==='ar'?'كل الصلاحيات':'All Roles',sel:usersRoleFilter==='all'},...roleOptions.map(r=>({v:r,l:tr(r),sel:usersRoleFilter===r}))], {onchange:'usersRoleFilter=this.value;render()'})}
   ${sel('usersStatusFilter', [
     {v:'all',l:lang==='ar'?'كل الحالات':'All Status',sel:usersStatusFilter==='all'},
     {v:'active',l:tr('activeUser'),sel:usersStatusFilter==='active'},
