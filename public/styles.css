@@ -382,7 +382,7 @@ label{
 .card-title{font-family:var(--font-head);font-size:var(--fs-md);font-weight:700;color:var(--ink)}
 
 /* ─── TABLE ──────────────────────────────────────────────────── */
-.tableWrap,.usersTableWrap{width:100%;overflow:auto;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface)}
+.tableWrap,.usersTableWrap,.perfTableWrap{width:100%;overflow:auto;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface)}
 table{width:100%;border-collapse:collapse}
 th,td{padding:12px 16px;border-bottom:1px solid var(--line);text-align:inherit;white-space:nowrap;font-size:var(--fs-sm)}
 th{font-size:var(--fs-xs);color:var(--muted);font-weight:700;font-family:var(--font-ui);background:var(--surface-2)}
@@ -1104,9 +1104,9 @@ tbody tr:hover td{background:var(--surface-2)}
 .usersFilterBar-sep{width:1px;height:24px;background:var(--line);flex-shrink:0}
 
 /* ─── USERS TABLE ────────────────────────────────────────────── */
-.usersTable th,.usersTable td{vertical-align:middle}
-.usersTable th{letter-spacing:.3px}
-.usersTable tbody tr:hover td{transition:background var(--t-fast)}
+.usersTable th,.usersTable td,.perfTable th,.perfTable td{vertical-align:middle}
+.usersTable th,.perfTable th{letter-spacing:.3px}
+.usersTable tbody tr:hover td,.perfTable tbody tr:hover td{transition:background var(--t-fast)}
 .usersTable-roles{display:flex;flex-wrap:wrap;gap:4px;align-items:center;min-width:160px}
 .usersTable-actions{display:flex;gap:6px;align-items:center;justify-content:flex-end;white-space:nowrap}
 .usersTable-actions .iconOnlyBtn{
@@ -1118,6 +1118,18 @@ tbody tr:hover td{background:var(--surface-2)}
 .userRow-cell-name{display:flex;align-items:center;gap:10px}
 .userRow-name{font-weight:700;font-size:var(--fs-sm);color:var(--ink)}
 .userRow-username{font-size:10px;color:var(--muted);font-family:ui-monospace,Consolas,monospace;margin-top:2px}
+.perfWorkerCell{display:flex;align-items:center;gap:10px}
+.perfWorkerName{font-weight:700;font-size:var(--fs-sm);color:var(--ink)}
+.perfWorkerUser{font-size:10px;color:var(--muted);font-family:ui-monospace,Consolas,monospace;margin-top:2px}
+.perfMetricStrong{font-weight:800;color:var(--ink)}
+.perfMetricHint{font-size:var(--fs-xs);color:var(--muted)}
+.perfRating{display:inline-flex;align-items:center;gap:4px;color:var(--rega-green);font-weight:800}
+.perfRating svg{stroke:currentColor;fill:currentColor}
+.perfEmpty{color:var(--muted)}
+.perfWorkload{width:82px;display:inline-block}
+.perfScore{font-family:var(--font-body);font-weight:800;font-size:var(--fs-sm);color:var(--ink)}
+.perfScore.high{color:var(--brand-mid)}
+.perfScore.top{color:var(--rega-green)}
 
 /* ─── LOCATION CARD DELETE ───────────────────────────────────── */
 .locCard-actions{display:flex;gap:6px;align-items:center;justify-content:space-between;flex-wrap:wrap}
@@ -1130,11 +1142,11 @@ tbody tr:hover td{background:var(--surface-2)}
 .reportCard{box-shadow:var(--shadow-xs)}
 .reportCard-media{
   display:grid;grid-template-columns:repeat(2,1fr);gap:0;
-  background:var(--surface-3);overflow:hidden;
+  background:var(--surface-2);overflow:hidden;border-bottom:1px solid var(--line-soft);
 }
 .reportCard-media.single{grid-template-columns:1fr}
 .reportCard-thumb{
-  width:100%;height:98px;object-fit:cover;cursor:zoom-in;
+  width:100%;height:118px;object-fit:cover;cursor:zoom-in;
   background:var(--surface-3);display:block;
 }
 .reportCard-media.single .reportCard-thumb{height:190px}
@@ -1897,7 +1909,8 @@ tbody tr:hover td{background:var(--surface-2)}
   }
   .reportCard-media.single{grid-template-columns:1fr;max-height:none}
   .photoGroup{min-width:0;margin:0}
-  .photoGroup-imgs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
+  .photoGroup-imgs{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:4px}
+  .photoGroup-imgs:has(.reportCard-thumb:only-child){grid-template-columns:1fr}
   .reportCard-thumb{
     width:100%;height:auto;aspect-ratio:4/3;max-height:none;border-radius:var(--r-sm);
     object-fit:cover;display:block;
@@ -2173,7 +2186,8 @@ tbody tr:hover td{background:var(--surface-2)}
 }
 .photoGroup-label svg{width:14px;height:14px;flex:0 0 14px}
 .photoGroup-label.ok{color:var(--ok)}
-.photoGroup-imgs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px}
+.photoGroup-imgs{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:3px;background:var(--surface-2)}
+.photoGroup-imgs:has(.reportCard-thumb:only-child){grid-template-columns:1fr}
 
 /* ═══════════════════════════════════════════════════════════════
    STAR RATING WIDGET
@@ -2228,11 +2242,12 @@ tbody tr:hover td{background:var(--surface-2)}
 .podiumCard-stats{font-size:var(--fs-xs);color:var(--muted);display:flex;flex-direction:column;gap:2px;margin-top:4px}
 
 .perfTableWrap{overflow-x:auto}
-.perfTable{font-size:var(--fs-xs);min-width:700px}
+.perfTable{font-size:var(--fs-sm);min-width:900px}
 .perfTable th{
-  background:var(--surface-3);padding:10px 12px;text-align:start;border-bottom:2px solid var(--line);
+  background:var(--surface-2);padding:12px 16px;text-align:start;border-bottom:1px solid var(--line);
+  color:var(--muted);font-weight:700;font-family:var(--font-ui);letter-spacing:.3px;
 }
-.perfTable td{padding:12px;vertical-align:middle}
+.perfTable td{padding:12px 16px;vertical-align:middle}
 
 /* ═══════════════════════════════════════════════════════════════
    TOPBAR WORKSPACE SWITCHER

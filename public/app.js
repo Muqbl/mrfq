@@ -1089,6 +1089,23 @@ function qualityScore(r){
   const tasks = (r.tasks||[]).length;
   return Math.min(100,Math.round((photos>=2?45:photos?25:0)+(tasks>=4?45:tasks*8)+(r.notes?10:0)));
 }
+function avgNumeric(values){
+  const nums = values.filter(v=>v!=null&&!Number.isNaN(Number(v))).map(Number);
+  return nums.length ? nums.reduce((a,v)=>a+v,0)/nums.length : null;
+}
+function reportOverallRating(r){
+  return avgNumeric([r.ratingSupervisor,r.ratingManager]);
+}
+function workerRatingScore(w){
+  const rating = avgNumeric([w.avgRatingSupervisor,w.avgRatingManager]);
+  return rating!=null ? rating*20 : 0;
+}
+function workerWeightedScore(w){
+  const approval = w.approvalRate ?? 0;
+  const quality = w.avgQuality ?? 0;
+  const workload = Math.max(0,100-(w.workloadScore||0));
+  return Math.round(approval*0.3 + quality*0.25 + workerRatingScore(w)*0.25 + workload*0.2);
+}
 
 function dash(){
   const s = stats();
@@ -1349,6 +1366,7 @@ function reportCard(r,full){
   const hasTyped = before.length||after.length;
   const st = r.approvalStatus||'pending_approval';
   const q = qualityScore(r);
+  const rating = reportOverallRating(r);
   const tasks = taskSetFor(r.locationType);
   return`<article class="reportCard">
     <div class="reportCard-media ${imgs.length<=1?'single':''}">
@@ -1368,7 +1386,7 @@ function reportCard(r,full){
         <span class="badge brand">${ic('camera',10)} ${num(imgs.length)}</span>
         <span class="badge gold">${tr('quality')}: ${num(q)}%</span>
         <span class="badge ${st==='approved'?'ok':st==='rejected'||st==='needs_recleaning'?'bad':'warn'}">${tr(st)}</span>
-        ${r.ratingSupervisor!=null?`<span class="badge gold">${ic('star',10)} ${r.ratingSupervisor.toFixed(1)}</span>`:''}
+        ${rating!=null?`<span class="badge gold">${ic('star',10)} ${rating.toFixed(1)}</span>`:''}
       </div>
       ${r.notes?`<div style="font-size:var(--fs-xs);color:var(--muted);line-height:1.6;padding:8px;background:var(--surface-3);border-radius:var(--r-sm)">${esc(r.notes)}</div>`:''}
       <details>
@@ -2939,14 +2957,7 @@ async function performance(){
 
   // Monthly recognition top 3
   const scored = metrics.map(w=>{
-    const approval = w.approvalRate ?? 0;
-    const quality  = w.avgQuality ?? 0;
-    const ratingS  = w.avgRatingSupervisor ? w.avgRatingSupervisor*20 : 0;
-    const ratingM  = w.avgRatingManager ? w.avgRatingManager*20 : 0;
-    const ratingAvg = ratingS || ratingM ? ((ratingS||ratingM) + (ratingM&&ratingS ? ratingM : 0)) / (ratingM&&ratingS ? 2 : 1) : 0;
-    const workload = Math.max(0, 100 - (w.workloadScore||0));
-    const weighted = Math.round(approval*0.3 + quality*0.25 + ratingAvg*0.25 + workload*0.2);
-    return {...w, weighted};
+    return {...w, weighted:workerWeightedScore(w)};
   }).sort((a,b)=>b.weighted-a.weighted);
 
   return`
@@ -3006,25 +3017,25 @@ ${scored.length>=1?`
           const rM = w.avgRatingManager;
           return`<tr>
             <td>
-              <div style="display:flex;align-items:center;gap:8px">
+              <div class="perfWorkerCell">
                 <div>
-                  <div style="font-weight:700;font-size:var(--fs-sm)">${esc(w.name)}</div>
-                  <div style="font-size:var(--fs-xs);color:var(--muted)">${esc(w.username)}</div>
+                  <div class="perfWorkerName">${esc(w.name)}</div>
+                  <div class="perfWorkerUser">${esc(w.username)}</div>
                 </div>
               </div>
             </td>
-            <td><span style="font-weight:700">${w.reportsLast30}</span>${w.thisMonth?` <span style="font-size:var(--fs-xs);color:var(--muted)">(${w.thisMonth} ${lang==='ar'?'هذا الشهر':'this mo.'})</span>`:''}</td>
+            <td><span class="perfMetricStrong">${w.reportsLast30}</span>${w.thisMonth?` <span class="perfMetricHint">(${w.thisMonth} ${lang==='ar'?'هذا الشهر':'this mo.'})</span>`:''}</td>
             <td>${w.approvalRate!=null?`<span class="badge ${w.approvalRate>=80?'ok':w.approvalRate>=60?'warn':'bad'}">${w.approvalRate}%</span>`:`<span class="badge">${tr('noRating')}</span>`}</td>
             <td>${w.avgQuality?`<span class="badge gold">${w.avgQuality}%</span>`:`—`}</td>
-            <td>${rS!=null?`<div style="display:flex;align-items:center;gap:4px">${ic('star',13)} ${rS.toFixed(1)}</div>`:`<span style="color:var(--muted)">${tr('noRating')}</span>`}</td>
-            ${canManage()?`<td>${rM!=null?`<div style="display:flex;align-items:center;gap:4px">${ic('star',13)} ${rM.toFixed(1)}</div>`:`<span style="color:var(--muted)">${tr('noRating')}</span>`}</td>`:''}
+            <td>${rS!=null?`<div class="perfRating">${ic('star',13)} ${rS.toFixed(1)}</div>`:`<span class="perfEmpty">${tr('noRating')}</span>`}</td>
+            ${canManage()?`<td>${rM!=null?`<div class="perfRating">${ic('star',13)} ${rM.toFixed(1)}</div>`:`<span class="perfEmpty">${tr('noRating')}</span>`}</td>`:''}
             <td><span class="badge ${w.openTickets>3?'bad':w.openTickets>1?'warn':'ok'}">${w.openTickets}</span></td>
             <td>
-              <div class="progress-track" style="width:80px;display:inline-block">
+              <div class="perfWorkload progress-track">
                 <div class="progress-fill ${w.workloadScore>80?'bad':w.workloadScore>40?'gold':'ok'}" style="width:${Math.min(100,w.workloadScore)}%"></div>
               </div>
             </td>
-            <td><span style="font-family:var(--font-body);font-weight:800;font-size:var(--fs-sm);color:${rank===0?'var(--gold)':rank<3?'var(--brand-mid)':'var(--ink)'}">${w.weighted}</span></td>
+            <td><span class="perfScore ${rank===0?'top':rank<3?'high':''}">${w.weighted}</span></td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -3038,10 +3049,7 @@ async function exportPerformancePDF(){
   if(!metrics.length){
     try{ const r=await api('/performance'); metrics=r.metrics||[]; }catch(e){ return; }
   }
-  const scored = metrics.map(w=>({...w,
-    weighted:Math.round((w.approvalRate??0)*0.3+(w.avgQuality??0)*0.25+
-      ((w.avgRatingSupervisor||0)*20)*0.25+(Math.max(0,100-(w.workloadScore||0)))*0.2)
-  })).sort((a,b)=>b.weighted-a.weighted);
+  const scored = metrics.map(w=>({...w, weighted:workerWeightedScore(w)})).sort((a,b)=>b.weighted-a.weighted);
   const dir=lang==='ar'?'rtl':'ltr';
   const html=`<!DOCTYPE html><html lang="${lang}" dir="${dir}"><head><meta charset="utf-8">
 <title>REGA — ${tr('performance')}</title>
