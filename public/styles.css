@@ -1130,6 +1130,7 @@ tbody tr:hover td{background:var(--surface-2)}
 .perfScore{font-family:var(--font-body);font-weight:800;font-size:var(--fs-sm);color:var(--ink)}
 .perfScore.high{color:var(--brand-mid)}
 .perfScore.top{color:var(--rega-green)}
+.perfRowLabel{display:none}
 
 /* ─── LOCATION CARD DELETE ───────────────────────────────────── */
 .locCard-actions{display:flex;gap:6px;align-items:center;justify-content:space-between;flex-wrap:wrap}
@@ -2023,18 +2024,10 @@ tbody tr:hover td{background:var(--surface-2)}
   .perfTable td{
     display:flex;align-items:center;justify-content:space-between;gap:12px;
   }
-  .perfTable td::before{
-    color:var(--muted);font-family:var(--font-ui);font-size:10px;font-weight:700;
+  .perfTable .perfRowLabel{
+    display:inline-block;color:var(--muted);font-family:var(--font-ui);font-size:10px;font-weight:700;
     flex-shrink:0;max-width:42%;
   }
-  .perfTable td:nth-child(2)::before{content:"Reports"}
-  .perfTable td:nth-child(3)::before{content:"Approval"}
-  .perfTable td:nth-child(4)::before{content:"Quality"}
-  .perfTable td:nth-child(5)::before{content:"Supervisor"}
-  .perfTable td:nth-child(6)::before{content:"Manager"}
-  .perfTable td:nth-child(7)::before{content:"Open"}
-  .perfTable td:nth-child(8)::before{content:"Workload"}
-  .perfTable td:nth-child(9)::before{content:"Score"}
   .progress-track{max-width:120px}
 
   .recognitionPodium{display:grid;grid-template-columns:1fr;gap:10px}

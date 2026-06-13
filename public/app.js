@@ -3024,18 +3024,19 @@ ${scored.length>=1?`
                 </div>
               </div>
             </td>
-            <td><span class="perfMetricStrong">${w.reportsLast30}</span>${w.thisMonth?` <span class="perfMetricHint">(${w.thisMonth} ${lang==='ar'?'هذا الشهر':'this mo.'})</span>`:''}</td>
-            <td>${w.approvalRate!=null?`<span class="badge ${w.approvalRate>=80?'ok':w.approvalRate>=60?'warn':'bad'}">${w.approvalRate}%</span>`:`<span class="badge">${tr('noRating')}</span>`}</td>
-            <td>${w.avgQuality?`<span class="badge gold">${w.avgQuality}%</span>`:`—`}</td>
-            <td>${rS!=null?`<div class="perfRating">${ic('star',13)} ${rS.toFixed(1)}</div>`:`<span class="perfEmpty">${tr('noRating')}</span>`}</td>
-            ${canManage()?`<td>${rM!=null?`<div class="perfRating">${ic('star',13)} ${rM.toFixed(1)}</div>`:`<span class="perfEmpty">${tr('noRating')}</span>`}</td>`:''}
-            <td><span class="badge ${w.openTickets>3?'bad':w.openTickets>1?'warn':'ok'}">${w.openTickets}</span></td>
+            <td><span class="perfRowLabel">${lang==='ar'?'التقارير (30ي)':'Reports (30d)'}</span><span class="perfMetricStrong">${w.reportsLast30}</span>${w.thisMonth?` <span class="perfMetricHint">(${w.thisMonth} ${lang==='ar'?'هذا الشهر':'this mo.'})</span>`:''}</td>
+            <td><span class="perfRowLabel">${tr('approvalRate')}</span>${w.approvalRate!=null?`<span class="badge ${w.approvalRate>=80?'ok':w.approvalRate>=60?'warn':'bad'}">${w.approvalRate}%</span>`:`<span class="badge">${tr('noRating')}</span>`}</td>
+            <td><span class="perfRowLabel">${tr('avgQuality')}</span>${w.avgQuality?`<span class="badge gold">${w.avgQuality}%</span>`:`—`}</td>
+            <td><span class="perfRowLabel">${tr('ratingBySupervisor')}</span>${rS!=null?`<div class="perfRating">${ic('star',13)} ${rS.toFixed(1)}</div>`:`<span class="perfEmpty">${tr('noRating')}</span>`}</td>
+            ${canManage()?`<td><span class="perfRowLabel">${tr('ratingByManager')}</span>${rM!=null?`<div class="perfRating">${ic('star',13)} ${rM.toFixed(1)}</div>`:`<span class="perfEmpty">${tr('noRating')}</span>`}</td>`:''}
+            <td><span class="perfRowLabel">${tr('openTasks')}</span><span class="badge ${w.openTickets>3?'bad':w.openTickets>1?'warn':'ok'}">${w.openTickets}</span></td>
             <td>
+              <span class="perfRowLabel">${tr('workloadScore')}</span>
               <div class="perfWorkload progress-track">
                 <div class="progress-fill ${w.workloadScore>80?'bad':w.workloadScore>40?'gold':'ok'}" style="width:${Math.min(100,w.workloadScore)}%"></div>
               </div>
             </td>
-            <td><span class="perfScore ${rank===0?'top':rank<3?'high':''}">${w.weighted}</span></td>
+            <td><span class="perfRowLabel">${lang==='ar'?'النقاط':'Score'}</span><span class="perfScore ${rank===0?'top':rank<3?'high':''}">${w.weighted}</span></td>
           </tr>`;
         }).join('')}
       </tbody>
