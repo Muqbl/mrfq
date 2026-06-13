@@ -3255,7 +3255,7 @@ function supReportCard(r){
 async function supAssign(ticketId, workerId){
   if(!workerId) return toast(lang==='ar'?'اختر عامل':'Select a worker','warn');
   try{
-    await api(`/api/tickets/${ticketId}`,{method:'PUT',body:JSON.stringify({assignedTo:workerId,status:'assigned'})});
+    await api(`/tickets/${ticketId}`,{method:'PUT',body:JSON.stringify({assignedTo:workerId,status:'assigned'})});
     await load(); renderSupervisor();
     toast(lang==='ar'?'تم التعيين':'Assigned','ok');
   }catch(e){ toast(e.message,'bad'); }
@@ -3263,7 +3263,7 @@ async function supAssign(ticketId, workerId){
 
 async function supVerify(ticketId, status){
   try{
-    await api(`/api/tickets/${ticketId}`,{method:'PUT',body:JSON.stringify({status})});
+    await api(`/tickets/${ticketId}`,{method:'PUT',body:JSON.stringify({status})});
     await load(); renderSupervisor();
     const msg = status==='completed'?(lang==='ar'?'تم التحقق':'Verified'):(lang==='ar'?'طلب إعادة تنظيف':'Reclean requested');
     toast(msg,'ok');
@@ -3272,7 +3272,7 @@ async function supVerify(ticketId, status){
 
 async function supReview(reportId, status, note){
   try{
-    await api('/api/reports/review',{method:'POST',body:JSON.stringify({id:reportId,status,note})});
+    await api('/reports/review',{method:'POST',body:JSON.stringify({id:reportId,status,note})});
     await load(); renderSupervisor();
     toast(lang==='ar'?'تمت المراجعة':'Reviewed','ok');
   }catch(e){ toast(e.message,'bad'); }
