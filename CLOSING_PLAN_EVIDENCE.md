@@ -189,5 +189,9 @@
 
 ## 9. Final Commit Hash
 
+**Implementation commit:**
 `b95f6f0` — "feat: enforce ticket status state machine and add smoke tests"
 (الأساس قبل التعديل: `d2013f7`)
+
+**Final evidence commit / current HEAD:**
+`0913299` — "docs: record final commit hash in closing plan evidence report"
