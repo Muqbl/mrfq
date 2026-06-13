@@ -189,4 +189,5 @@
 
 ## 9. Final Commit Hash
 
-سيتم تحديثه بعد إنشاء الـ commit النهائي لهذه التغييرات (انظر سجل git).
+`b95f6f0` — "feat: enforce ticket status state machine and add smoke tests"
+(الأساس قبل التعديل: `d2013f7`)
