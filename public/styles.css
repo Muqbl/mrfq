@@ -1604,7 +1604,6 @@ tbody tr:hover td{background:var(--surface-2)}
   .platform-sidebar{display:none!important}
   .platform-main{padding:18px 16px 36px}
   .kpiGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .kpiGrid--5{grid-template-columns:repeat(2,minmax(0,1fr))}
   .analyticsGrid{grid-template-columns:1fr}
   .contentGrid{grid-template-columns:1fr}
   .dashHero{flex-direction:column;align-items:flex-start;padding:20px 22px}
@@ -1704,7 +1703,6 @@ tbody tr:hover td{background:var(--surface-2)}
 
   /* KPI grid — 2 compact columns on mobile */
   .kpiGrid{grid-template-columns:1fr 1fr}
-  .kpiGrid--5{grid-template-columns:1fr 1fr}
   .kpiCard{padding:14px 16px}
   .kpiCard-value{font-size:26px}
 
@@ -1750,10 +1748,15 @@ tbody tr:hover td{background:var(--surface-2)}
 /* ─── Very small phones (≤400px) ─────────────────────────────── */
 @media(max-width:400px){
   .kpiGrid{grid-template-columns:1fr}
-  .kpiGrid--5{grid-template-columns:1fr}
   .kpiCard-value{font-size:24px}
   .wsGrid{grid-template-columns:1fr 1fr}
   .userSummaryGrid{grid-template-columns:1fr}
+}
+
+/* ─── System Admin KPI grid (5 cards) — tablet/mobile balance ─────── */
+@media(max-width:1040px){
+  .kpiGrid.kpiGrid--5{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpiGrid--5 .kpiCard:last-child:nth-child(odd){grid-column:1/-1}
 }
 
 @media(max-width:430px){
