@@ -4,7 +4,8 @@
   "description": "REGA Facility Care — Prototype for governance review. Not for production use.",
   "scripts": {
     "start": "node server.js",
-    "seed":  "node scripts/seed-demo.js"
+    "seed":  "node scripts/seed-demo.js",
+    "test":  "node --test"
   },
   "dependencies": {
     "better-sqlite3": "^12.10.0"

@@ -47,3 +47,4 @@ importAllLocations.js
 TODO.md
 *.bak
 *.tmp
+.tmp-preview/

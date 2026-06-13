@@ -153,7 +153,7 @@ function seed() {
       INSERT OR IGNORE INTO tickets
         (id,title,description,location_id,location_name_ar,location_name_en,
          assigned_to,assigned_to_name,created_by,status,priority,notes,created_at,updated_at)
-      VALUES (?,?,?,?,?,?,?,?,'مدير النظافة','open','high','',?,?)
+      VALUES (?,?,?,?,?,?,?,?,'مدير النظافة','assigned','high','',?,?)
     `).run(
       't-demo-1',
       'تنظيف عاجل لمنطقة الضيافة',

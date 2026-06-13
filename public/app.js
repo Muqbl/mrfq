@@ -455,9 +455,9 @@ function connectSSE(){
     toast(lang==='ar'?'بلاغ جديد: '+d.ticket.title:'New ticket: '+d.ticket.title,'warn');
     load();
   });
-  eventSource.addEventListener('ticket_completed',e=>{
+  eventSource.addEventListener('ticket_waiting_verification',e=>{
     playSound('approved');
-    toast(lang==='ar'?'تم إغلاق بلاغ':'Ticket completed','ok');
+    toast(lang==='ar'?'بلاغ بانتظار التحقق':'Ticket awaiting verification','ok');
     load();
   });
   eventSource.onerror=()=>{

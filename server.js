@@ -21,6 +21,24 @@ const PUBLIC             = path.join(__dirname, 'public');
 const UPLOADS_DIR        = process.env.UPLOADS_PATH || path.join(__dirname, 'uploads');
 const ALLOWED_ROLES      = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','cleaner','employee'];
 
+/* ═══════════════════════════════════════════════════════════════
+   TICKET STATUS STATE MACHINE
+   ═══════════════════════════════════════════════════════════════ */
+const TICKET_STATUSES  = ['submitted','assigned','accepted','in_progress','waiting_verification','completed','reclean_required','rejected','cancelled'];
+const TICKET_TERMINAL  = ['completed','rejected','cancelled'];
+const TICKET_TRANSITIONS = {
+  submitted:            ['assigned','cancelled','rejected'],
+  assigned:             ['accepted','in_progress','waiting_verification','reclean_required','submitted','cancelled','rejected'],
+  accepted:             ['in_progress','waiting_verification','cancelled','rejected'],
+  in_progress:          ['waiting_verification','cancelled','rejected'],
+  waiting_verification: ['completed','reclean_required','rejected'],
+  reclean_required:     ['assigned','accepted','in_progress','waiting_verification','cancelled'],
+  completed:            [],
+  rejected:             [],
+  cancelled:            []
+};
+const REPORT_REVIEW_STATUSES = ['approved','rejected','needs_recleaning'];
+
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 /* ═══════════════════════════════════════════════════════════════
@@ -891,21 +909,24 @@ const server = http.createServer(async (req, res) => {
         const t = db.prepare('SELECT * FROM tickets WHERE id = ? AND deleted_at IS NULL').get(b.id);
         if (!t) return send(res, 404, { error: 'TICKET_NOT_FOUND' });
         if (me.role === 'cleaner' && t.assigned_to !== me.id) return send(res, 403, { error: 'FORBIDDEN' });
+        if (!(TICKET_TRANSITIONS[t.status] || []).includes('waiting_verification')) {
+          return send(res, 400, { error: 'INVALID_TRANSITION' });
+        }
         processPhotos(b.photos, me.id, null, t.id);
         const completionMins = Math.round((Date.now() - new Date(t.created_at).getTime()) / 60_000);
         const slaBreached    = t.sla_deadline && new Date(t.sla_deadline) < new Date() ? 1 : (t.sla_breached || 0);
         const completedTs    = now();
         db.prepare(`
-          UPDATE tickets SET status='completed', completed_at=?, notes=?, updated_at=?,
+          UPDATE tickets SET status='waiting_verification', notes=?, updated_at=?,
             completion_time_mins=?, sla_breached=? WHERE id=?
-        `).run(completedTs, sanitize(b.notes, 1000), completedTs, completionMins, slaBreached, t.id);
+        `).run(sanitize(b.notes, 1000), completedTs, completionMins, slaBreached, t.id);
         const ticket = ticketRow(db.prepare(`
           SELECT t.*, GROUP_CONCAT(p.filename) AS photo_files
           FROM tickets t LEFT JOIN photos p ON p.ticket_id=t.id AND p.deleted_at IS NULL
           WHERE t.id=? GROUP BY t.id
         `).get(t.id));
-        broadcast('ticket_completed', { ticket });
-        logEvent(db, 'ticket.completed_by_worker', 'ticket', t.id, me, { completionMins });
+        broadcast('ticket_waiting_verification', { ticket });
+        logEvent(db, 'ticket.waiting_verification', 'ticket', t.id, me, { completionMins });
         return send(res, 200, { ticket });
       }
 
@@ -920,8 +941,19 @@ const server = http.createServer(async (req, res) => {
         if (b.title !== undefined)    { sets.push('title = ?');       vals.push(sanitize(b.title, 200)); }
         if (b.description !== undefined){ sets.push('description = ?'); vals.push(sanitize(b.description, 1000)); }
         if (['high','medium','low'].includes(b.priority)) { sets.push('priority = ?'); vals.push(b.priority); }
-        if (b.status !== undefined)   { sets.push('status = ?'); vals.push(b.status);
-          if (b.status === 'completed') { sets.push('completed_at = ?'); vals.push(now()); }
+        if (b.status !== undefined) {
+          if (!TICKET_STATUSES.includes(b.status)) return send(res, 400, { error: 'INVALID_STATUS' });
+          if (b.status !== t.status) {
+            if (!(TICKET_TRANSITIONS[t.status] || []).includes(b.status)) {
+              return send(res, 400, { error: 'INVALID_TRANSITION' });
+            }
+            sets.push('status = ?'); vals.push(b.status);
+            const ts = now();
+            if (b.status === 'completed')  { sets.push('completed_at = ?'); vals.push(ts); }
+            if (b.status === 'accepted')   { sets.push('accepted_at = ?');  vals.push(ts); }
+            if (b.status === 'in_progress'){ sets.push('started_at = ?');   vals.push(ts); }
+            if (b.status === 'cancelled')  { sets.push('cancelled_at = ?'); vals.push(ts); }
+          }
         }
         if (b.assignedTo) {
           const w = db.prepare('SELECT * FROM users WHERE id = ? AND active=1 AND deleted_at IS NULL').get(b.assignedTo);
@@ -996,10 +1028,11 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'POST' && url.pathname === '/api/reports/review') {
         if (!canReview(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const b = await bodyJSON(req);
-        const r = db.prepare('SELECT 1 FROM reports WHERE id = ? AND deleted_at IS NULL').get(b.id);
+        const r = db.prepare('SELECT * FROM reports WHERE id = ? AND deleted_at IS NULL').get(b.id);
         if (!r) return send(res, 404, { error: 'REPORT_NOT_FOUND' });
-        const validSt = ['approved','rejected','needs_recleaning'];
-        const status  = validSt.includes(b.status) ? b.status : 'approved';
+        if (!REPORT_REVIEW_STATUSES.includes(b.status)) return send(res, 400, { error: 'INVALID_STATUS' });
+        if (r.approval_status !== 'pending') return send(res, 400, { error: 'ALREADY_REVIEWED' });
+        const status   = b.status;
         const reviewTs = now();
         db.prepare(`
           UPDATE reports SET approval_status=?, approved_by=?, approved_at=?, review_note=?, updated_at=? WHERE id=?
