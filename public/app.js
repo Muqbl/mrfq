@@ -2604,14 +2604,43 @@ function renderPhotoPreviews(mode='general'){
 }
 
 let qrScannerInstance = null;
+let qrVisibilityHandler = null;
 
-function openQRScanner(){
+function qrErrorMessage(err){
+  const name = err && err.name;
+  if(name==='NotAllowedError'||name==='PermissionDeniedError'){
+    return lang==='ar'?'تم رفض إذن الكاميرا. افتح إعدادات المتصفح وامنح الإذن.':'Camera permission denied. Open browser settings and grant permission.';
+  }
+  if(name==='NotFoundError'||name==='DevicesNotFoundError'){
+    return lang==='ar'?'لا توجد كاميرا متاحة في هذا الجهاز.':'No camera found on this device.';
+  }
+  if(name==='NotReadableError'||name==='TrackStartError'){
+    return lang==='ar'?'الكاميرا مستخدمة من تطبيق آخر. أغلق التطبيقات الأخرى وحاول مجدداً.':'Camera is in use by another app. Close other apps and try again.';
+  }
+  if(name==='OverconstrainedError'){
+    return lang==='ar'?'لا تدعم الكاميرا الإعدادات المطلوبة.':'Camera does not support the requested settings.';
+  }
+  return lang==='ar'?'تعذر فتح الكاميرا. تأكد من منح الإذن واستخدام HTTPS':'Camera access denied. Ensure permission is granted and using HTTPS';
+}
+
+async function openQRScanner(){
   if(typeof Html5Qrcode === 'undefined'){
     toast(lang==='ar'?'مكتبة الماسح غير متوفرة':'QR scanner library not available','bad');
     return;
   }
 
-  if(document.getElementById('qr-overlay')) return;
+  // Check HTTPS / mediaDevices availability (same check as photo camera)
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    const isHTTPS = location.protocol==='https:' || location.hostname==='localhost' || location.hostname==='127.0.0.1';
+    const msg = isHTTPS
+      ? (lang==='ar'?'الكاميرا غير مدعومة في هذا المتصفح':'Camera not supported in this browser')
+      : (lang==='ar'?'تتطلب الكاميرا اتصالاً آمناً (HTTPS)':'Camera requires a secure connection (HTTPS)');
+    toast(msg,'bad');
+    return;
+  }
+
+  // Prevent opening more than one camera stream
+  if(document.getElementById('qr-overlay') || qrScannerInstance) return;
 
   const overlay = document.createElement('div');
   overlay.id = 'qr-overlay';
@@ -2634,54 +2663,79 @@ function openQRScanner(){
     showZoomSliderIfSupported: true
   };
 
+  const onDecoded = (decodedText) => {
+    let loc = decodedText.trim();
+    try {
+      const url = new URL(decodedText);
+      const param = url.searchParams.get('loc');
+      if(param) loc = param;
+    } catch(e){}
+
+    closeQRScanner();
+
+    const parsed = parseLoc(loc);
+    if(!parsed){
+      invalidLocationToast(loc);
+      return;
+    }
+    const facility = (data.locations||[]).find(l=>l.id===parsed);
+    if(!facility){
+      toast(lang==='ar'?`الموقع "${parsed}" غير موجود في النظام`:`Location "${parsed}" not found`,'bad');
+      return;
+    }
+    const empInput = document.getElementById('empLocCode');
+    const locInput = document.getElementById('locCode');
+    const isEmployee = !!empInput;
+    const targetInput = isEmployee ? empInput : locInput;
+    if(targetInput){
+      targetInput.value = parsed;
+      targetInput.dispatchEvent(new Event('input',{bubbles:true}));
+    }
+    toast(lang==='ar'?`تم التعرف على: ${locName(facility)}`:`Found: ${locName(facility)}`,'ok');
+    if(!isEmployee) setTimeout(()=>startForm(), 200);
+  };
+
   qrScannerInstance = new Html5Qrcode('qr-reader');
 
-  qrScannerInstance.start(
-    { facingMode: 'environment' },
-    config,
-    (decodedText) => {
-      let loc = decodedText.trim();
-      try {
-        const url = new URL(decodedText);
-        const param = url.searchParams.get('loc');
-        if(param) loc = param;
-      } catch(e){}
+  // Stop the camera if the tab/app is backgrounded while the scanner is open
+  qrVisibilityHandler = () => { if(document.hidden) closeQRScanner(); };
+  document.addEventListener('visibilitychange', qrVisibilityHandler);
 
-      closeQRScanner();
-
-      const parsed = parseLoc(loc);
-      if(!parsed){
-        invalidLocationToast(loc);
-        return;
+  try{
+    // Prefer the rear camera
+    await qrScannerInstance.start({ facingMode: 'environment' }, config, onDecoded, ()=>{});
+  }catch(envErr){
+    console.warn('[qr] environment camera failed:', envErr && envErr.name, envErr && envErr.message);
+    // Fallback 1: any available camera by facingMode
+    try{
+      await qrScannerInstance.start({ facingMode: 'user' }, config, onDecoded, ()=>{});
+    }catch(userErr){
+      // Fallback 2: enumerate devices and try the first available camera
+      try{
+        const cameras = await Html5Qrcode.getCameras();
+        if(!cameras || !cameras.length) throw envErr;
+        await qrScannerInstance.start({ deviceId: { exact: cameras[0].id } }, config, onDecoded, ()=>{});
+      }catch(deviceErr){
+        const err = envErr.name ? envErr : (userErr.name ? userErr : deviceErr);
+        toast(qrErrorMessage(err),'bad');
+        closeQRScanner();
       }
-      const facility = (data.locations||[]).find(l=>l.id===parsed);
-      if(!facility){
-        toast(lang==='ar'?`الموقع "${parsed}" غير موجود في النظام`:`Location "${parsed}" not found`,'bad');
-        return;
-      }
-      const empInput = document.getElementById('empLocCode');
-      const locInput = document.getElementById('locCode');
-      const isEmployee = !!empInput;
-      const targetInput = isEmployee ? empInput : locInput;
-      if(targetInput){
-        targetInput.value = parsed;
-        targetInput.dispatchEvent(new Event('input',{bubbles:true}));
-      }
-      toast(lang==='ar'?`تم التعرف على: ${locName(facility)}`:`Found: ${locName(facility)}`,'ok');
-      if(!isEmployee) setTimeout(()=>startForm(), 200);
-    },
-    ()=>{}
-  ).catch(err => {
-    closeQRScanner();
-    toast(lang==='ar'?'تعذر فتح الكاميرا. تأكد من منح الإذن واستخدام HTTPS':'Camera access denied. Ensure permission is granted and using HTTPS','bad');
-  });
+    }
+  }
 }
 
 async function closeQRScanner(){
+  if(qrVisibilityHandler){
+    document.removeEventListener('visibilitychange', qrVisibilityHandler);
+    qrVisibilityHandler = null;
+  }
+
   try{
     if(qrScannerInstance){
-      await qrScannerInstance.stop().catch(()=>{});
+      const instance = qrScannerInstance;
       qrScannerInstance = null;
+      await instance.stop().catch(()=>{});
+      try{ instance.clear(); }catch(e){}
     }
   }catch(e){
     console.warn('QR close error:',e);
