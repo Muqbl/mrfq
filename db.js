@@ -174,23 +174,6 @@ const MIGRATIONS = {
     CREATE INDEX idx_photos_report ON photos(report_id);
     CREATE INDEX idx_photos_ticket ON photos(ticket_id);
 
-    CREATE TABLE audit_logs (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      ts          TEXT    NOT NULL,
-      action      TEXT    NOT NULL,
-      user_id     TEXT    NOT NULL DEFAULT '',
-      username    TEXT    NOT NULL DEFAULT '',
-      role        TEXT    NOT NULL DEFAULT '',
-      ip          TEXT    NOT NULL DEFAULT '',
-      user_agent  TEXT    NOT NULL DEFAULT '',
-      target_type TEXT    NOT NULL DEFAULT '',
-      target_id   TEXT    NOT NULL DEFAULT '',
-      result      TEXT    NOT NULL DEFAULT 'success',
-      extra       TEXT    NOT NULL DEFAULT '{}'
-    );
-    CREATE INDEX idx_audit_ts     ON audit_logs(ts);
-    CREATE INDEX idx_audit_user   ON audit_logs(user_id);
-    CREATE INDEX idx_audit_action ON audit_logs(action);
   `,
 
   /* ── v2: employee portal, categories, reference numbers, ratings ── */
@@ -331,13 +314,20 @@ const MIGRATIONS = {
     ALTER TABLE zones ADD COLUMN building_id TEXT;
   `,
 
-  /* ── v9: module column on assignments and audit_logs ─────── */
+  /* ── v9: module column on assignments ─────────────────────── */
   9: `
     ALTER TABLE assignments ADD COLUMN module TEXT NOT NULL DEFAULT 'cleaning';
-    ALTER TABLE audit_logs  ADD COLUMN module TEXT NOT NULL DEFAULT 'cleaning';
 
     CREATE INDEX IF NOT EXISTS idx_assignments_module ON assignments(module);
-    CREATE INDEX IF NOT EXISTS idx_audit_module        ON audit_logs(module);
+  `,
+
+  /* ── v10: remove audit log storage ─────────────────────────── */
+  10: `
+    DROP INDEX IF EXISTS idx_audit_ts;
+    DROP INDEX IF EXISTS idx_audit_user;
+    DROP INDEX IF EXISTS idx_audit_action;
+    DROP INDEX IF EXISTS idx_audit_module;
+    DROP TABLE IF EXISTS audit_logs;
   `
 };
 

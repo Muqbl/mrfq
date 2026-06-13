@@ -278,29 +278,6 @@ setInterval(() => {
 }, 3_600_000);
 
 /* ═══════════════════════════════════════════════════════════════
-   AUDIT LOG  (stored in DB)
-   ═══════════════════════════════════════════════════════════════ */
-function auditLog(action, user, ip, ua, opts = {}) {
-  try {
-    getDb().prepare(`
-      INSERT INTO audit_logs
-        (ts, action, user_id, username, role, ip, user_agent, target_type, target_id, result, extra)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      now(), action,
-      user?.id    || '',
-      user?.username || '',
-      user?.role  || '',
-      ip, ua,
-      opts.targetType || '',
-      opts.targetId   || '',
-      opts.result     || 'success',
-      JSON.stringify(opts.extra || {})
-    );
-  } catch (e) { console.error('[audit]', e.message); }
-}
-
-/* ═══════════════════════════════════════════════════════════════
    FIELD MAPPERS  (snake_case DB → camelCase frontend)
    ═══════════════════════════════════════════════════════════════ */
 const publicUser = u => {
@@ -638,13 +615,11 @@ const server = http.createServer(async (req, res) => {
         ).get(username);
         if (!u || !verifyPassword(password, u.password)) {
           recordAttempt(ip);
-          auditLog('login_failed', { username }, ip, ua, { result: 'failure' });
           return send(res, 401, { error: 'INVALID_LOGIN' });
         }
         const token = crypto.randomBytes(32).toString('hex');
         sessionCreate(token, u.id, ip, ua);
         setSessionCookie(res, token);
-        auditLog('login', u, ip, ua);
         return send(res, 200, {
           user: publicUser(u),
           forcePasswordChange: u.force_password_change === 1
@@ -654,7 +629,6 @@ const server = http.createServer(async (req, res) => {
       /* ── LOGOUT ─────────────────────────────────────────────── */
       if (req.method === 'POST' && url.pathname === '/api/logout') {
         const me = sessionGetUser(req);
-        auditLog('logout', me, ip, ua);
         sessionDelete(req);
         clearSessionCookie(res);
         return send(res, 200, { ok: true });
@@ -699,7 +673,6 @@ const server = http.createServer(async (req, res) => {
           UPDATE users SET password = ?, force_password_change = 0,
           last_password_change = ?, updated_at = ? WHERE id = ?
         `).run(hashPassword(newPwd), now(), now(), me.id);
-        auditLog('change_password', me, ip, ua);
         const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(me.id);
         return send(res, 200, { ok: true, user: publicUser(updated) });
       }
@@ -715,7 +688,6 @@ const server = http.createServer(async (req, res) => {
             r.status, r.approval_status, r.created_at, r.notes
           ])
         ];
-        auditLog('export_reports', me, ip, ua);
         return send(res, 200, '﻿' + rows.map(r => r.map(csvCell).join(',')).join('\n'), 'text/csv; charset=utf-8');
       }
 
@@ -746,7 +718,6 @@ const server = http.createServer(async (req, res) => {
             .run(id, role, 'cleaning', ts);
         } catch {}
         const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
-        auditLog('user_created', me, ip, ua, { targetType: 'user', targetId: id, extra: { username, role } });
         return send(res, 200, { user: publicUser(u) });
       }
 
@@ -776,7 +747,6 @@ const server = http.createServer(async (req, res) => {
         vals.push(id);
         if (sets.length > 1) db.prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
         const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
-        auditLog('user_updated', me, ip, ua, { targetType: 'user', targetId: id });
         return send(res, 200, { user: publicUser(updated) });
       }
 
@@ -791,7 +761,6 @@ const server = http.createServer(async (req, res) => {
         if (id === me.id) return send(res, 403, { error: 'CANNOT_DELETE_SELF' });
         db.prepare('UPDATE users SET deleted_at = ?, updated_at = ?, active = 0 WHERE id = ?').run(now(), now(), id);
         db.prepare('DELETE FROM assignments WHERE worker_id = ?').run(id);
-        auditLog('user_deleted', me, ip, ua, { targetType: 'user', targetId: id });
         return send(res, 200, { ok: true });
       }
 
@@ -875,9 +844,6 @@ const server = http.createServer(async (req, res) => {
           const ins = db.prepare('INSERT OR IGNORE INTO assignments (worker_id,location_id,created_at) VALUES (?,?,?)');
           locationIds.forEach(lid => ins.run(workerId, lid, now()));
         })();
-        auditLog('assignment_updated', me, ip, ua, {
-          targetType: 'worker', targetId: workerId, extra: { locationCount: locationIds.length }
-        });
         return send(res, 200, { ok: true });
       }
 
@@ -915,7 +881,6 @@ const server = http.createServer(async (req, res) => {
           SELECT t.*, NULL AS photo_files FROM tickets t WHERE t.id = ?
         `).get(id));
         broadcast('ticket_created', { ticket });
-        auditLog('ticket_created', me, ip, ua, { targetType: 'ticket', targetId: id, extra: { category, autoAssigned: !b.assignedTo } });
         logEvent(db, 'ticket.submitted', 'ticket', id, me, { category, status: initialStatus, locationId: loc.id });
         return send(res, 200, { ticket });
       }
@@ -940,7 +905,6 @@ const server = http.createServer(async (req, res) => {
           WHERE t.id=? GROUP BY t.id
         `).get(t.id));
         broadcast('ticket_completed', { ticket });
-        auditLog('ticket_completed', me, ip, ua, { targetType: 'ticket', targetId: t.id });
         logEvent(db, 'ticket.completed_by_worker', 'ticket', t.id, me, { completionMins });
         return send(res, 200, { ticket });
       }
@@ -970,7 +934,6 @@ const server = http.createServer(async (req, res) => {
           FROM tickets t LEFT JOIN photos p ON p.ticket_id=t.id AND p.deleted_at IS NULL
           WHERE t.id=? GROUP BY t.id
         `).get(id));
-        auditLog('ticket_updated', me, ip, ua, { targetType: 'ticket', targetId: id });
         return send(res, 200, { ticket });
       }
 
@@ -981,7 +944,6 @@ const server = http.createServer(async (req, res) => {
         const t  = db.prepare('SELECT 1 FROM tickets WHERE id = ? AND deleted_at IS NULL').get(id);
         if (!t) return send(res, 404, { error: 'TICKET_NOT_FOUND' });
         db.prepare('UPDATE tickets SET deleted_at = ?, updated_at = ? WHERE id = ?').run(now(), now(), id);
-        auditLog('ticket_deleted', me, ip, ua, { targetType: 'ticket', targetId: id });
         return send(res, 200, { ok: true });
       }
 
@@ -1026,10 +988,6 @@ const server = http.createServer(async (req, res) => {
           WHERE r.id=? GROUP BY r.id
         `).get(id));
         broadcast('report_created', { report });
-        auditLog('report_created', me, ip, ua, {
-          targetType: 'report', targetId: id,
-          extra: { locationId: loc.id, photoCount: report.photos.length }
-        });
         logEvent(db, 'report.created', 'report', id, me, { locationId: loc.id, photoCount: report.photos.length });
         return send(res, 200, { report });
       }
@@ -1057,9 +1015,6 @@ const server = http.createServer(async (req, res) => {
           WHERE r.id=? GROUP BY r.id
         `).get(b.id));
         broadcast('report_reviewed', { report, reviewedBy: me.name });
-        auditLog('report_reviewed', me, ip, ua, {
-          targetType: 'report', targetId: b.id, extra: { status }
-        });
         const reviewEventMap = { approved: 'report.approved', rejected: 'report.rejected', needs_recleaning: 'report.reclean_required' };
         logEvent(db, reviewEventMap[status] || 'report.reviewed', 'report', b.id, me, { status, note: b.note || '' });
         return send(res, 200, { report });
@@ -1072,27 +1027,7 @@ const server = http.createServer(async (req, res) => {
         const r  = db.prepare('SELECT 1 FROM reports WHERE id = ? AND deleted_at IS NULL').get(id);
         if (!r) return send(res, 404, { error: 'REPORT_NOT_FOUND' });
         db.prepare('UPDATE reports SET deleted_at = ?, updated_at = ? WHERE id = ?').run(now(), now(), id);
-        auditLog('report_deleted', me, ip, ua, { targetType: 'report', targetId: id });
         return send(res, 200, { ok: true });
-      }
-
-      /* ── AUDIT LOGS: READ (manager+) ────────────────────────── */
-      if (req.method === 'GET' && url.pathname === '/api/audit-logs') {
-        if (!canManageSystem(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
-        const limit  = Math.min(parseInt(url.searchParams.get('limit') || '200', 10), 500);
-        const offset = parseInt(url.searchParams.get('offset') || '0', 10);
-        const action = url.searchParams.get('action') || '';
-        const user   = url.searchParams.get('user')   || '';
-        let q = 'SELECT * FROM audit_logs WHERE 1=1';
-        const params = [];
-        if (action) { q += ' AND action LIKE ?'; params.push(`%${action}%`); }
-        if (user)   { q += ' AND (username LIKE ? OR user_id = ?)'; params.push(`%${user}%`, user); }
-        q += ' ORDER BY ts DESC LIMIT ? OFFSET ?';
-        params.push(limit, offset);
-        const logs  = db.prepare(q).all(...params);
-        const total = db.prepare('SELECT COUNT(*) AS c FROM audit_logs').get().c;
-        auditLog('audit_viewed', me, ip, ua);
-        return send(res, 200, { logs, total, limit, offset });
       }
 
       /* ── WORKSPACE SWITCH ───────────────────────────────────── */
@@ -1103,7 +1038,6 @@ const server = http.createServer(async (req, res) => {
           return send(res, 403, { error: 'ROLE_NOT_ALLOWED' });
         const token = parseCookies(req)[SESSION_COOKIE];
         db.prepare('UPDATE sessions SET active_workspace = ? WHERE token = ?').run(workspace, token);
-        auditLog('workspace_switch', me, ip, ua, { extra: { from: me.role, to: workspace } });
         const updatedMe = { ...me, role: workspace };
         return send(res, 200, buildBootstrap(updatedMe));
       }
@@ -1120,7 +1054,6 @@ const server = http.createServer(async (req, res) => {
         if (!allowedRoleEditor(me.role, role)) return send(res, 403, { error: 'ROLE_NOT_ALLOWED' });
         db.prepare('INSERT OR IGNORE INTO user_roles (user_id,role,module,created_at) VALUES (?,?,?,?)')
           .run(userId, role, 'cleaning', now());
-        auditLog('user_role_added', me, ip, ua, { targetType: 'user', targetId: userId, extra: { role } });
         return send(res, 200, { ok: true });
       }
 
@@ -1134,7 +1067,6 @@ const server = http.createServer(async (req, res) => {
         const cnt = db.prepare('SELECT COUNT(*) AS c FROM user_roles WHERE user_id = ?').get(userId).c;
         if (cnt <= 1) return send(res, 400, { error: 'CANNOT_REMOVE_LAST_ROLE' });
         db.prepare('DELETE FROM user_roles WHERE user_id = ? AND role = ?').run(userId, role);
-        auditLog('user_role_removed', me, ip, ua, { targetType: 'user', targetId: userId, extra: { role } });
         return send(res, 200, { ok: true });
       }
 
@@ -1197,7 +1129,6 @@ const server = http.createServer(async (req, res) => {
         }
         const ticket = ticketRow(db.prepare('SELECT t.*, NULL AS photo_files FROM tickets t WHERE t.id = ?').get(id));
         broadcast('ticket_created', { ticket });
-        auditLog('order_created', me, ip, ua, { targetType: 'ticket', targetId: id, extra: { category, refNo, autoAssigned: !!workerUser } });
         logEvent(db, 'ticket.submitted', 'ticket', id, me, { category, refNo, status: orderStatus, locationId: loc.id });
         return send(res, 200, { ticket, autoAssigned: !!workerUser });
       }
@@ -1268,7 +1199,6 @@ const server = http.createServer(async (req, res) => {
         const col = b.ratingType === 'manager' ? 'rating_manager' : 'rating_supervisor';
         if (col === 'rating_manager' && !canManageSystem(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         db.prepare(`UPDATE reports SET ${col} = ?, updated_at = ? WHERE id = ?`).run(value, now(), b.id);
-        auditLog('report_rated', me, ip, ua, { targetType: 'report', targetId: b.id, extra: { col, value } });
         return send(res, 200, { ok: true });
       }
 

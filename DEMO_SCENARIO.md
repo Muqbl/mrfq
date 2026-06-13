@@ -77,9 +77,8 @@ npm start
 | النقطة | التفاصيل |
 |--------|---------|
 | 🔐 **المصادقة** | HttpOnly SameSite=Strict Cookie — لا token في JS |
-| 🗄 **قاعدة البيانات** | SQLite — sessions + audit_logs محفوظة في DB |
+| 🗄 **قاعدة البيانات** | SQLite — الجلسات والبيانات التشغيلية محفوظة في DB |
 | 🛡 **Security Headers** | CSP, X-Frame-Options DENY, nosniff, Referrer-Policy |
-| 📋 **Audit Log** | كل عملية مسجلة في جدول `audit_logs` داخل DB (لا ملف خارجي) |
 | 👥 **الصلاحيات** | العامل يرى فقط مهامه — محمي من backend |
 | ⏱ **Session Timeout** | انتهاء الجلسة بعد ساعتين — محفوظة في DB |
 | 🔒 **كلمات المرور** | scrypt hash — لا نصوص واضحة في الكود |

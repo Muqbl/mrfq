@@ -875,13 +875,16 @@ tbody tr:hover td{background:var(--surface-2)}
 .notifItem-time{font-size:10px;color:var(--muted-light);margin-top:3px;direction:ltr;unicode-bidi:embed}
 .notifPanel-empty{padding:32px 16px;text-align:center;color:var(--muted);font-size:var(--fs-xs)}
 
-.reportTabs{overflow:hidden}
+.reportTabs{overflow:hidden;width:100%}
 .reportTabs .filterChips{
   display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
-  gap:8px;padding-bottom:2px;scrollbar-width:none;
+  gap:8px;padding-bottom:2px;scrollbar-width:none;width:100%;
 }
 .reportTabs .filterChips::-webkit-scrollbar{display:none}
-.reportTabs .filterChip{flex:1 0 auto;min-height:44px;white-space:nowrap}
+.reportTabs .filterChip{
+  flex:1 1 0;min-width:92px;min-height:44px;white-space:nowrap;
+  justify-content:center;text-align:center;
+}
 
 /* Sync */
 .tb-sync{
@@ -1138,23 +1141,35 @@ tbody tr:hover td{background:var(--surface-2)}
 .reportCard-thumb:hover{opacity:.9}
 .reportCard-body{padding:16px;display:grid;gap:10px}
 .reportCard-actions{
-  display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;
-  padding:10px 16px;border-top:1px solid var(--line-soft);
-  background:var(--surface-2);
+  display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:10px;
+  padding:14px 16px;border-top:1px solid var(--line-soft);
+  background:transparent;
 }
 .reportCard-actions .action-btn{
-  flex:1;min-width:0;min-height:36px;
-  padding:6px 12px;font-size:11px;
-  border-radius:var(--r-sm);justify-content:center;
+  flex:1;min-width:0;min-height:40px;
+  padding:8px 14px;font-size:var(--fs-xs);font-weight:800;
+  border-radius:14px;justify-content:center;gap:8px;
+  letter-spacing:0;
+}
+.reportCard-actions .action-btn svg{
+  width:15px;height:15px;flex:0 0 15px;stroke-width:2.1;
 }
 .reportCard-actions-primary{display:flex;gap:6px;min-width:0}
 .reportCard-actions-secondary{display:flex;gap:6px;flex-shrink:0}
 .reportCard-actions-danger{display:flex;gap:6px;flex-shrink:0}
-.reportCard-actions .btn.ok{background:var(--brand-mid);border-color:var(--brand-mid);color:#fff}
-.reportCard-actions .btn.warn{background:var(--warn);border-color:var(--warn);color:#fff}
-.reportCard-actions .btn.danger{background:#fff;border-color:var(--bad);color:var(--bad)}
+.reportCard-actions .btn.ok{
+  background:var(--rega-teal);border-color:var(--rega-teal);color:#fff;
+  box-shadow:0 8px 18px rgba(0,132,141,.12);
+}
+.reportCard-actions .btn.warn{
+  background:#fff;border-color:rgba(230,158,51,.38);color:var(--rega-brown);
+}
+.reportCard-actions .btn.danger{
+  background:#fff;border-color:rgba(222,117,89,.48);color:var(--rega-coral);
+}
 .reportCard-actions .reportDeleteBtn{
-  width:38px;min-width:38px;padding:0;color:var(--bad);border-color:rgba(222,117,89,.45);
+  width:40px;min-width:40px;padding:0;color:var(--rega-coral);
+  border-color:rgba(222,117,89,.42);background:#fff;
 }
 .reportCard-loc{font-family:var(--font-head);font-weight:800;font-size:var(--fs-md);color:var(--ink);line-height:1.3}
 .reportCard-meta{font-size:var(--fs-xs);color:var(--muted);direction:ltr;unicode-bidi:embed;text-align:left}
@@ -1862,6 +1877,8 @@ tbody tr:hover td{background:var(--surface-2)}
   }
   .filterChips{display:flex;gap:7px;overflow-x:auto;padding-bottom:2px;scroll-snap-type:x proximity}
   .filterChip{min-height:38px;white-space:nowrap;scroll-snap-align:start}
+  .reportTabs .filterChips{display:flex;flex-wrap:nowrap;width:100%}
+  .reportTabs .filterChip{flex:0 0 auto;min-width:86px}
   .usersFilterBar input.ctrl,.usersFilterBar select.ctrl,.filterBar .ctrl,.ctrl-flex{
     width:100%;min-width:0;min-height:46px;
   }
@@ -1961,35 +1978,35 @@ tbody tr:hover td{background:var(--surface-2)}
   .tableWrap,.usersTableWrap,.perfTableWrap{
     overflow:visible;border:0;background:transparent;border-radius:0;
   }
-  .usersTable,.perfTable,.auditTable,
-  .usersTable thead,.perfTable thead,.auditTable thead,
-  .usersTable tbody,.perfTable tbody,.auditTable tbody,
-  .usersTable tr,.perfTable tr,.auditTable tr,
-  .usersTable td,.perfTable td,.auditTable td{
+  .usersTable,.perfTable,
+  .usersTable thead,.perfTable thead,
+  .usersTable tbody,.perfTable tbody,
+  .usersTable tr,.perfTable tr,
+  .usersTable td,.perfTable td{
     display:block;width:100%;min-width:0;
   }
-  .usersTable thead,.perfTable thead,.auditTable thead{display:none}
-  .usersTable,.perfTable,.auditTable{border-collapse:separate;font-size:var(--fs-sm)}
-  .usersTable tbody,.perfTable tbody,.auditTable tbody{display:grid;gap:10px}
-  .usersTable tr,.perfTable tr,.auditTable tr{
+  .usersTable thead,.perfTable thead{display:none}
+  .usersTable,.perfTable{border-collapse:separate;font-size:var(--fs-sm)}
+  .usersTable tbody,.perfTable tbody{display:grid;gap:10px}
+  .usersTable tr,.perfTable tr{
     background:var(--surface);border:1px solid var(--line);
     border-radius:var(--r-lg);padding:12px;overflow:hidden;
   }
-  .usersTable td,.perfTable td,.auditTable td{
+  .usersTable td,.perfTable td{
     border:0;padding:7px 0;white-space:normal;
   }
-  .usersTable td+td,.perfTable td+td,.auditTable td+td{border-top:1px solid var(--line-soft)}
-  .usersTable td:first-child,.perfTable td:first-child,.auditTable td:first-child{padding-top:0}
-  .usersTable td:last-child,.perfTable td:last-child,.auditTable td:last-child{padding-bottom:0}
+  .usersTable td+td,.perfTable td+td{border-top:1px solid var(--line-soft)}
+  .usersTable td:first-child,.perfTable td:first-child{padding-top:0}
+  .usersTable td:last-child,.perfTable td:last-child{padding-bottom:0}
   .usersTable-actions{display:grid;grid-template-columns:minmax(0,1fr) 40px 40px;gap:7px;justify-content:stretch;white-space:normal}
   .usersTable-actions .btn{min-height:40px;justify-content:center}
   .usersTable-actions .iconOnlyBtn{width:40px;min-width:40px}
   .usersTable-actions .rolesActionBtn{padding-inline:8px}
   .usersTable-roles{min-width:0}
-  .perfTable td,.auditTable td{
+  .perfTable td{
     display:flex;align-items:center;justify-content:space-between;gap:12px;
   }
-  .perfTable td::before,.auditTable td::before{
+  .perfTable td::before{
     color:var(--muted);font-family:var(--font-ui);font-size:10px;font-weight:700;
     flex-shrink:0;max-width:42%;
   }
@@ -2001,12 +2018,6 @@ tbody tr:hover td{background:var(--surface-2)}
   .perfTable td:nth-child(7)::before{content:"Open"}
   .perfTable td:nth-child(8)::before{content:"Workload"}
   .perfTable td:nth-child(9)::before{content:"Score"}
-  .auditTable td:nth-child(1)::before{content:"Time"}
-  .auditTable td:nth-child(2)::before{content:"Action"}
-  .auditTable td:nth-child(3)::before{content:"User"}
-  .auditTable td:nth-child(4)::before{content:"Role"}
-  .auditTable td:nth-child(5)::before{content:"Target"}
-  .auditTable td:nth-child(6)::before{content:"Result"}
   .progress-track{max-width:120px}
 
   .recognitionPodium{display:grid;grid-template-columns:1fr;gap:10px}
@@ -2343,14 +2354,6 @@ tbody tr:hover td{background:var(--surface-2)}
 .wsBtn-label{line-height:1.3;text-align:center}
 
 /* ═══════════════════════════════════════════════════════════════
-   AUDIT LOG TABLE
-   ═══════════════════════════════════════════════════════════════ */
-.auditTable{font-size:var(--fs-xs);min-width:700px}
-.auditTable th{background:var(--surface-3);padding:10px 12px;text-align:start;border-bottom:2px solid var(--line)}
-.auditTable td{padding:9px 12px;vertical-align:middle}
-.auditCell-time{color:var(--muted);white-space:nowrap;font-size:10px}
-
-/* ═══════════════════════════════════════════════════════════════
    RESPONSIVE — COMPONENTS
    ═══════════════════════════════════════════════════════════════ */
 @media(max-width:1040px){
@@ -2367,8 +2370,6 @@ tbody tr:hover td{background:var(--surface-2)}
 }
 @media(max-width:600px){
   .roles-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .auditTable{font-size:10px}
-  .auditTable th,.auditTable td{padding:7px 8px}
   .userSummaryGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .formGrid{grid-template-columns:1fr}
   .formGrid-4{grid-template-columns:1fr}
@@ -2395,10 +2396,8 @@ tbody tr:hover td{background:var(--surface-2)}
 
 @media(max-width:768px){
   .usersTable th,.usersTable td,
-  .perfTable th,.perfTable td,
-  .auditTable th,.auditTable td{display:block}
-  .usersTable thead,.perfTable thead,.auditTable thead{display:none}
+  .perfTable th,.perfTable td{display:block}
+  .usersTable thead,.perfTable thead{display:none}
   .usersTableWrap,.perfTableWrap{overflow:visible}
-  .auditTable{min-width:0}
   .usersTable td:nth-child(2),.usersTable td:nth-child(3){display:block}
 }

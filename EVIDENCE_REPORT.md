@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-نظام العناية بالمرافق تم تطويره كنموذج أولي (Prototype) لعرضه على إدارة الحوكمة ومخاطر الأمن السيبراني. تم تنفيذ مراجعة أمنية شاملة تضمنت إزالة كافة كلمات المرور من الكود، تحويل التخزين إلى قاعدة بيانات SQLite، تطبيق المصادقة عبر HttpOnly Cookie، وتسجيل جميع العمليات الحساسة في Audit Log.
+نظام العناية بالمرافق تم تطويره كنموذج أولي (Prototype) لعرضه على إدارة الحوكمة ومخاطر الأمن السيبراني. تم تنفيذ مراجعة أمنية شاملة تضمنت إزالة كافة كلمات المرور من الكود، تحويل التخزين إلى قاعدة بيانات SQLite، وتطبيق المصادقة عبر HttpOnly Cookie.
 
 **النتيجة:** 27/28 اختبارًا نجح (الاختبار 28 فشل فقط بسبب تصادم مع rate limiter في نفس الجلسة — سلوك صحيح وليس خللًا).
 
@@ -18,13 +18,13 @@
 
 | File | Change |
 |------|--------|
-| `server.js` | Complete rewrite: SQLite, cookie auth, security headers, audit logs, photo file storage, RBAC |
+| `server.js` | Complete rewrite: SQLite, cookie auth, security headers, photo file storage, RBAC |
 | `db.js` | New: SQLite module with migration system (v1 schema) |
 | `scripts/seed-demo.js` | New: credential-free seeder — reads from env vars or generates random passwords |
 | `public/app.js` | Removed token storage, cookie-based auth, SSE fix, prototype banners |
 | `public/styles.css` | Prototype banner styles |
 | `package.json` | Added `better-sqlite3`, renamed project, added `seed` script |
-| `.gitignore` | Comprehensive: excludes data.db, uploads/, audit.log, *.xlsx, *.pdf |
+| `.gitignore` | Comprehensive: excludes data.db, uploads/, *.xlsx, *.pdf |
 | `.env.example` | New: all env vars documented, no values |
 | `data.example.json` | New: schema reference only |
 | `VULNERABILITY_ACTION_PLAN.md` | Updated: full vuln register + permission matrix |
@@ -36,7 +36,7 @@
 
 ```
 users, sessions, locations, zones, assignments,
-tickets, reports, photos, audit_logs, settings, _migrations
+tickets, reports, photos, settings, _migrations
 ```
 
 All tables include `created_at`, `updated_at`. Critical tables have `deleted_at` (soft delete).
@@ -67,7 +67,6 @@ All tables include `created_at`, `updated_at`. Critical tables have `deleted_at`
 | POST | `/api/reports/review` | admin/fm/mgr/sup | Approve/reject report |
 | DELETE | `/api/reports/:id` | admin/fm/mgr | Soft delete report |
 | GET | `/api/reports.csv` | admin/fm/mgr/sup | CSV export |
-| GET | `/api/audit-logs` | admin only | View audit logs |
 | GET | `/uploads/:file` | Cookie (auth) | Serve photo (UUID filename only) |
 
 ---
@@ -116,23 +115,12 @@ Cache-Control: no-store
 
 ---
 
-## 7. Audit Log Evidence (DB table)
-
-Actions recorded: `login`, `login_failed`, `logout`, `change_password`, `user_created`, `user_updated`, `user_deleted`, `assignment_updated`, `ticket_created`, `ticket_completed`, `ticket_updated`, `ticket_deleted`, `report_created`, `report_reviewed`, `report_deleted`, `export_reports`
-
-Each log entry contains: `ts`, `action`, `user_id`, `username`, `role`, `ip`, `user_agent`, `target_type`, `target_id`, `result`, `extra (JSON)`
-
-**Verified:** Audit logs stored in `audit_logs` DB table (not in `audit.log` file on disk) ✓
-
----
-
 ## 8. Repository Cleanup Evidence
 
 ```
 ✓ data.json        — not tracked (in .gitignore)
 ✓ data.db          — not tracked (in .gitignore)
 ✓ uploads/         — not tracked (in .gitignore)
-✓ audit.log        — not tracked (in .gitignore)
 ✓ node_modules/    — not tracked
 ✓ .env             — not tracked
 ✓ *.xlsx, *.pdf    — not tracked
@@ -182,7 +170,6 @@ Each log entry contains: `ts`, `action`, `user_id`, `username`, `role`, `ip`, `u
 | Statement | Verified |
 |-----------|---------|
 | No `data.json` in repository | ✓ |
-| No `audit.log` in repository | ✓ |
 | No passwords in server.js or db.js | ✓ |
 | No token in localStorage, sessionStorage, or URL | ✓ |
 | No High/Critical npm vulnerabilities (0 found) | ✓ |
@@ -190,7 +177,6 @@ Each log entry contains: `ts`, `action`, `user_id`, `username`, `role`, `ip`, `u
 | Prototype banner shown on every page | ✓ |
 | Visual identity used for simulation purposes only | ✓ |
 | DB-backed sessions survive server restart | ✓ |
-| DB-backed audit logs with full schema | ✓ |
 | Photos stored as files on disk (not base64 in DB) | ✓ |
 | All API authorization enforced in backend | ✓ |
 

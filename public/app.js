@@ -78,7 +78,7 @@ const T = {
     demoAccounts:'حسابات تجريبية',scanQR:'مسح QR',
     reportSent:'تم إرسال التقرير بنجاح',offlineSaved:'تم حفظ التقرير للمزامنة لاحقاً',
     pendingSync:'تقارير معلقة',noTickets:'لا توجد بلاغات',
-    reportQuality:'جودة التقرير',filterAll:'الكل',filterPending:'معلق',filterApproved:'معتمد',
+    reportQuality:'جودة التقرير',filterAll:'الكل',filterNew:'جديد',filterPending:'معلق',filterApproved:'معتمد',
     workerName:'اسم العامل',reportsCount:'التقارير',locationsCount:'المرافق',usersCount:'المستخدمون',
     workersCount:'العمال',step1:'اختر الموقع',step2:'نفّذ البنود',step3:'التقط الصور',step4:'أرسل',
     myTickets:'بلاغاتي',priorityHigh:'أولوية عالية',
@@ -102,8 +102,6 @@ const T = {
     switchWorkspace:'تغيير',workspaceHint:'لديك أكثر من صلاحية. اختر مساحة العمل للمتابعة.',
     slaDeadline:'موعد SLA',slaBreached:'تجاوز SLA',slaOverdue:'تجاوز المهلة',
     slaOk:'ملتزم',slaWarning:'قريب من المهلة',slaReport:'تقرير SLA',
-    auditLog:'سجل التدقيق',auditAction:'الإجراء',auditUser:'المستخدم',
-    auditTarget:'الهدف',auditResult:'النتيجة',auditTime:'الوقت',
     addRole:'إضافة صلاحية',removeRole:'إزالة',rolesLabel:'الصلاحيات',
     complianceRate:'نسبة الالتزام',avgCompletionTime:'متوسط وقت الإنجاز',
     mins:'دقيقة',hours:'ساعة',
@@ -155,7 +153,7 @@ const T = {
     demoAccounts:'Demo Accounts',scanQR:'Scan QR',
     reportSent:'Report submitted successfully',offlineSaved:'Report saved offline for later sync',
     pendingSync:'Pending Sync',noTickets:'No tickets',
-    reportQuality:'Report Quality',filterAll:'All',filterPending:'Pending',filterApproved:'Approved',
+    reportQuality:'Report Quality',filterAll:'All',filterNew:'New',filterPending:'Pending',filterApproved:'Approved',
     workerName:'Worker',reportsCount:'Reports',locationsCount:'Locations',usersCount:'Users',
     workersCount:'Workers',step1:'Select Site',step2:'Complete Tasks',step3:'Take Photos',step4:'Submit',
     myTickets:'My Tickets',priorityHigh:'High Priority',
@@ -180,8 +178,6 @@ const T = {
     switchWorkspace:'Switch',workspaceHint:'You have multiple roles. Select a workspace to continue.',
     slaDeadline:'SLA Deadline',slaBreached:'SLA Breached',slaOverdue:'Overdue',
     slaOk:'On Track',slaWarning:'Near Deadline',slaReport:'SLA Report',
-    auditLog:'Audit Log',auditAction:'Action',auditUser:'User',
-    auditTarget:'Target',auditResult:'Result',auditTime:'Time',
     addRole:'Add Role',removeRole:'Remove',rolesLabel:'Roles',
     complianceRate:'Compliance Rate',avgCompletionTime:'Avg Completion Time',
     mins:'min',hours:'hr',
@@ -237,7 +233,6 @@ const IC = {
   shield:`<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
   layers:`<svg viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`,
   filter:`<svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>`,
-  log:`<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>`,
   'alert-triangle':`<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
   chevron:`<svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>`,
   lock:`<svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
@@ -821,14 +816,6 @@ function render(){
     });
     return;
   }
-  if(view==='auditlog'){
-    shell(`<div style="text-align:center;padding:40px">${ic('clock',28)}</div>`);
-    auditLogPage().then(html=>{
-      const main=document.querySelector('.platform-main .pageAnim');
-      if(main) main.innerHTML=html;
-    });
-    return;
-  }
   const fn = {dashboard:dash,reports:reports,tickets:tickets,locations:locations,assignments:assignments,users:users}[view]||dash;
   shell(fn());
   if(view==='assignments') setTimeout(fillAssign, 0);
@@ -981,7 +968,6 @@ function shell(content){
           ${navItem('assignments',tr('assignments'),'assignments',0)}
           ${canUsers()?navItem('users',tr('users'),'users',0):''}
           ${canReview()?navItem('performance',tr('performance'),'bar-chart',0):''}
-          ${canManage()?navItem('auditlog',tr('auditLog'),'log',0):''}
         </div>
       </div>
     </aside>
@@ -1073,8 +1059,7 @@ function showMobileNavMore(){
     {v:'locations', label:tr('locations'), icon:'locations'},
     {v:'assignments', label:tr('assignments'), icon:'assignments'},
     ...(canUsers()?[{v:'users', label:tr('users'), icon:'users'}]:[]),
-    ...(canReview()?[{v:'performance', label:tr('performance'), icon:'bar-chart'}]:[]),
-    ...(canManage()?[{v:'auditlog', label:tr('auditLog'), icon:'log'}]:[])
+    ...(canReview()?[{v:'performance', label:tr('performance'), icon:'bar-chart'}]:[])
   ];
   const body = `<div class="mobileMoreGrid">
     ${items.map(item=>`<button class="mobileMoreItem${view===item.v?' active':''}" onclick="document.getElementById('mobileNavModal')?.remove();${item.action||`navigateTo('${item.v}')`}">
@@ -1298,15 +1283,18 @@ function taskDone(tasks,pair){return (tasks||[]).includes(pair[0])||(tasks||[]).
 
 function reports(){
   const filters = [
-    {key:'all',label:tr('filterAll')},
+    {key:'new',label:tr('filterNew')},
     {key:'pending',label:tr('filterPending')},
     {key:'approved',label:tr('filterApproved')},
     {key:'rejected',label:lang==='ar'?'مرفوض':'Rejected'},
     {key:'needs_recleaning',label:tr('reclean')},
+    {key:'all',label:tr('filterAll')},
   ];
   const filtered = (data.reports||[]).filter(r=>{
     if(reportFilter==='all') return true;
-    if(reportFilter==='pending') return (r.approvalStatus||'pending')==='pending_approval'||(r.approvalStatus||'pending')==='pending';
+    if(reportFilter==='new' || reportFilter==='pending') {
+      return (r.approvalStatus||'pending')==='pending_approval'||(r.approvalStatus||'pending')==='pending';
+    }
     return r.approvalStatus===reportFilter;
   });
   return`
@@ -3321,68 +3309,6 @@ function renderWorkspaceSwitcher(){
     </button>`).join('')}
   </div>`;
   showModal('wsModal', tr('switchWorkspace'), body, null, {narrow:true});
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   AUDIT LOG PAGE
-   ═══════════════════════════════════════════════════════════════ */
-async function auditLogPage(){
-  try{
-    const action = document.getElementById('auditFilter')?.value||'';
-    const user   = document.getElementById('auditUser')?.value||'';
-    const url    = `/audit-logs?limit=200${action?'&action='+encodeURIComponent(action):''}${user?'&user='+encodeURIComponent(user):''}`;
-    const res = await api(url);
-    const logs = res.logs||[];
-    const actionColors={
-      login:'ok',logout:'',login_failed:'bad',workspace_switch:'brand',
-      user_created:'ok',user_updated:'',user_deleted:'bad',
-      ticket_created:'ok',ticket_completed:'ok',ticket_deleted:'bad',
-      report_created:'ok',report_reviewed:'brand',report_deleted:'bad',
-      order_created:'ok',report_rated:'',
-      user_role_added:'ok',user_role_removed:'bad',
-      audit_viewed:'',export_reports:''
-    };
-    return`<div class="pageTitle">${tr('auditLog')}</div>
-    <div class="card" style="margin-bottom:12px">
-      <div class="filterBar">
-        ${inp('auditFilter',{value:action, placeholder:lang==='ar'?'فلتر بالإجراء':'Filter by action', cls:'ctrl-flex', onchange:"if(event.key==='Enter')navigateTo('auditlog')"})}
-        ${inp('auditUser',{value:user, placeholder:lang==='ar'?'فلتر بالمستخدم':'Filter by user', cls:'ctrl-flex', onchange:"if(event.key==='Enter')navigateTo('auditlog')"})}
-        <button class="btn sm" onclick="navigateTo('auditlog')">${ic('filter',14)} ${lang==='ar'?'تطبيق':'Apply'}</button>
-      </div>
-    </div>
-    <div class="card" style="padding:0;overflow:hidden">
-      <div style="overflow-x:auto">
-        <table class="auditTable">
-          <thead><tr>
-            <th>${tr('auditTime')}</th>
-            <th>${tr('auditAction')}</th>
-            <th>${tr('auditUser')}</th>
-            <th>${tr('role')}</th>
-            <th>${tr('auditTarget')}</th>
-            <th>${tr('auditResult')}</th>
-          </tr></thead>
-          <tbody>
-          ${logs.length?logs.map(l=>{
-            const clr=actionColors[l.action]||'';
-            let extra='';
-            try{ const ex=JSON.parse(l.extra||'{}'); extra=Object.entries(ex).map(([k,v])=>`${k}:${v}`).join(', '); }catch{}
-            return`<tr>
-              <td class="auditCell-time">${fmt(l.ts)}</td>
-              <td><span class="badge ${clr}" style="font-size:10px">${esc(l.action)}</span></td>
-              <td>${esc(l.username||'—')}</td>
-              <td><span class="badge" style="font-size:10px">${esc(l.role||'—')}</span></td>
-              <td style="font-size:var(--fs-xs);color:var(--muted)">${esc(l.target_type?l.target_type+':'+l.target_id:'—')}${extra?` <span style="opacity:.6">(${esc(extra)})</span>`:''}</td>
-              <td><span class="badge ${l.result==='success'?'ok':'bad'}" style="font-size:10px">${esc(l.result)}</span></td>
-            </tr>`;
-          }).join(''):`<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted)">${tr('noData')}</td></tr>`}
-          </tbody>
-        </table>
-      </div>
-      <div style="padding:10px 16px;font-size:var(--fs-xs);color:var(--muted);border-top:1px solid var(--border)">${lang==='ar'?'إجمالي السجلات':'Total records'}: ${res.total||0}</div>
-    </div>`;
-  }catch(e){
-    return`<div class="card"><div class="empty-state">${ic('shield',28)}<div class="empty-title">${e.message||'Error'}</div></div></div>`;
-  }
 }
 
 /* ─── INIT ───────────────────────────────────────────────────── */

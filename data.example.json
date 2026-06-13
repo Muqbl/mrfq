@@ -8,7 +8,6 @@
     "assignments": "See: db.js migration — assignments table",
     "tickets":     "See: db.js migration — tickets table",
     "reports":     "See: db.js migration — reports table",
-    "photos":      "See: db.js migration — photos table",
-    "audit_logs":  "See: db.js migration — audit_logs table"
+    "photos":      "See: db.js migration — photos table"
   }
 }
