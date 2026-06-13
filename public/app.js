@@ -612,6 +612,7 @@ async function login(){
 async function logout(){
   try{ await api('/logout',{method:'POST'}); }catch{ /* server already cleared session */ }
   me=null;data=null;forcePasswordChange=false;workspaceSelected=false;
+  adminModuleContext=null;adminView='dashboard';
   sessionStorage.removeItem('wsSelected');
   if(eventSource){eventSource.close();eventSource=null;}
   viewHistory=[];
