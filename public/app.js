@@ -338,7 +338,8 @@ function setQ(q){localStorage.setItem(offlineKey,JSON.stringify(q))}
 
 /* ─── API ────────────────────────────────────────────────────── */
 async function api(path,opt={}){
-  const r = await fetch('/api'+path,{
+  const cleanPath = String(path||'').replace(/^\/?api\/?/, '/');
+  const r = await fetch('/api'+cleanPath,{
     ...opt,
     credentials:'include',
     headers:{
@@ -1536,8 +1537,15 @@ function exportPDFReports(){
   tr:nth-child(even) td{background:#F8FAF9}
   .ok{color:#00A488;font-weight:700} .bad{color:#DE7559;font-weight:700} .warn{color:#E69E33;font-weight:700}
   .footer{margin-top:16px;font-size:10px;color:#8A989C;text-align:center}
-  @media print{body{padding:12px}@page{margin:15mm}}
+  .pdfActions{display:flex;gap:10px;justify-content:flex-end;align-items:center;margin-bottom:18px}
+  .pdfBtn{border:1px solid #D8E6E2;background:#fff;color:#005257;border-radius:14px;padding:9px 16px;font:700 13px 'IBMPlexArabic',Tahoma,Arial,sans-serif;cursor:pointer}
+  .pdfBtn.primary{background:#00848D;border-color:#00848D;color:#fff}
+  @media print{body{padding:12px}.pdfActions{display:none!important}@page{margin:15mm}}
 </style></head><body>
+<div class="pdfActions">
+  <button class="pdfBtn" onclick="window.opener&&window.opener.focus();window.close();">${lang==='ar'?'رجوع':'Back'}</button>
+  <button class="pdfBtn primary" onclick="window.print()">${lang==='ar'?'طباعة PDF':'Print PDF'}</button>
+</div>
 <div class="header">
   <div><div class="brand">إدارة المرافق</div><div class="meta">${tr('reports')} · ${fmtDate(new Date())} · ${items.length} ${lang==='ar'?'تقرير':'records'}</div></div>
   <div class="meta">${lang==='ar'?'مُصدَّر بواسطة: ':'Exported by: '}${esc(me.name)}</div>
@@ -3051,7 +3059,14 @@ td{padding:8px 10px;border-bottom:1px solid #E1E9E6;vertical-align:top}
 tr:nth-child(even) td{background:#F8FAF9}
 .ok{color:#00A488;font-weight:700}.bad{color:#DE7559;font-weight:700}.warn{color:#E69E33;font-weight:700}
 .footer{margin-top:16px;font-size:10px;color:#8A989C;text-align:center}
-@media print{body{padding:12px}@page{margin:15mm}}</style></head><body>
+.pdfActions{display:flex;gap:10px;justify-content:flex-end;align-items:center;margin-bottom:18px}
+.pdfBtn{border:1px solid #D8E6E2;background:#fff;color:#005257;border-radius:14px;padding:9px 16px;font:700 13px 'IBMPlexArabic',Arial,sans-serif;cursor:pointer}
+.pdfBtn.primary{background:#00848D;border-color:#00848D;color:#fff}
+@media print{body{padding:12px}.pdfActions{display:none!important}@page{margin:15mm}}</style></head><body>
+<div class="pdfActions">
+  <button class="pdfBtn" onclick="window.opener&&window.opener.focus();window.close();">${lang==='ar'?'رجوع':'Back'}</button>
+  <button class="pdfBtn primary" onclick="window.print()">${lang==='ar'?'طباعة PDF':'Print PDF'}</button>
+</div>
 <div class="header">
   <div><div class="brand">REGA — ${tr('performance')}</div><div class="meta">${new Date().toISOString().slice(0,10)} · ${lang==='ar'?'آخر 30 يوم':'Last 30 days'}</div></div>
   <div class="meta">${lang==='ar'?'مُصدَّر بواسطة: ':'Exported by: '}${esc(me.name)}</div>

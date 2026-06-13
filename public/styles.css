@@ -1141,12 +1141,12 @@ tbody tr:hover td{background:var(--surface-2)}
 .reportCard-thumb:hover{opacity:.9}
 .reportCard-body{padding:16px;display:grid;gap:10px}
 .reportCard-actions{
-  display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:10px;
-  padding:14px 16px;border-top:1px solid var(--line-soft);
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px;align-items:stretch;gap:10px;
+  padding:12px 16px 14px;border-top:1px solid var(--line-soft);
   background:transparent;
 }
 .reportCard-actions .action-btn{
-  flex:1;min-width:0;min-height:40px;
+  width:100%;min-width:0;min-height:42px;
   padding:8px 14px;font-size:var(--fs-xs);font-weight:800;
   border-radius:14px;justify-content:center;gap:8px;
   letter-spacing:0;
@@ -1154,22 +1154,22 @@ tbody tr:hover td{background:var(--surface-2)}
 .reportCard-actions .action-btn svg{
   width:15px;height:15px;flex:0 0 15px;stroke-width:2.1;
 }
-.reportCard-actions-primary{display:flex;gap:6px;min-width:0}
-.reportCard-actions-secondary{display:flex;gap:6px;flex-shrink:0}
-.reportCard-actions-danger{display:flex;gap:6px;flex-shrink:0}
+.reportCard-actions-primary{grid-column:1/-1;display:grid;min-width:0}
+.reportCard-actions-secondary{grid-column:1/3;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:0}
+.reportCard-actions-danger{grid-column:3;display:grid;min-width:0}
 .reportCard-actions .btn.ok{
-  background:var(--rega-teal);border-color:var(--rega-teal);color:#fff;
-  box-shadow:0 8px 18px rgba(0,132,141,.12);
+  background:var(--brand-mid);border-color:var(--brand-mid);color:#fff;
+  box-shadow:none;
 }
 .reportCard-actions .btn.warn{
-  background:#fff;border-color:rgba(230,158,51,.38);color:var(--rega-brown);
+  background:var(--warn);border-color:var(--warn);color:#fff;
 }
 .reportCard-actions .btn.danger{
-  background:#fff;border-color:rgba(222,117,89,.48);color:var(--rega-coral);
+  background:#fff;border-color:var(--bad);color:var(--bad);
 }
 .reportCard-actions .reportDeleteBtn{
-  width:40px;min-width:40px;padding:0;color:var(--rega-coral);
-  border-color:rgba(222,117,89,.42);background:#fff;
+  width:44px;min-width:44px;padding:0;color:var(--bad);
+  border-color:rgba(222,117,89,.48);background:#fff;
 }
 .reportCard-loc{font-family:var(--font-head);font-weight:800;font-size:var(--fs-md);color:var(--ink);line-height:1.3}
 .reportCard-meta{font-size:var(--fs-xs);color:var(--muted);direction:ltr;unicode-bidi:embed;text-align:left}
@@ -1905,10 +1905,14 @@ tbody tr:hover td{background:var(--surface-2)}
   .reportCard-media.single .reportCard-thumb{height:auto;aspect-ratio:16/10;max-height:none}
   .reportCard-body{padding:14px;gap:8px}
   .reportCard-meta{white-space:normal;line-height:1.55}
-  .reportCard-actions{padding:10px;display:grid;grid-template-columns:1fr;gap:7px}
-  .reportCard-actions-primary,.reportCard-actions-secondary,.reportCard-actions-danger{display:grid;grid-template-columns:1fr;gap:7px;width:100%}
-  .reportCard-actions-secondary{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .reportCard-actions .action-btn{min-height:38px}
+  .reportCard-actions{
+    padding:10px;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 46px;gap:8px;
+  }
+  .reportCard-actions-primary{grid-column:1/-1}
+  .reportCard-actions-secondary{grid-column:1/3;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .reportCard-actions-danger{grid-column:3}
+  .reportCard-actions .action-btn{min-height:42px;padding:7px 10px}
+  .reportCard-actions .reportDeleteBtn{width:46px;min-width:46px}
   .ratingRow{grid-template-columns:1fr}
 
   .ticketCard,.locCard,.supTicketCard,.empOrderCard{
@@ -2374,8 +2378,6 @@ tbody tr:hover td{background:var(--surface-2)}
   .formGrid{grid-template-columns:1fr}
   .formGrid-4{grid-template-columns:1fr}
   .usersFilterBar{padding:10px 12px}
-  .reportCard-actions{flex-direction:column;align-items:stretch}
-  .reportCard-actions-primary,.reportCard-actions-secondary{width:100%}
 }
 
 
