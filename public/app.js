@@ -2271,7 +2271,6 @@ function renderWorker(){
   const param = parseLoc(qrFromUrl || qrFromStorage);
   if(param) sessionStorage.removeItem('qr_loc');
   const myReports=(data.reports||[]).filter(r=>r.workerId===me.id).slice(0,12);
-  const reviewed=myReports.filter(r=>r.approvalStatus&&r.approvalStatus!=='pending');
 
   const ticketsBlock = myTickets.length?`
     ${myTickets.length?`
@@ -2336,7 +2335,7 @@ function renderWorker(){
     ? reportsBlock
     : workerView==='assigned'
       ? assignedBlock
-      : `${ticketsBlock}${reviewed.length?reportsBlock:''}${startBlock}`;
+      : `${ticketsBlock}${startBlock}`;
 
   app.innerHTML = fieldShell(me, workerContent, {sync:true});
   if(param) setTimeout(startForm, 150);
