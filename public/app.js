@@ -128,6 +128,22 @@ const T = {
     moduleStatusActive:'نشط',moduleStatusPlanned:'مخطط',
     systemAdminConsole:'لوحة النظام',
     cleaningTeam:'فريق النظافة',facilityConsole:'لوحة مدير المرافق',
+    moduleStatusInProgress:'قيد التطوير',
+    hospitalityInProgressNote:'قيد التطوير — تم تأسيس الطلبات وواجهة العامل',
+    hospitalityOrder:'طلب ضيافة',hospitalityOrderDesc:'اختر الخدمة والموقع وأرسل الطلب',
+    orderType:'نوع الطلب',
+    ot_coffee:'قهوة',ot_tea:'شاي',ot_water:'مياه',ot_snacks:'وجبات خفيفة',
+    ot_meeting_service:'خدمة قاعة اجتماعات',ot_other:'أخرى',
+    itemsLabel:'العناصر',itemsPlaceholder:'اكتب العناصر المطلوبة (اختياري)',
+    myHospitalityOrders:'طلبات الضيافة',noHospitalityOrders:'لا توجد طلبات ضيافة بعد',
+    hospOrderSent:'تم إرسال طلب الضيافة بنجاح',submitHospOrder:'إرسال الطلب',
+    hospitalityWorkerTitle:'طلبات الضيافة',hospitalityWorkerDesc:'الطلبات المسندة إليك',
+    noAssignedHospOrders:'لا توجد طلبات مسندة حالياً',
+    startPreparing:'بدء التحضير',markReady:'جاهز',
+    outForDelivery:'خروج للتوصيل',markDelivered:'تم التسليم',
+    hospitalityPlaceholderTitle:'الضيافة',
+    hospitalityPlaceholderDesc:'لوحة هذا الدور قيد التطوير في المرحلة القادمة',
+    invalidTransitionMsg:'لا يمكن تنفيذ هذا الإجراء الآن',
   },
   en:{
     app:'إدارة المرافق',sub:'Professional management for every facility, at any time',
@@ -221,6 +237,22 @@ const T = {
     moduleStatusActive:'Active',moduleStatusPlanned:'Planned',
     systemAdminConsole:'System Console',
     cleaningTeam:'Cleaning Team',facilityConsole:'Facility Manager Console',
+    moduleStatusInProgress:'In Progress',
+    hospitalityInProgressNote:'In progress — orders and worker interface established',
+    hospitalityOrder:'Hospitality Order',hospitalityOrderDesc:'Choose the service and location, then submit your order',
+    orderType:'Order Type',
+    ot_coffee:'Coffee',ot_tea:'Tea',ot_water:'Water',ot_snacks:'Snacks',
+    ot_meeting_service:'Meeting Room Service',ot_other:'Other',
+    itemsLabel:'Items',itemsPlaceholder:'List the requested items (optional)',
+    myHospitalityOrders:'Hospitality Orders',noHospitalityOrders:'No hospitality orders yet',
+    hospOrderSent:'Hospitality order sent successfully',submitHospOrder:'Submit Order',
+    hospitalityWorkerTitle:'Hospitality Orders',hospitalityWorkerDesc:'Orders assigned to you',
+    noAssignedHospOrders:'No orders assigned yet',
+    startPreparing:'Start Preparing',markReady:'Mark Ready',
+    outForDelivery:'Out for Delivery',markDelivered:'Mark Delivered',
+    hospitalityPlaceholderTitle:'Hospitality',
+    hospitalityPlaceholderDesc:'This role dashboard is in progress for an upcoming phase',
+    invalidTransitionMsg:'This action cannot be performed right now',
   }
 };
 
@@ -272,6 +304,8 @@ const IC = {
   lock:`<svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
   settings:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
   tool:`<svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94L5.41 21.41a2 2 0 0 1-2.83-2.83L10.66 10.5a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
+  coffee:`<svg viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>`,
+  truck:`<svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>`,
 };
 const ic=(name,size=18)=>`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${IC[name]?.replace(/<svg[^>]*>/,'').replace(/<\/svg>/,'')??''}</svg>`;
 
@@ -309,9 +343,11 @@ const MODULES = [
   {key:'maintenance', icon:'tool', status:'planned',
     nameAr:'الصيانة', nameEn:'Maintenance',
     descAr:'صيانة المرافق والأجهزة', descEn:'Facilities and equipment maintenance'},
-  {key:'hospitality', icon:'star', status:'planned',
+  {key:'hospitality', icon:'coffee', status:'in_progress',
     nameAr:'الضيافة', nameEn:'Hospitality',
-    descAr:'خدمات الضيافة والاستقبال', descEn:'Hospitality and reception services'},
+    descAr:'خدمات الضيافة والاستقبال', descEn:'Hospitality and reception services',
+    noteAr:'قيد التطوير — تم تأسيس الطلبات وواجهة العامل',
+    noteEn:'In progress — orders and worker interface established'},
   {key:'security', icon:'shield', status:'planned',
     nameAr:'الأمن', nameEn:'Security',
     descAr:'إدارة الأمن والمراقبة', descEn:'Security and surveillance management'},
@@ -322,6 +358,24 @@ const MODULES = [
     nameAr:'خدمة العملاء', nameEn:'Customer Service',
     descAr:'طلبات وملاحظات المستخدمين', descEn:'User requests and feedback'}
 ];
+
+/* ─── HOSPITALITY MODULE — order types & status labels ─────────── */
+const HOSPITALITY_ORDER_TYPES = ['coffee','tea','water','snacks','meeting_service','other'];
+
+const HOSPITALITY_STATUS_LABELS = {
+  ar:{submitted:'جديد',accepted:'مقبول',preparing:'قيد التحضير',ready:'جاهز',
+      out_for_delivery:'في الطريق',delivered:'تم التسليم',completed:'مكتمل',
+      cancelled:'ملغي',rejected:'مرفوض'},
+  en:{submitted:'New',accepted:'Accepted',preparing:'Preparing',ready:'Ready',
+      out_for_delivery:'Out for Delivery',delivered:'Delivered',completed:'Completed',
+      cancelled:'Cancelled',rejected:'Rejected'}
+};
+const hospStatusLabel = s => (HOSPITALITY_STATUS_LABELS[lang]&&HOSPITALITY_STATUS_LABELS[lang][s]) || s;
+const hospStatusBadgeClass = s =>
+  s==='completed' ? 'ok'
+  : ['cancelled','rejected'].includes(s) ? 'bad'
+  : ['delivered','out_for_delivery','ready'].includes(s) ? 'warn'
+  : 'brand';
 
 const app = document.getElementById('app');
 const tr = k => (T[lang]&&T[lang][k]) || k;
@@ -519,6 +573,23 @@ function connectSSE(){
   eventSource.addEventListener('ticket_waiting_verification',e=>{
     playSound('approved');
     toast(lang==='ar'?'بلاغ بانتظار التحقق':'Ticket awaiting verification','ok');
+    load();
+  });
+  eventSource.addEventListener('hospitality_order_created',e=>{
+    const d=JSON.parse(e.data);
+    if(['hospitality_supervisor','hospitality_manager','system_admin','facility_manager'].includes(me.role)){
+      playSound('new_ticket');
+      toast(lang==='ar'?'طلب ضيافة جديد: '+(d.order.referenceNo||''):'New hospitality order: '+(d.order.referenceNo||''),'warn');
+    }
+    load();
+  });
+  eventSource.addEventListener('hospitality_order_updated',e=>{
+    const d=JSON.parse(e.data);
+    if(me.role==='hospitality_worker' && d.order.assignedTo===me.id ||
+       me.role==='employee' && d.order.requestedById===me.id){
+      playSound('new_report');
+      toast(lang==='ar'?'تحديث طلب الضيافة: '+hospStatusLabel(d.order.status):'Hospitality order updated: '+hospStatusLabel(d.order.status),'ok');
+    }
     load();
   });
   eventSource.onerror=()=>{
@@ -816,10 +887,12 @@ function renderFieldTabs(){
   }
   if(me.role==='employee'){
     const activeCount = (data?.tickets||[]).filter(t=>t.createdById===me.id&&!['completed','rejected','cancelled'].includes(t.status)).length;
+    const hospCount = (data?.hospitalityOrders||[]).filter(o=>!['completed','cancelled','rejected'].includes(o.status)).length;
     return `<div class="fieldTabs" role="tablist">
       ${mk(employeeView==='home','dashboard',lang==='ar'?'الرئيسية':'Home',"employeeView='home';mobileNavActive='employee-home';renderEmployee()")}
       ${mk(employeeView==='new','send',lang==='ar'?'طلب جديد':'New',"employeeView='new';mobileNavActive='employee-new';renderEmployee()")}
       ${mk(employeeView==='history','clipboardList',tr('myRequests'),"employeeView='history';mobileNavActive='employee-history';renderEmployee()",activeCount)}
+      ${mk(employeeView==='hospitality','coffee',tr('hospitality'),"employeeView='hospitality';mobileNavActive='employee-hospitality';renderEmployee()",hospCount)}
       ${mk(employeeView==='more','menu',lang==='ar'?'المزيد':'More',"employeeView='more';mobileNavActive='employee-more';renderEmployee()")}
     </div>`;
   }
@@ -871,6 +944,8 @@ function render(){
   if(me.role==='cleaner') return renderWorker();
   if(me.role==='employee') return renderEmployee();
   if(me.role==='cleaning_supervisor') return renderSupervisor();
+  if(me.role==='hospitality_worker') return renderHospitalityWorker();
+  if(me.role==='hospitality_manager' || me.role==='hospitality_supervisor') return renderHospitalityPlaceholder();
   if(me.role==='system_admin' && !adminModuleContext) return renderSystemAdmin();
   if(me.role==='facility_manager' && !adminModuleContext) return renderFacilityConsole();
   setDoc();
@@ -1081,11 +1156,13 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
   let showMore = isAdmin;
   if(role==='employee'){
     const activeCount = (data?.tickets||[]).filter(t=>t.createdById===me.id&&!['completed','rejected','cancelled'].includes(t.status)).length;
+    const hospCount = (data?.hospitalityOrders||[]).filter(o=>!['completed','cancelled','rejected'].includes(o.status)).length;
     showMore = false;
     primary = [
       {v:'employee-home', label:lang==='ar'?'الرئيسية':'Home', icon:'dashboard', count:0, action:"employeeView='home';mobileNavActive='employee-home';renderEmployee()", active:employeeView==='home'},
       {v:'employee-new', label:lang==='ar'?'طلب جديد':'New', icon:'send', count:0, action:"employeeView='new';mobileNavActive='employee-new';renderEmployee()", active:employeeView==='new'},
       {v:'employee-history', label:tr('myRequests'), icon:'clipboardList', count:activeCount, action:"employeeView='history';mobileNavActive='employee-history';renderEmployee()", active:employeeView==='history'},
+      {v:'employee-hospitality', label:tr('hospitality'), icon:'coffee', count:hospCount, action:"employeeView='hospitality';mobileNavActive='employee-hospitality';renderEmployee()", active:employeeView==='hospitality'},
       {v:'employee-more', label:lang==='ar'?'المزيد':'More', icon:'menu', count:0, action:"employeeView='more';mobileNavActive='employee-more';renderEmployee()", active:employeeView==='more'}
     ];
   }else if(role==='cleaner'){
@@ -1103,6 +1180,17 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
       {v:'supervisor-requests', label:lang==='ar'?'الطلبات':'Requests', icon:'tickets', count:openTickets, action:"supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()", active:supervisorView==='requests'},
       {v:'supervisor-team', label:lang==='ar'?'الفريق':'Team', icon:'users', count:0, action:"supervisorView='team';mobileNavActive='supervisor-team';renderSupervisor()", active:supervisorView==='team'},
       {v:'supervisor-reports', label:tr('reports'), icon:'reports', count:pendingReports, action:"supervisorView='reports';mobileNavActive='supervisor-reports';renderSupervisor()", active:supervisorView==='reports'}
+    ];
+  }else if(role==='hospitality_worker'){
+    showMore = false;
+    const hospCount = (data?.hospitalityOrders||[]).filter(o=>!['completed','cancelled','rejected'].includes(o.status)).length;
+    primary = [
+      {v:'hosp-worker', label:tr('hospitalityWorkerTitle'), icon:'coffee', count:hospCount, action:"render()", active:true}
+    ];
+  }else if(role==='hospitality_manager' || role==='hospitality_supervisor'){
+    showMore = false;
+    primary = [
+      {v:'hosp-placeholder', label:tr('hospitality'), icon:'coffee', count:0, action:"render()", active:true}
     ];
   }else{
     primary = [
@@ -1431,6 +1519,7 @@ function moduleCard(m){
   const name = lang==='ar'?m.nameAr:m.nameEn;
   const desc = lang==='ar'?m.descAr:m.descEn;
   const isActive = m.status==='active';
+  const isInProgress = m.status==='in_progress';
   let stats = '';
   if(m.key==='cleaning'){
     const openTickets = (data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
@@ -1442,18 +1531,21 @@ function moduleCard(m){
       <span>${num(slaPct)}% ${tr('sla')}</span>
     </div>`;
   }
+  const badgeCls = isActive?'ok':isInProgress?'warn':'';
+  const badgeLabel = isActive?tr('moduleStatusActive'):isInProgress?tr('moduleStatusInProgress'):tr('moduleStatusPlanned');
+  const note = isInProgress ? (lang==='ar'?m.noteAr:m.noteEn) : (!isActive ? tr('plannedNote') : '');
   const actionBtn = isActive
     ? `<button class="btn sm" onclick="enterModule('${m.key}')">${tr('openModule')}</button>`
     : `<button class="btn secondary sm" disabled>${tr('comingSoon')}</button>`;
   return `<div class="moduleCard">
     <div class="moduleCard-head">
       <div class="moduleCard-icon">${ic(m.icon,22)}</div>
-      <span class="badge ${isActive?'ok':''}">${isActive?tr('moduleStatusActive'):tr('moduleStatusPlanned')}</span>
+      <span class="badge ${badgeCls}">${badgeLabel}</span>
     </div>
     <div class="moduleCard-title">${esc(name)}</div>
     <p class="moduleCard-desc">${esc(desc)}</p>
     ${stats}
-    ${!isActive?`<p class="moduleCard-note">${tr('plannedNote')}</p>`:''}
+    ${note?`<p class="moduleCard-note">${esc(note)}</p>`:''}
     <div class="moduleCard-action">${actionBtn}</div>
   </div>`;
 }
@@ -1555,7 +1647,7 @@ function adminSettings(){
     <div class="perfStatGrid">
       ${MODULES.map(m=>`<div class="perfStatRow">
         <span class="perfStatLabel">${esc(lang==='ar'?m.nameAr:m.nameEn)}</span>
-        <span class="badge ${m.status==='active'?'ok':''}">${m.status==='active'?tr('moduleStatusActive'):tr('moduleStatusPlanned')}</span>
+        <span class="badge ${m.status==='active'?'ok':m.status==='in_progress'?'warn':''}">${m.status==='active'?tr('moduleStatusActive'):m.status==='in_progress'?tr('moduleStatusInProgress'):tr('moduleStatusPlanned')}</span>
       </div>`).join('')}
     </div>
   </div>
@@ -3300,9 +3392,11 @@ function renderEmployee(){
     ? employeeSubmitForm()
     : employeeView==='history'
       ? employeeHistory(myOrders)
-      : employeeView==='more'
-        ? employeeMore()
-        : employeeHome(myOrders, activeCount);
+      : employeeView==='hospitality'
+        ? employeeHospitality()
+        : employeeView==='more'
+          ? employeeMore()
+          : employeeHome(myOrders, activeCount);
   const empContent=`
     <div class="empPage">
       <div class="empPanel">
@@ -3489,6 +3583,153 @@ async function submitEmployeeOrder(){
     if(btn){btn.disabled=false;btn.innerHTML=`${ic('send',18)} ${tr('submitRequest')}`}
     toast(lang==='ar'?'حدث خطأ، حاول مرة أخرى':'Error, please try again','bad');
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HOSPITALITY — Employee Order Page (Phase 4b)
+   ═══════════════════════════════════════════════════════════════ */
+function employeeHospitality(){
+  const orders = (data.hospitalityOrders||[]).slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+  const locOptions = (data.locations||[]).map(l=>({v:l.id, l:locName(l)}));
+  return`
+<div class="wCard wCard--compact">
+  <div class="wCard-title">${ic('coffee',16)} ${tr('hospitalityOrder')}</div>
+  <p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:12px">${tr('hospitalityOrderDesc')}</p>
+  ${fc(tr('orderType'), sel('hospOrderType', HOSPITALITY_ORDER_TYPES.map(t=>({v:t,l:tr('ot_'+t)}))))}
+  ${fc(tr('location'), locOptions.length ? sel('hospLocation', locOptions) : `<div class="empty-sub">${tr('noData')}</div>`)}
+  ${fc(tr('itemsLabel'), ta('hospItems','',{rows:2, placeholder:tr('itemsPlaceholder')}))}
+  ${fc(tr('notes'), ta('hospNotes','',{rows:2, placeholder:lang==='ar'?'ملاحظات إضافية (اختياري)':'Additional notes (optional)'}))}
+  <button class="btn wide hospSubmitBtn" style="margin-top:8px" onclick="submitHospitalityOrder()">${ic('send',18)} ${tr('submitHospOrder')}</button>
+</div>
+<div class="wCard">
+  <div class="wCard-title">${ic('clipboardList',16)} ${tr('myHospitalityOrders')} (${orders.length})</div>
+  ${orders.length?`<div class="wCard-list" style="gap:10px">${orders.map(o=>empHospOrderCard(o)).join('')}</div>`
+    :`<div class="empty-state">
+        <div class="empty-icon">${ic('coffee',28)}</div>
+        <div class="empty-title">${tr('noHospitalityOrders')}</div>
+      </div>`}
+</div>`;
+}
+
+function empHospOrderCard(o){
+  const stCls = hospStatusBadgeClass(o.status);
+  return`<div class="ticketCard empOrderCard">
+    <div class="ticketCard-top empOrderCard-head">
+      <div class="ticketCard-main">
+        <div class="ticketCard-title empOrderCard-title">${esc(tr('ot_'+o.orderType)||o.orderType)}</div>
+        ${o.referenceNo?`<div class="ticketCard-ref empOrderCard-ref">${esc(o.referenceNo)}</div>`:''}
+      </div>
+      <span class="badge ${stCls}">${hospStatusLabel(o.status)}</span>
+    </div>
+    <div class="ticketCard-meta empOrderCard-meta">
+      <span>${ic('locations',12)} ${esc(lang==='ar'?o.locationNameAr:o.locationNameEn)}</span>
+      <span>${fmt(o.createdAt)}</span>
+    </div>
+    ${o.items&&o.items.length?`<div class="ticketCard-badges">${o.items.map(i=>`<span class="badge">${esc(i)}</span>`).join('')}</div>`:''}
+    ${o.notes?`<div class="empOrderCard-queue">${esc(o.notes)}</div>`:''}
+  </div>`;
+}
+
+async function submitHospitalityOrder(){
+  const orderType = document.getElementById('hospOrderType')?.value || 'other';
+  const locationId = document.getElementById('hospLocation')?.value || '';
+  const itemsRaw = document.getElementById('hospItems')?.value || '';
+  const items = itemsRaw.split('\n').map(s=>s.trim()).filter(Boolean);
+  const notes = document.getElementById('hospNotes')?.value.trim() || '';
+  if(!locationId) return toast(lang==='ar'?'يرجى اختيار الموقع':'Please select a location','bad');
+  const btn = document.querySelector('.hospSubmitBtn');
+  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner" style="width:22px;height:22px;border-width:2.5px"></div>`}
+  try{
+    await api('/hospitality/orders',{method:'POST',body:JSON.stringify({locationId, orderType, items, notes})});
+    toast(tr('hospOrderSent'),'ok');
+    await load();
+  }catch(e){
+    if(btn){btn.disabled=false;btn.innerHTML=`${ic('send',18)} ${tr('submitHospOrder')}`}
+    toast(lang==='ar'?'حدث خطأ، حاول مرة أخرى':'Error, please try again','bad');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HOSPITALITY — Worker View (Phase 4b)
+   ═══════════════════════════════════════════════════════════════ */
+function renderHospitalityWorker(){
+  setDoc();
+  const orders = (data.hospitalityOrders||[]).slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+  const content=`
+<div class="empPage">
+  <div class="empPanel">
+    <div class="wCard wCard--compact">
+      <div class="wCard-title">${ic('coffee',16)} ${tr('hospitalityWorkerTitle')}</div>
+      <p style="font-size:var(--fs-sm);color:var(--muted)">${tr('hospitalityWorkerDesc')}</p>
+    </div>
+    ${orders.length?`<div class="wCard-list" style="gap:10px">${orders.map(o=>hospWorkerOrderCard(o)).join('')}</div>`
+      :`<div class="wCard"><div class="empty-state">
+          <div class="empty-icon">${ic('coffee',28)}</div>
+          <div class="empty-title">${tr('noAssignedHospOrders')}</div>
+        </div></div>`}
+  </div>
+</div>`;
+  app.innerHTML = fieldShell(me, content);
+}
+
+function hospWorkerOrderCard(o){
+  const stCls = hospStatusBadgeClass(o.status);
+  const NEXT = {
+    accepted:         {to:'preparing',        label:tr('startPreparing')},
+    preparing:        {to:'ready',            label:tr('markReady')},
+    ready:            {to:'out_for_delivery', label:tr('outForDelivery')},
+    out_for_delivery: {to:'delivered',        label:tr('markDelivered')}
+  };
+  const next = NEXT[o.status];
+  return`<div class="ticketCard empOrderCard">
+    <div class="ticketCard-top empOrderCard-head">
+      <div class="ticketCard-main">
+        <div class="ticketCard-title empOrderCard-title">${esc(tr('ot_'+o.orderType)||o.orderType)}</div>
+        ${o.referenceNo?`<div class="ticketCard-ref empOrderCard-ref">${esc(o.referenceNo)}</div>`:''}
+      </div>
+      <span class="badge ${stCls}">${hospStatusLabel(o.status)}</span>
+    </div>
+    <div class="ticketCard-meta empOrderCard-meta">
+      <span>${ic('locations',12)} ${esc(lang==='ar'?o.locationNameAr:o.locationNameEn)}</span>
+      <span>${fmt(o.createdAt)}</span>
+    </div>
+    ${o.items&&o.items.length?`<div class="ticketCard-badges">${o.items.map(i=>`<span class="badge">${esc(i)}</span>`).join('')}</div>`:''}
+    ${o.notes?`<div class="empOrderCard-queue">${esc(o.notes)}</div>`:''}
+    ${next?`<button class="btn wide" style="margin-top:10px" onclick="updateHospitalityOrderStatus('${o.id}','${next.to}')">${next.label}</button>`:''}
+  </div>`;
+}
+
+async function updateHospitalityOrderStatus(id, status){
+  try{
+    await api(`/hospitality/orders/${id}`,{method:'PUT',body:JSON.stringify({status})});
+    toast(hospStatusLabel(status),'ok');
+    await load();
+  }catch(e){
+    const msg = e.message==='INVALID_TRANSITION'
+      ? tr('invalidTransitionMsg')
+      : (lang==='ar'?'حدث خطأ، حاول مرة أخرى':'Error, please try again');
+    toast(msg,'bad');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HOSPITALITY — Manager / Supervisor placeholder (Phase 4b)
+   ═══════════════════════════════════════════════════════════════ */
+function renderHospitalityPlaceholder(){
+  setDoc();
+  const content=`
+<div class="empPage">
+  <div class="empPanel">
+    <div class="wCard">
+      <div class="wCard-title">${ic('coffee',16)} ${tr('hospitalityPlaceholderTitle')}</div>
+      <div class="empty-state">
+        <div class="empty-icon">${ic('coffee',28)}</div>
+        <div class="empty-title">${tr('hospitalityPlaceholderDesc')}</div>
+      </div>
+    </div>
+  </div>
+</div>`;
+  app.innerHTML = fieldShell(me, content);
 }
 
 /* ═══════════════════════════════════════════════════════════════

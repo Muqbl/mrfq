@@ -1548,12 +1548,13 @@ function autoSeedIfEmpty() {
     console.warn('[startup] WARNING: ADMIN_PASSWORD env var not set. A random admin password will be generated and printed once.');
   }
   const pw = {
-    admin:      process.env.ADMIN_PASSWORD           ||
-                process.env.DEMO_ADMIN_PASSWORD      || rndPwd(),
-    fm:         process.env.DEMO_FM_PASSWORD         || rndPwd(),
-    manager:    process.env.DEMO_MANAGER_PASSWORD    || rndPwd(),
-    supervisor: process.env.DEMO_SUPERVISOR_PASSWORD || rndPwd(),
-    worker:     process.env.DEMO_WORKER_PASSWORD     || rndPwd()
+    admin:       process.env.ADMIN_PASSWORD           ||
+                 process.env.DEMO_ADMIN_PASSWORD      || rndPwd(),
+    fm:          process.env.DEMO_FM_PASSWORD         || rndPwd(),
+    manager:     process.env.DEMO_MANAGER_PASSWORD    || rndPwd(),
+    supervisor:  process.env.DEMO_SUPERVISOR_PASSWORD || rndPwd(),
+    worker:      process.env.DEMO_WORKER_PASSWORD     || rndPwd(),
+    hospitality: process.env.DEMO_HOSPITALITY_PASSWORD || rndPwd()
   };
   const adminPwdFromEnv = !!(process.env.ADMIN_PASSWORD || process.env.DEMO_ADMIN_PASSWORD);
 
@@ -1583,12 +1584,17 @@ function autoSeedIfEmpty() {
       ['u-w6','عامل 6','worker6',pw.worker,'cleaner'],
       ['u-w7','عامل 7','worker7',pw.worker,'cleaner'],
       ['u-emp1','موظف 1','employee1',pw.worker,'employee'],
-      ['u-emp2','موظف 2','employee2',pw.worker,'employee']
+      ['u-emp2','موظف 2','employee2',pw.worker,'employee'],
+      ['u-hosp-mgr','مدير الضيافة','hosp-manager',pw.hospitality,'hospitality_manager'],
+      ['u-hosp-sup','مشرف الضيافة','hosp-supervisor',pw.hospitality,'hospitality_supervisor'],
+      ['u-hosp-w1','عامل ضيافة 1','hosp-worker1',pw.hospitality,'hospitality_worker'],
+      ['u-hosp-w2','عامل ضيافة 2','hosp-worker2',pw.hospitality,'hospitality_worker']
     ].forEach(([id,name,username,pass,role]) => {
       insUser.run(id,name,username,hashPassword(pass),role,ts,ts);
+      const module = role.startsWith('hospitality_') ? 'hospitality' : 'cleaning';
       try {
         db.prepare('INSERT OR IGNORE INTO user_roles (user_id,role,module,created_at) VALUES (?,?,?,?)')
-          .run(id, role, 'cleaning', ts);
+          .run(id, role, module, ts);
       } catch {}
     });
     [
@@ -1638,6 +1644,7 @@ function autoSeedIfEmpty() {
   console.log(`║   supervisor : ${pw.supervisor.padEnd(42)}║`);
   console.log(`║   worker3-7  : ${pw.worker.padEnd(42)}║`);
   console.log(`║   employee1-2: ${pw.worker.padEnd(42)}║`);
+  console.log(`║   hosp-*     : ${pw.hospitality.padEnd(42)}║`);
   console.log('╠══════════════════════════════════════════════════════════╣');
   console.log('║   Username for admin login: admin                        ║');
   console.log('╚══════════════════════════════════════════════════════════╝');
