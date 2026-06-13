@@ -1817,7 +1817,8 @@ ${showLocCreate?`
   }).map(l=>{
     const last = data.reports.find(r=>r.locationId===l.id);
     const late = !last||Date.now()-new Date(last.createdAt).getTime()>(data.settings.frequencyMinutes||120)*60000;
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(l.id)}`;
+    const locQrPayload = `${location.origin}${location.pathname}?loc=${encodeURIComponent(l.id)}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(locQrPayload)}`;
     return`<div class="locCard">
       <div class="locCard-head">
         <div>
@@ -2261,7 +2262,7 @@ function renderWorker(){
   const ticketsBlock = myTickets.length?`
     ${myTickets.length?`
     <div class="wCard">
-      <div class="wCard-title"><span class="wCard-number">!</span>${tr('myTickets')}</div>
+      <div class="wCard-title">${ic('tickets',16)} ${tr('myTickets')}</div>
       <div class="wCard-list">
         ${myTickets.map(t=>`
           <button class="workerTicketItem" onclick="startTicketWorker('${t.id}')">
@@ -2273,7 +2274,7 @@ function renderWorker(){
 
   const reportsBlock = `
       <div class="wCard">
-        <div class="wCard-title"><span class="wCard-number">${ic('reports',16)}</span>${lang==='ar'?'حالة تقاريري':'My Reports Status'}</div>
+        <div class="wCard-title">${ic('reports',16)} ${lang==='ar'?'حالة تقاريري':'My Reports Status'}</div>
         ${myReports.length?`
         <div class="wCard-list">
           ${myReports.map(r=>{
@@ -2299,7 +2300,7 @@ function renderWorker(){
 
   const startBlock = `
     <div class="wCard wCard--compact">
-      <div class="wCard-title"><span class="wCard-number">1</span>${tr('step1')}</div>
+      <div class="wCard-title">${ic('locations',16)} ${tr('step1')}</div>
       ${fc(lang==='ar'?'كود الموقع':'Location Code',`<div class="locInput-row"><button class="locInput-scan" onclick="openQRScanner()" title="${tr('scanQR')}" aria-label="${tr('scanQR')}">${ic('qr',18)}</button><div class="locInput-field">${inp('locCode',{cls:'ltr', value:param, placeholder:'wc-gf-a'})}</div></div>`)}
       <button class="btn wide" style="min-height:52px" onclick="startForm()">${ic('arrow',16)} ${tr('start')}</button>
     </div>
@@ -2414,7 +2415,7 @@ function startForm(){
     </div>
 
     <div class="wCard">
-      <div class="wCard-title"><span class="wCard-number" style="background:var(--warn-bg);color:var(--warn)">${ic('camera',14)}</span>${tr('beforePhotos')}</div>
+      <div class="wCard-title">${ic('camera',16)} ${tr('beforePhotos')}</div>
       <p style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:12px">${tr('beforePhotoHint')}</p>
       <button class="cameraBtn" onclick="openCamera('before')">
         ${ic('camera',22)}
@@ -2424,7 +2425,7 @@ function startForm(){
     </div>
 
     <div class="wCard">
-      <div class="wCard-title"><span class="wCard-number">2</span>${tr('step2')}</div>
+      <div class="wCard-title">${ic('check',16)} ${tr('step2')}</div>
       <div class="taskChecklist">
         ${tasks.map((p,i)=>`
           <label class="taskItem" id="ti_${i}">
@@ -2439,7 +2440,7 @@ function startForm(){
     </div>
 
     <div class="wCard">
-      <div class="wCard-title"><span class="wCard-number" style="background:var(--ok-bg);color:var(--ok)">${ic('check',14)}</span>${tr('afterPhotos')}</div>
+      <div class="wCard-title">${ic('camera',16)} ${tr('afterPhotos')}</div>
       <p style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:12px">${tr('afterPhotoHint')}</p>
       <button class="cameraBtn" onclick="openCamera('after')">
         ${ic('camera',22)}
@@ -2765,7 +2766,7 @@ function employeeHome(orders, activeCount){
 </div>
 ${latest.length?`
 <div class="wCard">
-  <div class="wCard-title">${ic('list',16)} ${lang==='ar'?'آخر طلباتي':'Recent requests'}</div>
+  <div class="wCard-title">${ic('clipboardList',16)} ${lang==='ar'?'آخر طلباتي':'Recent requests'}</div>
   <div class="wCard-list" style="gap:10px">
     ${latest.map(t=>{
       const stCls = t.status==='completed'?'ok':['reclean_required','rejected','cancelled'].includes(t.status)?'bad':t.status==='waiting_verification'?'warn':'brand';
@@ -2787,9 +2788,9 @@ ${latest.length?`
 
 function employeeMore(){
   return`<div class="wCard">
-    <div class="wCard-title">${ic('layers',16)} ${lang==='ar'?'المزيد':'More'}</div>
+    <div class="wCard-title">${ic('menu',16)} ${lang==='ar'?'المزيد':'More'}</div>
     <div class="empty-state">
-      <div class="empty-icon">${ic('layers',28)}</div>
+      <div class="empty-icon">${ic('menu',28)}</div>
       <div class="empty-title">${lang==='ar'?'لا توجد خيارات إضافية':'No additional options'}</div>
       <p class="empty-sub">${lang==='ar'?'الإشعارات واللغة وتسجيل الخروج متاحة من الشريط العلوي.':'Notifications, language, and logout are available in the topbar.'}</p>
     </div>
@@ -2854,14 +2855,14 @@ function employeeSubmitForm(){
 function employeeHistory(orders){
   if(!orders.length) return`
 <div class="wCard"><div class="empty-state">
-  <div class="empty-icon">${ic('list',36)}</div>
+  <div class="empty-icon">${ic('clipboardList',36)}</div>
   <div class="empty-title">${lang==='ar'?'لا توجد طلبات بعد':'No requests yet'}</div>
   <p class="empty-sub">${lang==='ar'?'قدّم أول طلب تنظيف من التبويب الأول':'Submit your first cleaning request from the first tab'}</p>
 </div></div>`;
 
   return`
 <div class="wCard">
-  <div class="wCard-title">${ic('list',16)} ${tr('myRequests')} (${orders.length})</div>
+  <div class="wCard-title">${ic('clipboardList',16)} ${tr('myRequests')} (${orders.length})</div>
   <div class="wCard-list" style="gap:10px">
     ${orders.map(t=>{
       const stCls = t.status==='completed'?'ok':['reclean_required','rejected','cancelled'].includes(t.status)?'bad':t.status==='waiting_verification'?'warn':'brand';
