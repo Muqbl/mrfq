@@ -111,6 +111,21 @@ const T = {
     rolesLabel:'الصلاحيات',workspacesLabel:'مساحات العمل',
     requester:'مقدم الطلب',activeTickets:'البلاغات النشطة',
     closeModal:'إغلاق',activeTicket:'بلاغ نشط',
+    systemDashboard:'لوحة النظام',modules:'الأقسام',
+    platformTagline:'منصة إدارة المرافق متعددة الأقسام',
+    activeModules:'الأقسام النشطة',activeUsers:'مستخدمون نشطون',
+    criticalTickets:'بلاغات حرجة',lastActivity:'آخر نشاط',
+    systemHealth:'حالة النظام',apiStatus:'حالة API',dbStatus:'حالة قاعدة البيانات',
+    connected:'متصل',comingSoon:'قريباً',
+    plannedNote:'هذا القسم ضمن الخطة القادمة',openModule:'فتح',
+    rolesPermissions:'الأدوار والصلاحيات',assets:'الأصول',maps:'الخرائط',
+    generalReports:'التقارير العامة',auditLog:'سجل التدقيق',noAuditData:'لا توجد بيانات بعد',
+    globalSettings:'الإعدادات العامة',backToConsole:'العودة إلى لوحة النظام',
+    cleaningModuleLabel:'وحدة النظافة',
+    maintenance:'الصيانة',hospitality:'الضيافة',security:'الأمن',
+    safety:'السلامة',customerService:'خدمة العملاء',
+    moduleStatusActive:'نشط',moduleStatusPlanned:'مخطط',
+    systemAdminConsole:'لوحة النظام',
   },
   en:{
     app:'إدارة المرافق',sub:'Professional management for every facility, at any time',
@@ -187,6 +202,21 @@ const T = {
     rolesLabel:'Roles',workspacesLabel:'Workspaces',
     requester:'Requester',activeTickets:'Active Tickets',
     closeModal:'Close',activeTicket:'Active ticket',
+    systemDashboard:'System Dashboard',modules:'Modules',
+    platformTagline:'Multi-department facilities management platform',
+    activeModules:'Active Modules',activeUsers:'Active Users',
+    criticalTickets:'Critical Tickets',lastActivity:'Last Activity',
+    systemHealth:'System Health',apiStatus:'API Status',dbStatus:'Database Status',
+    connected:'Connected',comingSoon:'Coming Soon',
+    plannedNote:'This module is part of the upcoming roadmap',openModule:'Open',
+    rolesPermissions:'Roles & Permissions',assets:'Assets',maps:'Maps',
+    generalReports:'General Reports',auditLog:'Audit Log',noAuditData:'No data yet',
+    globalSettings:'Global Settings',backToConsole:'Back to Admin Console',
+    cleaningModuleLabel:'Cleaning Module',
+    maintenance:'Maintenance',hospitality:'Hospitality',security:'Security',
+    safety:'Safety',customerService:'Customer Service',
+    moduleStatusActive:'Active',moduleStatusPlanned:'Planned',
+    systemAdminConsole:'System Console',
   }
 };
 
@@ -236,6 +266,8 @@ const IC = {
   'alert-triangle':`<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
   chevron:`<svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>`,
   lock:`<svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+  settings:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
+  tool:`<svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94L5.41 21.41a2 2 0 0 1-2.83-2.83L10.66 10.5a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
 };
 const ic=(name,size=18)=>`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${IC[name]?.replace(/<svg[^>]*>/,'').replace(/<\/svg>/,'')??''}</svg>`;
 
@@ -259,8 +291,33 @@ let forcePasswordChange = false;
 let employeeView = 'home';
 let workerView = 'task';
 let supervisorView = 'dashboard';
+let adminView = 'dashboard';
+let adminModuleContext = null; // null | 'cleaning'
 let perfData = null; // cached performance data
 let workspaceSelected = false; // true after user picks workspace this session
+
+/* ─── PLATFORM MODULES (system admin "Modules" overview) ───────── */
+const MODULES = [
+  {key:'cleaning', icon:'reports', status:'active',
+    nameAr:'النظافة', nameEn:'Cleaning',
+    descAr:'إدارة بلاغات النظافة والعمال والتقارير ومؤشرات الأداء',
+    descEn:'Manage cleaning tickets, workers, reports and performance'},
+  {key:'maintenance', icon:'tool', status:'planned',
+    nameAr:'الصيانة', nameEn:'Maintenance',
+    descAr:'صيانة المرافق والأجهزة', descEn:'Facilities and equipment maintenance'},
+  {key:'hospitality', icon:'star', status:'planned',
+    nameAr:'الضيافة', nameEn:'Hospitality',
+    descAr:'خدمات الضيافة والاستقبال', descEn:'Hospitality and reception services'},
+  {key:'security', icon:'shield', status:'planned',
+    nameAr:'الأمن', nameEn:'Security',
+    descAr:'إدارة الأمن والمراقبة', descEn:'Security and surveillance management'},
+  {key:'safety', icon:'alert-triangle', status:'planned',
+    nameAr:'السلامة', nameEn:'Safety',
+    descAr:'إدارة السلامة والطوارئ', descEn:'Safety and emergency management'},
+  {key:'customer_service', icon:'send', status:'planned',
+    nameAr:'خدمة العملاء', nameEn:'Customer Service',
+    descAr:'طلبات وملاحظات المستخدمين', descEn:'User requests and feedback'}
+];
 
 const app = document.getElementById('app');
 const tr = k => (T[lang]&&T[lang][k]) || k;
@@ -582,12 +639,12 @@ function roleBadgeClass(role){
 }
 
 
-function activityFeed(){
+function activityFeed(limit=8){
   // Combine recent reports and tickets into a unified activity feed
   const items = [
-    ...(data.reports||[]).slice(0,8).map(r=>({type:'report',time:r.createdAt,label:locName((data.locations||[]).find(l=>l.id===r.locationId)||{})||r.locationNameAr||r.locationNameEn,sub:esc(r.workerName),st:r.approvalStatus||'pending_approval'})),
-    ...(data.tickets||[]).slice(0,4).map(t=>({type:'ticket',time:t.createdAt,label:esc(t.title),sub:esc(lang==='ar'?t.locationNameAr:t.locationNameEn),st:t.status}))
-  ].sort((a,b)=>new Date(b.time)-new Date(a.time)).slice(0,8);
+    ...(data.reports||[]).slice(0,limit).map(r=>({type:'report',time:r.createdAt,label:locName((data.locations||[]).find(l=>l.id===r.locationId)||{})||r.locationNameAr||r.locationNameEn,sub:esc(r.workerName),st:r.approvalStatus||'pending_approval'})),
+    ...(data.tickets||[]).slice(0,limit).map(t=>({type:'ticket',time:t.createdAt,label:esc(t.title),sub:esc(lang==='ar'?t.locationNameAr:t.locationNameEn),st:t.status}))
+  ].sort((a,b)=>new Date(b.time)-new Date(a.time)).slice(0,limit);
 
   if(!items.length) return `<div class="empty-state"><div class="empty-icon">${ic('bell',22)}</div><div class="empty-title">${tr('noData')}</div></div>`;
   return `<div class="activityFeed">${items.map(it=>{
@@ -804,6 +861,7 @@ function render(){
   if(me.role==='cleaner') return renderWorker();
   if(me.role==='employee') return renderEmployee();
   if(me.role==='cleaning_supervisor') return renderSupervisor();
+  if(me.role==='system_admin' && !adminModuleContext) return renderSystemAdmin();
   setDoc();
   if(_lastView==='users' && view!=='users'){ usersSearch=''; usersRoleFilter='all'; usersStatusFilter='all'; }
   if(_lastView==='locations' && view!=='locations'){ locsFloorFilter='all'; }
@@ -976,12 +1034,20 @@ function shell(content){
     <!-- MAIN CONTENT -->
     <main class="platform-main">
       <div class="pageAnim">
+        ${me.role==='system_admin'&&adminModuleContext==='cleaning'?moduleContextBar():''}
         ${content}
       </div>
     </main>
   </div>
   ${renderMobileBottomNav(openTickets, pendingReports)}
 </div>`;
+}
+
+function moduleContextBar(){
+  return `<div class="moduleContextBar">
+    <span class="moduleContextBar-label">${ic('reports',16)} ${tr('cleaningModuleLabel')}</span>
+    <button class="btn secondary sm" onclick="exitModule()">${ic('arrow-left',14)} ${tr('backToConsole')}</button>
+  </div>`;
 }
 
 function navItem(v,label,icon,count){
@@ -1069,6 +1135,340 @@ function showMobileNavMore(){
     </button>`).join('')}
   </div>`;
   showModal('mobileNavModal', lang==='ar'?'التنقل':'Navigation', body, null, {narrow:true});
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SYSTEM ADMIN CONSOLE — platform-level console for system_admin
+   ═══════════════════════════════════════════════════════════════ */
+function renderSystemAdmin(){
+  setDoc();
+  const fn = {
+    dashboard: adminDashboard,
+    modules: adminModules,
+    users: users,
+    roles: adminRoles,
+    locations: locations,
+    assets: adminAssets,
+    maps: adminMaps,
+    reports: reports,
+    audit: adminAuditLog,
+    settings: adminSettings
+  }[adminView] || adminDashboard;
+  adminShell(fn());
+}
+
+function adminShell(content){
+  app.innerHTML=`
+<div class="platform-shell platform-shell--admin">
+  ${renderPlatformTopbar(me, {search:false, notif:true, sync:true, adminMode:true})}
+  <div class="platform-body">
+    <aside class="platform-sidebar">
+      <div class="sidebarInner">
+        <div class="nav-section">
+          <span class="nav-section-label">${tr('systemAdminConsole')}</span>
+          ${adminNavItem('dashboard',tr('systemDashboard'),'dashboard')}
+          ${adminNavItem('modules',tr('modules'),'layers')}
+          ${adminNavItem('users',tr('users'),'users')}
+          ${adminNavItem('roles',tr('rolesPermissions'),'shield')}
+          ${adminNavItem('locations',tr('locations'),'locations')}
+          ${adminNavItem('assets',tr('assets'),'building')}
+          ${adminNavItem('maps',tr('maps'),'map-pin')}
+          ${adminNavItem('reports',tr('generalReports'),'reports')}
+          ${adminNavItem('audit',tr('auditLog'),'list')}
+          ${adminNavItem('settings',tr('globalSettings'),'settings')}
+        </div>
+      </div>
+    </aside>
+    <main class="platform-main">
+      <div class="pageAnim">
+        ${content}
+      </div>
+    </main>
+  </div>
+  ${renderAdminMobileBottomNav()}
+</div>`;
+}
+
+function adminNavItem(v,label,icon){
+  return `<button class="navBtn${adminView===v?' active':''}" onclick="adminNavigateTo('${v}')">
+    <span class="navBtn-icon">${ic(icon,18)}</span>
+    <span class="navBtn-label">${label}</span>
+  </button>`;
+}
+
+function adminNavigateTo(v){ adminView=v; render(); }
+
+function renderAdminMobileBottomNav(){
+  const primary = [
+    {v:'dashboard', label:tr('systemDashboard'), icon:'dashboard'},
+    {v:'modules', label:tr('modules'), icon:'layers'},
+    {v:'users', label:tr('users'), icon:'users'}
+  ];
+  const moreActive = !primary.some(item=>item.v===adminView);
+  return `<nav class="mobileBottomNav" style="--mobile-nav-count:${primary.length+1}" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
+    ${primary.map(item=>`
+      <button class="mobileBottomNav-item${adminView===item.v?' active':''}" onclick="adminNavigateTo('${item.v}')">
+        <span class="mobileBottomNav-icon">${ic(item.icon,18)}</span>
+        <span class="mobileBottomNav-label">${item.label}</span>
+      </button>
+    `).join('')}
+    <button class="mobileBottomNav-item${moreActive?' active':''}" onclick="showAdminNavMore()">
+      <span class="mobileBottomNav-icon">${ic('menu',18)}</span>
+      <span class="mobileBottomNav-label">${lang==='ar'?'المزيد':'More'}</span>
+    </button>
+  </nav>`;
+}
+
+function showAdminNavMore(){
+  const items = [
+    {v:'roles', label:tr('rolesPermissions'), icon:'shield'},
+    {v:'locations', label:tr('locations'), icon:'locations'},
+    {v:'assets', label:tr('assets'), icon:'building'},
+    {v:'maps', label:tr('maps'), icon:'map-pin'},
+    {v:'reports', label:tr('generalReports'), icon:'reports'},
+    {v:'audit', label:tr('auditLog'), icon:'list'},
+    {v:'settings', label:tr('globalSettings'), icon:'settings'}
+  ];
+  const body = `<div class="mobileMoreGrid">
+    ${items.map(item=>`<button class="mobileMoreItem${adminView===item.v?' active':''}" onclick="document.getElementById('mobileNavModal')?.remove();adminNavigateTo('${item.v}')">
+      <span class="mobileMoreIcon">${ic(item.icon,18)}</span>
+      <span>${item.label}</span>
+    </button>`).join('')}
+  </div>`;
+  showModal('mobileNavModal', lang==='ar'?'التنقل':'Navigation', body, null, {narrow:true});
+}
+
+/* ── module entry / exit ───────────────────────────────────── */
+function enterModule(key){
+  if(key!=='cleaning') return;
+  adminModuleContext = 'cleaning';
+  view = 'dashboard';
+  render();
+}
+function exitModule(){
+  adminModuleContext = null;
+  adminView = 'dashboard';
+  render();
+}
+
+/* ── system admin dashboard ────────────────────────────────── */
+function adminDashboard(){
+  const openTickets = (data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
+  const criticalTickets = (data.tickets||[]).filter(t=>t.priority==='high'&&!['completed','rejected','cancelled'].includes(t.status)).length;
+  const activeUsersCount = (data.users||[]).filter(u=>u.active!==false).length;
+  const activeModulesCount = MODULES.filter(m=>m.status==='active').length;
+  const slaPct = Math.max(10,100-Math.min(100,openTickets*18));
+  const lastEvent = [...(data.reports||[]),...(data.tickets||[])].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt))[0];
+  const lastActivityStr = lastEvent ? fmt(lastEvent.createdAt) : '—';
+
+  return `
+<div class="dashHero">
+  <div class="dashHero-left">
+    <span class="dashHero-greeting">${tr('systemAdminConsole')}</span>
+    <div class="dashHero-title">${esc(T[lang].app)}</div>
+    <p class="dashHero-sub">${tr('platformTagline')}</p>
+  </div>
+  <div class="dashHero-right">
+    <div class="dashHero-stat">
+      <div class="dashHero-stat-val">${num(activeModulesCount)}/${num(MODULES.length)}</div>
+      <div class="dashHero-stat-lbl">${tr('activeModules')}</div>
+    </div>
+    <div class="dashHero-stat">
+      <div class="dashHero-stat-val">${num(activeUsersCount)}</div>
+      <div class="dashHero-stat-lbl">${tr('activeUsers')}</div>
+    </div>
+    <div class="dashHero-stat">
+      <div class="dashHero-stat-val">${num(slaPct)}%</div>
+      <div class="dashHero-stat-lbl">${tr('sla')}</div>
+    </div>
+  </div>
+</div>
+
+<div class="kpiGrid">
+  ${kpiCard(num(openTickets),tr('openTickets'),'tickets','bad')}
+  ${kpiCard(`${num(activeModulesCount)}/${num(MODULES.length)}`,tr('activeModules'),'layers','brand')}
+  ${kpiCard(num(activeUsersCount),tr('activeUsers'),'users','ok')}
+  ${kpiCard(num(slaPct)+'%',tr('sla'),'analytics','gold')}
+  ${kpiCard(num(criticalTickets),tr('criticalTickets'),'alert-triangle',criticalTickets>0?'bad':'ok')}
+</div>
+
+<div class="contentGrid">
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">${tr('modules')}</span>
+      <button class="btn secondary sm" onclick="adminNavigateTo('modules')">${tr('modules')}</button>
+    </div>
+    <div class="moduleGrid moduleGrid--compact">
+      ${MODULES.map(m=>moduleCard(m)).join('')}
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">${lang==='ar'?'النشاط الأخير':'Recent Activity'}</span>
+    </div>
+    ${activityFeed()}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <span class="card-title">${tr('systemHealth')}</span>
+  </div>
+  <div class="perfStatGrid">
+    <div class="perfStatRow"><span class="perfStatLabel">${tr('apiStatus')}</span><span class="badge ok">${tr('connected')}</span></div>
+    <div class="perfStatRow"><span class="perfStatLabel">${tr('dbStatus')}</span><span class="badge ok">${tr('connected')}</span></div>
+    <div class="perfStatRow"><span class="perfStatLabel">${tr('lastActivity')}</span><span class="perfStatValue">${lastActivityStr}</span></div>
+  </div>
+</div>`;
+}
+
+/* ── modules overview page ─────────────────────────────────── */
+function adminModules(){
+  return `
+<div class="pageHeader">
+  <div class="pageHeader-left">
+    <div class="pageTitle">${tr('modules')}</div>
+    <div class="pageSub">${num(MODULES.filter(m=>m.status==='active').length)}/${num(MODULES.length)} ${tr('moduleStatusActive')}</div>
+  </div>
+</div>
+<div class="moduleGrid">
+  ${MODULES.map(m=>moduleCard(m)).join('')}
+</div>`;
+}
+
+function moduleCard(m){
+  const name = lang==='ar'?m.nameAr:m.nameEn;
+  const desc = lang==='ar'?m.descAr:m.descEn;
+  const isActive = m.status==='active';
+  let stats = '';
+  if(m.key==='cleaning'){
+    const openTickets = (data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
+    const cleaningUsers = (data.users||[]).filter(u=>(u.roles||[u.role]).some(r=>['cleaner','cleaning_supervisor','cleaning_manager'].includes(r))).length;
+    const slaPct = Math.max(10,100-Math.min(100,openTickets*18));
+    stats = `<div class="moduleCard-stats">
+      <span>${num(openTickets)} ${tr('openTickets')}</span>
+      <span>${num(cleaningUsers)} ${tr('usersCount')}</span>
+      <span>${num(slaPct)}% ${tr('sla')}</span>
+    </div>`;
+  }
+  const actionBtn = isActive
+    ? `<button class="btn sm" onclick="enterModule('${m.key}')">${tr('openModule')}</button>`
+    : `<button class="btn secondary sm" disabled>${tr('comingSoon')}</button>`;
+  return `<div class="moduleCard">
+    <div class="moduleCard-head">
+      <div class="moduleCard-icon">${ic(m.icon,22)}</div>
+      <span class="badge ${isActive?'ok':''}">${isActive?tr('moduleStatusActive'):tr('moduleStatusPlanned')}</span>
+    </div>
+    <div class="moduleCard-title">${esc(name)}</div>
+    <p class="moduleCard-desc">${esc(desc)}</p>
+    ${stats}
+    ${!isActive?`<p class="moduleCard-note">${tr('plannedNote')}</p>`:''}
+    <div class="moduleCard-action">${actionBtn}</div>
+  </div>`;
+}
+
+/* ── roles & permissions (read-only) ───────────────────────── */
+function adminRoles(){
+  const ROLE_INFO = [
+    {role:'system_admin', descAr:'صلاحية كاملة على المنصة: كل الأقسام، المستخدمون، الأدوار، الإعدادات العامة.', descEn:'Full platform access: all modules, users, roles, and global settings.'},
+    {role:'facility_manager', descAr:'إدارة عامة للمرافق والمواقع وملخصات تشغيلية حسب الصلاحيات المتاحة.', descEn:'General facilities and locations management with available operational summaries.'},
+    {role:'cleaning_manager', descAr:'إدارة كاملة لوحدة النظافة: البلاغات، العمال، التقارير، الأداء.', descEn:'Full management of the Cleaning Module: tickets, workers, reports, performance.'},
+    {role:'cleaning_supervisor', descAr:'إشراف ميداني على بلاغات النظافة والتحقق من التقارير.', descEn:'Field supervision of cleaning tickets and report verification.'},
+    {role:'cleaner', descAr:'تنفيذ مهام التنظيف المسندة ورفع التقارير بالصور.', descEn:'Performs assigned cleaning tasks and submits photo reports.'},
+    {role:'employee', descAr:'تقديم طلبات نظافة وتتبع حالتها.', descEn:'Submits cleaning requests and tracks their status.'}
+  ];
+  return `
+<div class="pageHeader">
+  <div class="pageHeader-left">
+    <div class="pageTitle">${tr('rolesPermissions')}</div>
+    <div class="pageSub">${num(ROLE_INFO.length)} ${lang==='ar'?'أدوار':'roles'}</div>
+  </div>
+</div>
+<div class="contentGrid">
+  ${ROLE_INFO.map(r=>`<div class="card">
+    <div class="card-head">
+      <span class="card-title">${ic('shield',16)} ${tr(r.role)}</span>
+      <span class="badge ${roleBadgeClass(r.role)}">${tr(r.role)}</span>
+    </div>
+    <p style="font-size:var(--fs-sm);color:var(--muted);line-height:1.7">${lang==='ar'?r.descAr:r.descEn}</p>
+  </div>`).join('')}
+</div>`;
+}
+
+/* ── assets / maps placeholders (planned) ──────────────────── */
+function adminAssets(){
+  return `
+<div class="pageHeader">
+  <div class="pageHeader-left">
+    <div class="pageTitle">${tr('assets')}</div>
+  </div>
+</div>
+<div class="card"><div class="empty-state">
+  <div class="empty-icon">${ic('building',24)}</div>
+  <div class="empty-title">${tr('noAuditData')}</div>
+  <p class="empty-sub">${tr('plannedNote')}</p>
+</div></div>`;
+}
+
+function adminMaps(){
+  return `
+<div class="pageHeader">
+  <div class="pageHeader-left">
+    <div class="pageTitle">${tr('maps')}</div>
+  </div>
+</div>
+<div class="card"><div class="empty-state">
+  <div class="empty-icon">${ic('map-pin',24)}</div>
+  <div class="empty-title">${tr('noAuditData')}</div>
+  <p class="empty-sub">${tr('plannedNote')}</p>
+</div></div>`;
+}
+
+/* ── audit log (recent activity, extended) ─────────────────── */
+function adminAuditLog(){
+  return `
+<div class="pageHeader">
+  <div class="pageHeader-left">
+    <div class="pageTitle">${tr('auditLog')}</div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-head">
+    <span class="card-title">${lang==='ar'?'النشاط الأخير':'Recent Activity'}</span>
+  </div>
+  ${activityFeed(20)}
+</div>`;
+}
+
+/* ── global settings (read-only) ───────────────────────────── */
+function adminSettings(){
+  const s = data.settings||{};
+  return `
+<div class="pageHeader">
+  <div class="pageHeader-left">
+    <div class="pageTitle">${tr('globalSettings')}</div>
+  </div>
+</div>
+<div class="contentGrid">
+  <div class="card">
+    <div class="card-head"><span class="card-title">${ic('settings',16)} ${tr('systemHealth')}</span></div>
+    <div class="perfStatGrid">
+      <div class="perfStatRow"><span class="perfStatLabel">${lang==='ar'?'إصدار التطبيق':'App Version'}</span><span class="perfStatValue">${esc(s.appVersion||'—')}</span></div>
+      <div class="perfStatRow"><span class="perfStatLabel">${lang==='ar'?'تكرار التذكير (دقيقة)':'Reminder Frequency (min)'}</span><span class="perfStatValue">${num(s.frequencyMinutes||120)}</span></div>
+      <div class="perfStatRow"><span class="perfStatLabel">${lang==='ar'?'يتطلب صورة':'Photo Required'}</span><span class="badge ${s.requirePhoto?'ok':''}">${s.requirePhoto?ic('check',12):'-'}</span></div>
+      <div class="perfStatRow"><span class="perfStatLabel">${lang==='ar'?'اللغة':'Language'}</span><span class="perfStatValue">${lang==='ar'?'العربية':'English'}</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="card-title">${ic('layers',16)} ${tr('modules')}</span></div>
+    <div class="perfStatGrid">
+      ${MODULES.map(m=>`<div class="perfStatRow">
+        <span class="perfStatLabel">${esc(lang==='ar'?m.nameAr:m.nameEn)}</span>
+        <span class="badge ${m.status==='active'?'ok':''}">${m.status==='active'?tr('moduleStatusActive'):tr('moduleStatusPlanned')}</span>
+      </div>`).join('')}
+    </div>
+  </div>
+</div>`;
 }
 
 /* ═══════════════════════════════════════════════════════════════

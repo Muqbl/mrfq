@@ -1006,6 +1006,7 @@ tbody tr:hover td{background:var(--surface-2)}
 .kpiCard-icon.ok{background:rgba(22,136,77,.10);color:var(--ok)}
 .kpiCard-icon.warn{background:rgba(166,98,0,.10);color:var(--warn)}
 .kpiCard-icon.bad{background:rgba(200,50,50,.10);color:var(--bad)}
+.kpiCard-icon.gold{background:rgba(168,111,42,.10);color:var(--rega-brown)}
 .kpiCard-icon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 
 /* ─── DASHBOARD HERO ─────────────────────────────────────────── */
@@ -1065,6 +1066,34 @@ tbody tr:hover td{background:var(--surface-2)}
 
 /* Content grid */
 .contentGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:16px}
+
+/* ─── MODULES GRID (System Admin) ───────────────────────────── */
+.moduleGrid{display:grid;grid-template-columns:1fr;gap:14px}
+.moduleGrid--compact{margin-top:4px}
+.moduleCard{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  padding:var(--sp-4);display:flex;flex-direction:column;gap:8px;
+}
+.moduleCard-head{display:flex;justify-content:space-between;align-items:flex-start}
+.moduleCard-icon{
+  width:40px;height:40px;border-radius:var(--r-sm);display:grid;place-items:center;
+  background:rgba(10,78,91,.10);color:var(--brand-mid);flex-shrink:0;
+}
+.moduleCard-icon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.moduleCard-title{font-family:var(--font-head);font-size:var(--fs-md);font-weight:700;color:var(--ink)}
+.moduleCard-desc{font-size:var(--fs-sm);color:var(--muted);line-height:1.6}
+.moduleCard-stats{display:flex;flex-wrap:wrap;gap:8px;font-size:var(--fs-xs);color:var(--muted);font-weight:700}
+.moduleCard-note{font-size:var(--fs-xs);color:var(--muted);font-style:italic}
+.moduleCard-action{margin-top:auto;display:flex;justify-content:flex-end}
+.moduleCard-action .btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* ─── MODULE CONTEXT BAR (System Admin inside Cleaning Module) ─ */
+.moduleContextBar{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);
+  padding:10px 14px;margin-bottom:14px;
+}
+.moduleContextBar-label{display:flex;align-items:center;gap:8px;font-weight:800;font-size:var(--fs-sm);color:var(--ink)}
 
 /* Facility map */
 .facilityMap{display:grid;grid-template-columns:1fr;gap:8px}
@@ -1284,6 +1313,10 @@ tbody tr:hover td{background:var(--surface-2)}
 .platform-main.platform-main--field{flex:1;width:100%;min-width:0;padding:12px 16px 80px;overflow-x:hidden}
 @media(min-width:769px){.platform-main.platform-main--field{padding:4px 32px 80px}}
 @media(min-width:1041px){.platform-main.platform-main--field{padding:8px 48px 80px}}
+@media(min-width:1041px){
+  .moduleGrid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .moduleGrid--compact{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 /* Roles without sticky submit use reduced bottom padding */
 .platform-main.platform-main--no-sticky{padding-bottom:24px!important}
 
@@ -1606,6 +1639,7 @@ tbody tr:hover td{background:var(--surface-2)}
   .platform-shell--admin>.mobileBottomNav .mobileBottomNav-badge{
     position:static;order:3;width:24px;height:24px;min-width:24px;min-height:24px;font-size:12px;
   }
+  .moduleGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .supSectionsGrid{grid-template-columns:1fr}
   .supTicketList{grid-template-columns:1fr}
   .ticketCard--operational{grid-template-columns:1fr}
