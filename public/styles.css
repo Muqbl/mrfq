@@ -991,6 +991,7 @@ tbody tr:hover td{background:var(--surface-2)}
 
 /* ─── KPI GRID ───────────────────────────────────────────────── */
 .kpiGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.kpiGrid--5{grid-template-columns:repeat(5,minmax(0,1fr))}
 .kpiCard{padding:16px 18px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .kpiCard-body{min-width:0;flex:1}
 .kpiCard-label{font-size:12px;color:var(--muted);font-weight:800;font-family:var(--font-ui);margin-bottom:7px;letter-spacing:0;line-height:1.35}
@@ -1603,6 +1604,7 @@ tbody tr:hover td{background:var(--surface-2)}
   .platform-sidebar{display:none!important}
   .platform-main{padding:18px 16px 36px}
   .kpiGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpiGrid--5{grid-template-columns:repeat(2,minmax(0,1fr))}
   .analyticsGrid{grid-template-columns:1fr}
   .contentGrid{grid-template-columns:1fr}
   .dashHero{flex-direction:column;align-items:flex-start;padding:20px 22px}
@@ -1702,6 +1704,7 @@ tbody tr:hover td{background:var(--surface-2)}
 
   /* KPI grid — 2 compact columns on mobile */
   .kpiGrid{grid-template-columns:1fr 1fr}
+  .kpiGrid--5{grid-template-columns:1fr 1fr}
   .kpiCard{padding:14px 16px}
   .kpiCard-value{font-size:26px}
 
@@ -1747,6 +1750,7 @@ tbody tr:hover td{background:var(--surface-2)}
 /* ─── Very small phones (≤400px) ─────────────────────────────── */
 @media(max-width:400px){
   .kpiGrid{grid-template-columns:1fr}
+  .kpiGrid--5{grid-template-columns:1fr}
   .kpiCard-value{font-size:24px}
   .wsGrid{grid-template-columns:1fr 1fr}
   .userSummaryGrid{grid-template-columns:1fr}

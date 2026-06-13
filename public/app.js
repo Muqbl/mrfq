@@ -1284,7 +1284,7 @@ function adminDashboard(){
   </div>
 </div>
 
-<div class="kpiGrid">
+<div class="kpiGrid kpiGrid--5">
   ${kpiCard(num(openTickets),tr('openTickets'),'tickets','bad')}
   ${kpiCard(`${num(activeModulesCount)}/${num(MODULES.length)}`,tr('activeModules'),'layers','brand')}
   ${kpiCard(num(activeUsersCount),tr('activeUsers'),'users','ok')}
