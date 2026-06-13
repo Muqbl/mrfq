@@ -4,7 +4,7 @@
    ══════════════════════════════════════════════════════════════ */
 
 /* ─── CONSTANTS ──────────────────────────────────────────────── */
-const ROLES = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','cleaner','employee'];
+const ROLES = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','cleaner','employee','hospitality_manager','hospitality_supervisor','hospitality_worker'];
 const TYPES = ['restroom','lobby','office','meeting_room','pantry','corridor','prayer_room','elevator','entrance','parking','outdoor','other'];
 
 // ===== Facility Constants =====
@@ -51,6 +51,7 @@ const T = {
     activeUser:'نشط',inactive:'معطل',
     system_admin:'مدير النظام',facility_manager:'مدير المرافق',
     cleaning_manager:'مديرة النظافة',cleaning_supervisor:'مشرف النظافة',cleaner:'عامل نظافة',
+    hospitality_manager:'مدير الضيافة',hospitality_supervisor:'مشرف الضيافة',hospitality_worker:'عامل ضيافة',
     worker:'العامل',location:'الموقع',time:'الوقت',status:'الحالة',
     completed:'تم التنظيف',needs_followup:'يحتاج متابعة',pending_approval:'بانتظار الاعتماد',
     approved:'معتمد',rejected:'مرفوض',needs_recleaning:'إعادة تنظيف',
@@ -142,6 +143,7 @@ const T = {
     activeUser:'Active',inactive:'Inactive',
     system_admin:'System Admin',facility_manager:'Facility Manager',
     cleaning_manager:'Cleaning Manager',cleaning_supervisor:'Supervisor',cleaner:'Cleaner',
+    hospitality_manager:'Hospitality Manager',hospitality_supervisor:'Hospitality Supervisor',hospitality_worker:'Hospitality Worker',
     worker:'Worker',location:'Location',time:'Time',status:'Status',
     completed:'Completed',needs_followup:'Needs Follow-up',pending_approval:'Pending Approval',
     approved:'Approved',rejected:'Rejected',needs_recleaning:'Needs Re-cleaning',
@@ -643,7 +645,7 @@ function canViewCleaningTeam(){return me.role==='cleaning_manager'}
 function locName(l){return lang==='ar'?(l.nameAr||l.nameEn):(l.nameEn||l.nameAr)}
 
 function roleBadgeClass(role){
-  return {system_admin:'role-admin',facility_manager:'role-fm',cleaning_manager:'role-cleaning-manager',cleaning_supervisor:'role-cs',cleaner:'role-cleaner'}[role]||'';
+  return {system_admin:'role-admin',facility_manager:'role-fm',cleaning_manager:'role-cleaning-manager',cleaning_supervisor:'role-cs',cleaner:'role-cleaner',hospitality_manager:'role-cleaning-manager',hospitality_supervisor:'role-cs',hospitality_worker:'role-cleaner'}[role]||'';
 }
 
 
@@ -2666,7 +2668,10 @@ function showAddRoleModal(userId){
     cleaning_manager:   {bg:'rgba(111,79,152,.12)', color:'var(--rega-purple)'},
     cleaning_supervisor:{bg:'rgba(0,132,141,.12)', color:'var(--rega-teal)'},
     cleaner:            {bg:'var(--ok-bg)', color:'var(--ok)'},
-    employee:           {bg:'rgba(117,206,200,.16)', color:'var(--rega-dark-teal)'}
+    employee:           {bg:'rgba(117,206,200,.16)', color:'var(--rega-dark-teal)'},
+    hospitality_manager:   {bg:'rgba(111,79,152,.12)', color:'var(--rega-purple)'},
+    hospitality_supervisor:{bg:'rgba(0,132,141,.12)', color:'var(--rega-teal)'},
+    hospitality_worker:    {bg:'var(--ok-bg)', color:'var(--ok)'}
   };
 
   function buildRoleCards(){

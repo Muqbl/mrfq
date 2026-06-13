@@ -328,6 +328,40 @@ const MIGRATIONS = {
     DROP INDEX IF EXISTS idx_audit_action;
     DROP INDEX IF EXISTS idx_audit_module;
     DROP TABLE IF EXISTS audit_logs;
+  `,
+
+  /* ── v11: hospitality module — orders table ────────────────── */
+  11: `
+    CREATE TABLE IF NOT EXISTS hospitality_orders (
+      id               TEXT PRIMARY KEY,
+      reference_no     TEXT NOT NULL DEFAULT '',
+      order_type       TEXT NOT NULL DEFAULT 'general',
+      items            TEXT NOT NULL DEFAULT '[]',
+      location_id      TEXT NOT NULL,
+      location_name_ar TEXT NOT NULL DEFAULT '',
+      location_name_en TEXT NOT NULL DEFAULT '',
+      requested_by     TEXT NOT NULL DEFAULT '',
+      requested_by_id  TEXT NOT NULL DEFAULT '',
+      assigned_to      TEXT,
+      assigned_to_name TEXT NOT NULL DEFAULT '',
+      status           TEXT NOT NULL DEFAULT 'submitted',
+      notes            TEXT NOT NULL DEFAULT '',
+      sla_deadline     TEXT,
+      sla_breached     INTEGER NOT NULL DEFAULT 0,
+      created_at       TEXT NOT NULL,
+      updated_at       TEXT NOT NULL,
+      accepted_at      TEXT,
+      ready_at         TEXT,
+      delivered_at     TEXT,
+      completed_at     TEXT,
+      cancelled_at     TEXT,
+      rejected_at      TEXT,
+      deleted_at       TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_hosp_orders_assigned  ON hospitality_orders(assigned_to);
+    CREATE INDEX IF NOT EXISTS idx_hosp_orders_status    ON hospitality_orders(status);
+    CREATE INDEX IF NOT EXISTS idx_hosp_orders_requester ON hospitality_orders(requested_by_id);
+    CREATE INDEX IF NOT EXISTS idx_hosp_orders_deleted   ON hospitality_orders(deleted_at);
   `
 };
 

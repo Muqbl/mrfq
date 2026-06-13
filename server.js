@@ -19,7 +19,7 @@ const MAX_PHOTO_BYTES    = 5_242_880;  // 5 MB per photo
 const MAX_PHOTOS         = 10;
 const PUBLIC             = path.join(__dirname, 'public');
 const UPLOADS_DIR        = process.env.UPLOADS_PATH || path.join(__dirname, 'uploads');
-const ALLOWED_ROLES      = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','cleaner','employee'];
+const ALLOWED_ROLES      = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','cleaner','employee','hospitality_manager','hospitality_supervisor','hospitality_worker'];
 
 /* ═══════════════════════════════════════════════════════════════
    TICKET STATUS STATE MACHINE
@@ -38,6 +38,42 @@ const TICKET_TRANSITIONS = {
   cancelled:            []
 };
 const REPORT_REVIEW_STATUSES = ['approved','rejected','needs_recleaning'];
+
+/* ═══════════════════════════════════════════════════════════════
+   HOSPITALITY ORDER STATUS STATE MACHINE
+   ═══════════════════════════════════════════════════════════════ */
+const HOSPITALITY_STATUSES = ['submitted','accepted','preparing','ready','out_for_delivery','delivered','completed','cancelled','rejected'];
+const HOSPITALITY_TERMINAL = ['completed','cancelled','rejected'];
+const HOSPITALITY_TRANSITIONS = {
+  submitted:        ['accepted','rejected','cancelled'],
+  accepted:         ['preparing','cancelled','rejected'],
+  preparing:        ['ready','cancelled'],
+  ready:            ['out_for_delivery','cancelled'],
+  out_for_delivery: ['delivered','cancelled'],
+  delivered:        ['completed'],
+  completed:        [],
+  cancelled:        [],
+  rejected:         []
+};
+// Per-role transition scopes (override roles get full HOSPITALITY_TRANSITIONS)
+const HOSPITALITY_WORKER_TRANSITIONS = {
+  accepted:         ['preparing'],
+  preparing:        ['ready'],
+  ready:            ['out_for_delivery'],
+  out_for_delivery: ['delivered']
+};
+const HOSPITALITY_SUPERVISOR_TRANSITIONS = {
+  submitted:        ['accepted','rejected'],
+  accepted:         ['preparing','cancelled','rejected'],
+  preparing:        ['ready','cancelled'],
+  ready:            ['out_for_delivery','cancelled'],
+  out_for_delivery: ['delivered','cancelled'],
+  delivered:        ['completed']
+};
+const HOSPITALITY_EMPLOYEE_TRANSITIONS = {
+  submitted: ['cancelled']
+};
+const HOSPITALITY_SLA_MINS = 60;
 
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
@@ -337,6 +373,13 @@ function allowedRoleEditor(editorRole, targetRole) {
   return editorRole === 'system_admin' || ['cleaning_supervisor','cleaner'].includes(targetRole);
 }
 
+/* ── Hospitality permissions ─────────────────────────────────── */
+function canHospitalityOverride(role) { return ['system_admin','facility_manager','hospitality_manager'].includes(role); }
+function canHospitalityAssign(role)   { return ['system_admin','facility_manager','hospitality_manager','hospitality_supervisor'].includes(role); }
+function canHospitalityReview(role)   { return ['system_admin','facility_manager','hospitality_manager','hospitality_supervisor'].includes(role); }
+function canHospitalityCreate(role)   { return ['employee','system_admin','facility_manager','hospitality_manager','hospitality_supervisor'].includes(role); }
+function canHospitalityAccess(role)   { return ['system_admin','facility_manager','hospitality_manager','hospitality_supervisor','hospitality_worker','employee'].includes(role); }
+
 /* ═══════════════════════════════════════════════════════════════
    DATA HELPERS  (all DB queries → camelCase output)
    ═══════════════════════════════════════════════════════════════ */
@@ -398,6 +441,11 @@ function dbReports()  {
     WHERE r.deleted_at IS NULL
     GROUP BY r.id ORDER BY r.created_at DESC
   `).all().map(reportRow);
+}
+function dbHospitalityOrders() {
+  return getDb().prepare(`
+    SELECT * FROM hospitality_orders WHERE deleted_at IS NULL ORDER BY created_at DESC
+  `).all().map(hospitalityOrderRow);
 }
 
 /** Map DB ticket row → frontend camelCase */
@@ -470,7 +518,45 @@ function reportRow(r) {
   };
 }
 
+/** Map DB hospitality_orders row → frontend camelCase */
+function hospitalityOrderRow(r) {
+  if (!r) return null;
+  return {
+    id:             r.id,
+    referenceNo:    r.reference_no || '',
+    orderType:      r.order_type,
+    items:          JSON.parse(r.items || '[]'),
+    locationId:     r.location_id,
+    locationNameAr: r.location_name_ar,
+    locationNameEn: r.location_name_en,
+    requestedBy:    r.requested_by,
+    requestedById:  r.requested_by_id,
+    assignedTo:     r.assigned_to,
+    assignedToName: r.assigned_to_name,
+    status:         r.status,
+    notes:          r.notes,
+    slaDeadline:    r.sla_deadline || '',
+    slaBreached:    r.sla_breached === 1,
+    createdAt:      r.created_at,
+    updatedAt:      r.updated_at,
+    acceptedAt:     r.accepted_at  || '',
+    readyAt:        r.ready_at     || '',
+    deliveredAt:    r.delivered_at || '',
+    completedAt:    r.completed_at || '',
+    cancelledAt:    r.cancelled_at || '',
+    rejectedAt:     r.rejected_at  || ''
+  };
+}
+
 /* ── Role-filtered bootstrap payload ─────────────────────────── */
+/** Hospitality orders visible to `me`, scoped by role. */
+function hospitalityOrdersForRole(me, allOrders) {
+  if (me.role === 'employee')            return allOrders.filter(o => o.requestedById === me.id);
+  if (me.role === 'hospitality_worker')  return allOrders.filter(o => o.assignedTo === me.id);
+  if (['hospitality_supervisor','hospitality_manager','system_admin','facility_manager'].includes(me.role)) return allOrders;
+  return [];
+}
+
 function buildBootstrap(me) {
   const users       = dbUsers();
   const locations   = dbLocs();          // already mapped to camelCase
@@ -479,8 +565,10 @@ function buildBootstrap(me) {
   const settings    = dbSettings();
   const allTickets  = dbTickets();
   const allReports  = dbReports();
+  const allHospitalityOrders = dbHospitalityOrders();
 
   const base = { user: publicUser(me), locations, zones, settings };
+  const hospitalityOrders = hospitalityOrdersForRole(me, allHospitalityOrders);
 
   if (me.role === 'employee') {
     return {
@@ -488,7 +576,8 @@ function buildBootstrap(me) {
       users:       [publicUser(me)],
       assignments: [],
       tickets:     allTickets.filter(t => t.createdById === me.id),
-      reports:     []
+      reports:     [],
+      hospitalityOrders
     };
   }
   if (me.role === 'cleaner') {
@@ -498,7 +587,8 @@ function buildBootstrap(me) {
       users:       [publicUser(me)],
       assignments: myAssign ? [myAssign] : [],
       tickets:     allTickets.filter(t => t.assignedTo === me.id),
-      reports:     allReports.filter(r => r.workerId  === me.id)
+      reports:     allReports.filter(r => r.workerId  === me.id),
+      hospitalityOrders
     };
   }
   if (me.role === 'cleaning_supervisor') {
@@ -507,7 +597,28 @@ function buildBootstrap(me) {
       users:       users.filter(u => ['cleaner','cleaning_supervisor'].includes(u.role)).map(publicUser),
       assignments,
       tickets:     allTickets,
-      reports:     allReports
+      reports:     allReports,
+      hospitalityOrders
+    };
+  }
+  if (me.role === 'hospitality_worker') {
+    return {
+      ...base,
+      users:       [publicUser(me)],
+      assignments: [],
+      tickets:     [],
+      reports:     [],
+      hospitalityOrders
+    };
+  }
+  if (me.role === 'hospitality_supervisor' || me.role === 'hospitality_manager') {
+    return {
+      ...base,
+      users:       users.filter(u => ['hospitality_worker','hospitality_supervisor','hospitality_manager'].includes(u.role)).map(publicUser),
+      assignments: [],
+      tickets:     [],
+      reports:     [],
+      hospitalityOrders
     };
   }
   // admin / facility_manager / cleaning_manager — full view
@@ -516,7 +627,8 @@ function buildBootstrap(me) {
     users:       users.map(publicUser),
     assignments,
     tickets:     allTickets,
-    reports:     allReports
+    reports:     allReports,
+    hospitalityOrders
   };
 }
 
@@ -546,14 +658,14 @@ function generateRefNo(db, prefix = 'CLN') {
   return `${prefix.toUpperCase()}-${year}-${String(seq).padStart(6, '0')}`;
 }
 
-function logEvent(db, eventType, entityType, entityId, actor, payload = {}) {
+function logEvent(db, eventType, entityType, entityId, actor, payload = {}, module = 'cleaning') {
   try {
     db.prepare(`
       INSERT INTO event_log
         (event_type, module, entity_type, entity_id, actor_id, actor_role, payload, created_at)
-      VALUES (?, 'cleaning', ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      eventType, entityType, entityId,
+      eventType, module, entityType, entityId,
       actor?.id   || '',
       actor?.role || '',
       JSON.stringify(payload),
@@ -1233,6 +1345,123 @@ const server = http.createServer(async (req, res) => {
         if (col === 'rating_manager' && !canManageSystem(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         db.prepare(`UPDATE reports SET ${col} = ?, updated_at = ? WHERE id = ?`).run(value, now(), b.id);
         return send(res, 200, { ok: true });
+      }
+
+      /* ── HOSPITALITY: CREATE ORDER ────────────────────────────── */
+      if (req.method === 'POST' && url.pathname === '/api/hospitality/orders') {
+        if (!canHospitalityCreate(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const b   = await bodyJSON(req);
+        const loc = db.prepare('SELECT * FROM locations WHERE id = ? AND deleted_at IS NULL').get(sanitize(b.locationId, 80));
+        if (!loc) return send(res, 404, { error: 'LOCATION_NOT_FOUND' });
+        const orderType = sanitize(b.orderType || 'general', 50) || 'general';
+        const items = Array.isArray(b.items) ? b.items.slice(0, 20).map(i => sanitize(String(i), 100)) : [];
+        const refNo = generateRefNo(db, 'HSP');
+        const id    = newId('h');
+        const ts    = now();
+        const slaDeadline = new Date(Date.now() + HOSPITALITY_SLA_MINS * 60_000).toISOString();
+        db.prepare(`
+          INSERT INTO hospitality_orders (id,reference_no,order_type,items,location_id,location_name_ar,location_name_en,
+            requested_by,requested_by_id,status,notes,sla_deadline,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `).run(id, refNo, orderType, JSON.stringify(items), loc.id, loc.name_ar, loc.name_en,
+               me.name, me.id, 'submitted', sanitize(b.notes, 1000), slaDeadline, ts, ts);
+        const order = hospitalityOrderRow(db.prepare('SELECT * FROM hospitality_orders WHERE id = ?').get(id));
+        broadcast('hospitality_order_created', { order });
+        logEvent(db, 'hospitality.submitted', 'hospitality_order', id, me, { refNo, orderType, locationId: loc.id }, 'hospitality');
+        return send(res, 200, { order });
+      }
+
+      /* ── HOSPITALITY: LIST ORDERS (scoped by role) ────────────── */
+      if (req.method === 'GET' && url.pathname === '/api/hospitality/orders') {
+        if (!canHospitalityAccess(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const orders = hospitalityOrdersForRole(me, dbHospitalityOrders());
+        return send(res, 200, { orders });
+      }
+
+      /* ── HOSPITALITY: ASSIGN ORDER TO WORKER ──────────────────── */
+      if (req.method === 'POST' && /^\/api\/hospitality\/orders\/[^/]+\/assign$/.test(url.pathname)) {
+        if (!canHospitalityAssign(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const id    = url.pathname.split('/')[4];
+        const order = db.prepare('SELECT * FROM hospitality_orders WHERE id = ? AND deleted_at IS NULL').get(id);
+        if (!order) return send(res, 404, { error: 'NOT_FOUND' });
+        if (HOSPITALITY_TERMINAL.includes(order.status)) return send(res, 400, { error: 'INVALID_TRANSITION' });
+        const b      = await bodyJSON(req);
+        const worker = db.prepare(
+          "SELECT * FROM users WHERE id = ? AND role='hospitality_worker' AND active=1 AND deleted_at IS NULL"
+        ).get(sanitize(b.workerId, 80));
+        if (!worker) return send(res, 404, { error: 'WORKER_NOT_FOUND' });
+        const ts = now();
+        db.prepare('UPDATE hospitality_orders SET assigned_to=?, assigned_to_name=?, updated_at=? WHERE id=?')
+          .run(worker.id, worker.name, ts, id);
+        const updated = hospitalityOrderRow(db.prepare('SELECT * FROM hospitality_orders WHERE id = ?').get(id));
+        broadcast('hospitality_order_updated', { order: updated });
+        logEvent(db, 'hospitality.assigned', 'hospitality_order', id, me, { workerId: worker.id, workerName: worker.name }, 'hospitality');
+        return send(res, 200, { order: updated });
+      }
+
+      /* ── HOSPITALITY: UPDATE ORDER STATUS ─────────────────────── */
+      if (req.method === 'PUT' && /^\/api\/hospitality\/orders\/[^/]+$/.test(url.pathname)) {
+        const id    = url.pathname.split('/')[4];
+        const order = db.prepare('SELECT * FROM hospitality_orders WHERE id = ? AND deleted_at IS NULL').get(id);
+        if (!order) return send(res, 404, { error: 'NOT_FOUND' });
+        const b = await bodyJSON(req);
+        const newStatus = b.status;
+        if (!HOSPITALITY_STATUSES.includes(newStatus)) return send(res, 400, { error: 'INVALID_STATUS' });
+        if (HOSPITALITY_TERMINAL.includes(order.status)) return send(res, 400, { error: 'INVALID_TRANSITION' });
+
+        let allowed;
+        if (canHospitalityOverride(me.role)) {
+          allowed = HOSPITALITY_TRANSITIONS[order.status] || [];
+        } else if (me.role === 'hospitality_supervisor') {
+          allowed = HOSPITALITY_SUPERVISOR_TRANSITIONS[order.status] || [];
+        } else if (me.role === 'hospitality_worker') {
+          if (order.assigned_to !== me.id) return send(res, 403, { error: 'FORBIDDEN' });
+          allowed = HOSPITALITY_WORKER_TRANSITIONS[order.status] || [];
+        } else if (me.role === 'employee') {
+          if (order.requested_by_id !== me.id) return send(res, 403, { error: 'FORBIDDEN' });
+          allowed = HOSPITALITY_EMPLOYEE_TRANSITIONS[order.status] || [];
+        } else {
+          return send(res, 403, { error: 'FORBIDDEN' });
+        }
+        if (!allowed.includes(newStatus)) return send(res, 400, { error: 'INVALID_TRANSITION' });
+
+        const ts = now();
+        const TIMESTAMP_COL = { accepted: 'accepted_at', ready: 'ready_at', delivered: 'delivered_at', completed: 'completed_at', cancelled: 'cancelled_at', rejected: 'rejected_at' };
+        const fields = ['status=?', 'updated_at=?'];
+        const params = [newStatus, ts];
+        if (TIMESTAMP_COL[newStatus]) { fields.push(`${TIMESTAMP_COL[newStatus]}=?`); params.push(ts); }
+        if (b.notes !== undefined) { fields.push('notes=?'); params.push(sanitize(b.notes, 1000)); }
+        params.push(id);
+        db.prepare(`UPDATE hospitality_orders SET ${fields.join(',')} WHERE id=?`).run(...params);
+
+        const updated = hospitalityOrderRow(db.prepare('SELECT * FROM hospitality_orders WHERE id = ?').get(id));
+        broadcast('hospitality_order_updated', { order: updated });
+        logEvent(db, 'hospitality.status_changed', 'hospitality_order', id, me, { from: order.status, to: newStatus }, 'hospitality');
+        return send(res, 200, { order: updated });
+      }
+
+      /* ── HOSPITALITY: PERFORMANCE / SLA SUMMARY ───────────────── */
+      if (req.method === 'GET' && url.pathname === '/api/hospitality/performance') {
+        if (!canHospitalityReview(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const all = dbHospitalityOrders();
+        const byStatus = {};
+        for (const s of HOSPITALITY_STATUSES) byStatus[s] = 0;
+        for (const o of all) byStatus[o.status] = (byStatus[o.status] || 0) + 1;
+        const completedOrders = all.filter(o => o.status === 'completed' && o.completedAt);
+        const avgCompletionMins = completedOrders.length
+          ? Math.round(completedOrders.reduce((sum, o) => sum + (new Date(o.completedAt) - new Date(o.createdAt)) / 60000, 0) / completedOrders.length)
+          : null;
+        const overdue = all.filter(o => !HOSPITALITY_TERMINAL.includes(o.status) && o.slaDeadline && new Date(o.slaDeadline) < new Date()).length;
+        const workers = db.prepare(
+          "SELECT id,name FROM users WHERE role='hospitality_worker' AND active=1 AND deleted_at IS NULL"
+        ).all();
+        const workerStats = workers.map(w => ({
+          workerId:  w.id,
+          name:      w.name,
+          completed: all.filter(o => o.assignedTo === w.id && o.status === 'completed').length,
+          open:      all.filter(o => o.assignedTo === w.id && !HOSPITALITY_TERMINAL.includes(o.status)).length
+        }));
+        return send(res, 200, { byStatus, avgCompletionMins, overdue, totalOrders: all.length, workers: workerStats, generatedAt: now() });
       }
 
       return send(res, 404, { error: 'NOT_FOUND' });
