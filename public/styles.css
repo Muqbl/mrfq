@@ -107,7 +107,7 @@
   --sidebar-w:252px;
   --topbar-base:68px; /* visual content height — exclude safe area */
   --topbar-h:calc(var(--topbar-base) + env(safe-area-inset-top,0px)); /* total height incl. iOS notch */
-  --mobile-nav-h:64px;
+  --mobile-nav-h:68px;
 
   /* ── Form control tokens (single source of truth) ── */
   --ctrl-h:48px;
@@ -814,6 +814,7 @@ tbody tr:hover td{background:var(--surface-2)}
   color:var(--muted);background:transparent;padding:8px 10px;
 }
 .fieldTab.active{background:#fff;color:var(--rega-green);box-shadow:var(--shadow-xs)}
+.fieldTab.active .fieldTab-icon svg{stroke-width:2.3}
 .fieldTab-main{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:0}
 .fieldTab-icon{display:grid;place-items:center;color:currentColor}
 .fieldTab-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1571,6 +1572,7 @@ tbody tr:hover td{background:var(--surface-2)}
   .platform-shell--admin>.mobileBottomNav .mobileBottomNav-item.active{
     background:#fff;color:var(--rega-green);box-shadow:var(--shadow-xs);
   }
+  .platform-shell--admin>.mobileBottomNav .mobileBottomNav-item.active .mobileBottomNav-icon svg{stroke-width:2.35}
   .platform-shell--admin>.mobileBottomNav .mobileBottomNav-icon svg{width:16px;height:16px}
   .platform-shell--admin>.mobileBottomNav .mobileBottomNav-label{font-size:var(--fs-xs);font-weight:700;color:currentColor}
   .platform-shell--admin>.mobileBottomNav .mobileBottomNav-badge{
@@ -1746,7 +1748,7 @@ tbody tr:hover td{background:var(--surface-2)}
   .mobileBottomNav{
     position:fixed;inset-inline:0;bottom:0;z-index:70;
     display:grid;grid-template-columns:repeat(var(--mobile-nav-count,5),minmax(0,1fr));
-    gap:2px;padding:5px 8px;
+    gap:2px;padding:6px 8px calc(10px + env(safe-area-inset-bottom,0px));
     background:rgba(255,255,255,.94);
     border-top:1px solid var(--line);
     backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
@@ -1767,6 +1769,7 @@ tbody tr:hover td{background:var(--surface-2)}
   }
   .mobileBottomNav-icon{position:relative;display:grid;place-items:center}
   .mobileBottomNav-icon svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .mobileBottomNav-item.active .mobileBottomNav-icon svg{stroke-width:2.35}
   .mobileBottomNav-badge{
     position:absolute;top:3px;inset-inline-end:clamp(14px,24%,26px);
     width:20px;height:20px;min-width:20px;min-height:20px;

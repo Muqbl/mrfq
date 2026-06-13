@@ -231,6 +231,7 @@ const IC = {
   'bar-chart':`<svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>`,
   send:`<svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`,
   list:`<svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
+  clipboardList:`<svg viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M8 11h8"/><path d="M8 15h8"/><path d="M8 19h5"/></svg>`,
   menu:`<svg viewBox="0 0 24 24"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>`,
   'clock':`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
   shield:`<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
@@ -755,8 +756,8 @@ function renderFieldTabs(){
     return `<div class="fieldTabs" role="tablist">
       ${mk(employeeView==='home','dashboard',lang==='ar'?'الرئيسية':'Home',"employeeView='home';mobileNavActive='employee-home';renderEmployee()")}
       ${mk(employeeView==='new','send',lang==='ar'?'طلب جديد':'New',"employeeView='new';mobileNavActive='employee-new';renderEmployee()")}
-      ${mk(employeeView==='history','list',tr('myRequests'),"employeeView='history';mobileNavActive='employee-history';renderEmployee()",activeCount)}
-      ${mk(employeeView==='more','layers',lang==='ar'?'المزيد':'More',"employeeView='more';mobileNavActive='employee-more';renderEmployee()")}
+      ${mk(employeeView==='history','clipboardList',tr('myRequests'),"employeeView='history';mobileNavActive='employee-history';renderEmployee()",activeCount)}
+      ${mk(employeeView==='more','menu',lang==='ar'?'المزيد':'More',"employeeView='more';mobileNavActive='employee-more';renderEmployee()")}
     </div>`;
   }
   return '';
@@ -1020,7 +1021,7 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
     primary = [
       {v:'employee-home', label:lang==='ar'?'الرئيسية':'Home', icon:'dashboard', count:0, action:"employeeView='home';mobileNavActive='employee-home';renderEmployee()", active:employeeView==='home'},
       {v:'employee-new', label:lang==='ar'?'طلب جديد':'New', icon:'send', count:0, action:"employeeView='new';mobileNavActive='employee-new';renderEmployee()", active:employeeView==='new'},
-      {v:'employee-history', label:tr('myRequests'), icon:'list', count:activeCount, action:"employeeView='history';mobileNavActive='employee-history';renderEmployee()", active:employeeView==='history'},
+      {v:'employee-history', label:tr('myRequests'), icon:'clipboardList', count:activeCount, action:"employeeView='history';mobileNavActive='employee-history';renderEmployee()", active:employeeView==='history'},
       {v:'employee-more', label:lang==='ar'?'المزيد':'More', icon:'menu', count:0, action:"employeeView='more';mobileNavActive='employee-more';renderEmployee()", active:employeeView==='more'}
     ];
   }else if(role==='cleaner'){
