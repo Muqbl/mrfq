@@ -158,7 +158,7 @@ test('public can submit a hospitality order without login', async () => {
   const pub = client();
   const r = await pub('/api/public/hospitality/orders', { method: 'POST', body: JSON.stringify({
     requesterName: 'زائر تجريبي', requesterPhone: '0500000001',
-    locationId: 'lobby-gf', orderType: 'coffee', items: ['قهوة'], notes: 'بدون سكر'
+    locationId: 'lobby-gf', kitchenId: 'kit-main', orderType: 'coffee', items: ['قهوة'], notes: 'بدون سكر'
   }) });
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.equal(r.body.order.status, 'submitted');

@@ -417,6 +417,7 @@ function canHospitalityReview(role)   { return ['system_admin','facility_manager
 function canHospitalityCreate(role)   { return ['employee','system_admin','facility_manager','hospitality_manager','hospitality_supervisor'].includes(role); }
 function canHospitalityAccess(role)   { return ['system_admin','facility_manager','hospitality_manager','hospitality_supervisor','hospitality_worker','employee'].includes(role); }
 function canManageHospitalityMenu(role) { return ['system_admin','hospitality_manager'].includes(role); }
+function canManageHospitalityKitchens(role) { return ['system_admin','hospitality_manager'].includes(role); }
 
 /* ═══════════════════════════════════════════════════════════════
    DATA HELPERS  (all DB queries → camelCase output)
@@ -510,6 +511,48 @@ function dbMenuItems(activeOnly = false) {
   return getDb().prepare(sql).all().map(menuItemRow);
 }
 
+/** Map DB hospitality_kitchens row (LEFT JOIN users) → frontend camelCase */
+function kitchenRow(r) {
+  if (!r) return null;
+  return {
+    id:                  r.id,
+    nameAr:              r.name_ar,
+    nameEn:              r.name_en,
+    locationName:        r.location_name,
+    responsibleWorkerId:   r.responsible_worker_id || '',
+    responsibleWorkerName: r.responsible_worker_name || '',
+    isActive:            r.is_active === 1,
+    sortOrder:           r.sort_order,
+    createdAt:           r.created_at,
+    updatedAt:           r.updated_at
+  };
+}
+function dbKitchens(activeOnly = false) {
+  const sql = `SELECT k.*, u.name AS responsible_worker_name
+    FROM hospitality_kitchens k
+    LEFT JOIN users u ON u.id = k.responsible_worker_id
+    WHERE k.deleted_at IS NULL
+    ${activeOnly ? 'AND k.is_active = 1' : ''}
+    ORDER BY k.sort_order ASC, k.created_at ASC`;
+  return getDb().prepare(sql).all().map(kitchenRow);
+}
+
+/** Resolve an active kitchen + its responsible worker (for direct order assignment). */
+function resolveKitchenAssignment(db, kitchenId) {
+  const kitchen = db.prepare(
+    'SELECT * FROM hospitality_kitchens WHERE id = ? AND is_active = 1 AND deleted_at IS NULL'
+  ).get(kitchenId);
+  if (!kitchen) return null;
+  let assignedTo = '', assignedToName = '';
+  if (kitchen.responsible_worker_id) {
+    const worker = db.prepare(
+      "SELECT * FROM users WHERE id = ? AND role = 'hospitality_worker' AND active = 1 AND deleted_at IS NULL"
+    ).get(kitchen.responsible_worker_id);
+    if (worker) { assignedTo = worker.id; assignedToName = worker.name; }
+  }
+  return { kitchen, assignedTo, assignedToName };
+}
+
 /** Map DB ticket row → frontend camelCase */
 function ticketRow(r) {
   if (!r) return null;
@@ -597,6 +640,9 @@ function hospitalityOrderRow(r) {
     requesterPhone: r.requester_phone || '',
     assignedTo:     r.assigned_to,
     assignedToName: r.assigned_to_name,
+    kitchenId:      r.kitchen_id      || '',
+    kitchenNameAr:  r.kitchen_name_ar || '',
+    kitchenNameEn:  r.kitchen_name_en || '',
     status:         r.status,
     notes:          r.notes,
     slaDeadline:    r.sla_deadline || '',
@@ -621,6 +667,8 @@ function publicHospitalityOrder(o) {
     items:          o.items,
     locationNameAr: o.locationNameAr,
     locationNameEn: o.locationNameEn,
+    kitchenNameAr:  o.kitchenNameAr,
+    kitchenNameEn:  o.kitchenNameEn,
     status:         o.status,
     notes:          o.notes,
     createdAt:      o.createdAt,
@@ -873,6 +921,11 @@ const server = http.createServer(async (req, res) => {
         if (!requesterName || !requesterPhone) return send(res, 400, { error: 'MISSING_FIELDS' });
         const loc = db.prepare('SELECT * FROM locations WHERE id = ? AND deleted_at IS NULL').get(sanitize(b.locationId, 80));
         if (!loc) return send(res, 404, { error: 'LOCATION_NOT_FOUND' });
+        const kitchenId = sanitize(b.kitchenId, 80);
+        if (!kitchenId) return send(res, 400, { error: 'MISSING_FIELDS' });
+        const kitchenInfo = resolveKitchenAssignment(db, kitchenId);
+        if (!kitchenInfo) return send(res, 404, { error: 'KITCHEN_NOT_FOUND' });
+        const { kitchen, assignedTo, assignedToName } = kitchenInfo;
         const orderType = sanitize(b.orderType || 'general', 50) || 'general';
         const items = Array.isArray(b.items) ? b.items.slice(0, 20).map(i => sanitize(String(i), 100)) : [];
         const refNo = generateRefNo(db, 'HSP');
@@ -881,10 +934,12 @@ const server = http.createServer(async (req, res) => {
         const slaDeadline = new Date(Date.now() + HOSPITALITY_SLA_MINS * 60_000).toISOString();
         db.prepare(`
           INSERT INTO hospitality_orders (id,reference_no,order_type,items,location_id,location_name_ar,location_name_en,
-            requested_by,requested_by_id,requester_name,requester_phone,status,notes,sla_deadline,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            requested_by,requested_by_id,requester_name,requester_phone,assigned_to,assigned_to_name,
+            kitchen_id,kitchen_name_ar,kitchen_name_en,status,notes,sla_deadline,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `).run(id, refNo, orderType, JSON.stringify(items), loc.id, loc.name_ar, loc.name_en,
-               requesterName, '', requesterName, requesterPhone, 'submitted', sanitize(b.notes, 1000), slaDeadline, ts, ts);
+               requesterName, '', requesterName, requesterPhone, assignedTo, assignedToName,
+               kitchen.id, kitchen.name_ar, kitchen.name_en, 'submitted', sanitize(b.notes, 1000), slaDeadline, ts, ts);
         const order = hospitalityOrderRow(db.prepare('SELECT * FROM hospitality_orders WHERE id = ?').get(id));
         broadcast('hospitality_order_created', { order });
         logEvent(db, 'hospitality.submitted', 'hospitality_order', id, { id: '', role: 'public' }, { refNo, orderType, locationId: loc.id, public: true }, 'hospitality');
@@ -906,6 +961,12 @@ const server = http.createServer(async (req, res) => {
       /* ── PUBLIC: HOSPITALITY MENU (no login required) ─────────── */
       if (req.method === 'GET' && url.pathname === '/api/public/hospitality/menu') {
         return send(res, 200, { items: dbMenuItems(true) });
+      }
+
+      /* ── PUBLIC: HOSPITALITY KITCHENS (no login required) ─────── */
+      if (req.method === 'GET' && url.pathname === '/api/public/hospitality/kitchens') {
+        const kitchens = dbKitchens(true).map(k => ({ id: k.id, nameAr: k.nameAr, nameEn: k.nameEn, locationName: k.locationName }));
+        return send(res, 200, { kitchens });
       }
 
       /* ── PUBLIC: LOCATIONS LIST (no login required) ──────────── */
@@ -1486,16 +1547,15 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { metrics, generatedAt: now() });
       }
 
-      /* ── REPORT RATING (supervisor/manager) ─────────────────── */
+      /* ── REPORT RATING (cleaning_manager only — same-module rating governance) ── */
       if (req.method === 'POST' && url.pathname === '/api/reports/rate') {
-        if (!canReview(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        if (me.role !== 'cleaning_manager') return send(res, 403, { error: 'FORBIDDEN' });
         const b    = await bodyJSON(req);
         const rpt  = db.prepare('SELECT 1 FROM reports WHERE id = ? AND deleted_at IS NULL').get(b.id);
         if (!rpt) return send(res, 404, { error: 'REPORT_NOT_FOUND' });
         const value = parseFloat(b.value);
         if (isNaN(value) || value < 1 || value > 5) return send(res, 400, { error: 'INVALID_RATING' });
         const col = b.ratingType === 'manager' ? 'rating_manager' : 'rating_supervisor';
-        if (col === 'rating_manager' && !canManageSystem(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         db.prepare(`UPDATE reports SET ${col} = ?, updated_at = ? WHERE id = ?`).run(value, now(), b.id);
         return send(res, 200, { ok: true });
       }
@@ -1506,6 +1566,11 @@ const server = http.createServer(async (req, res) => {
         const b   = await bodyJSON(req);
         const loc = db.prepare('SELECT * FROM locations WHERE id = ? AND deleted_at IS NULL').get(sanitize(b.locationId, 80));
         if (!loc) return send(res, 404, { error: 'LOCATION_NOT_FOUND' });
+        const kitchenId = sanitize(b.kitchenId, 80);
+        if (!kitchenId) return send(res, 400, { error: 'MISSING_FIELDS' });
+        const kitchenInfo = resolveKitchenAssignment(db, kitchenId);
+        if (!kitchenInfo) return send(res, 404, { error: 'KITCHEN_NOT_FOUND' });
+        const { kitchen, assignedTo, assignedToName } = kitchenInfo;
         const orderType = sanitize(b.orderType || 'general', 50) || 'general';
         const items = Array.isArray(b.items) ? b.items.slice(0, 20).map(i => sanitize(String(i), 100)) : [];
         const refNo = generateRefNo(db, 'HSP');
@@ -1514,10 +1579,12 @@ const server = http.createServer(async (req, res) => {
         const slaDeadline = new Date(Date.now() + HOSPITALITY_SLA_MINS * 60_000).toISOString();
         db.prepare(`
           INSERT INTO hospitality_orders (id,reference_no,order_type,items,location_id,location_name_ar,location_name_en,
-            requested_by,requested_by_id,status,notes,sla_deadline,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            requested_by,requested_by_id,assigned_to,assigned_to_name,
+            kitchen_id,kitchen_name_ar,kitchen_name_en,status,notes,sla_deadline,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `).run(id, refNo, orderType, JSON.stringify(items), loc.id, loc.name_ar, loc.name_en,
-               me.name, me.id, 'submitted', sanitize(b.notes, 1000), slaDeadline, ts, ts);
+               me.name, me.id, assignedTo, assignedToName,
+               kitchen.id, kitchen.name_ar, kitchen.name_en, 'submitted', sanitize(b.notes, 1000), slaDeadline, ts, ts);
         const order = hospitalityOrderRow(db.prepare('SELECT * FROM hospitality_orders WHERE id = ?').get(id));
         broadcast('hospitality_order_created', { order });
         logEvent(db, 'hospitality.submitted', 'hospitality_order', id, me, { refNo, orderType, locationId: loc.id }, 'hospitality');
@@ -1681,6 +1748,78 @@ const server = http.createServer(async (req, res) => {
         logEvent(db, 'hospitality.menu_item_updated', 'hospitality_menu_item', id, me, { isActive: item.isActive }, 'hospitality');
         broadcast('hospitality_menu_updated', { item });
         return send(res, 200, { item });
+      }
+
+      /* ── HOSPITALITY KITCHENS: LIST (system_admin / hospitality_manager — incl. inactive) ── */
+      if (req.method === 'GET' && url.pathname === '/api/hospitality/kitchens') {
+        if (!canManageHospitalityKitchens(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        return send(res, 200, { kitchens: dbKitchens(false) });
+      }
+
+      /* ── HOSPITALITY KITCHENS: CREATE ────────────────────────── */
+      if (req.method === 'POST' && url.pathname === '/api/hospitality/kitchens') {
+        if (!canManageHospitalityKitchens(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const b = await bodyJSON(req);
+        const nameAr = sanitize(b.nameAr, 100);
+        const nameEn = sanitize(b.nameEn, 100);
+        if (!nameAr && !nameEn) return send(res, 400, { error: 'MISSING_FIELDS' });
+        let responsibleWorkerId = '';
+        if (b.responsibleWorkerId) {
+          const worker = db.prepare(
+            "SELECT id FROM users WHERE id = ? AND role = 'hospitality_worker' AND active = 1 AND deleted_at IS NULL"
+          ).get(sanitize(b.responsibleWorkerId, 80));
+          if (!worker) return send(res, 400, { error: 'WORKER_NOT_FOUND' });
+          responsibleWorkerId = worker.id;
+        }
+        const id = newId('kit');
+        const ts = now();
+        db.prepare(`
+          INSERT INTO hospitality_kitchens
+            (id,name_ar,name_en,location_name,responsible_worker_id,is_active,sort_order,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?)
+        `).run(id, nameAr, nameEn, sanitize(b.locationName, 150), responsibleWorkerId || null, 1, parseInt(b.sortOrder, 10) || 0, ts, ts);
+        const kitchen = kitchenRow(db.prepare(
+          'SELECT k.*, u.name AS responsible_worker_name FROM hospitality_kitchens k LEFT JOIN users u ON u.id = k.responsible_worker_id WHERE k.id=?'
+        ).get(id));
+        logEvent(db, 'hospitality.kitchen_created', 'hospitality_kitchen', id, me, { nameAr, nameEn }, 'hospitality');
+        broadcast('hospitality_kitchen_updated', { kitchen });
+        return send(res, 200, { kitchen });
+      }
+
+      /* ── HOSPITALITY KITCHENS: UPDATE (incl. soft-disable via isActive) ── */
+      if (req.method === 'PUT' && /^\/api\/hospitality\/kitchens\/[^/]+$/.test(url.pathname)) {
+        if (!canManageHospitalityKitchens(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const id = url.pathname.split('/')[4];
+        const existing = db.prepare('SELECT * FROM hospitality_kitchens WHERE id = ? AND deleted_at IS NULL').get(id);
+        if (!existing) return send(res, 404, { error: 'NOT_FOUND' });
+        const b = await bodyJSON(req);
+        const fields = [], params = [];
+        if (b.nameAr        !== undefined) { fields.push('name_ar=?');       params.push(sanitize(b.nameAr, 100)); }
+        if (b.nameEn        !== undefined) { fields.push('name_en=?');       params.push(sanitize(b.nameEn, 100)); }
+        if (b.locationName  !== undefined) { fields.push('location_name=?'); params.push(sanitize(b.locationName, 150)); }
+        if (b.sortOrder     !== undefined) { fields.push('sort_order=?');    params.push(parseInt(b.sortOrder, 10) || 0); }
+        if (b.isActive      !== undefined) { fields.push('is_active=?');     params.push(b.isActive ? 1 : 0); }
+        if (b.responsibleWorkerId !== undefined) {
+          if (b.responsibleWorkerId) {
+            const worker = db.prepare(
+              "SELECT id FROM users WHERE id = ? AND role = 'hospitality_worker' AND active = 1 AND deleted_at IS NULL"
+            ).get(sanitize(b.responsibleWorkerId, 80));
+            if (!worker) return send(res, 400, { error: 'WORKER_NOT_FOUND' });
+            fields.push('responsible_worker_id=?'); params.push(worker.id);
+          } else {
+            fields.push('responsible_worker_id=?'); params.push(null);
+          }
+        }
+        if (!fields.length) return send(res, 400, { error: 'NO_FIELDS' });
+        fields.push('updated_at=?'); params.push(now());
+        params.push(id);
+        db.prepare(`UPDATE hospitality_kitchens SET ${fields.join(',')} WHERE id=?`).run(...params);
+        const kitchen = kitchenRow(db.prepare(
+          'SELECT k.*, u.name AS responsible_worker_name FROM hospitality_kitchens k LEFT JOIN users u ON u.id = k.responsible_worker_id WHERE k.id=?'
+        ).get(id));
+        logEvent(db, 'hospitality.kitchen_updated', 'hospitality_kitchen', id, me, { isActive: kitchen.isActive }, 'hospitality');
+        broadcast('hospitality_kitchen_updated', { kitchen });
+        return send(res, 200, { kitchen });
       }
 
       return send(res, 404, { error: 'NOT_FOUND' });

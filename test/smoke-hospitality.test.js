@@ -122,7 +122,7 @@ let orderId;
 test('employee creates a hospitality order (status=submitted)', async () => {
   const employee = await login(HOSP_USERS.employee.username, HOSP_USERS.employee.password);
   const r = await employee('/api/hospitality/orders', { method: 'POST', body: JSON.stringify({
-    locationId: 'lobby-gf', orderType: 'beverage', items: ['قهوة', 'ماء'], notes: 'طلب اختباري'
+    locationId: 'lobby-gf', kitchenId: 'kit-main', orderType: 'beverage', items: ['قهوة', 'ماء'], notes: 'طلب اختباري'
   }) });
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.equal(r.body.order.status, 'submitted');
@@ -259,7 +259,7 @@ let secondOrderId;
 test('employee creates a second order and cancels it', async () => {
   const employee = await login(HOSP_USERS.employee.username, HOSP_USERS.employee.password);
   const created = await employee('/api/hospitality/orders', { method: 'POST', body: JSON.stringify({
-    locationId: 'lobby-gf', orderType: 'general'
+    locationId: 'lobby-gf', kitchenId: 'kit-main', orderType: 'general'
   }) });
   assert.equal(created.status, 200);
   secondOrderId = created.body.order.id;
@@ -274,7 +274,7 @@ test('employee creates a second order and cancels it', async () => {
 test('employee cannot modify another employee order', async () => {
   const admin = await login('admin', PASSWORDS.admin);
   const created = await admin('/api/hospitality/orders', { method: 'POST', body: JSON.stringify({
-    locationId: 'lobby-gf', orderType: 'general'
+    locationId: 'lobby-gf', kitchenId: 'kit-main', orderType: 'general'
   }) });
   assert.equal(created.status, 200);
   const otherOrderId = created.body.order.id;
@@ -305,7 +305,7 @@ test('cleaner cannot view hospitality performance', async () => {
 test('assign rejects a non hospitality_worker user', async () => {
   const admin = await login('admin', PASSWORDS.admin);
   const created = await admin('/api/hospitality/orders', { method: 'POST', body: JSON.stringify({
-    locationId: 'lobby-gf', orderType: 'general'
+    locationId: 'lobby-gf', kitchenId: 'kit-main', orderType: 'general'
   }) });
   const newId = created.body.order.id;
 

@@ -194,6 +194,17 @@ const T = {
     uploadImage:'رفع صورة',removeImage:'إزالة الصورة',noProducts:'لا توجد منتجات بعد',
     deactivateProduct:'تعطيل',activateProduct:'تفعيل',saveProduct:'حفظ المنتج',
     selectLocationToOrder:'يرجى اختيار الموقع لإتمام الطلب',
+
+    /* Phase 4d (v2) — kitchens / direct assignment */
+    kitchenLabel:'المطبخ',selectKitchenToOrder:'يرجى اختيار المطبخ لإتمام الطلب',
+    noKitchensAvailable:'لا توجد مطابخ متاحة حالياً',orderedFromKitchen:'من مطبخ',
+    kitchensTitle:'المطابخ',addKitchen:'إضافة مطبخ',editKitchen:'تعديل المطبخ',
+    kitchenNameAr:'اسم المطبخ (عربي)',kitchenNameEn:'اسم المطبخ (إنجليزي)',
+    kitchenLocationName:'الموقع',kitchenResponsibleWorker:'العامل المسؤول',
+    kitchenNoWorker:'بدون عامل مسؤول',kitchenActive:'مفعل',kitchenInactive:'معطل',
+    deactivateKitchen:'تعطيل',activateKitchen:'تفعيل',saveKitchen:'حفظ المطبخ',
+    noKitchens:'لا توجد مطابخ بعد',kitchenNoWorkerWarning:'لا يوجد عامل مسؤول عن هذا المطبخ',
+    kitchenSortOrder:'ترتيب العرض',
   },
   en:{
     app:'إدارة المرافق',sub:'Professional management for every facility, at any time',
@@ -353,6 +364,17 @@ const T = {
     uploadImage:'Upload Image',removeImage:'Remove Image',noProducts:'No products yet',
     deactivateProduct:'Deactivate',activateProduct:'Activate',saveProduct:'Save Product',
     selectLocationToOrder:'Please select a location to place the order',
+
+    /* Phase 4d (v2) — kitchens / direct assignment */
+    kitchenLabel:'Kitchen',selectKitchenToOrder:'Please select a kitchen to place the order',
+    noKitchensAvailable:'No active kitchens available right now',orderedFromKitchen:'from kitchen',
+    kitchensTitle:'Kitchens',addKitchen:'Add Kitchen',editKitchen:'Edit Kitchen',
+    kitchenNameAr:'Kitchen Name (Arabic)',kitchenNameEn:'Kitchen Name (English)',
+    kitchenLocationName:'Location',kitchenResponsibleWorker:'Responsible Worker',
+    kitchenNoWorker:'No responsible worker',kitchenActive:'Active',kitchenInactive:'Inactive',
+    deactivateKitchen:'Deactivate',activateKitchen:'Activate',saveKitchen:'Save Kitchen',
+    noKitchens:'No kitchens yet',kitchenNoWorkerWarning:'This kitchen has no responsible worker',
+    kitchenSortOrder:'Sort Order',
   }
 };
 
@@ -443,6 +465,8 @@ let hospMenuItems = null; // cached menu/products list (admin & hospitality_mana
 let editMenuItemId = null;
 let editMenuItemImageData = null; // pending data URL for new/replace image
 let editMenuItemImageRemoved = false;
+let hospKitchens = null; // cached kitchens list (admin & hospitality_manager)
+let editKitchenId = null;
 let adminView = 'dashboard';
 let adminModuleContext = null; // null | 'cleaning'
 let perfData = null; // cached performance data
@@ -459,8 +483,8 @@ const MODULES = [
     descAr:'صيانة المرافق والأجهزة', descEn:'Facilities and equipment maintenance'},
   {key:'hospitality', icon:'coffee', status:'active',
     nameAr:'الضيافة', nameEn:'Hospitality',
-    descAr:'إدارة طلبات الضيافة من الطلب حتى التسليم مع لوحات المشرف والمدير',
-    descEn:'Manage hospitality orders end-to-end with supervisor and manager dashboards'},
+    descAr:'طلب ضيافة عام من قائمة المشروبات والوجبات مع توجيه تلقائي للمطبخ المسؤول ولوحات المشرف والمدير',
+    descEn:'Public coffee/snack menu ordering with kitchen-based direct assignment, plus supervisor and manager dashboards'},
   {key:'security', icon:'shield', status:'planned',
     nameAr:'الأمن', nameEn:'Security',
     descAr:'إدارة الأمن والمراقبة', descEn:'Security and surveillance management'},
@@ -1026,6 +1050,7 @@ function renderFieldTabs(){
       ${mk(hospManagerView==='orders','coffee',tr('hospOrdersTab'),"hospManagerView='orders';mobileNavActive='hospmgr-orders';renderHospitalityManager()",newCount)}
       ${mk(hospManagerView==='reports','reports',tr('hospReportsTab'),"hospManagerView='reports';mobileNavActive='hospmgr-reports';renderHospitalityManager()")}
       ${mk(hospManagerView==='products','coffee',tr('productsTitle'),"hospManagerView='products';mobileNavActive='hospmgr-products';renderHospitalityManager()")}
+      ${mk(hospManagerView==='kitchens','building',tr('kitchensTitle'),"hospManagerView='kitchens';mobileNavActive='hospmgr-kitchens';renderHospitalityManager()")}
     </div>`;
   }
   return '';
@@ -1336,7 +1361,8 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
       {v:'hospmgr-dashboard', label:tr('hospDashboardTab'), icon:'dashboard', count:0, action:"hospManagerView='dashboard';mobileNavActive='hospmgr-dashboard';renderHospitalityManager()", active:hospManagerView==='dashboard'},
       {v:'hospmgr-orders', label:tr('hospOrdersTab'), icon:'coffee', count:newCount, action:"hospManagerView='orders';mobileNavActive='hospmgr-orders';renderHospitalityManager()", active:hospManagerView==='orders'},
       {v:'hospmgr-reports', label:tr('hospReportsTab'), icon:'reports', count:0, action:"hospManagerView='reports';mobileNavActive='hospmgr-reports';renderHospitalityManager()", active:hospManagerView==='reports'},
-      {v:'hospmgr-products', label:tr('productsTitle'), icon:'coffee', count:0, action:"hospManagerView='products';mobileNavActive='hospmgr-products';renderHospitalityManager()", active:hospManagerView==='products'}
+      {v:'hospmgr-products', label:tr('productsTitle'), icon:'coffee', count:0, action:"hospManagerView='products';mobileNavActive='hospmgr-products';renderHospitalityManager()", active:hospManagerView==='products'},
+      {v:'hospmgr-kitchens', label:tr('kitchensTitle'), icon:'building', count:0, action:"hospManagerView='kitchens';mobileNavActive='hospmgr-kitchens';renderHospitalityManager()", active:hospManagerView==='kitchens'}
     ];
   }else{
     primary = [
@@ -1395,6 +1421,14 @@ function renderSystemAdmin(){
     });
     return;
   }
+  if(adminView==='kitchens'){
+    adminShell(`<div style="text-align:center;padding:40px">${ic('clock',28)}</div>`);
+    ensureHospKitchens().then(()=>{
+      const main = document.querySelector('.platform-main .pageAnim');
+      if(main) main.innerHTML = hospitalityKitchensView();
+    });
+    return;
+  }
   const fn = {
     dashboard: adminDashboard,
     modules: adminModules,
@@ -1427,6 +1461,7 @@ function adminShell(content){
           ${adminNavItem('assets',tr('assets'),'building')}
           ${adminNavItem('maps',tr('maps'),'map-pin')}
           ${adminNavItem('products',tr('productsTitle'),'coffee')}
+          ${adminNavItem('kitchens',tr('kitchensTitle'),'building')}
           ${adminNavItem('reports',tr('generalReports'),'reports')}
           ${adminNavItem('audit',tr('auditLog'),'list')}
           ${canAccessGlobalSettings()?adminNavItem('settings',tr('globalSettings'),'settings'):''}
@@ -1480,6 +1515,7 @@ function showAdminNavMore(){
     {v:'assets', label:tr('assets'), icon:'building'},
     {v:'maps', label:tr('maps'), icon:'map-pin'},
     {v:'products', label:tr('productsTitle'), icon:'coffee'},
+    {v:'kitchens', label:tr('kitchensTitle'), icon:'building'},
     {v:'reports', label:tr('generalReports'), icon:'reports'},
     {v:'audit', label:tr('auditLog'), icon:'list'},
     ...(canAccessGlobalSettings()?[{v:'settings', label:tr('globalSettings'), icon:'settings'}]:[])
@@ -2081,11 +2117,11 @@ ${filtered.length===0
   : `<div class="reportGrid">${filtered.map(r=>reportCard(r,true)).join('')}</div>`}`;
 }
 
-function starRatingWidget(reportId, ratingType, current){
+function starRatingWidget(reportId, ratingType, current, readOnly){
   const stars = [1,2,3,4,5];
   const val = current != null ? Math.round(current) : 0;
   return `<div class="starRating" data-report="${esc(reportId)}" data-type="${esc(ratingType)}">
-    ${stars.map(s=>`<button class="starBtn${s<=val?' filled':''}" onclick="submitRating('${esc(reportId)}','${esc(ratingType)}',${s})" title="${s}" aria-label="${s} stars">${ic('star',15)}</button>`).join('')}
+    ${stars.map(s=>`<button class="starBtn${s<=val?' filled':''}"${readOnly?' disabled':` onclick="submitRating('${esc(reportId)}','${esc(ratingType)}',${s})"`} title="${s}" aria-label="${s} stars">${ic('star',15)}</button>`).join('')}
     <span class="starVal">${current!=null?current.toFixed(1):tr('noRating')}</span>
   </div>`;
 }
@@ -2145,16 +2181,19 @@ function reportCard(r,full){
           </div>
           ${canDelete()?`<div class="reportCard-actions-danger"><button class="btn secondary sm action-btn reportDeleteBtn" onclick="deleteReport('${r.id}')" aria-label="${lang==='ar'?'حذف التقرير':'Delete report'}" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button></div>`:''}
         </div>
-        <div class="ratingRow">
+        ${me.role==='cleaning_manager'?`<div class="ratingRow">
           <div class="ratingGroup">
             <span class="ratingLabel">${tr('ratingBySupervisor')}</span>
             ${starRatingWidget(r.id,'supervisor',r.ratingSupervisor)}
           </div>
-          ${canManage()?`<div class="ratingGroup">
+          <div class="ratingGroup">
             <span class="ratingLabel">${tr('ratingByManager')}</span>
             ${starRatingWidget(r.id,'manager',r.ratingManager)}
-          </div>`:''}
-        </div>`:''}
+          </div>
+        </div>`:(r.ratingSupervisor!=null||r.ratingManager!=null)?`<div class="ratingRow">
+          ${r.ratingSupervisor!=null?`<div class="ratingGroup"><span class="ratingLabel">${tr('ratingBySupervisor')}</span>${starRatingWidget(r.id,'supervisor',r.ratingSupervisor,true)}</div>`:''}
+          ${r.ratingManager!=null?`<div class="ratingGroup"><span class="ratingLabel">${tr('ratingByManager')}</span>${starRatingWidget(r.id,'manager',r.ratingManager,true)}</div>`:''}
+        </div>`:''}`:''}
     </div>
   </article>`;
 }
@@ -4025,6 +4064,7 @@ async function renderHospitalityManager(){
 
   if(hospManagerView==='dashboard') await ensureHospPerf();
   if(hospManagerView==='products') await ensureHospMenuItems();
+  if(hospManagerView==='kitchens') await ensureHospKitchens();
 
   const terminal = ['completed','cancelled','rejected'];
   const today = new Date().toDateString();
@@ -4073,10 +4113,12 @@ async function renderHospitalityManager(){
   const ordersHtml = hospOrdersBoard(orders, workers);
   const reportsHtml = hospReportsView(orders, locations, workers);
   const productsHtml = hospitalityProductsView();
+  const kitchensHtml = hospitalityKitchensView();
 
   const content = hospManagerView==='orders' ? ordersHtml
     : hospManagerView==='reports' ? reportsHtml
     : hospManagerView==='products' ? productsHtml
+    : hospManagerView==='kitchens' ? kitchensHtml
     : dashboardHtml;
 
   app.innerHTML = fieldShell(me, content, {sync:true, noSticky:true});
@@ -4210,6 +4252,111 @@ async function toggleMenuItemActive(id){
     await api('/hospitality/menu/'+id,{method:'PUT',body:JSON.stringify({isActive: !item.isActive})});
     await ensureHospMenuItems(true);
     rerenderProductsView();
+  }catch(e){ toast(e.message||'Error','bad'); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HOSPITALITY KITCHENS MANAGEMENT — system_admin & hospitality_manager
+   ═══════════════════════════════════════════════════════════════ */
+async function ensureHospKitchens(force=false){
+  if(hospKitchens && !force) return;
+  try{
+    const res = await api('/hospitality/kitchens');
+    hospKitchens = res.kitchens || [];
+  }catch(e){ hospKitchens = []; }
+}
+
+function rerenderKitchensView(){
+  if(me.role==='hospitality_manager') renderHospitalityManager();
+  else render();
+}
+
+function hospitalityKitchensView(){
+  const kitchens = hospKitchens || [];
+  return `
+<div class="pageHeader">
+  <div class="pageHeader-left">
+    <div class="pageTitle">${tr('kitchensTitle')}</div>
+  </div>
+  <div class="pageHeader-actions">
+    <button class="btn sm" onclick="showKitchenFormModal()">${ic('plus',16)} ${tr('addKitchen')}</button>
+  </div>
+</div>
+${kitchens.length ? `<div class="productGrid">${kitchens.map(k=>kitchenCardHtml(k)).join('')}</div>`
+  : `<div class="card"><div class="empty-state"><div class="empty-icon">${ic('building',28)}</div><div class="empty-title">${tr('noKitchens')}</div></div></div>`}`;
+}
+
+function kitchenCardHtml(kitchen){
+  const name = lang==='ar' ? kitchen.nameAr : kitchen.nameEn;
+  return `<div class="productCard productCard--admin">
+    <div class="productCard-img">${ic('building',28)}</div>
+    <div class="productCard-body">
+      <div class="productCard-title">${esc(name)}</div>
+      ${kitchen.locationName?`<div class="productCard-desc">${esc(kitchen.locationName)}</div>`:''}
+      <div class="productCard-badges">
+        <span class="badge ${kitchen.isActive?'ok':'bad'}">${kitchen.isActive?tr('kitchenActive'):tr('kitchenInactive')}</span>
+        ${kitchen.responsibleWorkerName
+          ? `<span class="badge">${esc(kitchen.responsibleWorkerName)}</span>`
+          : `<span class="badge bad">${tr('kitchenNoWorkerWarning')}</span>`}
+      </div>
+    </div>
+    <div class="productCard-actions">
+      <button class="btn secondary sm" onclick="showKitchenFormModal('${kitchen.id}')">${ic('edit',13)} ${tr('edit')}</button>
+      <button class="btn ${kitchen.isActive?'danger':''} sm" onclick="toggleKitchenActive('${kitchen.id}')">${kitchen.isActive?tr('deactivateKitchen'):tr('activateKitchen')}</button>
+    </div>
+  </div>`;
+}
+
+function showKitchenFormModal(id){
+  const kitchen = id ? (hospKitchens||[]).find(k=>k.id===id) : null;
+  editKitchenId = id || null;
+  const workers = (data.users||[]).filter(u=>(u.roles||[u.role]).includes('hospitality_worker'));
+  const workerOptions = [
+    {v:'', l:tr('kitchenNoWorker'), sel:!kitchen?.responsibleWorkerId},
+    ...workers.map(w=>({v:w.id, l:w.name, sel:kitchen?.responsibleWorkerId===w.id}))
+  ];
+  const titleHtml = `<div>${kitchen?`${ic('edit',16)} ${tr('editKitchen')}`:`${ic('plus',16)} ${tr('addKitchen')}`}</div>`;
+  const body = `
+  <div class="formGrid">
+    ${fc(tr('kitchenNameAr'), inp('kitNameAr',{value:kitchen?.nameAr||''}))}
+    ${fc(tr('kitchenNameEn'), inp('kitNameEn',{value:kitchen?.nameEn||'', cls:'ltr'}))}
+    ${fc(tr('kitchenLocationName'), inp('kitLocationName',{value:kitchen?.locationName||''}))}
+    ${fc(tr('kitchenResponsibleWorker'), sel('kitWorker', workerOptions))}
+    ${fc(tr('kitchenSortOrder'), inp('kitSort',{type:'number', value:kitchen?.sortOrder ?? 0}))}
+    ${fc(tr('status'), sel('kitActive',[{v:'true',l:tr('kitchenActive'),sel:!kitchen||kitchen.isActive!==false},{v:'false',l:tr('kitchenInactive'),sel:kitchen&&!kitchen.isActive}]))}
+  </div>`;
+  const foot = `<button class="btn" onclick="saveKitchen()">${ic('check',16)} ${tr('saveKitchen')}</button>
+    <button class="btn secondary" onclick="document.getElementById('kitchenFormModal').remove()">${tr('cancel')}</button>`;
+  showModal('kitchenFormModal', titleHtml, body, foot);
+}
+
+async function saveKitchen(){
+  const payload = {
+    nameAr: document.getElementById('kitNameAr').value.trim(),
+    nameEn: document.getElementById('kitNameEn').value.trim(),
+    locationName: document.getElementById('kitLocationName').value.trim(),
+    responsibleWorkerId: document.getElementById('kitWorker').value,
+    sortOrder: parseInt(document.getElementById('kitSort').value, 10) || 0,
+    isActive: document.getElementById('kitActive').value==='true'
+  };
+  if(!payload.nameAr && !payload.nameEn) return toast(tr('publicNameRequired'),'bad');
+  try{
+    if(editKitchenId) await api('/hospitality/kitchens/'+editKitchenId,{method:'PUT',body:JSON.stringify(payload)});
+    else await api('/hospitality/kitchens',{method:'POST',body:JSON.stringify(payload)});
+    toast(tr('saved'),'ok');
+    document.getElementById('kitchenFormModal')?.remove();
+    await ensureHospKitchens(true);
+    rerenderKitchensView();
+  }catch(e){ toast(e.message||'Error','bad'); }
+}
+
+async function toggleKitchenActive(id){
+  const kitchen = (hospKitchens||[]).find(k=>k.id===id);
+  if(!kitchen) return;
+  try{
+    await api('/hospitality/kitchens/'+id,{method:'PUT',body:JSON.stringify({isActive: !kitchen.isActive})});
+    await ensureHospKitchens(true);
+    rerenderKitchensView();
   }catch(e){ toast(e.message||'Error','bad'); }
 }
 
@@ -4607,6 +4754,8 @@ let publicHospRef = '';
 let publicHospMenu = null;
 let publicHospCart = {}; // { menuItemId: qty }
 let publicHospCategory = 'all';
+let publicHospKitchens = null;
+let publicHospKitchen = '';
 
 function publicHospShell(inner, cartCount=0, wide=false){
   setDoc();
@@ -4663,6 +4812,14 @@ async function ensurePublicHospLocations(){
     const res = await api('/public/locations');
     publicHospLocations = res.locations || [];
   }catch(e){ publicHospLocations = []; }
+}
+
+async function ensurePublicHospKitchens(){
+  if(publicHospKitchens) return;
+  try{
+    const res = await api('/public/hospitality/kitchens');
+    publicHospKitchens = res.kitchens || [];
+  }catch(e){ publicHospKitchens = []; }
 }
 
 async function ensurePublicHospMenu(){
@@ -4733,6 +4890,7 @@ async function renderPublicHospitalityMenu(){
 async function publicHospGoCheckout(){
   if(!publicHospCartCount()) return;
   await ensurePublicHospLocations();
+  await ensurePublicHospKitchens();
   publicHospStep = 'checkout';
   renderPublicHospitality();
 }
@@ -4743,6 +4901,9 @@ function renderPublicHospitalityCheckout(){
     .map(([id,qty])=>{ const item = items.find(i=>i.id===id); return item?{item,qty}:null; })
     .filter(Boolean);
   const locOptions = (publicHospLocations||[]).map(l=>({v:l.id, l:lang==='ar'?l.nameAr:l.nameEn}));
+  const kitchens = publicHospKitchens || [];
+  const kitchenOptions = kitchens.map(k=>({v:k.id, l:lang==='ar'?k.nameAr:k.nameEn, sel:publicHospKitchen===k.id}));
+  const canSubmit = cartEntries.length>0 && kitchens.length>0;
   const body = `
     <div class="wCard-title" style="margin-bottom:8px">${ic('clipboardList',16)} ${tr('orderSummaryTitle')}</div>
     ${cartEntries.length ? `<div class="wCard-list" style="gap:8px;margin-bottom:14px">${cartEntries.map(({item,qty})=>`
@@ -4753,9 +4914,12 @@ function renderPublicHospitalityCheckout(){
       : `<div class="empty-state"><div class="empty-icon">${ic('coffee',24)}</div><div class="empty-title">${tr('cartEmpty')}</div></div>`}
     <div class="formGrid">
       ${fc(tr('locationLabel'), sel('phLocation', locOptions.length?locOptions:[{v:'',l:tr('allLocations')}]))}
+      ${fc(tr('kitchenLabel'), kitchens.length
+        ? sel('phKitchen', kitchenOptions)
+        : `<div class="empty-state"><div class="empty-title">${tr('noKitchensAvailable')}</div></div>`)}
       ${fc(tr('notes'), ta('phNotes','',{rows:3}))}
     </div>
-    <button class="btn wide" onclick="publicHospSubmit()"${cartEntries.length?'':' disabled'}>${tr('sendOrder')}</button>
+    <button class="btn wide" onclick="publicHospSubmit()"${canSubmit?'':' disabled'}>${tr('sendOrder')}</button>
     <button class="btn secondary wide" style="margin-top:10px" onclick="publicHospStep='menu';renderPublicHospitality()">${tr('backToMenu')}</button>
   `;
   publicHospShell(body, 0, true);
@@ -4763,8 +4927,11 @@ function renderPublicHospitalityCheckout(){
 
 async function publicHospSubmit(){
   const locationId = document.getElementById('phLocation').value;
+  const kitchenEl = document.getElementById('phKitchen');
+  const kitchenId = kitchenEl ? kitchenEl.value : '';
   const notes = document.getElementById('phNotes').value.trim();
   if(!locationId) return toast(tr('selectLocationToOrder'),'bad');
+  if(!kitchenId) return toast(tr('selectKitchenToOrder'),'bad');
   const items = Object.entries(publicHospCart).map(([id,qty])=>{
     const item = (publicHospMenu||[]).find(i=>i.id===id);
     if(!item) return null;
@@ -4775,10 +4942,11 @@ async function publicHospSubmit(){
   try{
     const res = await api('/public/hospitality/orders',{method:'POST',body:JSON.stringify({
       requesterName: publicHospName, requesterPhone: publicHospPhone,
-      locationId, orderType:'menu', items, notes
+      locationId, kitchenId, orderType:'menu', items, notes
     })});
     publicHospRef = res.order.referenceNo;
     publicHospCart = {};
+    publicHospKitchen = '';
     publicHospStep = 'sent';
     renderPublicHospitality();
   }catch(e){
@@ -4823,6 +4991,7 @@ function publicHospOrdersListHtml(){
       </div>
       <div class="ticketCard-meta empOrderCard-meta">
         <span>${ic('locations',12)} ${esc(lang==='ar'?o.locationNameAr:o.locationNameEn)}</span>
+        ${(o.kitchenNameAr||o.kitchenNameEn)?`<span>${ic('coffee',12)} ${tr('orderedFromKitchen')} ${esc(lang==='ar'?o.kitchenNameAr:o.kitchenNameEn)}</span>`:''}
         <span>${fmt(o.createdAt)}</span>
       </div>
     </div>`).join('')}</div>`;

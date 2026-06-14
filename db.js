@@ -400,6 +400,35 @@ const MIGRATIONS = {
       ('mi-juice', 'عصير برتقال', 'Orange Juice', 'عصير برتقال طازج', 'Fresh orange juice', 'cold_drinks', '', 1, 4, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
       ('mi-dates', 'تمر', 'Dates', 'تمر سعودي فاخر', 'Premium Saudi dates', 'snacks', '', 1, 5, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
       ('mi-nuts', 'مكسرات', 'Mixed Nuts', 'تشكيلة مكسرات محمصة', 'Assorted roasted nuts', 'snacks', '', 1, 6, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
+  `,
+
+  /* ── v14: hospitality — kitchens + order kitchen linkage ──── */
+  14: `
+    CREATE TABLE IF NOT EXISTS hospitality_kitchens (
+      id                    TEXT PRIMARY KEY,
+      name_ar               TEXT NOT NULL DEFAULT '',
+      name_en               TEXT NOT NULL DEFAULT '',
+      location_name         TEXT NOT NULL DEFAULT '',
+      responsible_worker_id TEXT,
+      is_active             INTEGER NOT NULL DEFAULT 1,
+      sort_order            INTEGER NOT NULL DEFAULT 0,
+      created_at            TEXT NOT NULL,
+      updated_at            TEXT NOT NULL,
+      deleted_at            TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_hosp_kitchens_active  ON hospitality_kitchens(is_active);
+    CREATE INDEX IF NOT EXISTS idx_hosp_kitchens_deleted ON hospitality_kitchens(deleted_at);
+
+    INSERT OR IGNORE INTO hospitality_kitchens
+      (id, name_ar, name_en, location_name, responsible_worker_id, is_active, sort_order, created_at, updated_at)
+    VALUES
+      ('kit-main', 'مطبخ الضيافة الرئيسي', 'Main Hospitality Kitchen', 'الدور الأرضي - المدخل الرئيسي', 'u-hosp-w1', 1, 1, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
+      ('kit-exec', 'مطبخ الطابق التنفيذي', 'Executive Floor Kitchen', 'الطابق الخامس', 'u-hosp-w2', 1, 2, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
+
+    ALTER TABLE hospitality_orders ADD COLUMN kitchen_id      TEXT;
+    ALTER TABLE hospitality_orders ADD COLUMN kitchen_name_ar TEXT NOT NULL DEFAULT '';
+    ALTER TABLE hospitality_orders ADD COLUMN kitchen_name_en TEXT NOT NULL DEFAULT '';
+    CREATE INDEX IF NOT EXISTS idx_hosp_orders_kitchen ON hospitality_orders(kitchen_id);
   `
 };
 
