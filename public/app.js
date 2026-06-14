@@ -122,7 +122,7 @@ const T = {
     rolesPermissions:'الأدوار والصلاحيات',assets:'الأصول',maps:'الخرائط',
     generalReports:'التقارير العامة',auditLog:'سجل التدقيق',noAuditData:'لا توجد بيانات بعد',
     globalSettings:'الإعدادات العامة',backToConsole:'العودة إلى لوحة النظام',
-    cleaningModuleLabel:'وحدة النظافة',
+    cleaningModuleLabel:'وحدة النظافة',hospitalityModuleLabel:'وحدة الضيافة',
     maintenance:'الصيانة',hospitality:'الضيافة',security:'الأمن',
     safety:'السلامة',customerService:'خدمة العملاء',
     moduleStatusActive:'نشط',moduleStatusPlanned:'مخطط',
@@ -213,6 +213,17 @@ const T = {
 
     /* Phase 4d (v2) — requester info persistence / My Orders details */
     itemsLabel:'الأصناف',lastUpdated:'آخر تحديث',editInfoBtn:'تعديل البيانات',
+
+    /* Phase 4e — menu category management */
+    categoriesTitle:'فئات المنتجات',addCategory:'إضافة فئة',editCategory:'تعديل الفئة',
+    categoryNameAr:'الاسم (عربي)',categoryNameEn:'الاسم (إنجليزي)',categorySlug:'الرمز (slug)',
+    categorySortOrder:'ترتيب العرض',categoryActive:'مفعلة',categoryInactive:'معطلة',
+    deactivateCategory:'تعطيل',activateCategory:'تفعيل',saveCategory:'حفظ الفئة',
+    noCategories:'لا توجد فئات بعد',categorySlugHint:'حروف إنجليزية صغيرة وأرقام و _ فقط',
+
+    /* Phase 4e — order assignment / reassignment */
+    reassignOrderBtn:'إعادة تعيين',assignedToLabel:'مسند إلى',pendingAssignmentBadge:'غير مسند',
+    assignOrderModalTitle:'تعيين الطلب',selectWorkerLabel:'اختر عامل الضيافة',
   },
   en:{
     app:'إدارة المرافق',sub:'Professional management for every facility, at any time',
@@ -300,7 +311,7 @@ const T = {
     rolesPermissions:'Roles & Permissions',assets:'Assets',maps:'Maps',
     generalReports:'General Reports',auditLog:'Audit Log',noAuditData:'No data yet',
     globalSettings:'Global Settings',backToConsole:'Back to Admin Console',
-    cleaningModuleLabel:'Cleaning Module',
+    cleaningModuleLabel:'Cleaning Module',hospitalityModuleLabel:'Hospitality Module',
     maintenance:'Maintenance',hospitality:'Hospitality',security:'Security',
     safety:'Safety',customerService:'Customer Service',
     moduleStatusActive:'Active',moduleStatusPlanned:'Planned',
@@ -391,6 +402,17 @@ const T = {
 
     /* Phase 4d (v2) — requester info persistence / My Orders details */
     itemsLabel:'Items',lastUpdated:'Last Updated',editInfoBtn:'Edit Info',
+
+    /* Phase 4e — menu category management */
+    categoriesTitle:'Categories',addCategory:'Add Category',editCategory:'Edit Category',
+    categoryNameAr:'Name (Arabic)',categoryNameEn:'Name (English)',categorySlug:'Slug',
+    categorySortOrder:'Sort Order',categoryActive:'Active',categoryInactive:'Inactive',
+    deactivateCategory:'Deactivate',activateCategory:'Activate',saveCategory:'Save Category',
+    noCategories:'No categories yet',categorySlugHint:'Lowercase letters, numbers and _ only',
+
+    /* Phase 4e — order assignment / reassignment */
+    reassignOrderBtn:'Reassign',assignedToLabel:'Assigned to',pendingAssignmentBadge:'Unassigned',
+    assignOrderModalTitle:'Assign Order',selectWorkerLabel:'Select hospitality worker',
   }
 };
 
@@ -483,6 +505,8 @@ let editMenuItemImageData = null; // pending data URL for new/replace image
 let editMenuItemImageRemoved = false;
 let hospKitchens = null; // cached kitchens list (admin & hospitality_manager)
 let editKitchenId = null;
+let hospMenuCategories = null; // cached menu categories list (admin & hospitality_manager)
+let editMenuCategoryId = null;
 let adminView = 'dashboard';
 let adminModuleContext = null; // null | 'cleaning'
 let perfData = null; // cached performance data
@@ -867,6 +891,8 @@ function canAccessGlobalSettings(){return me.role==='system_admin'}
 function canAccessRolesPermissions(){return me.role==='system_admin'}
 function canManageGlobalUsers(){return me.role==='system_admin'}
 function canViewCleaningTeam(){return me.role==='cleaning_manager'}
+function canManageHospitalityMenu(){return ['system_admin','hospitality_manager'].includes(me.role)}
+function canHospitalityAssign(){return ['system_admin','facility_manager','hospitality_manager','hospitality_supervisor'].includes(me.role)}
 function locName(l){return lang==='ar'?(l.nameAr||l.nameEn):(l.nameEn||l.nameAr)}
 
 function roleBadgeClass(role){
@@ -1099,6 +1125,55 @@ function fieldShell(me, contentHtml, opts={}){
 </div>`;
 }
 
+/* ── hospitality manager shell — mirrors shell()'s sidebar layout on
+   desktop, reuses the platform-shell--admin tablet/mobile navigation ── */
+function hospManagerShell(me, contentHtml, opts={}){
+  const orders = data?.hospitalityOrders||[];
+  const newCount = orders.filter(o=>o.status==='submitted').length;
+  const renderFn = opts.renderFn || 'renderHospitalityManager';
+  const canManage = !!opts.canManage;
+  const goto = (v)=>`hospManagerView='${v}';mobileNavActive='hospmgr-${v}';${renderFn}()`;
+  const item = (v,label,icon,count=0)=>`<button class="navBtn${hospManagerView===v?' active':''}" onclick="${goto(v)}">
+    <span class="navBtn-icon">${ic(icon,18)}</span>
+    <span class="navBtn-label">${label}</span>
+    ${count>0?`<span class="countBubble navBtn-badge">${num(count)}</span>`:''}
+  </button>`;
+  return `
+<div class="platform-shell platform-shell--admin">
+  ${renderPlatformTopbar(me, {search:false, notif:true, sync:true, adminMode:true, back:opts.back, backAction:opts.backAction})}
+
+  <!-- BODY -->
+  <div class="platform-body">
+    <!-- SIDEBAR -->
+    <aside class="platform-sidebar">
+      <div class="sidebarInner">
+        <div class="nav-section">
+          <span class="nav-section-label">${tr('operations')}</span>
+          ${item('dashboard',tr('dashboard'),'dashboard')}
+          ${item('orders',tr('hospOrdersTab'),'coffee',newCount)}
+          ${item('reports',tr('hospReportsTab'),'reports')}
+        </div>
+        ${canManage?`<div class="nav-section">
+          <span class="nav-section-label">${tr('management')}</span>
+          ${item('products',tr('productsTitle'),'coffee')}
+          ${item('categories',tr('categoriesTitle'),'layers')}
+          ${item('kitchens',tr('kitchensTitle'),'building')}
+        </div>`:''}
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="platform-main">
+      <div class="pageAnim">
+        ${opts.adminContext?moduleContextBar('hospitalityModuleLabel'):''}
+        ${contentHtml}
+      </div>
+    </main>
+  </div>
+  ${renderMobileBottomNav(newCount, 0)}
+</div>`;
+}
+
 function setTopbarBackButton(show, action='history.back()'){
   const start = document.querySelector('.topbar-start');
   if(!start) return;
@@ -1316,9 +1391,9 @@ function shell(content){
 </div>`;
 }
 
-function moduleContextBar(){
+function moduleContextBar(labelKey='cleaningModuleLabel'){
   return `<div class="moduleContextBar">
-    <span class="moduleContextBar-label">${ic('reports',16)} ${tr('cleaningModuleLabel')}</span>
+    <span class="moduleContextBar-label">${ic('reports',16)} ${tr(labelKey)}</span>
     <button class="btn secondary sm" onclick="exitModule()">${ic('arrow-left',14)} ${tr('backToConsole')}</button>
   </div>`;
 }
@@ -1383,30 +1458,30 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
       {v:'hospsup-team', label:tr('hospTeamTab'), icon:'users', count:workers, action:"hospSupervisorView='team';mobileNavActive='hospsup-team';renderHospitalitySupervisor()", active:hospSupervisorView==='team'}
     ];
   }else if(role==='hospitality_manager'){
-    showMore = false;
+    showMore = true;
     const orders = data?.hospitalityOrders||[];
     const newCount = orders.filter(o=>o.status==='submitted').length;
     primary = [
-      {v:'hospmgr-dashboard', label:tr('hospDashboardTab'), icon:'dashboard', count:0, action:"hospManagerView='dashboard';mobileNavActive='hospmgr-dashboard';renderHospitalityManager()", active:hospManagerView==='dashboard'},
+      {v:'hospmgr-dashboard', label:lang==='ar'?'الرئيسية':'Home', icon:'dashboard', count:0, action:"hospManagerView='dashboard';mobileNavActive='hospmgr-dashboard';renderHospitalityManager()", active:hospManagerView==='dashboard'},
       {v:'hospmgr-orders', label:tr('hospOrdersTab'), icon:'coffee', count:newCount, action:"hospManagerView='orders';mobileNavActive='hospmgr-orders';renderHospitalityManager()", active:hospManagerView==='orders'},
-      {v:'hospmgr-reports', label:tr('hospReportsTab'), icon:'reports', count:0, action:"hospManagerView='reports';mobileNavActive='hospmgr-reports';renderHospitalityManager()", active:hospManagerView==='reports'},
       {v:'hospmgr-products', label:tr('productsTitle'), icon:'coffee', count:0, action:"hospManagerView='products';mobileNavActive='hospmgr-products';renderHospitalityManager()", active:hospManagerView==='products'},
       {v:'hospmgr-kitchens', label:tr('kitchensTitle'), icon:'building', count:0, action:"hospManagerView='kitchens';mobileNavActive='hospmgr-kitchens';renderHospitalityManager()", active:hospManagerView==='kitchens'}
     ];
   }else if(adminModuleContext==='hospitality' && ['system_admin','facility_manager'].includes(role)){
-    showMore = false;
     const orders = data?.hospitalityOrders||[];
     const newCount = orders.filter(o=>o.status==='submitted').length;
-    const canManage = role==='system_admin';
+    const canManage = canManageHospitalityMenu();
     primary = [
-      {v:'hospmgr-dashboard', label:tr('hospDashboardTab'), icon:'dashboard', count:0, action:"hospManagerView='dashboard';mobileNavActive='hospmgr-dashboard';renderAdminHospitality()", active:hospManagerView==='dashboard'},
+      {v:'hospmgr-dashboard', label:lang==='ar'?'الرئيسية':'Home', icon:'dashboard', count:0, action:"hospManagerView='dashboard';mobileNavActive='hospmgr-dashboard';renderAdminHospitality()", active:hospManagerView==='dashboard'},
       {v:'hospmgr-orders', label:tr('hospOrdersTab'), icon:'coffee', count:newCount, action:"hospManagerView='orders';mobileNavActive='hospmgr-orders';renderAdminHospitality()", active:hospManagerView==='orders'},
-      {v:'hospmgr-reports', label:tr('hospReportsTab'), icon:'reports', count:0, action:"hospManagerView='reports';mobileNavActive='hospmgr-reports';renderAdminHospitality()", active:hospManagerView==='reports'},
       ...(canManage?[
         {v:'hospmgr-products', label:tr('productsTitle'), icon:'coffee', count:0, action:"hospManagerView='products';mobileNavActive='hospmgr-products';renderAdminHospitality()", active:hospManagerView==='products'},
         {v:'hospmgr-kitchens', label:tr('kitchensTitle'), icon:'building', count:0, action:"hospManagerView='kitchens';mobileNavActive='hospmgr-kitchens';renderAdminHospitality()", active:hospManagerView==='kitchens'}
-      ]:[])
+      ]:[
+        {v:'hospmgr-reports', label:tr('hospReportsTab'), icon:'reports', count:0, action:"hospManagerView='reports';mobileNavActive='hospmgr-reports';renderAdminHospitality()", active:hospManagerView==='reports'}
+      ])
     ];
+    showMore = canManage;
   }else{
     primary = [
       {v:'dashboard', label:tr('dashboard'), icon:'dashboard', count:0},
@@ -1415,7 +1490,8 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
       {v:'locations', label:tr('locations'), icon:'locations', count:0}
     ];
   }
-  const moreActive = isAdmin ? !primary.some(item=>item.v===view) : false;
+  const moreActive = isAdmin ? !primary.some(item=>item.v===view)
+    : (showMore && !primary.some(item=>item.active||activeKey===item.v));
   const navCount = primary.length + (showMore ? 1 : 0);
   return `<nav class="mobileBottomNav" style="--mobile-nav-count:${navCount}" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
     ${primary.map(item=>`
@@ -1433,17 +1509,30 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
 }
 
 function showMobileNavMore(){
-  const items = [
-    {v:'dashboard', label:tr('dashboard'), icon:'dashboard'},
-    {v:'tickets', label:tr('tickets'), icon:'tickets'},
-    {v:'reports', label:tr('reports'), icon:'reports'},
-    {v:'locations', label:tr('locations'), icon:'locations'},
-    {v:'assignments', label:tr('assignments'), icon:'assignments'},
-    ...(canUsers()?[{v:'users', label:canViewCleaningTeam()?tr('cleaningTeam'):tr('users'), icon:'users'}]:[]),
-    ...(canReview()?[{v:'performance', label:tr('performance'), icon:'bar-chart'}]:[])
-  ];
+  let items;
+  if(me.role==='hospitality_manager'){
+    items = [
+      {v:'hospmgr-reports', label:tr('hospReportsTab'), icon:'reports', active:hospManagerView==='reports', action:"hospManagerView='reports';mobileNavActive='hospmgr-reports';renderHospitalityManager()"},
+      {v:'hospmgr-categories', label:tr('categoriesTitle'), icon:'layers', active:hospManagerView==='categories', action:"hospManagerView='categories';mobileNavActive='hospmgr-categories';renderHospitalityManager()"}
+    ];
+  }else if(adminModuleContext==='hospitality' && ['system_admin','facility_manager'].includes(me.role) && canManageHospitalityMenu()){
+    items = [
+      {v:'hospmgr-reports', label:tr('hospReportsTab'), icon:'reports', active:hospManagerView==='reports', action:"hospManagerView='reports';mobileNavActive='hospmgr-reports';renderAdminHospitality()"},
+      {v:'hospmgr-categories', label:tr('categoriesTitle'), icon:'layers', active:hospManagerView==='categories', action:"hospManagerView='categories';mobileNavActive='hospmgr-categories';renderAdminHospitality()"}
+    ];
+  }else{
+    items = [
+      {v:'dashboard', label:tr('dashboard'), icon:'dashboard'},
+      {v:'tickets', label:tr('tickets'), icon:'tickets'},
+      {v:'reports', label:tr('reports'), icon:'reports'},
+      {v:'locations', label:tr('locations'), icon:'locations'},
+      {v:'assignments', label:tr('assignments'), icon:'assignments'},
+      ...(canUsers()?[{v:'users', label:canViewCleaningTeam()?tr('cleaningTeam'):tr('users'), icon:'users'}]:[]),
+      ...(canReview()?[{v:'performance', label:tr('performance'), icon:'bar-chart'}]:[])
+    ];
+  }
   const body = `<div class="mobileMoreGrid">
-    ${items.map(item=>`<button class="mobileMoreItem${view===item.v?' active':''}" onclick="document.getElementById('mobileNavModal')?.remove();${item.action||`navigateTo('${item.v}')`}">
+    ${items.map(item=>`<button class="mobileMoreItem${(item.active!==undefined?item.active:view===item.v)?' active':''}" onclick="document.getElementById('mobileNavModal')?.remove();${item.action||`navigateTo('${item.v}')`}">
       <span class="mobileMoreIcon">${ic(item.icon,18)}</span>
       <span>${item.label}</span>
     </button>`).join('')}
@@ -3939,6 +4028,7 @@ function hospOrderCard(o, mode, workers){
   const requester = o.requesterName
     ? `${o.requesterName}${o.requesterPhone?` · ${o.requesterPhone}`:''}`
     : (o.requestedBy || '');
+  const showAssign = canHospitalityAssign() && !['completed','cancelled','rejected'].includes(o.status) && mode!=='new' && mode!=='assign';
   return`<div class="ticketCard empOrderCard">
     <div class="ticketCard-top empOrderCard-head">
       <div class="ticketCard-main">
@@ -3952,7 +4042,8 @@ function hospOrderCard(o, mode, workers){
       <span>${fmt(o.updatedAt||o.createdAt)}</span>
     </div>
     ${requester?`<div class="ticketCard-requester">${ic('user',12)} <span class="ticketCard-requester-label">${tr('requesterLabel')}:</span> <span class="ticketCard-requester-name">${esc(requester)}</span></div>`:''}
-    ${o.assignedToName?`<div class="ticketCard-meta empOrderCard-meta"><span>${ic('users',12)} ${esc(o.assignedToName)}</span></div>`:''}
+    ${o.assignedToName?`<div class="ticketCard-meta empOrderCard-meta"><span>${ic('users',12)} ${esc(o.assignedToName)}</span></div>`
+      :(showAssign?`<div class="ticketCard-meta empOrderCard-meta"><span class="badge warn">${tr('pendingAssignmentBadge')}</span></div>`:'')}
     ${o.items&&o.items.length?`<div class="ticketCard-badges">${o.items.map(i=>`<span class="badge">${esc(i)}</span>`).join('')}</div>`:''}
     ${o.notes?`<div class="empOrderCard-queue">${esc(o.notes)}</div>`:''}
     ${mode==='new'?`
@@ -3967,7 +4058,24 @@ function hospOrderCard(o, mode, workers){
     <div class="ticketCard-actions supTicketCard-actions">
       <button class="btn sm ok" onclick="hospSupervisorDecision('${o.id}','completed')">${ic('check',14)} ${tr('completeOrder')}</button>
     </div>`:''}
+    ${showAssign?`<div class="ticketCard-actions supTicketCard-actions">
+      <button class="btn sm secondary" onclick="toggleAssignRow('${o.id}')">${ic('users',13)} ${o.assignedToName?tr('reassignOrderBtn'):tr('assign')}</button>
+    </div>
+    ${hospReassignRowHtml(o, workers)}`:''}
   </div>`;
+}
+
+function hospReassignRowHtml(o, workers){
+  return `<div id="hsr-${o.id}" class="ticketCard-actions supTicketCard-actions" style="display:none">
+    ${sel(`hsr-sel-${o.id}`,[{v:'',l:tr('selectWorkerLabel')},...(workers||[]).map(w=>({v:w.id,l:w.name}))], {cls:'ctrl-sm'})}
+    <button class="btn sm ok" onclick="hospAssignOrder('${o.id}',document.getElementById('hsr-sel-${o.id}').value)">${ic('check',14)} ${tr('assign')}</button>
+  </div>`;
+}
+
+function toggleAssignRow(id){
+  const el = document.getElementById('hsr-'+id);
+  if(!el) return;
+  el.style.display = el.style.display==='none' ? 'flex' : 'none';
 }
 
 function hospTeamGrid(workers, orders){
@@ -4198,7 +4306,8 @@ async function renderHospitalityManager(){
   const locations = data.locations||[];
 
   if(hospManagerView==='dashboard') await ensureHospPerf();
-  if(hospManagerView==='products') await ensureHospMenuItems();
+  if(hospManagerView==='products'){ await ensureHospMenuItems(); await ensureHospMenuCategories(); }
+  if(hospManagerView==='categories') await ensureHospMenuCategories();
   if(hospManagerView==='kitchens') await ensureHospKitchens();
 
   const dashboardHtml = hospManagerDashboardHtml(orders, workers);
@@ -4206,15 +4315,17 @@ async function renderHospitalityManager(){
   const ordersHtml = hospOrdersBoard(orders, workers);
   const reportsHtml = hospReportsView(orders, locations, workers);
   const productsHtml = hospitalityProductsView();
+  const categoriesHtml = hospitalityCategoriesView();
   const kitchensHtml = hospitalityKitchensView();
 
   const content = hospManagerView==='orders' ? ordersHtml
     : hospManagerView==='reports' ? reportsHtml
     : hospManagerView==='products' ? productsHtml
+    : hospManagerView==='categories' ? categoriesHtml
     : hospManagerView==='kitchens' ? kitchensHtml
     : dashboardHtml;
 
-  app.innerHTML = fieldShell(me, content, {sync:true, noSticky:true});
+  app.innerHTML = hospManagerShell(me, content, {renderFn:'renderHospitalityManager', canManage:canManageHospitalityMenu()});
 }
 
 /* ── hospitality module entry for system_admin / facility_manager ──
@@ -4222,15 +4333,16 @@ async function renderHospitalityManager(){
    facility_manager: operational overview only — no products/kitchens management ──── */
 async function renderAdminHospitality(){
   setDoc();
-  const canManage = me.role==='system_admin';
-  if(!canManage && ['products','kitchens'].includes(hospManagerView)) hospManagerView = 'dashboard';
+  const canManage = canManageHospitalityMenu();
+  if(!canManage && ['products','categories','kitchens'].includes(hospManagerView)) hospManagerView = 'dashboard';
 
   const orders = data.hospitalityOrders||[];
   const workers = (data.users||[]).filter(u=>(u.roles||[u.role]).includes('hospitality_worker'));
   const locations = data.locations||[];
 
   if(hospManagerView==='dashboard') await ensureHospPerf();
-  if(canManage && hospManagerView==='products') await ensureHospMenuItems();
+  if(canManage && hospManagerView==='products'){ await ensureHospMenuItems(); await ensureHospMenuCategories(); }
+  if(canManage && hospManagerView==='categories') await ensureHospMenuCategories();
   if(canManage && hospManagerView==='kitchens') await ensureHospKitchens();
 
   const dashboardHtml = hospManagerDashboardHtml(orders, workers);
@@ -4241,16 +4353,34 @@ async function renderAdminHospitality(){
   const content = hospManagerView==='orders' ? ordersHtml
     : hospManagerView==='reports' ? reportsHtml
     : (canManage && hospManagerView==='products') ? hospitalityProductsView()
+    : (canManage && hospManagerView==='categories') ? hospitalityCategoriesView()
     : (canManage && hospManagerView==='kitchens') ? hospitalityKitchensView()
     : dashboardHtml;
 
-  app.innerHTML = fieldShell(me, content, {sync:true, noSticky:true, back:true, backAction:'exitModule()'});
+  app.innerHTML = hospManagerShell(me, content, {renderFn:'renderAdminHospitality', canManage, adminContext:true, back:true, backAction:'exitModule()'});
 }
 
 /* ═══════════════════════════════════════════════════════════════
    HOSPITALITY PRODUCTS / MENU MANAGEMENT — system_admin & hospitality_manager
    ═══════════════════════════════════════════════════════════════ */
 const MENU_CATEGORIES = ['hot_drinks','cold_drinks','snacks','other'];
+
+/* ── category options for the product form — sourced from
+   hospMenuCategories, falling back to MENU_CATEGORIES, and always
+   keeping the product's current category selectable even if disabled ── */
+function menuCategoryOptions(currentSlug){
+  const cats = hospMenuCategories || [];
+  if(!cats.length){
+    return MENU_CATEGORIES.map(c=>({v:c,l:tr('mcat_'+c)||c, sel:currentSlug===c}));
+  }
+  const opts = cats.filter(c=>c.isActive || c.slug===currentSlug)
+    .slice().sort((a,b)=>a.sortOrder-b.sortOrder)
+    .map(c=>({v:c.slug, l:categoryName(c)||tr('mcat_'+c.slug)||c.slug, sel:currentSlug===c.slug}));
+  if(currentSlug && !opts.some(o=>o.v===currentSlug)){
+    opts.push({v:currentSlug, l:tr('mcat_'+currentSlug)||currentSlug, sel:true});
+  }
+  return opts;
+}
 
 async function ensureHospMenuItems(force=false){
   if(hospMenuItems && !force) return;
@@ -4310,7 +4440,7 @@ function showMenuItemFormModal(id){
     ${fc(tr('productNameEn'), inp('miNameEn',{value:item?.nameEn||'', cls:'ltr'}))}
     ${fc(tr('productDescAr'), ta('miDescAr', item?.descriptionAr||'',{rows:2}))}
     ${fc(tr('productDescEn'), ta('miDescEn', item?.descriptionEn||'',{rows:2, cls:'ltr'}))}
-    ${fc(tr('productCategory'), sel('miCategory', MENU_CATEGORIES.map(c=>({v:c,l:tr('mcat_'+c)||c, sel:item?.category===c}))))}
+    ${fc(tr('productCategory'), sel('miCategory', menuCategoryOptions(item?.category)))}
     ${fc(tr('productSortOrder'), inp('miSort',{type:'number', value:item?.sortOrder ?? 0}))}
     ${fc(tr('productImage'), `
       <div id="miImagePreview" class="productCard-img productCard-img--form">${item?.imagePath?`<img src="${esc(item.imagePath)}" alt="">`:ic('image',28)}</div>
@@ -4375,6 +4505,103 @@ async function toggleMenuItemActive(id){
     await api('/hospitality/menu/'+id,{method:'PUT',body:JSON.stringify({isActive: !item.isActive})});
     await ensureHospMenuItems(true);
     rerenderProductsView();
+  }catch(e){ toast(e.message||'Error','bad'); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HOSPITALITY MENU CATEGORIES — system_admin & hospitality_manager
+   ═══════════════════════════════════════════════════════════════ */
+async function ensureHospMenuCategories(force=false){
+  if(hospMenuCategories && !force) return;
+  try{
+    const res = await api('/hospitality/menu-categories/admin');
+    hospMenuCategories = res.categories || [];
+  }catch(e){ hospMenuCategories = []; }
+}
+
+function rerenderCategoriesView(){
+  if(me.role==='hospitality_manager') renderHospitalityManager();
+  else render();
+}
+
+function categoryName(cat){ return lang==='ar' ? (cat.nameAr||cat.nameEn) : (cat.nameEn||cat.nameAr); }
+
+function hospitalityCategoriesView(){
+  const cats = (hospMenuCategories||[]).slice().sort((a,b)=>a.sortOrder-b.sortOrder);
+  return `
+<div class="pageHeader">
+  <div class="pageHeader-left">
+    <div class="pageTitle">${tr('categoriesTitle')}</div>
+  </div>
+  <div class="pageHeader-actions">
+    <button class="btn sm" onclick="showCategoryFormModal()">${ic('plus',16)} ${tr('addCategory')}</button>
+  </div>
+</div>
+${cats.length ? `<div class="productGrid">${cats.map(c=>categoryCardHtml(c)).join('')}</div>`
+  : `<div class="card"><div class="empty-state"><div class="empty-icon">${ic('layers',28)}</div><div class="empty-title">${tr('noCategories')}</div></div></div>`}`;
+}
+
+function categoryCardHtml(cat){
+  return `<div class="productCard productCard--admin">
+    <div class="productCard-img">${ic('layers',28)}</div>
+    <div class="productCard-body">
+      <div class="productCard-title">${esc(categoryName(cat))}</div>
+      <div class="productCard-desc">${esc(cat.slug)}</div>
+      <div class="productCard-badges">
+        <span class="badge ${cat.isActive?'ok':'bad'}">${cat.isActive?tr('categoryActive'):tr('categoryInactive')}</span>
+      </div>
+    </div>
+    <div class="productCard-actions">
+      <button class="btn secondary sm" onclick="showCategoryFormModal('${cat.id}')">${ic('edit',13)} ${tr('edit')}</button>
+      <button class="btn ${cat.isActive?'danger':''} sm" onclick="toggleCategoryStatus('${cat.id}')">${cat.isActive?tr('deactivateCategory'):tr('activateCategory')}</button>
+    </div>
+  </div>`;
+}
+
+function showCategoryFormModal(id){
+  const cat = id ? (hospMenuCategories||[]).find(c=>c.id===id) : null;
+  editMenuCategoryId = id || null;
+  const titleHtml = `<div>${cat?`${ic('edit',16)} ${tr('editCategory')}`:`${ic('plus',16)} ${tr('addCategory')}`}</div>`;
+  const body = `
+  <div class="formGrid">
+    ${fc(tr('categoryNameAr'), inp('mcNameAr',{value:cat?.nameAr||''}))}
+    ${fc(tr('categoryNameEn'), inp('mcNameEn',{value:cat?.nameEn||'', cls:'ltr'}))}
+    ${fc(tr('categorySlug'), inp('mcSlug',{value:cat?.slug||'', cls:'ltr', placeholder:tr('categorySlugHint')}))}
+    ${fc(tr('categorySortOrder'), inp('mcSort',{type:'number', value:cat?.sortOrder ?? 0}))}
+    ${cat?fc(tr('status'), sel('mcActive',[{v:'true',l:tr('categoryActive'),sel:cat.isActive!==false},{v:'false',l:tr('categoryInactive'),sel:cat.isActive===false}])):''}
+  </div>`;
+  const foot = `<button class="btn" onclick="saveCategoryForm()">${ic('check',16)} ${tr('saveCategory')}</button>
+    <button class="btn secondary" onclick="document.getElementById('categoryFormModal').remove()">${tr('cancel')}</button>`;
+  showModal('categoryFormModal', titleHtml, body, foot);
+}
+
+async function saveCategoryForm(){
+  const payload = {
+    nameAr: document.getElementById('mcNameAr').value.trim(),
+    nameEn: document.getElementById('mcNameEn').value.trim(),
+    slug: document.getElementById('mcSlug').value.trim(),
+    sortOrder: parseInt(document.getElementById('mcSort').value, 10) || 0
+  };
+  if(!payload.nameAr && !payload.nameEn) return toast(tr('publicNameRequired'),'bad');
+  const activeEl = document.getElementById('mcActive');
+  if(activeEl) payload.isActive = activeEl.value==='true';
+  try{
+    if(editMenuCategoryId) await api('/hospitality/menu-categories/'+editMenuCategoryId,{method:'PUT',body:JSON.stringify(payload)});
+    else await api('/hospitality/menu-categories',{method:'POST',body:JSON.stringify(payload)});
+    toast(tr('saved'),'ok');
+    document.getElementById('categoryFormModal')?.remove();
+    await ensureHospMenuCategories(true);
+    rerenderCategoriesView();
+  }catch(e){ toast(e.message||'Error','bad'); }
+}
+
+async function toggleCategoryStatus(id){
+  const cat = (hospMenuCategories||[]).find(c=>c.id===id);
+  if(!cat) return;
+  try{
+    await api('/hospitality/menu-categories/'+id+'/status',{method:'PATCH',body:JSON.stringify({isActive: !cat.isActive})});
+    await ensureHospMenuCategories(true);
+    rerenderCategoriesView();
   }catch(e){ toast(e.message||'Error','bad'); }
 }
 
@@ -4876,6 +5103,7 @@ let publicHospLocations = null;
 let publicHospOrders = null;
 let publicHospRef = '';
 let publicHospMenu = null;
+let publicHospMenuCategories = null;
 let publicHospCart = {}; // { menuItemId: qty }
 let publicHospCategory = 'all';
 let publicHospKitchens = null;
@@ -5016,6 +5244,21 @@ async function ensurePublicHospMenu(){
   }catch(e){ publicHospMenu = []; }
 }
 
+async function ensurePublicHospMenuCategories(){
+  if(publicHospMenuCategories) return;
+  try{
+    const res = await api('/public/hospitality/menu-categories');
+    publicHospMenuCategories = res.categories || [];
+  }catch(e){ publicHospMenuCategories = []; }
+}
+
+function publicCategoryLabel(slug){
+  if(slug==='all') return tr('mcat_all')||(lang==='ar'?'الكل':'All');
+  const cat = (publicHospMenuCategories||[]).find(c=>c.slug===slug);
+  if(cat) return categoryName(cat)||tr('mcat_'+slug)||slug;
+  return tr('mcat_'+slug)||slug;
+}
+
 function menuCatIcon(c){ return c==='all' ? 'list' : 'coffee'; }
 
 function publicHospCartCount(){
@@ -5055,15 +5298,22 @@ function productCardHtml(item){
 
 async function renderPublicHospitalityMenu(){
   await ensurePublicHospMenu();
+  await ensurePublicHospMenuCategories();
   const items = publicHospMenu || [];
-  const categories = ['all', ...new Set(items.map(i=>i.category))];
+  const presentSlugs = new Set(items.map(i=>i.category));
+  const orderedSlugs = (publicHospMenuCategories||[])
+    .filter(c=>presentSlugs.has(c.slug))
+    .sort((a,b)=>a.sortOrder-b.sortOrder)
+    .map(c=>c.slug);
+  const extraSlugs = [...presentSlugs].filter(s=>!orderedSlugs.includes(s));
+  const categories = ['all', ...orderedSlugs, ...extraSlugs];
   const filtered = publicHospCategory==='all' ? items : items.filter(i=>i.category===publicHospCategory);
   const body = `
     <div class="wCard-title" style="margin-bottom:8px">${ic('coffee',16)} ${tr('browseMenuTitle')}</div>
-    <div class="empCatGrid" style="margin-bottom:14px">
-      ${categories.map(c=>`<button class="empCatBtn${publicHospCategory===c?' active':''}" onclick="publicHospSetCategory('${c}')">
-        <div class="empCatBtn-icon">${ic(menuCatIcon(c),20)}</div>
-        ${tr('mcat_'+c)||c}
+    <div class="empCatGrid empCatGrid--chips" style="margin-bottom:14px">
+      ${categories.map(c=>`<button class="empCatBtn empCatBtn--chip${publicHospCategory===c?' active':''}" onclick="publicHospSetCategory('${c}')">
+        <span class="empCatBtn-icon">${ic(menuCatIcon(c),18)}</span>
+        <span>${esc(publicCategoryLabel(c))}</span>
       </button>`).join('')}
     </div>
     ${filtered.length ? `<div class="productGrid">${filtered.map(i=>productCardHtml(i)).join('')}</div>`
@@ -5102,9 +5352,9 @@ function renderPublicHospitalityCheckout(){
       ${fc(tr('kitchenLabel'), kitchens.length
         ? sel('phKitchen', kitchenOptions)
         : `<div class="empty-state"><div class="empty-title">${tr('noKitchensAvailable')}</div></div>`)}
-      ${fc(tr('notes'), ta('phNotes','',{rows:3}))}
+      ${fc(tr('notes'), ta('phNotes','',{rows:2}))}
     </div>
-    <button class="btn wide" onclick="publicHospSubmit()"${canSubmit?'':' disabled'}>${tr('sendOrder')}</button>
+    <button class="btn wide" style="margin-top:18px" onclick="publicHospSubmit()"${canSubmit?'':' disabled'}>${tr('sendOrder')}</button>
     <button class="btn secondary wide" style="margin-top:10px" onclick="publicHospStep='menu';renderPublicHospitality()">${tr('backToMenu')}</button>
   `;
   publicHospShell(body, 0, true, 'cart');

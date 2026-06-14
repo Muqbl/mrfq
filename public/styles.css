@@ -2039,7 +2039,7 @@ tbody tr:hover td{background:var(--surface-2)}
   .cameraBtn{min-height:56px;border-radius:var(--r-lg)}
   .lightbox img{max-width:94vw;max-height:78dvh;object-fit:contain}
 
-  .fpBox--wide{padding:24px 16px}
+  .fpBox--wide{width:calc(100vw - 40px);padding:24px 16px}
   .productGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
   .productCard{padding:9px;border-radius:var(--r)}
   .cartBar{margin:14px -16px -24px;padding:12px 16px;border-radius:0}
@@ -2216,6 +2216,23 @@ tbody tr:hover td{background:var(--surface-2)}
   display:grid;place-items:center;color:var(--brand-mid);flex-shrink:0;
 }
 .empCatBtn.active .empCatBtn-icon{background:rgba(10,78,91,.12);color:var(--brand)}
+
+/* ── public hospitality menu — horizontal category chips ─────── */
+.empCatGrid--chips{
+  display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
+  gap:8px;margin-top:8px;scrollbar-width:none;
+}
+.empCatGrid--chips::-webkit-scrollbar{display:none}
+.empCatBtn--chip{
+  flex:0 0 auto;flex-direction:row;align-items:center;gap:6px;
+  padding:9px 16px;border-radius:var(--r-full);white-space:nowrap;
+}
+.empCatBtn--chip .empCatBtn-icon{
+  width:22px;height:22px;background:transparent;color:currentColor;
+}
+@media(min-width:769px){
+  .empCatGrid--chips{flex-wrap:wrap;overflow:visible}
+}
 
 /* ── Employee order history cards ───────────────────────────── */
 .empOrderCard{padding:16px}

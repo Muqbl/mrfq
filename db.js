@@ -429,6 +429,31 @@ const MIGRATIONS = {
     ALTER TABLE hospitality_orders ADD COLUMN kitchen_name_ar TEXT NOT NULL DEFAULT '';
     ALTER TABLE hospitality_orders ADD COLUMN kitchen_name_en TEXT NOT NULL DEFAULT '';
     CREATE INDEX IF NOT EXISTS idx_hosp_orders_kitchen ON hospitality_orders(kitchen_id);
+  `,
+
+  /* ── v15: hospitality — menu categories ───────────────────── */
+  15: `
+    CREATE TABLE IF NOT EXISTS hospitality_menu_categories (
+      id          TEXT PRIMARY KEY,
+      name_ar     TEXT NOT NULL DEFAULT '',
+      name_en     TEXT NOT NULL DEFAULT '',
+      slug        TEXT NOT NULL UNIQUE,
+      is_active   INTEGER NOT NULL DEFAULT 1,
+      sort_order  INTEGER NOT NULL DEFAULT 0,
+      created_at  TEXT NOT NULL,
+      updated_at  TEXT NOT NULL,
+      deleted_at  TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_hosp_menucat_active  ON hospitality_menu_categories(is_active);
+    CREATE INDEX IF NOT EXISTS idx_hosp_menucat_deleted ON hospitality_menu_categories(deleted_at);
+
+    INSERT OR IGNORE INTO hospitality_menu_categories
+      (id, name_ar, name_en, slug, is_active, sort_order, created_at, updated_at)
+    VALUES
+      ('cat-hot-drinks',  'مشروبات ساخنة', 'Hot Drinks', 'hot_drinks',  1, 1,  '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
+      ('cat-cold-drinks', 'مشروبات بارده', 'Cold Drinks', 'cold_drinks', 1, 2,  '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
+      ('cat-snacks',      'وجبات خفيفة',   'Snacks',      'snacks',      1, 3,  '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
+      ('cat-other',       'أخرى',          'Other',       'other',       1, 99, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
   `
 };
 

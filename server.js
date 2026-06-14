@@ -510,10 +510,35 @@ function menuItemRow(r) {
   };
 }
 function dbMenuItems(activeOnly = false) {
-  const sql = `SELECT * FROM hospitality_menu_items WHERE deleted_at IS NULL
+  const sql = activeOnly
+    ? `SELECT mi.* FROM hospitality_menu_items mi
+       LEFT JOIN hospitality_menu_categories c ON c.slug = mi.category AND c.deleted_at IS NULL
+       WHERE mi.deleted_at IS NULL AND mi.is_active = 1 AND (c.is_active = 1 OR c.id IS NULL)
+       ORDER BY mi.sort_order ASC, mi.created_at ASC`
+    : `SELECT * FROM hospitality_menu_items WHERE deleted_at IS NULL
+       ORDER BY sort_order ASC, created_at ASC`;
+  return getDb().prepare(sql).all().map(menuItemRow);
+}
+
+/** Map DB hospitality_menu_categories row → frontend camelCase */
+function menuCategoryRow(r) {
+  if (!r) return null;
+  return {
+    id:        r.id,
+    nameAr:    r.name_ar,
+    nameEn:    r.name_en,
+    slug:      r.slug,
+    isActive:  r.is_active === 1,
+    sortOrder: r.sort_order,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at
+  };
+}
+function dbMenuCategories(activeOnly = false) {
+  const sql = `SELECT * FROM hospitality_menu_categories WHERE deleted_at IS NULL
     ${activeOnly ? 'AND is_active = 1' : ''}
     ORDER BY sort_order ASC, created_at ASC`;
-  return getDb().prepare(sql).all().map(menuItemRow);
+  return getDb().prepare(sql).all().map(menuCategoryRow);
 }
 
 /** Map DB hospitality_kitchens row (LEFT JOIN users) → frontend camelCase */
@@ -966,6 +991,11 @@ const server = http.createServer(async (req, res) => {
       /* ── PUBLIC: HOSPITALITY MENU (no login required) ─────────── */
       if (req.method === 'GET' && url.pathname === '/api/public/hospitality/menu') {
         return send(res, 200, { items: dbMenuItems(true) });
+      }
+
+      /* ── PUBLIC: HOSPITALITY MENU CATEGORIES (no login required) ── */
+      if (req.method === 'GET' && url.pathname === '/api/public/hospitality/menu-categories') {
+        return send(res, 200, { categories: dbMenuCategories(true) });
       }
 
       /* ── PUBLIC: HOSPITALITY KITCHENS (no login required) ─────── */
@@ -1753,6 +1783,81 @@ const server = http.createServer(async (req, res) => {
         logEvent(db, 'hospitality.menu_item_updated', 'hospitality_menu_item', id, me, { isActive: item.isActive }, 'hospitality');
         broadcast('hospitality_menu_updated', { item });
         return send(res, 200, { item });
+      }
+
+      /* ── HOSPITALITY MENU CATEGORIES: LIST (admin / hospitality_manager — incl. inactive) ── */
+      if (req.method === 'GET' && url.pathname === '/api/hospitality/menu-categories/admin') {
+        if (!canManageHospitalityMenu(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        return send(res, 200, { categories: dbMenuCategories(false) });
+      }
+
+      /* ── HOSPITALITY MENU CATEGORIES: CREATE ──────────────────── */
+      if (req.method === 'POST' && url.pathname === '/api/hospitality/menu-categories') {
+        if (!canManageHospitalityMenu(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const b = await bodyJSON(req);
+        const nameAr = sanitize(b.nameAr, 100);
+        const nameEn = sanitize(b.nameEn, 100);
+        if (!nameAr && !nameEn) return send(res, 400, { error: 'MISSING_FIELDS' });
+        const slug = sanitize(b.slug, 50).toLowerCase().replace(/[^a-z0-9_]/g, '_');
+        if (!slug) return send(res, 400, { error: 'MISSING_SLUG' });
+        const dupe = db.prepare('SELECT id FROM hospitality_menu_categories WHERE slug = ? AND deleted_at IS NULL').get(slug);
+        if (dupe) return send(res, 400, { error: 'DUPLICATE_SLUG' });
+        const id = newId('cat');
+        const ts = now();
+        db.prepare(`
+          INSERT INTO hospitality_menu_categories
+            (id,name_ar,name_en,slug,is_active,sort_order,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?)
+        `).run(id, nameAr, nameEn, slug, 1, parseInt(b.sortOrder, 10) || 0, ts, ts);
+        const category = menuCategoryRow(db.prepare('SELECT * FROM hospitality_menu_categories WHERE id=?').get(id));
+        logEvent(db, 'hospitality.menu_category_created', 'hospitality_menu_category', id, me, { nameAr, nameEn, slug }, 'hospitality');
+        broadcast('hospitality_menu_category_updated', { category });
+        return send(res, 200, { category });
+      }
+
+      /* ── HOSPITALITY MENU CATEGORIES: UPDATE (incl. soft-disable via isActive) ── */
+      if (req.method === 'PUT' && /^\/api\/hospitality\/menu-categories\/[^/]+$/.test(url.pathname)) {
+        if (!canManageHospitalityMenu(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const id = url.pathname.split('/')[4];
+        const existing = db.prepare('SELECT * FROM hospitality_menu_categories WHERE id = ? AND deleted_at IS NULL').get(id);
+        if (!existing) return send(res, 404, { error: 'NOT_FOUND' });
+        const b = await bodyJSON(req);
+        const fields = [], params = [];
+        if (b.nameAr    !== undefined) { fields.push('name_ar=?'); params.push(sanitize(b.nameAr, 100)); }
+        if (b.nameEn    !== undefined) { fields.push('name_en=?'); params.push(sanitize(b.nameEn, 100)); }
+        if (b.slug      !== undefined) {
+          const slug = sanitize(b.slug, 50).toLowerCase().replace(/[^a-z0-9_]/g, '_');
+          if (!slug) return send(res, 400, { error: 'MISSING_SLUG' });
+          const dupe = db.prepare('SELECT id FROM hospitality_menu_categories WHERE slug = ? AND id != ? AND deleted_at IS NULL').get(slug, id);
+          if (dupe) return send(res, 400, { error: 'DUPLICATE_SLUG' });
+          fields.push('slug=?'); params.push(slug);
+        }
+        if (b.sortOrder !== undefined) { fields.push('sort_order=?'); params.push(parseInt(b.sortOrder, 10) || 0); }
+        if (b.isActive  !== undefined) { fields.push('is_active=?');  params.push(b.isActive ? 1 : 0); }
+        if (!fields.length) return send(res, 400, { error: 'NO_FIELDS' });
+        fields.push('updated_at=?'); params.push(now());
+        params.push(id);
+        db.prepare(`UPDATE hospitality_menu_categories SET ${fields.join(',')} WHERE id=?`).run(...params);
+        const category = menuCategoryRow(db.prepare('SELECT * FROM hospitality_menu_categories WHERE id=?').get(id));
+        logEvent(db, 'hospitality.menu_category_updated', 'hospitality_menu_category', id, me, { isActive: category.isActive }, 'hospitality');
+        broadcast('hospitality_menu_category_updated', { category });
+        return send(res, 200, { category });
+      }
+
+      /* ── HOSPITALITY MENU CATEGORIES: TOGGLE STATUS ───────────── */
+      if (req.method === 'PATCH' && /^\/api\/hospitality\/menu-categories\/[^/]+\/status$/.test(url.pathname)) {
+        if (!canManageHospitalityMenu(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const id = url.pathname.split('/')[4];
+        const existing = db.prepare('SELECT * FROM hospitality_menu_categories WHERE id = ? AND deleted_at IS NULL').get(id);
+        if (!existing) return send(res, 404, { error: 'NOT_FOUND' });
+        const b = await bodyJSON(req);
+        if (b.isActive === undefined) return send(res, 400, { error: 'MISSING_FIELDS' });
+        db.prepare('UPDATE hospitality_menu_categories SET is_active=?, updated_at=? WHERE id=?')
+          .run(b.isActive ? 1 : 0, now(), id);
+        const category = menuCategoryRow(db.prepare('SELECT * FROM hospitality_menu_categories WHERE id=?').get(id));
+        logEvent(db, 'hospitality.menu_category_updated', 'hospitality_menu_category', id, me, { isActive: category.isActive }, 'hospitality');
+        broadcast('hospitality_menu_category_updated', { category });
+        return send(res, 200, { category });
       }
 
       /* ── HOSPITALITY KITCHENS: LIST (system_admin / hospitality_manager — incl. inactive) ── */
