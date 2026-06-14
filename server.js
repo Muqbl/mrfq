@@ -164,6 +164,9 @@ function sanitize(v, maxLen = MAX_FIELD_LEN) {
 function sanitizeUsername(v) {
   return sanitize(v, 50).replace(/[^a-zA-Z0-9_\-]/g, '');
 }
+function sanitizePhone(v) {
+  return sanitize(v, 20).replace(/[^0-9+]/g, '');
+}
 
 /* ═══════════════════════════════════════════════════════════════
    PASSWORD HASHING  (scrypt — built-in crypto, no external deps)
@@ -531,6 +534,8 @@ function hospitalityOrderRow(r) {
     locationNameEn: r.location_name_en,
     requestedBy:    r.requested_by,
     requestedById:  r.requested_by_id,
+    requesterName:  r.requester_name  || '',
+    requesterPhone: r.requester_phone || '',
     assignedTo:     r.assigned_to,
     assignedToName: r.assigned_to_name,
     status:         r.status,
@@ -545,6 +550,22 @@ function hospitalityOrderRow(r) {
     completedAt:    r.completed_at || '',
     cancelledAt:    r.cancelled_at || '',
     rejectedAt:     r.rejected_at  || ''
+  };
+}
+
+/** Strip internal fields for the unauthenticated public hospitality endpoints. */
+function publicHospitalityOrder(o) {
+  return {
+    id:             o.id,
+    referenceNo:    o.referenceNo,
+    orderType:      o.orderType,
+    items:          o.items,
+    locationNameAr: o.locationNameAr,
+    locationNameEn: o.locationNameEn,
+    status:         o.status,
+    notes:          o.notes,
+    createdAt:      o.createdAt,
+    updatedAt:      o.updatedAt
   };
 }
 
@@ -783,6 +804,56 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
+      /* ── PUBLIC HOSPITALITY: CREATE ORDER (no login required) ─── */
+      if (req.method === 'POST' && url.pathname === '/api/public/hospitality/orders') {
+        if (!checkRateLimit(ip)) return send(res, 429, { error: 'TOO_MANY_ATTEMPTS' });
+        const db = getDb();
+        const b = await bodyJSON(req);
+        const requesterName  = sanitize(b.requesterName, 100);
+        const requesterPhone = sanitizePhone(b.requesterPhone);
+        if (!requesterName || !requesterPhone) return send(res, 400, { error: 'MISSING_FIELDS' });
+        const loc = db.prepare('SELECT * FROM locations WHERE id = ? AND deleted_at IS NULL').get(sanitize(b.locationId, 80));
+        if (!loc) return send(res, 404, { error: 'LOCATION_NOT_FOUND' });
+        const orderType = sanitize(b.orderType || 'general', 50) || 'general';
+        const items = Array.isArray(b.items) ? b.items.slice(0, 20).map(i => sanitize(String(i), 100)) : [];
+        const refNo = generateRefNo(db, 'HSP');
+        const id    = newId('h');
+        const ts    = now();
+        const slaDeadline = new Date(Date.now() + HOSPITALITY_SLA_MINS * 60_000).toISOString();
+        db.prepare(`
+          INSERT INTO hospitality_orders (id,reference_no,order_type,items,location_id,location_name_ar,location_name_en,
+            requested_by,requested_by_id,requester_name,requester_phone,status,notes,sla_deadline,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `).run(id, refNo, orderType, JSON.stringify(items), loc.id, loc.name_ar, loc.name_en,
+               requesterName, '', requesterName, requesterPhone, 'submitted', sanitize(b.notes, 1000), slaDeadline, ts, ts);
+        const order = hospitalityOrderRow(db.prepare('SELECT * FROM hospitality_orders WHERE id = ?').get(id));
+        broadcast('hospitality_order_created', { order });
+        logEvent(db, 'hospitality.submitted', 'hospitality_order', id, { id: '', role: 'public' }, { refNo, orderType, locationId: loc.id, public: true }, 'hospitality');
+        return send(res, 200, { order: publicHospitalityOrder(order) });
+      }
+
+      /* ── PUBLIC HOSPITALITY: MY ORDERS BY PHONE (no login required) ── */
+      if (req.method === 'GET' && url.pathname === '/api/public/hospitality/orders') {
+        if (!checkRateLimit(ip)) return send(res, 429, { error: 'TOO_MANY_ATTEMPTS' });
+        const db = getDb();
+        const phone = sanitizePhone(url.searchParams.get('phone'));
+        if (!phone) return send(res, 400, { error: 'MISSING_PHONE' });
+        const orders = db.prepare(
+          'SELECT * FROM hospitality_orders WHERE requester_phone = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 50'
+        ).all(phone).map(hospitalityOrderRow).map(publicHospitalityOrder);
+        return send(res, 200, { orders });
+      }
+
+      /* ── PUBLIC: LOCATIONS LIST (no login required) ──────────── */
+      if (req.method === 'GET' && url.pathname === '/api/public/locations') {
+        const db = getDb();
+        const rows = db.prepare(
+          'SELECT id, name_ar, name_en, type FROM locations WHERE active = 1 AND deleted_at IS NULL ORDER BY name_ar'
+        ).all();
+        const locations = rows.map(l => ({ id: l.id, nameAr: l.name_ar, nameEn: l.name_en, type: l.type }));
+        return send(res, 200, { locations });
+      }
+
       /* ── AUTH GATE ──────────────────────────────────────────── */
       const me = sessionGetUser(req);
       if (!me) return send(res, 401, { error: 'UNAUTHORIZED' });
@@ -876,6 +947,24 @@ const server = http.createServer(async (req, res) => {
         sets.push('updated_at = ?'); vals.push(now());
         vals.push(id);
         if (sets.length > 1) db.prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
+        const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+        return send(res, 200, { user: publicUser(updated) });
+      }
+
+      /* ── USERS: RESET PASSWORD (system_admin only) ────────────── */
+      if (req.method === 'PATCH' && /^\/api\/users\/[^/]+\/password$/.test(url.pathname)) {
+        if (me.role !== 'system_admin') return send(res, 403, { error: 'FORBIDDEN' });
+        const id = sanitize(url.pathname.split('/')[3], 50);
+        const u  = db.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL').get(id);
+        if (!u) return send(res, 404, { error: 'USER_NOT_FOUND' });
+        const b = await bodyJSON(req);
+        const newPwd = sanitize(b.password, 200);
+        if (newPwd.length < 8) return send(res, 400, { error: 'WEAK_PASSWORD' });
+        db.prepare(`
+          UPDATE users SET password = ?, force_password_change = 1,
+          last_password_change = '', updated_at = ? WHERE id = ?
+        `).run(hashPassword(newPwd), now(), id);
+        logEvent(db, 'user.password_reset', 'user', id, me, { targetUsername: u.username }, 'system');
         const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
         return send(res, 200, { user: publicUser(updated) });
       }
@@ -1489,6 +1578,11 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, db: !!process.env.DB_PATH, ts: Date.now() }));
       return;
+    }
+
+    /* ── PUBLIC HOSPITALITY REQUEST PAGE — SPA route, no auth ── */
+    if (url.pathname === '/order/hospitality' || url.pathname.startsWith('/order/hospitality/')) {
+      url.pathname = '/index.html';
     }
 
     /* ── STATIC FILES ───────────────────────────────────────── */
