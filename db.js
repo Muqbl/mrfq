@@ -369,6 +369,37 @@ const MIGRATIONS = {
     ALTER TABLE hospitality_orders ADD COLUMN requester_name  TEXT NOT NULL DEFAULT '';
     ALTER TABLE hospitality_orders ADD COLUMN requester_phone TEXT NOT NULL DEFAULT '';
     CREATE INDEX IF NOT EXISTS idx_hosp_orders_phone ON hospitality_orders(requester_phone);
+  `,
+
+  /* ── v13: hospitality — menu / products ───────────────────── */
+  13: `
+    CREATE TABLE IF NOT EXISTS hospitality_menu_items (
+      id               TEXT PRIMARY KEY,
+      name_ar          TEXT NOT NULL DEFAULT '',
+      name_en          TEXT NOT NULL DEFAULT '',
+      description_ar   TEXT NOT NULL DEFAULT '',
+      description_en   TEXT NOT NULL DEFAULT '',
+      category         TEXT NOT NULL DEFAULT 'other',
+      image_path       TEXT NOT NULL DEFAULT '',
+      is_active        INTEGER NOT NULL DEFAULT 1,
+      sort_order       INTEGER NOT NULL DEFAULT 0,
+      created_at       TEXT NOT NULL,
+      updated_at       TEXT NOT NULL,
+      deleted_at       TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_hosp_menu_category ON hospitality_menu_items(category);
+    CREATE INDEX IF NOT EXISTS idx_hosp_menu_active   ON hospitality_menu_items(is_active);
+    CREATE INDEX IF NOT EXISTS idx_hosp_menu_deleted  ON hospitality_menu_items(deleted_at);
+
+    INSERT OR IGNORE INTO hospitality_menu_items
+      (id, name_ar, name_en, description_ar, description_en, category, image_path, is_active, sort_order, created_at, updated_at)
+    VALUES
+      ('mi-arabic-coffee', 'قهوة عربية', 'Arabic Coffee', 'قهوة عربية تقليدية تقدم ساخنة', 'Traditional Arabic coffee, served hot', 'hot_drinks', '', 1, 1, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
+      ('mi-tea', 'شاي', 'Tea', 'شاي أحمر ساخن', 'Hot black tea', 'hot_drinks', '', 1, 2, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
+      ('mi-water', 'مياه معدنية', 'Bottled Water', 'زجاجة مياه معدنية', 'Bottled mineral water', 'cold_drinks', '', 1, 3, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
+      ('mi-juice', 'عصير برتقال', 'Orange Juice', 'عصير برتقال طازج', 'Fresh orange juice', 'cold_drinks', '', 1, 4, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
+      ('mi-dates', 'تمر', 'Dates', 'تمر سعودي فاخر', 'Premium Saudi dates', 'snacks', '', 1, 5, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
+      ('mi-nuts', 'مكسرات', 'Mixed Nuts', 'تشكيلة مكسرات محمصة', 'Assorted roasted nuts', 'snacks', '', 1, 6, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
   `
 };
 

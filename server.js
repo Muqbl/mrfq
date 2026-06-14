@@ -247,6 +247,40 @@ function processPhotos(raw, uploadedBy, reportId = null, ticketId = null) {
     .map(p => p.url);
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   HOSPITALITY MENU ITEM IMAGES  (public — no session required)
+   ═══════════════════════════════════════════════════════════════ */
+const MENU_IMAGES_DIR = path.join(UPLOADS_DIR, 'menu');
+if (!fs.existsSync(MENU_IMAGES_DIR)) fs.mkdirSync(MENU_IMAGES_DIR, { recursive: true });
+
+/** Decode, validate and persist one base64 data URL as a menu item image. Returns filename or null. */
+function storeMenuImage(dataUrl) {
+  const m = /^data:(image\/(?:jpeg|jpg|png|webp));base64,([A-Za-z0-9+/=]+)$/i.exec(dataUrl);
+  if (!m) return null;
+  let buf;
+  try { buf = Buffer.from(m[2], 'base64'); } catch { return null; }
+  if (buf.length === 0 || buf.length > MAX_PHOTO_BYTES) return null;
+
+  const mime = detectMime(buf);
+  if (!mime) return null;
+
+  const ext = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' }[mime];
+  const filename = crypto.randomBytes(16).toString('hex') + ext;
+  const filepath = path.join(MENU_IMAGES_DIR, filename);
+
+  try { fs.writeFileSync(filepath, buf); } catch (e) {
+    console.error('[menu-image] write failed:', e.message); return null;
+  }
+  return filename;
+}
+
+/** Remove a previously stored menu image file (best-effort). */
+function deleteMenuImage(filename) {
+  if (!filename || !/^[a-f0-9]{32}\.(jpg|jpeg|png|webp)$/.test(filename)) return;
+  const fp = path.join(MENU_IMAGES_DIR, filename);
+  try { if (fp.startsWith(MENU_IMAGES_DIR) && fs.existsSync(fp)) fs.unlinkSync(fp); } catch {}
+}
+
 /** Like processPhotos but sets photo_type after storing. */
 function processPhotosTyped(raw, uploadedBy, reportId = null, ticketId = null, photoType = 'general') {
   if (!Array.isArray(raw)) return [];
@@ -382,6 +416,7 @@ function canHospitalityAssign(role)   { return ['system_admin','facility_manager
 function canHospitalityReview(role)   { return ['system_admin','facility_manager','hospitality_manager','hospitality_supervisor'].includes(role); }
 function canHospitalityCreate(role)   { return ['employee','system_admin','facility_manager','hospitality_manager','hospitality_supervisor'].includes(role); }
 function canHospitalityAccess(role)   { return ['system_admin','facility_manager','hospitality_manager','hospitality_supervisor','hospitality_worker','employee'].includes(role); }
+function canManageHospitalityMenu(role) { return ['system_admin','hospitality_manager'].includes(role); }
 
 /* ═══════════════════════════════════════════════════════════════
    DATA HELPERS  (all DB queries → camelCase output)
@@ -449,6 +484,30 @@ function dbHospitalityOrders() {
   return getDb().prepare(`
     SELECT * FROM hospitality_orders WHERE deleted_at IS NULL ORDER BY created_at DESC
   `).all().map(hospitalityOrderRow);
+}
+
+/** Map DB hospitality_menu_items row → frontend camelCase */
+function menuItemRow(r) {
+  if (!r) return null;
+  return {
+    id:            r.id,
+    nameAr:        r.name_ar,
+    nameEn:        r.name_en,
+    descriptionAr: r.description_ar,
+    descriptionEn: r.description_en,
+    category:      r.category,
+    imagePath:     r.image_path ? `/menu-images/${r.image_path}` : '',
+    isActive:      r.is_active === 1,
+    sortOrder:     r.sort_order,
+    createdAt:     r.created_at,
+    updatedAt:     r.updated_at
+  };
+}
+function dbMenuItems(activeOnly = false) {
+  const sql = `SELECT * FROM hospitality_menu_items WHERE deleted_at IS NULL
+    ${activeOnly ? 'AND is_active = 1' : ''}
+    ORDER BY sort_order ASC, created_at ASC`;
+  return getDb().prepare(sql).all().map(menuItemRow);
 }
 
 /** Map DB ticket row → frontend camelCase */
@@ -842,6 +901,11 @@ const server = http.createServer(async (req, res) => {
           'SELECT * FROM hospitality_orders WHERE requester_phone = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 50'
         ).all(phone).map(hospitalityOrderRow).map(publicHospitalityOrder);
         return send(res, 200, { orders });
+      }
+
+      /* ── PUBLIC: HOSPITALITY MENU (no login required) ─────────── */
+      if (req.method === 'GET' && url.pathname === '/api/public/hospitality/menu') {
+        return send(res, 200, { items: dbMenuItems(true) });
       }
 
       /* ── PUBLIC: LOCATIONS LIST (no login required) ──────────── */
@@ -1553,6 +1617,72 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { byStatus, avgCompletionMins, overdue, totalOrders: all.length, workers: workerStats, generatedAt: now() });
       }
 
+      /* ── HOSPITALITY MENU: LIST (admin / hospitality_manager — incl. inactive) ── */
+      if (req.method === 'GET' && url.pathname === '/api/hospitality/menu') {
+        if (!canManageHospitalityMenu(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        return send(res, 200, { items: dbMenuItems(false) });
+      }
+
+      /* ── HOSPITALITY MENU: CREATE ITEM ─────────────────────────── */
+      if (req.method === 'POST' && url.pathname === '/api/hospitality/menu') {
+        if (!canManageHospitalityMenu(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const b = await bodyJSON(req);
+        const nameAr = sanitize(b.nameAr, 100);
+        const nameEn = sanitize(b.nameEn, 100);
+        if (!nameAr && !nameEn) return send(res, 400, { error: 'MISSING_FIELDS' });
+        let imageFile = '';
+        if (b.image) {
+          imageFile = storeMenuImage(b.image);
+          if (!imageFile) return send(res, 400, { error: 'INVALID_IMAGE' });
+        }
+        const id = newId('mi');
+        const ts = now();
+        db.prepare(`
+          INSERT INTO hospitality_menu_items
+            (id,name_ar,name_en,description_ar,description_en,category,image_path,is_active,sort_order,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?)
+        `).run(id, nameAr, nameEn, sanitize(b.descriptionAr, 300), sanitize(b.descriptionEn, 300),
+               sanitize(b.category, 50) || 'other', imageFile, 1, parseInt(b.sortOrder, 10) || 0, ts, ts);
+        const item = menuItemRow(db.prepare('SELECT * FROM hospitality_menu_items WHERE id=?').get(id));
+        logEvent(db, 'hospitality.menu_item_created', 'hospitality_menu_item', id, me, { nameAr, nameEn }, 'hospitality');
+        broadcast('hospitality_menu_updated', { item });
+        return send(res, 200, { item });
+      }
+
+      /* ── HOSPITALITY MENU: UPDATE ITEM (incl. soft-disable via isActive) ── */
+      if (req.method === 'PUT' && /^\/api\/hospitality\/menu\/[^/]+$/.test(url.pathname)) {
+        if (!canManageHospitalityMenu(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const id = url.pathname.split('/')[4];
+        const existing = db.prepare('SELECT * FROM hospitality_menu_items WHERE id = ? AND deleted_at IS NULL').get(id);
+        if (!existing) return send(res, 404, { error: 'NOT_FOUND' });
+        const b = await bodyJSON(req);
+        const fields = [], params = [];
+        if (b.nameAr        !== undefined) { fields.push('name_ar=?');        params.push(sanitize(b.nameAr, 100)); }
+        if (b.nameEn        !== undefined) { fields.push('name_en=?');        params.push(sanitize(b.nameEn, 100)); }
+        if (b.descriptionAr !== undefined) { fields.push('description_ar=?'); params.push(sanitize(b.descriptionAr, 300)); }
+        if (b.descriptionEn !== undefined) { fields.push('description_en=?'); params.push(sanitize(b.descriptionEn, 300)); }
+        if (b.category      !== undefined) { fields.push('category=?');       params.push(sanitize(b.category, 50) || 'other'); }
+        if (b.sortOrder     !== undefined) { fields.push('sort_order=?');     params.push(parseInt(b.sortOrder, 10) || 0); }
+        if (b.isActive      !== undefined) { fields.push('is_active=?');      params.push(b.isActive ? 1 : 0); }
+        if (b.image) {
+          const imageFile = storeMenuImage(b.image);
+          if (!imageFile) return send(res, 400, { error: 'INVALID_IMAGE' });
+          fields.push('image_path=?'); params.push(imageFile);
+          if (existing.image_path) deleteMenuImage(existing.image_path);
+        } else if (b.image === '') {
+          fields.push('image_path=?'); params.push('');
+          if (existing.image_path) deleteMenuImage(existing.image_path);
+        }
+        if (!fields.length) return send(res, 400, { error: 'NO_FIELDS' });
+        fields.push('updated_at=?'); params.push(now());
+        params.push(id);
+        db.prepare(`UPDATE hospitality_menu_items SET ${fields.join(',')} WHERE id=?`).run(...params);
+        const item = menuItemRow(db.prepare('SELECT * FROM hospitality_menu_items WHERE id=?').get(id));
+        logEvent(db, 'hospitality.menu_item_updated', 'hospitality_menu_item', id, me, { isActive: item.isActive }, 'hospitality');
+        broadcast('hospitality_menu_updated', { item });
+        return send(res, 200, { item });
+      }
+
       return send(res, 404, { error: 'NOT_FOUND' });
     }
 
@@ -1569,6 +1699,21 @@ const server = http.createServer(async (req, res) => {
       const ct = fname.endsWith('.png') ? 'image/png' : fname.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
       setSecurityHeaders(res);
       res.writeHead(200, { 'Content-Type': ct, 'Cache-Control': 'private, max-age=86400' });
+      res.end(fs.readFileSync(fp));
+      return;
+    }
+
+    /* ── MENU ITEM IMAGES — public, no auth (product photos only) ── */
+    if (url.pathname.startsWith('/menu-images/')) {
+      const fname = path.basename(url.pathname);
+      if (!/^[a-f0-9]{32}\.(jpg|png|webp)$/.test(fname))
+        return send(res, 403, 'Forbidden', 'text/plain');
+      const fp = path.join(MENU_IMAGES_DIR, fname);
+      if (!fp.startsWith(MENU_IMAGES_DIR) || !fs.existsSync(fp))
+        return send(res, 404, 'Not found', 'text/plain');
+      const ct = fname.endsWith('.png') ? 'image/png' : fname.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
+      setSecurityHeaders(res);
+      res.writeHead(200, { 'Content-Type': ct, 'Cache-Control': 'public, max-age=86400' });
       res.end(fs.readFileSync(fp));
       return;
     }

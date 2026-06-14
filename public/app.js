@@ -129,14 +129,9 @@ const T = {
     systemAdminConsole:'لوحة النظام',
     cleaningTeam:'فريق النظافة',facilityConsole:'لوحة مدير المرافق',
     moduleStatusInProgress:'قيد التطوير',
-    hospitalityInProgressNote:'قيد التطوير — تم تأسيس الطلبات وواجهة العامل',
-    hospitalityOrder:'طلب ضيافة',hospitalityOrderDesc:'اختر الخدمة والموقع وأرسل الطلب',
     orderType:'نوع الطلب',
     ot_coffee:'قهوة',ot_tea:'شاي',ot_water:'مياه',ot_snacks:'وجبات خفيفة',
     ot_meeting_service:'خدمة قاعة اجتماعات',ot_other:'أخرى',
-    itemsLabel:'العناصر',itemsPlaceholder:'اكتب العناصر المطلوبة (اختياري)',
-    myHospitalityOrders:'طلبات الضيافة',noHospitalityOrders:'لا توجد طلبات ضيافة بعد',
-    hospOrderSent:'تم إرسال طلب الضيافة بنجاح',submitHospOrder:'إرسال الطلب',
     hospitalityWorkerTitle:'طلبات الضيافة',hospitalityWorkerDesc:'الطلبات المسندة إليك',
     noAssignedHospOrders:'لا توجد طلبات مسندة حالياً',
     startPreparing:'بدء التحضير',markReady:'جاهز',
@@ -183,6 +178,22 @@ const T = {
     myOrdersTitle:'طلباتي',trackByPhone:'تابع طلباتك برقم الجوال',
     searchBtn:'بحث',noOrdersFound:'لا توجد طلبات لهذا الرقم',
     newRequestBtn:'طلب جديد',publicNameRequired:'يرجى إدخال الاسم ورقم الجوال',
+
+    /* Phase 4d — hospitality menu / coffee ordering */
+    mcat_all:'الكل',mcat_hot_drinks:'مشروبات ساخنة',mcat_cold_drinks:'مشروبات باردة',
+    mcat_snacks:'وجبات خفيفة',mcat_other:'أخرى',
+    browseMenuTitle:'القائمة',cartTitle:'السلة',cartEmpty:'السلة فارغة، اختر من القائمة',
+    itemsInCart:'عناصر في السلة',checkoutBtn:'إتمام الطلب',backToMenu:'رجوع للقائمة',
+    orderSummaryTitle:'ملخص الطلب',noMenuItems:'لا توجد عناصر متاحة حالياً',
+    qtyLabel:'الكمية',ot_menu:'طلب من القائمة',
+    productsTitle:'المنتجات',addProduct:'إضافة منتج',editProduct:'تعديل المنتج',
+    productNameAr:'الاسم (عربي)',productNameEn:'الاسم (إنجليزي)',
+    productDescAr:'الوصف (عربي)',productDescEn:'الوصف (إنجليزي)',
+    productCategory:'الفئة',productImage:'صورة المنتج',
+    productActive:'مفعل',productInactive:'معطل',productSortOrder:'ترتيب العرض',
+    uploadImage:'رفع صورة',removeImage:'إزالة الصورة',noProducts:'لا توجد منتجات بعد',
+    deactivateProduct:'تعطيل',activateProduct:'تفعيل',saveProduct:'حفظ المنتج',
+    selectLocationToOrder:'يرجى اختيار الموقع لإتمام الطلب',
   },
   en:{
     app:'إدارة المرافق',sub:'Professional management for every facility, at any time',
@@ -277,14 +288,9 @@ const T = {
     systemAdminConsole:'System Console',
     cleaningTeam:'Cleaning Team',facilityConsole:'Facility Manager Console',
     moduleStatusInProgress:'In Progress',
-    hospitalityInProgressNote:'In progress — orders and worker interface established',
-    hospitalityOrder:'Hospitality Order',hospitalityOrderDesc:'Choose the service and location, then submit your order',
     orderType:'Order Type',
     ot_coffee:'Coffee',ot_tea:'Tea',ot_water:'Water',ot_snacks:'Snacks',
     ot_meeting_service:'Meeting Room Service',ot_other:'Other',
-    itemsLabel:'Items',itemsPlaceholder:'List the requested items (optional)',
-    myHospitalityOrders:'Hospitality Orders',noHospitalityOrders:'No hospitality orders yet',
-    hospOrderSent:'Hospitality order sent successfully',submitHospOrder:'Submit Order',
     hospitalityWorkerTitle:'Hospitality Orders',hospitalityWorkerDesc:'Orders assigned to you',
     noAssignedHospOrders:'No orders assigned yet',
     startPreparing:'Start Preparing',markReady:'Mark Ready',
@@ -331,6 +337,22 @@ const T = {
     myOrdersTitle:'My Orders',trackByPhone:'Track your orders by phone number',
     searchBtn:'Search',noOrdersFound:'No orders found for this number',
     newRequestBtn:'New Request',publicNameRequired:'Please enter your name and phone number',
+
+    /* Phase 4d — hospitality menu / coffee ordering */
+    mcat_all:'All',mcat_hot_drinks:'Hot Drinks',mcat_cold_drinks:'Cold Drinks',
+    mcat_snacks:'Snacks',mcat_other:'Other',
+    browseMenuTitle:'Menu',cartTitle:'Cart',cartEmpty:'Your cart is empty, pick items from the menu',
+    itemsInCart:'items in cart',checkoutBtn:'Checkout',backToMenu:'Back to Menu',
+    orderSummaryTitle:'Order Summary',noMenuItems:'No items available right now',
+    qtyLabel:'Quantity',ot_menu:'Menu Order',
+    productsTitle:'Products',addProduct:'Add Product',editProduct:'Edit Product',
+    productNameAr:'Name (Arabic)',productNameEn:'Name (English)',
+    productDescAr:'Description (Arabic)',productDescEn:'Description (English)',
+    productCategory:'Category',productImage:'Product Image',
+    productActive:'Active',productInactive:'Inactive',productSortOrder:'Sort Order',
+    uploadImage:'Upload Image',removeImage:'Remove Image',noProducts:'No products yet',
+    deactivateProduct:'Deactivate',activateProduct:'Activate',saveProduct:'Save Product',
+    selectLocationToOrder:'Please select a location to place the order',
   }
 };
 
@@ -357,6 +379,9 @@ const IC = {
   edit:`<svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
   trash:`<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`,
   plus:`<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+  minus:`<svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+  'shopping-cart':`<svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>`,
+  image:`<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>`,
   building:`<svg viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>`,
   flip:`<svg viewBox="0 0 24 24"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>`,
   user:`<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
@@ -414,6 +439,10 @@ let hospPerfData = null;
 let _hospPerfLoading = false;
 let hospReportStatusFilter = 'all';
 let hospReportLocationFilter = 'all';
+let hospMenuItems = null; // cached menu/products list (admin & hospitality_manager)
+let editMenuItemId = null;
+let editMenuItemImageData = null; // pending data URL for new/replace image
+let editMenuItemImageRemoved = false;
 let adminView = 'dashboard';
 let adminModuleContext = null; // null | 'cleaning'
 let perfData = null; // cached performance data
@@ -428,12 +457,10 @@ const MODULES = [
   {key:'maintenance', icon:'tool', status:'planned',
     nameAr:'الصيانة', nameEn:'Maintenance',
     descAr:'صيانة المرافق والأجهزة', descEn:'Facilities and equipment maintenance'},
-  {key:'hospitality', icon:'coffee', status:'in_progress',
+  {key:'hospitality', icon:'coffee', status:'active',
     nameAr:'الضيافة', nameEn:'Hospitality',
     descAr:'إدارة طلبات الضيافة من الطلب حتى التسليم مع لوحات المشرف والمدير',
-    descEn:'Manage hospitality orders end-to-end with supervisor and manager dashboards',
-    noteAr:'قيد التطوير — اكتملت واجهات المشرف والمدير والطلب العام الأساسي، وتبقى تجربة المنيو والمنتجات.',
-    noteEn:'In progress — supervisor, manager and basic public request interfaces are complete; menu and product experience remains.'},
+    descEn:'Manage hospitality orders end-to-end with supervisor and manager dashboards'},
   {key:'security', icon:'shield', status:'planned',
     nameAr:'الأمن', nameEn:'Security',
     descAr:'إدارة الأمن والمراقبة', descEn:'Security and surveillance management'},
@@ -446,7 +473,6 @@ const MODULES = [
 ];
 
 /* ─── HOSPITALITY MODULE — order types & status labels ─────────── */
-const HOSPITALITY_ORDER_TYPES = ['coffee','tea','water','snacks','meeting_service','other'];
 
 const HOSPITALITY_STATUSES_ORDER = ['submitted','accepted','preparing','ready','out_for_delivery','delivered','completed','cancelled','rejected'];
 
@@ -975,12 +1001,10 @@ function renderFieldTabs(){
   }
   if(me.role==='employee'){
     const activeCount = (data?.tickets||[]).filter(t=>t.createdById===me.id&&!['completed','rejected','cancelled'].includes(t.status)).length;
-    const hospCount = (data?.hospitalityOrders||[]).filter(o=>!['completed','cancelled','rejected'].includes(o.status)).length;
     return `<div class="fieldTabs" role="tablist">
       ${mk(employeeView==='home','dashboard',lang==='ar'?'الرئيسية':'Home',"employeeView='home';mobileNavActive='employee-home';renderEmployee()")}
       ${mk(employeeView==='new','send',lang==='ar'?'طلب جديد':'New',"employeeView='new';mobileNavActive='employee-new';renderEmployee()")}
       ${mk(employeeView==='history','clipboardList',tr('myRequests'),"employeeView='history';mobileNavActive='employee-history';renderEmployee()",activeCount)}
-      ${mk(employeeView==='hospitality','coffee',tr('hospitality'),"employeeView='hospitality';mobileNavActive='employee-hospitality';renderEmployee()",hospCount)}
       ${mk(employeeView==='more','menu',lang==='ar'?'المزيد':'More',"employeeView='more';mobileNavActive='employee-more';renderEmployee()")}
     </div>`;
   }
@@ -1001,6 +1025,7 @@ function renderFieldTabs(){
       ${mk(hospManagerView==='dashboard','dashboard',tr('hospDashboardTab'),"hospManagerView='dashboard';mobileNavActive='hospmgr-dashboard';renderHospitalityManager()")}
       ${mk(hospManagerView==='orders','coffee',tr('hospOrdersTab'),"hospManagerView='orders';mobileNavActive='hospmgr-orders';renderHospitalityManager()",newCount)}
       ${mk(hospManagerView==='reports','reports',tr('hospReportsTab'),"hospManagerView='reports';mobileNavActive='hospmgr-reports';renderHospitalityManager()")}
+      ${mk(hospManagerView==='products','coffee',tr('productsTitle'),"hospManagerView='products';mobileNavActive='hospmgr-products';renderHospitalityManager()")}
     </div>`;
   }
   return '';
@@ -1264,13 +1289,11 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
   let showMore = isAdmin;
   if(role==='employee'){
     const activeCount = (data?.tickets||[]).filter(t=>t.createdById===me.id&&!['completed','rejected','cancelled'].includes(t.status)).length;
-    const hospCount = (data?.hospitalityOrders||[]).filter(o=>!['completed','cancelled','rejected'].includes(o.status)).length;
     showMore = false;
     primary = [
       {v:'employee-home', label:lang==='ar'?'الرئيسية':'Home', icon:'dashboard', count:0, action:"employeeView='home';mobileNavActive='employee-home';renderEmployee()", active:employeeView==='home'},
       {v:'employee-new', label:lang==='ar'?'طلب جديد':'New', icon:'send', count:0, action:"employeeView='new';mobileNavActive='employee-new';renderEmployee()", active:employeeView==='new'},
       {v:'employee-history', label:tr('myRequests'), icon:'clipboardList', count:activeCount, action:"employeeView='history';mobileNavActive='employee-history';renderEmployee()", active:employeeView==='history'},
-      {v:'employee-hospitality', label:tr('hospitality'), icon:'coffee', count:hospCount, action:"employeeView='hospitality';mobileNavActive='employee-hospitality';renderEmployee()", active:employeeView==='hospitality'},
       {v:'employee-more', label:lang==='ar'?'المزيد':'More', icon:'menu', count:0, action:"employeeView='more';mobileNavActive='employee-more';renderEmployee()", active:employeeView==='more'}
     ];
   }else if(role==='cleaner'){
@@ -1312,7 +1335,8 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
     primary = [
       {v:'hospmgr-dashboard', label:tr('hospDashboardTab'), icon:'dashboard', count:0, action:"hospManagerView='dashboard';mobileNavActive='hospmgr-dashboard';renderHospitalityManager()", active:hospManagerView==='dashboard'},
       {v:'hospmgr-orders', label:tr('hospOrdersTab'), icon:'coffee', count:newCount, action:"hospManagerView='orders';mobileNavActive='hospmgr-orders';renderHospitalityManager()", active:hospManagerView==='orders'},
-      {v:'hospmgr-reports', label:tr('hospReportsTab'), icon:'reports', count:0, action:"hospManagerView='reports';mobileNavActive='hospmgr-reports';renderHospitalityManager()", active:hospManagerView==='reports'}
+      {v:'hospmgr-reports', label:tr('hospReportsTab'), icon:'reports', count:0, action:"hospManagerView='reports';mobileNavActive='hospmgr-reports';renderHospitalityManager()", active:hospManagerView==='reports'},
+      {v:'hospmgr-products', label:tr('productsTitle'), icon:'coffee', count:0, action:"hospManagerView='products';mobileNavActive='hospmgr-products';renderHospitalityManager()", active:hospManagerView==='products'}
     ];
   }else{
     primary = [
@@ -1363,6 +1387,14 @@ function showMobileNavMore(){
    ═══════════════════════════════════════════════════════════════ */
 function renderSystemAdmin(){
   setDoc();
+  if(adminView==='products'){
+    adminShell(`<div style="text-align:center;padding:40px">${ic('clock',28)}</div>`);
+    ensureHospMenuItems().then(()=>{
+      const main = document.querySelector('.platform-main .pageAnim');
+      if(main) main.innerHTML = hospitalityProductsView();
+    });
+    return;
+  }
   const fn = {
     dashboard: adminDashboard,
     modules: adminModules,
@@ -1394,6 +1426,7 @@ function adminShell(content){
           ${adminNavItem('locations',tr('locations'),'locations')}
           ${adminNavItem('assets',tr('assets'),'building')}
           ${adminNavItem('maps',tr('maps'),'map-pin')}
+          ${adminNavItem('products',tr('productsTitle'),'coffee')}
           ${adminNavItem('reports',tr('generalReports'),'reports')}
           ${adminNavItem('audit',tr('auditLog'),'list')}
           ${canAccessGlobalSettings()?adminNavItem('settings',tr('globalSettings'),'settings'):''}
@@ -1446,6 +1479,7 @@ function showAdminNavMore(){
     {v:'locations', label:tr('locations'), icon:'locations'},
     {v:'assets', label:tr('assets'), icon:'building'},
     {v:'maps', label:tr('maps'), icon:'map-pin'},
+    {v:'products', label:tr('productsTitle'), icon:'coffee'},
     {v:'reports', label:tr('generalReports'), icon:'reports'},
     {v:'audit', label:tr('auditLog'), icon:'list'},
     ...(canAccessGlobalSettings()?[{v:'settings', label:tr('globalSettings'), icon:'settings'}]:[])
@@ -3552,11 +3586,9 @@ function renderEmployee(){
     ? employeeSubmitForm()
     : employeeView==='history'
       ? employeeHistory(myOrders)
-      : employeeView==='hospitality'
-        ? employeeHospitality()
-        : employeeView==='more'
-          ? employeeMore()
-          : employeeHome(myOrders, activeCount);
+      : employeeView==='more'
+        ? employeeMore()
+        : employeeHome(myOrders, activeCount);
   const empContent=`
     <div class="empPage">
       <div class="empPanel">
@@ -3741,70 +3773,6 @@ async function submitEmployeeOrder(){
       setTopbarBackButton(true, "employeeView='new';mobileNavActive='employee-new';renderEmployee()");
   }catch(e){
     if(btn){btn.disabled=false;btn.innerHTML=`${ic('send',18)} ${tr('submitRequest')}`}
-    toast(lang==='ar'?'حدث خطأ، حاول مرة أخرى':'Error, please try again','bad');
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   HOSPITALITY — Employee Order Page (Phase 4b)
-   ═══════════════════════════════════════════════════════════════ */
-function employeeHospitality(){
-  const orders = (data.hospitalityOrders||[]).slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
-  const locOptions = (data.locations||[]).map(l=>({v:l.id, l:locName(l)}));
-  return`
-<div class="wCard wCard--compact">
-  <div class="wCard-title">${ic('coffee',16)} ${tr('hospitalityOrder')}</div>
-  <p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:12px">${tr('hospitalityOrderDesc')}</p>
-  ${fc(tr('orderType'), sel('hospOrderType', HOSPITALITY_ORDER_TYPES.map(t=>({v:t,l:tr('ot_'+t)}))))}
-  ${fc(tr('location'), locOptions.length ? sel('hospLocation', locOptions) : `<div class="empty-sub">${tr('noData')}</div>`)}
-  ${fc(tr('itemsLabel'), ta('hospItems','',{rows:2, placeholder:tr('itemsPlaceholder')}))}
-  ${fc(tr('notes'), ta('hospNotes','',{rows:2, placeholder:lang==='ar'?'ملاحظات إضافية (اختياري)':'Additional notes (optional)'}))}
-  <button class="btn wide hospSubmitBtn" style="margin-top:8px" onclick="submitHospitalityOrder()">${ic('send',18)} ${tr('submitHospOrder')}</button>
-</div>
-<div class="wCard">
-  <div class="wCard-title">${ic('clipboardList',16)} ${tr('myHospitalityOrders')} (${orders.length})</div>
-  ${orders.length?`<div class="wCard-list" style="gap:10px">${orders.map(o=>empHospOrderCard(o)).join('')}</div>`
-    :`<div class="empty-state">
-        <div class="empty-icon">${ic('coffee',28)}</div>
-        <div class="empty-title">${tr('noHospitalityOrders')}</div>
-      </div>`}
-</div>`;
-}
-
-function empHospOrderCard(o){
-  const stCls = hospStatusBadgeClass(o.status);
-  return`<div class="ticketCard empOrderCard">
-    <div class="ticketCard-top empOrderCard-head">
-      <div class="ticketCard-main">
-        <div class="ticketCard-title empOrderCard-title">${esc(tr('ot_'+o.orderType)||o.orderType)}</div>
-        ${o.referenceNo?`<div class="ticketCard-ref empOrderCard-ref">${esc(o.referenceNo)}</div>`:''}
-      </div>
-      <span class="badge ${stCls}">${hospStatusLabel(o.status)}</span>
-    </div>
-    <div class="ticketCard-meta empOrderCard-meta">
-      <span>${ic('locations',12)} ${esc(lang==='ar'?o.locationNameAr:o.locationNameEn)}</span>
-      <span>${fmt(o.createdAt)}</span>
-    </div>
-    ${o.items&&o.items.length?`<div class="ticketCard-badges">${o.items.map(i=>`<span class="badge">${esc(i)}</span>`).join('')}</div>`:''}
-    ${o.notes?`<div class="empOrderCard-queue">${esc(o.notes)}</div>`:''}
-  </div>`;
-}
-
-async function submitHospitalityOrder(){
-  const orderType = document.getElementById('hospOrderType')?.value || 'other';
-  const locationId = document.getElementById('hospLocation')?.value || '';
-  const itemsRaw = document.getElementById('hospItems')?.value || '';
-  const items = itemsRaw.split('\n').map(s=>s.trim()).filter(Boolean);
-  const notes = document.getElementById('hospNotes')?.value.trim() || '';
-  if(!locationId) return toast(lang==='ar'?'يرجى اختيار الموقع':'Please select a location','bad');
-  const btn = document.querySelector('.hospSubmitBtn');
-  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner" style="width:22px;height:22px;border-width:2.5px"></div>`}
-  try{
-    await api('/hospitality/orders',{method:'POST',body:JSON.stringify({locationId, orderType, items, notes})});
-    toast(tr('hospOrderSent'),'ok');
-    await load();
-  }catch(e){
-    if(btn){btn.disabled=false;btn.innerHTML=`${ic('send',18)} ${tr('submitHospOrder')}`}
     toast(lang==='ar'?'حدث خطأ، حاول مرة أخرى':'Error, please try again','bad');
   }
 }
@@ -4056,6 +4024,7 @@ async function renderHospitalityManager(){
   const locations = data.locations||[];
 
   if(hospManagerView==='dashboard') await ensureHospPerf();
+  if(hospManagerView==='products') await ensureHospMenuItems();
 
   const terminal = ['completed','cancelled','rejected'];
   const today = new Date().toDateString();
@@ -4103,12 +4072,145 @@ async function renderHospitalityManager(){
 
   const ordersHtml = hospOrdersBoard(orders, workers);
   const reportsHtml = hospReportsView(orders, locations, workers);
+  const productsHtml = hospitalityProductsView();
 
   const content = hospManagerView==='orders' ? ordersHtml
     : hospManagerView==='reports' ? reportsHtml
+    : hospManagerView==='products' ? productsHtml
     : dashboardHtml;
 
   app.innerHTML = fieldShell(me, content, {sync:true, noSticky:true});
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HOSPITALITY PRODUCTS / MENU MANAGEMENT — system_admin & hospitality_manager
+   ═══════════════════════════════════════════════════════════════ */
+const MENU_CATEGORIES = ['hot_drinks','cold_drinks','snacks','other'];
+
+async function ensureHospMenuItems(force=false){
+  if(hospMenuItems && !force) return;
+  try{
+    const res = await api('/hospitality/menu');
+    hospMenuItems = res.items || [];
+  }catch(e){ hospMenuItems = []; }
+}
+
+function rerenderProductsView(){
+  if(me.role==='hospitality_manager') renderHospitalityManager();
+  else render();
+}
+
+function hospitalityProductsView(){
+  const items = hospMenuItems || [];
+  return `
+<div class="pageHeader">
+  <div class="pageHeader-left">
+    <div class="pageTitle">${tr('productsTitle')}</div>
+  </div>
+  <div class="pageHeader-actions">
+    <button class="btn sm" onclick="showMenuItemFormModal()">${ic('plus',16)} ${tr('addProduct')}</button>
+  </div>
+</div>
+${items.length ? `<div class="productGrid">${items.map(i=>adminProductCardHtml(i)).join('')}</div>`
+  : `<div class="card"><div class="empty-state"><div class="empty-icon">${ic('coffee',28)}</div><div class="empty-title">${tr('noProducts')}</div></div></div>`}`;
+}
+
+function adminProductCardHtml(item){
+  const name = lang==='ar' ? item.nameAr : item.nameEn;
+  return `<div class="productCard productCard--admin">
+    <div class="productCard-img">${item.imagePath?`<img src="${esc(item.imagePath)}" alt="${esc(name)}" loading="lazy">`:ic('coffee',28)}</div>
+    <div class="productCard-body">
+      <div class="productCard-title">${esc(name)}</div>
+      <div class="productCard-badges">
+        <span class="badge">${tr('mcat_'+item.category)||item.category}</span>
+        <span class="badge ${item.isActive?'ok':'bad'}">${item.isActive?tr('productActive'):tr('productInactive')}</span>
+      </div>
+    </div>
+    <div class="productCard-actions">
+      <button class="btn secondary sm" onclick="showMenuItemFormModal('${item.id}')">${ic('edit',13)} ${tr('edit')}</button>
+      <button class="btn ${item.isActive?'danger':''} sm" onclick="toggleMenuItemActive('${item.id}')">${item.isActive?tr('deactivateProduct'):tr('activateProduct')}</button>
+    </div>
+  </div>`;
+}
+
+function showMenuItemFormModal(id){
+  const item = id ? (hospMenuItems||[]).find(i=>i.id===id) : null;
+  editMenuItemId = id || null;
+  editMenuItemImageData = null;
+  editMenuItemImageRemoved = false;
+  const titleHtml = `<div>${item?`${ic('edit',16)} ${tr('editProduct')}`:`${ic('plus',16)} ${tr('addProduct')}`}</div>`;
+  const body = `
+  <div class="formGrid">
+    ${fc(tr('productNameAr'), inp('miNameAr',{value:item?.nameAr||''}))}
+    ${fc(tr('productNameEn'), inp('miNameEn',{value:item?.nameEn||'', cls:'ltr'}))}
+    ${fc(tr('productDescAr'), ta('miDescAr', item?.descriptionAr||'',{rows:2}))}
+    ${fc(tr('productDescEn'), ta('miDescEn', item?.descriptionEn||'',{rows:2, cls:'ltr'}))}
+    ${fc(tr('productCategory'), sel('miCategory', MENU_CATEGORIES.map(c=>({v:c,l:tr('mcat_'+c)||c, sel:item?.category===c}))))}
+    ${fc(tr('productSortOrder'), inp('miSort',{type:'number', value:item?.sortOrder ?? 0}))}
+    ${fc(tr('productImage'), `
+      <div id="miImagePreview" class="productCard-img productCard-img--form">${item?.imagePath?`<img src="${esc(item.imagePath)}" alt="">`:ic('image',28)}</div>
+      <input type="file" id="miImageFile" accept="image/png,image/jpeg,image/webp" onchange="onMenuItemImageSelected(event)">
+      ${item?.imagePath?`<button class="btn secondary sm" type="button" style="margin-top:6px" onclick="removeMenuItemImage()">${tr('removeImage')}</button>`:''}
+    `)}
+    ${fc(tr('status'), sel('miActive',[{v:'true',l:tr('productActive'),sel:!item||item.isActive!==false},{v:'false',l:tr('productInactive'),sel:item&&!item.isActive}]))}
+  </div>`;
+  const foot = `<button class="btn" onclick="saveMenuItem()">${ic('check',16)} ${tr('saveProduct')}</button>
+    <button class="btn secondary" onclick="document.getElementById('menuItemFormModal').remove()">${tr('cancel')}</button>`;
+  showModal('menuItemFormModal', titleHtml, body, foot);
+}
+
+function onMenuItemImageSelected(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async ()=>{
+    const compacted = await compactImage(reader.result, 800, .8);
+    editMenuItemImageData = compacted;
+    editMenuItemImageRemoved = false;
+    const preview = document.getElementById('miImagePreview');
+    if(preview) preview.innerHTML = `<img src="${compacted}" alt="">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeMenuItemImage(){
+  editMenuItemImageData = null;
+  editMenuItemImageRemoved = true;
+  const preview = document.getElementById('miImagePreview');
+  if(preview) preview.innerHTML = ic('image',28);
+}
+
+async function saveMenuItem(){
+  const payload = {
+    nameAr: document.getElementById('miNameAr').value.trim(),
+    nameEn: document.getElementById('miNameEn').value.trim(),
+    descriptionAr: document.getElementById('miDescAr').value.trim(),
+    descriptionEn: document.getElementById('miDescEn').value.trim(),
+    category: document.getElementById('miCategory').value,
+    sortOrder: parseInt(document.getElementById('miSort').value, 10) || 0,
+    isActive: document.getElementById('miActive').value==='true'
+  };
+  if(!payload.nameAr && !payload.nameEn) return toast(tr('publicNameRequired'),'bad');
+  if(editMenuItemImageData) payload.image = editMenuItemImageData;
+  else if(editMenuItemImageRemoved) payload.image = '';
+  try{
+    if(editMenuItemId) await api('/hospitality/menu/'+editMenuItemId,{method:'PUT',body:JSON.stringify(payload)});
+    else await api('/hospitality/menu',{method:'POST',body:JSON.stringify(payload)});
+    toast(tr('saved'),'ok');
+    document.getElementById('menuItemFormModal')?.remove();
+    await ensureHospMenuItems(true);
+    rerenderProductsView();
+  }catch(e){ toast(e.message||'Error','bad'); }
+}
+
+async function toggleMenuItemActive(id){
+  const item = (hospMenuItems||[]).find(i=>i.id===id);
+  if(!item) return;
+  try{
+    await api('/hospitality/menu/'+id,{method:'PUT',body:JSON.stringify({isActive: !item.isActive})});
+    await ensureHospMenuItems(true);
+    rerenderProductsView();
+  }catch(e){ toast(e.message||'Error','bad'); }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -4492,33 +4594,44 @@ function renderWorkspaceSelector(){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   PUBLIC HOSPITALITY REQUEST PAGE — /order/hospitality (Phase 4c)
+   PUBLIC HOSPITALITY ORDERING PAGE — /order/hospitality (Phase 4d)
    No login, no session — identification via name + phone only.
+   Coffee-app style menu: categories, product cards, cart, checkout.
    ═══════════════════════════════════════════════════════════════ */
-let publicHospStep = 'identify'; // identify | order | sent | myorders
+let publicHospStep = 'identify'; // identify | menu | checkout | sent | myorders
 let publicHospName = '';
 let publicHospPhone = '';
 let publicHospLocations = null;
 let publicHospOrders = null;
 let publicHospRef = '';
+let publicHospMenu = null;
+let publicHospCart = {}; // { menuItemId: qty }
+let publicHospCategory = 'all';
 
-function publicHospShell(inner){
+function publicHospShell(inner, cartCount=0, wide=false){
   setDoc();
+  const cartBar = cartCount>0 ? `
+    <div class="cartBar">
+      <div class="cartBar-info">${ic('shopping-cart',18)} <span>${num(cartCount)} ${tr('itemsInCart')}</span></div>
+      <button class="btn sm" onclick="publicHospGoCheckout()">${tr('checkoutBtn')}</button>
+    </div>` : '';
   app.innerHTML = `
 <main class="loginPage">
-  <div class="fpBox">
+  <div class="fpBox${wide?' fpBox--wide':''}">
     <div class="fpBox-logo">
       <img src="/assets/logos/logo-icon-dark.svg" onerror="this.src='/assets/logos/logo-icon-light.svg'" alt="REGA">
     </div>
     <h2 class="fpBox-title">${tr('publicOrderTitle')}</h2>
     <p class="fpBox-sub">${tr('publicOrderSub')}</p>
     ${inner}
+    ${cartBar}
   </div>
 </main>`;
 }
 
 function renderPublicHospitality(){
-  if(publicHospStep==='order') return renderPublicHospitalityOrderForm();
+  if(publicHospStep==='menu') return renderPublicHospitalityMenu();
+  if(publicHospStep==='checkout') return renderPublicHospitalityCheckout();
   if(publicHospStep==='sent') return renderPublicHospitalitySent();
   if(publicHospStep==='myorders') return renderPublicHospitalityMyOrders();
   return renderPublicHospitalityIdentify();
@@ -4534,13 +4647,13 @@ function renderPublicHospitalityIdentify(){
   publicHospShell(body);
 }
 
-function publicHospContinue(){
+async function publicHospContinue(){
   const name = document.getElementById('phName').value.trim();
   const phone = document.getElementById('phPhone').value.trim();
   if(!name || !phone) return toast(tr('publicNameRequired'),'bad');
   publicHospName = name;
   publicHospPhone = phone;
-  publicHospStep = 'order';
+  publicHospStep = 'menu';
   renderPublicHospitality();
 }
 
@@ -4552,33 +4665,120 @@ async function ensurePublicHospLocations(){
   }catch(e){ publicHospLocations = []; }
 }
 
-async function renderPublicHospitalityOrderForm(){
+async function ensurePublicHospMenu(){
+  if(publicHospMenu) return;
+  try{
+    const res = await api('/public/hospitality/menu');
+    publicHospMenu = res.items || [];
+  }catch(e){ publicHospMenu = []; }
+}
+
+function menuCatIcon(c){ return c==='all' ? 'list' : 'coffee'; }
+
+function publicHospCartCount(){
+  return Object.values(publicHospCart).reduce((a,b)=>a+b,0);
+}
+
+function publicHospSetCategory(c){
+  publicHospCategory = c;
+  renderPublicHospitality();
+}
+
+function publicHospCartChange(id, delta){
+  const cur = publicHospCart[id] || 0;
+  const next = Math.max(0, Math.min(20, cur+delta));
+  if(next===0) delete publicHospCart[id]; else publicHospCart[id] = next;
+  renderPublicHospitality();
+}
+
+function productCardHtml(item){
+  const name = lang==='ar' ? item.nameAr : item.nameEn;
+  const desc = lang==='ar' ? item.descriptionAr : item.descriptionEn;
+  const qty = publicHospCart[item.id] || 0;
+  return `<div class="productCard">
+    <div class="productCard-img">${item.imagePath?`<img src="${esc(item.imagePath)}" alt="${esc(name)}" loading="lazy">`:ic('coffee',28)}</div>
+    <div class="productCard-body">
+      <div class="productCard-title">${esc(name)}</div>
+      ${desc?`<div class="productCard-desc">${esc(desc)}</div>`:''}
+      <span class="badge">${tr('mcat_'+item.category)||item.category}</span>
+    </div>
+    <div class="productCard-qty">
+      <button class="qtyBtn" onclick="publicHospCartChange('${item.id}',-1)" ${qty===0?'disabled':''}>${ic('minus',14)}</button>
+      <span class="qtyVal">${num(qty)}</span>
+      <button class="qtyBtn" onclick="publicHospCartChange('${item.id}',1)">${ic('plus',14)}</button>
+    </div>
+  </div>`;
+}
+
+async function renderPublicHospitalityMenu(){
+  await ensurePublicHospMenu();
+  const items = publicHospMenu || [];
+  const categories = ['all', ...new Set(items.map(i=>i.category))];
+  const filtered = publicHospCategory==='all' ? items : items.filter(i=>i.category===publicHospCategory);
+  const body = `
+    <div class="wCard-title" style="margin-bottom:8px">${ic('coffee',16)} ${tr('browseMenuTitle')}</div>
+    <div class="empCatGrid" style="margin-bottom:14px">
+      ${categories.map(c=>`<button class="empCatBtn${publicHospCategory===c?' active':''}" onclick="publicHospSetCategory('${c}')">
+        <div class="empCatBtn-icon">${ic(menuCatIcon(c),20)}</div>
+        ${tr('mcat_'+c)||c}
+      </button>`).join('')}
+    </div>
+    ${filtered.length ? `<div class="productGrid">${filtered.map(i=>productCardHtml(i)).join('')}</div>`
+      : `<div class="empty-state"><div class="empty-icon">${ic('coffee',28)}</div><div class="empty-title">${tr('noMenuItems')}</div></div>`}
+    <button class="btn secondary wide" style="margin-top:14px" onclick="publicHospStep='identify';renderPublicHospitality()">${tr('cancel')}</button>
+  `;
+  publicHospShell(body, publicHospCartCount(), true);
+}
+
+async function publicHospGoCheckout(){
+  if(!publicHospCartCount()) return;
   await ensurePublicHospLocations();
+  publicHospStep = 'checkout';
+  renderPublicHospitality();
+}
+
+function renderPublicHospitalityCheckout(){
+  const items = publicHospMenu || [];
+  const cartEntries = Object.entries(publicHospCart)
+    .map(([id,qty])=>{ const item = items.find(i=>i.id===id); return item?{item,qty}:null; })
+    .filter(Boolean);
   const locOptions = (publicHospLocations||[]).map(l=>({v:l.id, l:lang==='ar'?l.nameAr:l.nameEn}));
   const body = `
-    <div class="wCard-title" style="margin-bottom:8px">${ic('coffee',16)} ${tr('publicOrderFormTitle')}</div>
+    <div class="wCard-title" style="margin-bottom:8px">${ic('clipboardList',16)} ${tr('orderSummaryTitle')}</div>
+    ${cartEntries.length ? `<div class="wCard-list" style="gap:8px;margin-bottom:14px">${cartEntries.map(({item,qty})=>`
+      <div class="cartSummaryRow">
+        <span>${esc(lang==='ar'?item.nameAr:item.nameEn)}</span>
+        <span class="badge">×${num(qty)}</span>
+      </div>`).join('')}</div>`
+      : `<div class="empty-state"><div class="empty-icon">${ic('coffee',24)}</div><div class="empty-title">${tr('cartEmpty')}</div></div>`}
     <div class="formGrid">
-      ${fc(tr('orderType'), sel('phType', HOSPITALITY_ORDER_TYPES.map(t=>({v:t,l:tr('ot_'+t)||t}))))}
       ${fc(tr('locationLabel'), sel('phLocation', locOptions.length?locOptions:[{v:'',l:tr('allLocations')}]))}
       ${fc(tr('notes'), ta('phNotes','',{rows:3}))}
     </div>
-    <button class="btn wide" onclick="publicHospSubmit()">${tr('sendOrder')}</button>
-    <button class="btn secondary wide" style="margin-top:10px" onclick="publicHospStep='identify';renderPublicHospitality()">${tr('cancel')}</button>
+    <button class="btn wide" onclick="publicHospSubmit()"${cartEntries.length?'':' disabled'}>${tr('sendOrder')}</button>
+    <button class="btn secondary wide" style="margin-top:10px" onclick="publicHospStep='menu';renderPublicHospitality()">${tr('backToMenu')}</button>
   `;
-  publicHospShell(body);
+  publicHospShell(body, 0, true);
 }
 
 async function publicHospSubmit(){
-  const orderType = document.getElementById('phType').value;
   const locationId = document.getElementById('phLocation').value;
   const notes = document.getElementById('phNotes').value.trim();
-  if(!locationId) return toast(tr('publicNameRequired'),'bad');
+  if(!locationId) return toast(tr('selectLocationToOrder'),'bad');
+  const items = Object.entries(publicHospCart).map(([id,qty])=>{
+    const item = (publicHospMenu||[]).find(i=>i.id===id);
+    if(!item) return null;
+    const name = lang==='ar' ? item.nameAr : item.nameEn;
+    return `${name} ×${qty}`;
+  }).filter(Boolean);
+  if(!items.length) return toast(tr('cartEmpty'),'bad');
   try{
     const res = await api('/public/hospitality/orders',{method:'POST',body:JSON.stringify({
       requesterName: publicHospName, requesterPhone: publicHospPhone,
-      locationId, orderType, notes
+      locationId, orderType:'menu', items, notes
     })});
     publicHospRef = res.order.referenceNo;
+    publicHospCart = {};
     publicHospStep = 'sent';
     renderPublicHospitality();
   }catch(e){
