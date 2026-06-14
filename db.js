@@ -362,6 +362,13 @@ const MIGRATIONS = {
     CREATE INDEX IF NOT EXISTS idx_hosp_orders_status    ON hospitality_orders(status);
     CREATE INDEX IF NOT EXISTS idx_hosp_orders_requester ON hospitality_orders(requested_by_id);
     CREATE INDEX IF NOT EXISTS idx_hosp_orders_deleted   ON hospitality_orders(deleted_at);
+  `,
+
+  /* ── v12: hospitality — public requester identity ──────────── */
+  12: `
+    ALTER TABLE hospitality_orders ADD COLUMN requester_name  TEXT NOT NULL DEFAULT '';
+    ALTER TABLE hospitality_orders ADD COLUMN requester_phone TEXT NOT NULL DEFAULT '';
+    CREATE INDEX IF NOT EXISTS idx_hosp_orders_phone ON hospitality_orders(requester_phone);
   `
 };
 

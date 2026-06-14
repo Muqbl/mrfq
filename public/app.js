@@ -144,6 +144,45 @@ const T = {
     hospitalityPlaceholderTitle:'الضيافة',
     hospitalityPlaceholderDesc:'لوحة هذا الدور قيد التطوير في المرحلة القادمة',
     invalidTransitionMsg:'لا يمكن تنفيذ هذا الإجراء الآن',
+
+    /* Phase 4c — admin password reset */
+    resetPassword:'إعادة تعيين كلمة المرور',
+    newPassword:'كلمة المرور الجديدة',confirmPassword:'تأكيد كلمة المرور',
+    passwordMismatch:'كلمتا المرور غير متطابقتين',
+    passwordResetSuccess:'تم تغيير كلمة المرور بنجاح',
+    weakPasswordMsg:'كلمة المرور قصيرة جداً (8 أحرف على الأقل)',
+
+    /* Phase 4c — hospitality supervisor / manager */
+    hospSupervisorTitle:'مشرف الضيافة',hospManagerTitle:'مدير الضيافة',
+    hospDashboardTab:'الرئيسية',hospOrdersTab:'الطلبات',hospTeamTab:'الفريق',hospReportsTab:'التقارير',
+    newOrders:'طلبات جديدة',acceptedOrdersLabel:'مقبولة',preparingOrdersLabel:'قيد التحضير',
+    readyOrdersLabel:'جاهزة',outForDeliveryLabel:'في الطريق',deliveredOrdersLabel:'تم التسليم',
+    overdueOrdersLabel:'متأخرة',allOrdersLabel:'كل الطلبات',
+    acceptOrder:'قبول',rejectOrder:'رفض',completeOrder:'إكمال الطلب',
+    assignToWorker:'تعيين عامل',chooseWorker:'اختر عامل...',assign:'تعيين',
+    noNewOrders:'لا توجد طلبات جديدة',noOverdueOrders:'لا توجد طلبات متأخرة',
+    noUnassignedOrders:'لا توجد طلبات بانتظار التعيين',noOrdersAtAll:'لا توجد طلبات حالياً',
+    kpiTodayOrders:'طلبات اليوم',kpiOpenOrders:'الطلبات المفتوحة',
+    kpiCompletedOrders:'الطلبات المكتملة',kpiOverdueOrders:'الطلبات المتأخرة',
+    kpiSlaCompliance:'الالتزام بـ SLA',kpiAvgCompletion:'متوسط وقت الإنجاز',
+    ordersByStatusTitle:'الطلبات حسب الحالة',workerPerformanceTitle:'أداء العاملين',
+    noPerformanceData:'لا توجد بيانات أداء حتى الآن',
+    assignedCountLabel:'مسندة',completedCountLabel:'مكتملة',openCountLabel:'مفتوحة',
+    filterByStatus:'تصفية حسب الحالة',filterByLocation:'تصفية حسب الموقع',
+    allStatuses:'كل الحالات',allLocations:'كل المواقع',
+    requesterLabel:'مقدم الطلب',phoneLabel:'الجوال',
+    availableWorkers:'العاملون المتاحون',noWorkersAvailable:'لا يوجد عاملون متاحون',
+
+    /* Phase 4c — standalone hospitality request page */
+    publicOrderTitle:'طلب ضيافة',publicOrderSub:'خدمة سريعة بدون تسجيل دخول',
+    requesterNameLabel:'الاسم',requesterPhoneLabel:'رقم الجوال',
+    continueBtn:'متابعة',
+    publicOrderFormTitle:'تفاصيل الطلب',locationLabel:'الموقع',
+    sendOrder:'إرسال الطلب',orderSentTitle:'تم إرسال طلبك',
+    orderSentDesc:'سيتم التواصل معك عند تحديث حالة الطلب',
+    myOrdersTitle:'طلباتي',trackByPhone:'تابع طلباتك برقم الجوال',
+    searchBtn:'بحث',noOrdersFound:'لا توجد طلبات لهذا الرقم',
+    newRequestBtn:'طلب جديد',publicNameRequired:'يرجى إدخال الاسم ورقم الجوال',
   },
   en:{
     app:'إدارة المرافق',sub:'Professional management for every facility, at any time',
@@ -253,6 +292,45 @@ const T = {
     hospitalityPlaceholderTitle:'Hospitality',
     hospitalityPlaceholderDesc:'This role dashboard is in progress for an upcoming phase',
     invalidTransitionMsg:'This action cannot be performed right now',
+
+    /* Phase 4c — admin password reset */
+    resetPassword:'Reset Password',
+    newPassword:'New Password',confirmPassword:'Confirm Password',
+    passwordMismatch:'Passwords do not match',
+    passwordResetSuccess:'Password changed successfully',
+    weakPasswordMsg:'Password too short (min 8 characters)',
+
+    /* Phase 4c — hospitality supervisor / manager */
+    hospSupervisorTitle:'Hospitality Supervisor',hospManagerTitle:'Hospitality Manager',
+    hospDashboardTab:'Dashboard',hospOrdersTab:'Orders',hospTeamTab:'Team',hospReportsTab:'Reports',
+    newOrders:'New Orders',acceptedOrdersLabel:'Accepted',preparingOrdersLabel:'Preparing',
+    readyOrdersLabel:'Ready',outForDeliveryLabel:'Out for Delivery',deliveredOrdersLabel:'Delivered',
+    overdueOrdersLabel:'Overdue',allOrdersLabel:'All Orders',
+    acceptOrder:'Accept',rejectOrder:'Reject',completeOrder:'Complete Order',
+    assignToWorker:'Assign Worker',chooseWorker:'Choose worker...',assign:'Assign',
+    noNewOrders:'No new orders',noOverdueOrders:'No overdue orders',
+    noUnassignedOrders:'No orders awaiting assignment',noOrdersAtAll:'No orders yet',
+    kpiTodayOrders:"Today's Orders",kpiOpenOrders:'Open Orders',
+    kpiCompletedOrders:'Completed Orders',kpiOverdueOrders:'Overdue Orders',
+    kpiSlaCompliance:'SLA Compliance',kpiAvgCompletion:'Avg Completion Time',
+    ordersByStatusTitle:'Orders by Status',workerPerformanceTitle:'Worker Performance',
+    noPerformanceData:'No performance data yet',
+    assignedCountLabel:'Assigned',completedCountLabel:'Completed',openCountLabel:'Open',
+    filterByStatus:'Filter by status',filterByLocation:'Filter by location',
+    allStatuses:'All Statuses',allLocations:'All Locations',
+    requesterLabel:'Requester',phoneLabel:'Phone',
+    availableWorkers:'Available Workers',noWorkersAvailable:'No workers available',
+
+    /* Phase 4c — standalone hospitality request page */
+    publicOrderTitle:'Hospitality Request',publicOrderSub:'Quick service — no login required',
+    requesterNameLabel:'Name',requesterPhoneLabel:'Phone Number',
+    continueBtn:'Continue',
+    publicOrderFormTitle:'Order Details',locationLabel:'Location',
+    sendOrder:'Send Request',orderSentTitle:'Your request has been sent',
+    orderSentDesc:'We will follow up as the order status changes',
+    myOrdersTitle:'My Orders',trackByPhone:'Track your orders by phone number',
+    searchBtn:'Search',noOrdersFound:'No orders found for this number',
+    newRequestBtn:'New Request',publicNameRequired:'Please enter your name and phone number',
   }
 };
 
@@ -317,6 +395,7 @@ let currentPhotos = [], stream = null;
 let currentBeforePhotos = [], currentAfterPhotos = [];
 let cameraMode = 'general'; // 'before' | 'after' | 'general'
 let editUserId = null, currentTicketId = null;
+let resetPasswordUserId = null;
 let reportFilter = 'all';
 let usersSearch = '', usersRoleFilter = 'all', usersStatusFilter = 'all';
 let locsFloorFilter = 'all';
@@ -329,6 +408,12 @@ let forcePasswordChange = false;
 let employeeView = 'home';
 let workerView = 'task';
 let supervisorView = 'dashboard';
+let hospSupervisorView = 'dashboard';
+let hospManagerView = 'dashboard';
+let hospPerfData = null;
+let _hospPerfLoading = false;
+let hospReportStatusFilter = 'all';
+let hospReportLocationFilter = 'all';
 let adminView = 'dashboard';
 let adminModuleContext = null; // null | 'cleaning'
 let perfData = null; // cached performance data
@@ -343,11 +428,10 @@ const MODULES = [
   {key:'maintenance', icon:'tool', status:'planned',
     nameAr:'الصيانة', nameEn:'Maintenance',
     descAr:'صيانة المرافق والأجهزة', descEn:'Facilities and equipment maintenance'},
-  {key:'hospitality', icon:'coffee', status:'in_progress',
+  {key:'hospitality', icon:'coffee', status:'active',
     nameAr:'الضيافة', nameEn:'Hospitality',
-    descAr:'خدمات الضيافة والاستقبال', descEn:'Hospitality and reception services',
-    noteAr:'قيد التطوير — تم تأسيس الطلبات وواجهة العامل',
-    noteEn:'In progress — orders and worker interface established'},
+    descAr:'إدارة طلبات الضيافة من الطلب حتى التسليم مع لوحات المشرف والمدير',
+    descEn:'Manage hospitality orders end-to-end with supervisor and manager dashboards'},
   {key:'security', icon:'shield', status:'planned',
     nameAr:'الأمن', nameEn:'Security',
     descAr:'إدارة الأمن والمراقبة', descEn:'Security and surveillance management'},
@@ -361,6 +445,8 @@ const MODULES = [
 
 /* ─── HOSPITALITY MODULE — order types & status labels ─────────── */
 const HOSPITALITY_ORDER_TYPES = ['coffee','tea','water','snacks','meeting_service','other'];
+
+const HOSPITALITY_STATUSES_ORDER = ['submitted','accepted','preparing','ready','out_for_delivery','delivered','completed','cancelled','rejected'];
 
 const HOSPITALITY_STATUS_LABELS = {
   ar:{submitted:'جديد',accepted:'مقبول',preparing:'قيد التحضير',ready:'جاهز',
@@ -896,6 +982,25 @@ function renderFieldTabs(){
       ${mk(employeeView==='more','menu',lang==='ar'?'المزيد':'More',"employeeView='more';mobileNavActive='employee-more';renderEmployee()")}
     </div>`;
   }
+  if(me.role==='hospitality_supervisor'){
+    const orders = data?.hospitalityOrders||[];
+    const newCount = orders.filter(o=>o.status==='submitted').length;
+    const workers = (data?.users||[]).filter(u=>(u.roles||[u.role]).includes('hospitality_worker')).length;
+    return `<div class="fieldTabs" role="tablist">
+      ${mk(hospSupervisorView==='dashboard','dashboard',tr('hospDashboardTab'),"hospSupervisorView='dashboard';mobileNavActive='hospsup-dashboard';renderHospitalitySupervisor()")}
+      ${mk(hospSupervisorView==='orders','coffee',tr('hospOrdersTab'),"hospSupervisorView='orders';mobileNavActive='hospsup-orders';renderHospitalitySupervisor()",newCount)}
+      ${mk(hospSupervisorView==='team','users',tr('hospTeamTab'),"hospSupervisorView='team';mobileNavActive='hospsup-team';renderHospitalitySupervisor()",workers)}
+    </div>`;
+  }
+  if(me.role==='hospitality_manager'){
+    const orders = data?.hospitalityOrders||[];
+    const newCount = orders.filter(o=>o.status==='submitted').length;
+    return `<div class="fieldTabs" role="tablist">
+      ${mk(hospManagerView==='dashboard','dashboard',tr('hospDashboardTab'),"hospManagerView='dashboard';mobileNavActive='hospmgr-dashboard';renderHospitalityManager()")}
+      ${mk(hospManagerView==='orders','coffee',tr('hospOrdersTab'),"hospManagerView='orders';mobileNavActive='hospmgr-orders';renderHospitalityManager()",newCount)}
+      ${mk(hospManagerView==='reports','reports',tr('hospReportsTab'),"hospManagerView='reports';mobileNavActive='hospmgr-reports';renderHospitalityManager()")}
+    </div>`;
+  }
   return '';
 }
 function fieldShell(me, contentHtml, opts={}){
@@ -945,7 +1050,8 @@ function render(){
   if(me.role==='employee') return renderEmployee();
   if(me.role==='cleaning_supervisor') return renderSupervisor();
   if(me.role==='hospitality_worker') return renderHospitalityWorker();
-  if(me.role==='hospitality_manager' || me.role==='hospitality_supervisor') return renderHospitalityPlaceholder();
+  if(me.role==='hospitality_supervisor') return renderHospitalitySupervisor();
+  if(me.role==='hospitality_manager') return renderHospitalityManager();
   if(me.role==='system_admin' && !adminModuleContext) return renderSystemAdmin();
   if(me.role==='facility_manager' && !adminModuleContext) return renderFacilityConsole();
   setDoc();
@@ -1187,10 +1293,24 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
     primary = [
       {v:'hosp-worker', label:tr('hospitalityWorkerTitle'), icon:'coffee', count:hospCount, action:"render()", active:true}
     ];
-  }else if(role==='hospitality_manager' || role==='hospitality_supervisor'){
+  }else if(role==='hospitality_supervisor'){
     showMore = false;
+    const orders = data?.hospitalityOrders||[];
+    const newCount = orders.filter(o=>o.status==='submitted').length;
+    const workers = (data?.users||[]).filter(u=>(u.roles||[u.role]).includes('hospitality_worker')).length;
     primary = [
-      {v:'hosp-placeholder', label:tr('hospitality'), icon:'coffee', count:0, action:"render()", active:true}
+      {v:'hospsup-dashboard', label:tr('hospDashboardTab'), icon:'dashboard', count:0, action:"hospSupervisorView='dashboard';mobileNavActive='hospsup-dashboard';renderHospitalitySupervisor()", active:hospSupervisorView==='dashboard'},
+      {v:'hospsup-orders', label:tr('hospOrdersTab'), icon:'coffee', count:newCount, action:"hospSupervisorView='orders';mobileNavActive='hospsup-orders';renderHospitalitySupervisor()", active:hospSupervisorView==='orders'},
+      {v:'hospsup-team', label:tr('hospTeamTab'), icon:'users', count:workers, action:"hospSupervisorView='team';mobileNavActive='hospsup-team';renderHospitalitySupervisor()", active:hospSupervisorView==='team'}
+    ];
+  }else if(role==='hospitality_manager'){
+    showMore = false;
+    const orders = data?.hospitalityOrders||[];
+    const newCount = orders.filter(o=>o.status==='submitted').length;
+    primary = [
+      {v:'hospmgr-dashboard', label:tr('hospDashboardTab'), icon:'dashboard', count:0, action:"hospManagerView='dashboard';mobileNavActive='hospmgr-dashboard';renderHospitalityManager()", active:hospManagerView==='dashboard'},
+      {v:'hospmgr-orders', label:tr('hospOrdersTab'), icon:'coffee', count:newCount, action:"hospManagerView='orders';mobileNavActive='hospmgr-orders';renderHospitalityManager()", active:hospManagerView==='orders'},
+      {v:'hospmgr-reports', label:tr('hospReportsTab'), icon:'reports', count:0, action:"hospManagerView='reports';mobileNavActive='hospmgr-reports';renderHospitalityManager()", active:hospManagerView==='reports'}
     ];
   }else{
     primary = [
@@ -2681,6 +2801,7 @@ ${filtered.length===0
             <div class="usersTable-actions">
               <button class="btn secondary sm rolesActionBtn" onclick="showAddRoleModal('${u.id}')" title="${lang==='ar'?'إدارة الصلاحيات':'Manage Roles'}">${ic('shield',13)} <span>${lang==='ar'?'الصلاحيات':'Roles'}</span></button>
               <button class="btn secondary sm iconOnlyBtn" onclick="showUserFormModal('${u.id}')" title="${lang==='ar'?'تعديل':'Edit'}">${ic('edit',13)}</button>
+              ${me.role==='system_admin'?`<button class="btn secondary sm iconOnlyBtn" onclick="showPasswordResetModal('${u.id}')" title="${tr('resetPassword')}">${ic('lock',13)}</button>`:''}
               ${canDel?`<button class="btn danger sm iconOnlyBtn" onclick="deleteUserConfirm('${u.id}')" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button>`:''}
             </div>
           </td>`:''}
@@ -2737,6 +2858,43 @@ async function saveUser(){
   toast(tr('saved'),'ok');
   hideUserFormModal();
   await load();
+}
+
+function showPasswordResetModal(userId){
+  const u=(data.users||[]).find(x=>x.id===userId);
+  if(!u) return;
+  resetPasswordUserId = userId;
+  const titleHtml = `<div>${ic('lock',16)} ${tr('resetPassword')}<div class="modal-subtitle">${esc(u.name)} · ${esc(u.username)}</div></div>`;
+  const body=`
+  <div class="formGrid">
+    ${fc(tr('newPassword'),    inp('rpNew',{type:'password', placeholder:'••••••••', cls:'ltr'}))}
+    ${fc(tr('confirmPassword'),inp('rpConfirm',{type:'password', placeholder:'••••••••', cls:'ltr'}))}
+  </div>`;
+  const foot=`<button class="btn" onclick="savePasswordReset()">${ic('check',16)} ${tr('save')}</button>
+    <button class="btn secondary" onclick="hidePasswordResetModal()">${tr('cancel')}</button>`;
+  const el = showModal('passwordResetModal', titleHtml, body, foot);
+  el.addEventListener('click',e=>{if(e.target===el)hidePasswordResetModal();});
+}
+
+function hidePasswordResetModal(){
+  resetPasswordUserId = null;
+  document.getElementById('passwordResetModal')?.remove();
+}
+
+async function savePasswordReset(){
+  const pwd = document.getElementById('rpNew').value;
+  const confirm = document.getElementById('rpConfirm').value;
+  if(pwd.length<8) return toast(tr('weakPasswordMsg'),'bad');
+  if(pwd!==confirm) return toast(tr('passwordMismatch'),'bad');
+  try{
+    await api(`/users/${resetPasswordUserId}/password`,{method:'PATCH',body:JSON.stringify({password:pwd})});
+    toast(tr('passwordResetSuccess'),'ok');
+    hidePasswordResetModal();
+    await load();
+  }catch(e){
+    const msg = e.message==='WEAK_PASSWORD' ? tr('weakPasswordMsg') : (lang==='ar'?'حدث خطأ، حاول مرة أخرى':'Error, please try again');
+    toast(msg,'bad');
+  }
 }
 
 async function deleteUserConfirm(id){
@@ -3713,23 +3871,242 @@ async function updateHospitalityOrderStatus(id, status){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   HOSPITALITY — Manager / Supervisor placeholder (Phase 4b)
+   HOSPITALITY — Supervisor & Manager dashboards (Phase 4c)
    ═══════════════════════════════════════════════════════════════ */
-function renderHospitalityPlaceholder(){
-  setDoc();
-  const content=`
-<div class="empPage">
-  <div class="empPanel">
+function hospOrderCard(o, mode, workers){
+  const stCls = hospStatusBadgeClass(o.status);
+  const requester = o.requesterName
+    ? `${o.requesterName}${o.requesterPhone?` · ${o.requesterPhone}`:''}`
+    : (o.requestedBy || '');
+  return`<div class="ticketCard empOrderCard">
+    <div class="ticketCard-top empOrderCard-head">
+      <div class="ticketCard-main">
+        <div class="ticketCard-title empOrderCard-title">${esc(tr('ot_'+o.orderType)||o.orderType)}</div>
+        ${o.referenceNo?`<div class="ticketCard-ref empOrderCard-ref">${esc(o.referenceNo)}</div>`:''}
+      </div>
+      <span class="badge ${stCls}">${hospStatusLabel(o.status)}</span>
+    </div>
+    <div class="ticketCard-meta empOrderCard-meta">
+      <span>${ic('locations',12)} ${esc(lang==='ar'?o.locationNameAr:o.locationNameEn)}</span>
+      <span>${fmt(o.updatedAt||o.createdAt)}</span>
+    </div>
+    ${requester?`<div class="ticketCard-requester">${ic('user',12)} <span class="ticketCard-requester-label">${tr('requesterLabel')}:</span> <span class="ticketCard-requester-name">${esc(requester)}</span></div>`:''}
+    ${o.assignedToName?`<div class="ticketCard-meta empOrderCard-meta"><span>${ic('users',12)} ${esc(o.assignedToName)}</span></div>`:''}
+    ${o.items&&o.items.length?`<div class="ticketCard-badges">${o.items.map(i=>`<span class="badge">${esc(i)}</span>`).join('')}</div>`:''}
+    ${o.notes?`<div class="empOrderCard-queue">${esc(o.notes)}</div>`:''}
+    ${mode==='new'?`
+    <div class="ticketCard-actions supTicketCard-actions">
+      <button class="btn sm ok" onclick="hospSupervisorDecision('${o.id}','accepted')">${ic('check',14)} ${tr('acceptOrder')}</button>
+      <button class="btn sm danger" onclick="hospSupervisorDecision('${o.id}','rejected')">${ic('x',14)} ${tr('rejectOrder')}</button>
+    </div>`:mode==='assign'&&workers?`
+    <div class="ticketCard-actions supTicketCard-actions">
+      ${sel(`hsa-${o.id}`,[{v:'',l:tr('chooseWorker')},...workers.map(w=>({v:w.id,l:w.name}))], {cls:'ctrl-sm'})}
+      <button class="btn sm ok" onclick="hospAssignOrder('${o.id}',document.getElementById('hsa-${o.id}').value)">${tr('assign')}</button>
+    </div>`:mode==='complete'?`
+    <div class="ticketCard-actions supTicketCard-actions">
+      <button class="btn sm ok" onclick="hospSupervisorDecision('${o.id}','completed')">${ic('check',14)} ${tr('completeOrder')}</button>
+    </div>`:''}
+  </div>`;
+}
+
+function hospTeamGrid(workers, orders){
+  if(!workers.length) return `<div class="empty-state"><div class="empty-icon">${ic('users',24)}</div><div class="empty-title">${tr('noWorkersAvailable')}</div></div>`;
+  return `<div class="supTeamGrid">${workers.map(w=>{
+    const active = orders.filter(o=>o.assignedTo===w.id && !['completed','cancelled','rejected'].includes(o.status));
+    return `<div class="supTeamCard"><div class="supTeamCard-info"><div class="supTeamCard-name">${esc(w.name)}</div><div class="supTeamCard-meta">${active.length} ${lang==='ar'?'مهام نشطة':'active'}</div></div>${active.length?`<span class="badge warn">${active.length}</span>`:`<span class="badge ok">${lang==='ar'?'متاح':'Free'}</span>`}</div>`;
+  }).join('')}</div>`;
+}
+
+function hospOrdersBoard(orders, workers){
+  const terminal = ['completed','cancelled','rejected'];
+  const submitted = orders.filter(o=>o.status==='submitted');
+  const overdue = orders.filter(o=>!terminal.includes(o.status) && o.slaDeadline && new Date(o.slaDeadline)<new Date());
+  const overdueIds = new Set(overdue.map(o=>o.id));
+  const unassigned = orders.filter(o=>!o.assignedTo && !overdueIds.has(o.id) && !['submitted',...terminal].includes(o.status));
+  const delivered = orders.filter(o=>o.status==='delivered' && !overdueIds.has(o.id));
+  const inProgress = orders.filter(o=>['accepted','preparing','ready','out_for_delivery'].includes(o.status) && o.assignedTo && !overdueIds.has(o.id));
+
+  return `<div class="supSectionsGrid">
+    ${overdue.length?`<div class="wCard--full"><div class="wCard supervisorSlaCard">
+      <div class="supervisorSlaHead"><div class="wCard-title supervisorSlaTitle">${ic('bell',16)} ${tr('overdueOrdersLabel')} ${countBubble(overdue.length,'bad')}</div></div>
+      <div class="wCard-list supTicketList">${overdue.map(o=>hospOrderCard(o,'view',workers)).join('')}</div>
+    </div></div>`:''}
     <div class="wCard">
-      <div class="wCard-title">${ic('coffee',16)} ${tr('hospitalityPlaceholderTitle')}</div>
-      <div class="empty-state">
-        <div class="empty-icon">${ic('coffee',28)}</div>
-        <div class="empty-title">${tr('hospitalityPlaceholderDesc')}</div>
+      <div class="wCard-title">${ic('coffee',16)} ${tr('newOrders')} ${countBubble(submitted.length,'bad')}</div>
+      ${submitted.length?`<div class="wCard-list supTicketList">${submitted.map(o=>hospOrderCard(o,'new',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${tr('noNewOrders')}</div></div>`}
+    </div>
+    <div class="wCard">
+      <div class="wCard-title">${ic('users',16)} ${tr('assignToWorker')} ${countBubble(unassigned.length,'warn')}</div>
+      ${unassigned.length?`<div class="wCard-list supTicketList">${unassigned.map(o=>hospOrderCard(o,'assign',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${tr('noUnassignedOrders')}</div></div>`}
+    </div>
+    <div class="wCard">
+      <div class="wCard-title">${ic('truck',16)} ${tr('deliveredOrdersLabel')} ${countBubble(delivered.length,'ok')}</div>
+      ${delivered.length?`<div class="wCard-list supTicketList">${delivered.map(o=>hospOrderCard(o,'complete',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${tr('noOrdersAtAll')}</div></div>`}
+    </div>
+    <div class="wCard wCard--full">
+      <div class="wCard-title">${ic('sync',16)} ${tr('allOrdersLabel')} ${countBubble(inProgress.length)}</div>
+      ${inProgress.length?`<div class="wCard-list supTicketList">${inProgress.map(o=>hospOrderCard(o,'view',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('sync',24)}</div><div class="empty-title">${tr('noOrdersAtAll')}</div></div>`}
+    </div>
+  </div>`;
+}
+
+function hospReportsView(orders, locations, workers){
+  let filtered = orders;
+  if(hospReportStatusFilter!=='all') filtered = filtered.filter(o=>o.status===hospReportStatusFilter);
+  if(hospReportLocationFilter!=='all') filtered = filtered.filter(o=>o.locationId===hospReportLocationFilter);
+  filtered = filtered.slice().sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+
+  const statusOptions = [{v:'all',l:tr('allStatuses'),sel:hospReportStatusFilter==='all'},
+    ...HOSPITALITY_STATUSES_ORDER.map(s=>({v:s,l:hospStatusLabel(s),sel:hospReportStatusFilter===s}))];
+  const locationOptions = [{v:'all',l:tr('allLocations'),sel:hospReportLocationFilter==='all'},
+    ...locations.map(l=>({v:l.id,l:lang==='ar'?l.nameAr:l.nameEn,sel:hospReportLocationFilter===l.id}))];
+
+  return `<div class="wCard">
+    <div class="wCard-title">${ic('reports',16)} ${tr('hospReportsTab')} ${countBubble(filtered.length)}</div>
+    <div class="usersFilterBar">
+      ${sel('hospFilterStatus',statusOptions,{onchange:"hospReportStatusFilter=this.value;renderHospitalityManager()"})}
+      ${sel('hospFilterLocation',locationOptions,{onchange:"hospReportLocationFilter=this.value;renderHospitalityManager()"})}
+    </div>
+    ${filtered.length?`<div class="wCard-list supTicketList">${filtered.map(o=>hospOrderCard(o,'view',workers)).join('')}</div>`
+      :`<div class="empty-state"><div class="empty-icon">${ic('reports',24)}</div><div class="empty-title">${tr('noOrdersAtAll')}</div></div>`}
+  </div>`;
+}
+
+async function hospSupervisorDecision(id, status){
+  try{
+    await api(`/hospitality/orders/${id}`,{method:'PUT',body:JSON.stringify({status})});
+    await load();
+    if(me.role==='hospitality_supervisor') renderHospitalitySupervisor(); else renderHospitalityManager();
+    toast(hospStatusLabel(status),'ok');
+  }catch(e){
+    const msg = e.message==='INVALID_TRANSITION'
+      ? tr('invalidTransitionMsg')
+      : (lang==='ar'?'حدث خطأ، حاول مرة أخرى':'Error, please try again');
+    toast(msg,'bad');
+  }
+}
+
+async function hospAssignOrder(id, workerId){
+  if(!workerId) return toast(tr('chooseWorker'),'warn');
+  try{
+    await api(`/hospitality/orders/${id}/assign`,{method:'POST',body:JSON.stringify({workerId})});
+    await load();
+    if(me.role==='hospitality_supervisor') renderHospitalitySupervisor(); else renderHospitalityManager();
+    toast(tr('assign'),'ok');
+  }catch(e){ toast(e.message,'bad'); }
+}
+
+async function ensureHospPerf(){
+  if(hospPerfData || _hospPerfLoading) return;
+  _hospPerfLoading = true;
+  try{ hospPerfData = await api('/hospitality/performance'); }
+  catch(e){ hospPerfData = null; }
+  _hospPerfLoading = false;
+}
+
+function renderHospitalitySupervisor(){
+  setDoc();
+  const orders = data.hospitalityOrders||[];
+  const workers = (data.users||[]).filter(u=>(u.roles||[u.role]).includes('hospitality_worker'));
+  const terminal = ['completed','cancelled','rejected'];
+  const submitted = orders.filter(o=>o.status==='submitted');
+  const inProgress = orders.filter(o=>['accepted','preparing','ready','out_for_delivery'].includes(o.status));
+  const delivered = orders.filter(o=>o.status==='delivered');
+  const overdue = orders.filter(o=>!terminal.includes(o.status) && o.slaDeadline && new Date(o.slaDeadline)<new Date());
+
+  const statsHtml = `<div class="supStats">
+    ${supStat(submitted.length, tr('newOrders'), 'coffee', 'bad')}
+    ${supStat(inProgress.length, tr('hospOrdersTab'), 'sync', 'brand')}
+    ${supStat(delivered.length, tr('deliveredOrdersLabel'), 'truck', 'warn')}
+    ${supStat(overdue.length, tr('overdueOrdersLabel'), 'bell', overdue.length?'bad':'ok')}
+  </div>`;
+
+  const teamHtml = `<div class="wCard">
+    <div class="wCard-title">${ic('users',16)} ${tr('availableWorkers')} ${countBubble(workers.length)}</div>
+    ${hospTeamGrid(workers, orders)}
+  </div>`;
+
+  const dashboardHtml = `<div class="supervisorDashboard">
+    ${statsHtml}
+    <div class="wCard">
+      <div class="wCard-title">${ic('dashboard',16)} ${lang==='ar'?'اختصارات التشغيل':'Operational shortcuts'}</div>
+      <div class="quickActionGrid quickActionGrid--supervisor">
+        <button class="quickAction" onclick="hospSupervisorView='orders';mobileNavActive='hospsup-orders';renderHospitalitySupervisor()"><span>${ic('coffee',18)}</span><b>${tr('hospOrdersTab')}</b><small>${num(orders.length)}</small></button>
+        <button class="quickAction" onclick="hospSupervisorView='team';mobileNavActive='hospsup-team';renderHospitalitySupervisor()"><span>${ic('users',18)}</span><b>${tr('hospTeamTab')}</b><small>${num(workers.length)}</small></button>
       </div>
     </div>
-  </div>
-</div>`;
-  app.innerHTML = fieldShell(me, content);
+    ${teamHtml}
+  </div>`;
+
+  const ordersHtml = hospOrdersBoard(orders, workers);
+
+  const content = hospSupervisorView==='orders' ? ordersHtml
+    : hospSupervisorView==='team' ? teamHtml
+    : dashboardHtml;
+
+  app.innerHTML = fieldShell(me, content, {sync:true, noSticky:true});
+}
+
+async function renderHospitalityManager(){
+  setDoc();
+  const orders = data.hospitalityOrders||[];
+  const workers = (data.users||[]).filter(u=>(u.roles||[u.role]).includes('hospitality_worker'));
+  const locations = data.locations||[];
+
+  if(hospManagerView==='dashboard') await ensureHospPerf();
+
+  const terminal = ['completed','cancelled','rejected'];
+  const today = new Date().toDateString();
+  const todayOrders = orders.filter(o=>new Date(o.createdAt).toDateString()===today);
+  const openOrders = orders.filter(o=>!terminal.includes(o.status));
+  const completedOrders = orders.filter(o=>o.status==='completed');
+  const overdue = hospPerfData ? hospPerfData.overdue : orders.filter(o=>!terminal.includes(o.status) && o.slaDeadline && new Date(o.slaDeadline)<new Date()).length;
+  const totalForSla = hospPerfData ? hospPerfData.totalOrders : orders.length;
+  const slaCompliance = totalForSla>0 ? Math.round((totalForSla-overdue)/totalForSla*100) : 100;
+  const avgCompletion = hospPerfData ? hospPerfData.avgCompletionMins : null;
+
+  const kpiHtml = `<div class="supStats">
+    ${supStat(todayOrders.length, tr('kpiTodayOrders'), 'coffee', 'brand')}
+    ${supStat(openOrders.length, tr('kpiOpenOrders'), 'sync', 'warn')}
+    ${supStat(completedOrders.length, tr('kpiCompletedOrders'), 'check', 'ok')}
+    ${supStat(overdue, tr('kpiOverdueOrders'), 'bell', overdue?'bad':'ok')}
+    ${supStat(slaCompliance+'%', tr('kpiSlaCompliance'), 'shield', slaCompliance>=80?'ok':'warn')}
+    ${supStat(avgCompletion!=null?(avgCompletion+(lang==='ar'?' د':' min')):'—', tr('kpiAvgCompletion'), 'sync', 'brand')}
+  </div>`;
+
+  const byStatusHtml = `<div class="wCard">
+    <div class="wCard-title">${ic('dashboard',16)} ${tr('ordersByStatusTitle')}</div>
+    <div class="hospStatusGrid">
+      ${HOSPITALITY_STATUSES_ORDER.map(s=>{
+        const count = hospPerfData ? (hospPerfData.byStatus[s]||0) : orders.filter(o=>o.status===s).length;
+        return `<div class="hospStatusGrid-item"><span class="badge ${hospStatusBadgeClass(s)}">${hospStatusLabel(s)}</span><b>${num(count)}</b></div>`;
+      }).join('')}
+    </div>
+  </div>`;
+
+  const perfWorkers = hospPerfData ? hospPerfData.workers : [];
+  const workerPerfHtml = `<div class="wCard">
+    <div class="wCard-title">${ic('users',16)} ${tr('workerPerformanceTitle')}</div>
+    ${perfWorkers.length?`<div class="supTeamGrid">${perfWorkers.map(w=>`
+      <div class="supTeamCard"><div class="supTeamCard-info"><div class="supTeamCard-name">${esc(w.name)}</div>
+      <div class="supTeamCard-meta">${tr('completedCountLabel')}: ${num(w.completed)} · ${tr('openCountLabel')}: ${num(w.open)}</div></div></div>`).join('')}</div>`
+      :`<div class="empty-state"><div class="empty-icon">${ic('users',24)}</div><div class="empty-title">${tr('noPerformanceData')}</div></div>`}
+  </div>`;
+
+  const dashboardHtml = `<div class="supervisorDashboard">
+    ${kpiHtml}
+    ${byStatusHtml}
+    ${workerPerfHtml}
+  </div>`;
+
+  const ordersHtml = hospOrdersBoard(orders, workers);
+  const reportsHtml = hospReportsView(orders, locations, workers);
+
+  const content = hospManagerView==='orders' ? ordersHtml
+    : hospManagerView==='reports' ? reportsHtml
+    : dashboardHtml;
+
+  app.innerHTML = fieldShell(me, content, {sync:true, noSticky:true});
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -4112,6 +4489,154 @@ function renderWorkspaceSelector(){
   </div>`;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   PUBLIC HOSPITALITY REQUEST PAGE — /order/hospitality (Phase 4c)
+   No login, no session — identification via name + phone only.
+   ═══════════════════════════════════════════════════════════════ */
+let publicHospStep = 'identify'; // identify | order | sent | myorders
+let publicHospName = '';
+let publicHospPhone = '';
+let publicHospLocations = null;
+let publicHospOrders = null;
+let publicHospRef = '';
+
+function publicHospShell(inner){
+  setDoc();
+  app.innerHTML = `
+<main class="loginPage">
+  <div class="fpBox">
+    <div class="fpBox-logo">
+      <img src="/assets/logos/logo-icon-dark.svg" onerror="this.src='/assets/logos/logo-icon-light.svg'" alt="REGA">
+    </div>
+    <h2 class="fpBox-title">${tr('publicOrderTitle')}</h2>
+    <p class="fpBox-sub">${tr('publicOrderSub')}</p>
+    ${inner}
+  </div>
+</main>`;
+}
+
+function renderPublicHospitality(){
+  if(publicHospStep==='order') return renderPublicHospitalityOrderForm();
+  if(publicHospStep==='sent') return renderPublicHospitalitySent();
+  if(publicHospStep==='myorders') return renderPublicHospitalityMyOrders();
+  return renderPublicHospitalityIdentify();
+}
+
+function renderPublicHospitalityIdentify(){
+  const body = `
+    ${fc(tr('requesterNameLabel'), inp('phName',{value:publicHospName}))}
+    ${fc(tr('requesterPhoneLabel'), inp('phPhone',{value:publicHospPhone, cls:'ltr', type:'tel'}))}
+    <button class="btn wide" onclick="publicHospContinue()">${tr('continueBtn')}</button>
+    <button class="btn secondary wide" style="margin-top:10px" onclick="publicHospStep='myorders';publicHospOrders=null;renderPublicHospitality()">${tr('myOrdersTitle')}</button>
+  `;
+  publicHospShell(body);
+}
+
+function publicHospContinue(){
+  const name = document.getElementById('phName').value.trim();
+  const phone = document.getElementById('phPhone').value.trim();
+  if(!name || !phone) return toast(tr('publicNameRequired'),'bad');
+  publicHospName = name;
+  publicHospPhone = phone;
+  publicHospStep = 'order';
+  renderPublicHospitality();
+}
+
+async function ensurePublicHospLocations(){
+  if(publicHospLocations) return;
+  try{
+    const res = await api('/public/locations');
+    publicHospLocations = res.locations || [];
+  }catch(e){ publicHospLocations = []; }
+}
+
+async function renderPublicHospitalityOrderForm(){
+  await ensurePublicHospLocations();
+  const locOptions = (publicHospLocations||[]).map(l=>({v:l.id, l:lang==='ar'?l.nameAr:l.nameEn}));
+  const body = `
+    <div class="wCard-title" style="margin-bottom:8px">${ic('coffee',16)} ${tr('publicOrderFormTitle')}</div>
+    <div class="formGrid">
+      ${fc(tr('orderType'), sel('phType', HOSPITALITY_ORDER_TYPES.map(t=>({v:t,l:tr('ot_'+t)||t}))))}
+      ${fc(tr('locationLabel'), sel('phLocation', locOptions.length?locOptions:[{v:'',l:tr('allLocations')}]))}
+      ${fc(tr('notes'), ta('phNotes','',{rows:3}))}
+    </div>
+    <button class="btn wide" onclick="publicHospSubmit()">${tr('sendOrder')}</button>
+    <button class="btn secondary wide" style="margin-top:10px" onclick="publicHospStep='identify';renderPublicHospitality()">${tr('cancel')}</button>
+  `;
+  publicHospShell(body);
+}
+
+async function publicHospSubmit(){
+  const orderType = document.getElementById('phType').value;
+  const locationId = document.getElementById('phLocation').value;
+  const notes = document.getElementById('phNotes').value.trim();
+  if(!locationId) return toast(tr('publicNameRequired'),'bad');
+  try{
+    const res = await api('/public/hospitality/orders',{method:'POST',body:JSON.stringify({
+      requesterName: publicHospName, requesterPhone: publicHospPhone,
+      locationId, orderType, notes
+    })});
+    publicHospRef = res.order.referenceNo;
+    publicHospStep = 'sent';
+    renderPublicHospitality();
+  }catch(e){
+    toast(lang==='ar'?'حدث خطأ، حاول مرة أخرى':'Error, please try again','bad');
+  }
+}
+
+function renderPublicHospitalitySent(){
+  const body = `
+    <div class="empty-state">
+      <div class="empty-icon">${ic('check',28)}</div>
+      <div class="empty-title">${tr('orderSentTitle')}</div>
+      <p class="empty-sub">${tr('orderSentDesc')}</p>
+      ${publicHospRef?`<div class="ticketCard-ref" style="margin-top:8px">${esc(publicHospRef)}</div>`:''}
+    </div>
+    <button class="btn wide" style="margin-top:16px" onclick="publicHospStep='identify';publicHospName='';publicHospPhone='';renderPublicHospitality()">${tr('newRequestBtn')}</button>
+  `;
+  publicHospShell(body);
+}
+
+function renderPublicHospitalityMyOrders(){
+  const body = `
+    ${fc(tr('requesterPhoneLabel'), inp('phLookupPhone',{value:publicHospPhone, cls:'ltr', type:'tel'}))}
+    <button class="btn wide" onclick="publicHospLookup()">${tr('searchBtn')}</button>
+    <div id="phOrdersList" style="margin-top:14px">${publicHospOrders ? publicHospOrdersListHtml() : ''}</div>
+    <button class="btn secondary wide" style="margin-top:10px" onclick="publicHospStep='identify';renderPublicHospitality()">${tr('cancel')}</button>
+  `;
+  publicHospShell(body);
+}
+
+function publicHospOrdersListHtml(){
+  const orders = publicHospOrders||[];
+  if(!orders.length) return `<div class="empty-state"><div class="empty-icon">${ic('coffee',24)}</div><div class="empty-title">${tr('noOrdersFound')}</div></div>`;
+  return `<div class="wCard-list" style="gap:10px">${orders.map(o=>`
+    <div class="ticketCard empOrderCard">
+      <div class="ticketCard-top empOrderCard-head">
+        <div class="ticketCard-main">
+          <div class="ticketCard-title empOrderCard-title">${esc(tr('ot_'+o.orderType)||o.orderType)}</div>
+          ${o.referenceNo?`<div class="ticketCard-ref empOrderCard-ref">${esc(o.referenceNo)}</div>`:''}
+        </div>
+        <span class="badge ${hospStatusBadgeClass(o.status)}">${hospStatusLabel(o.status)}</span>
+      </div>
+      <div class="ticketCard-meta empOrderCard-meta">
+        <span>${ic('locations',12)} ${esc(lang==='ar'?o.locationNameAr:o.locationNameEn)}</span>
+        <span>${fmt(o.createdAt)}</span>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+async function publicHospLookup(){
+  const phone = document.getElementById('phLookupPhone').value.trim();
+  if(!phone) return toast(tr('publicNameRequired'),'bad');
+  publicHospPhone = phone;
+  try{
+    const res = await api('/public/hospitality/orders?phone='+encodeURIComponent(phone));
+    publicHospOrders = res.orders || [];
+  }catch(e){ publicHospOrders = []; }
+  renderPublicHospitality();
+}
+
 function renderWorkspaceSwitcher(){
   const roles = (me.roles||[me.role]);
   if(roles.length<=1) return;
@@ -4127,6 +4652,11 @@ function renderWorkspaceSwitcher(){
 }
 
 /* ─── INIT ───────────────────────────────────────────────────── */
+// Standalone public hospitality request page — no login/session required
+if(location.pathname.startsWith('/order/hospitality')){
+  renderPublicHospitality();
+} else {
+
 // Preserve ?loc= param from QR scans across login
 (function(){
   try{
@@ -4162,3 +4692,5 @@ function renderWorkspaceSwitcher(){
     }
   }catch(e){ loginPage(); }
 })();
+
+} // end standalone public hospitality page check
