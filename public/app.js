@@ -178,6 +178,11 @@ const T = {
     myOrdersTitle:'طلباتي',trackByPhone:'تابع طلباتك برقم الجوال',
     searchBtn:'بحث',noOrdersFound:'لا توجد طلبات لهذا الرقم',
     newRequestBtn:'طلب جديد',publicNameRequired:'يرجى إدخال الاسم ورقم الجوال',
+    publicInvalidPhone:'رقم الجوال غير صحيح، يرجى التحقق منه',
+    publicLocationUnavailable:'الموقع المحدد غير متاح، يرجى اختيار موقع آخر',
+    publicKitchenUnavailable:'المطبخ المحدد غير متاح، يرجى اختيار مطبخ آخر',
+    publicOrderErrorGeneric:'حدث خطأ أثناء إرسال الطلب، حاول مرة أخرى',
+    publicMyInfoTab:'معلوماتي',publicInfoSaved:'تم حفظ معلوماتك',
 
     /* Phase 4d — hospitality menu / coffee ordering */
     mcat_all:'الكل',mcat_hot_drinks:'مشروبات ساخنة',mcat_cold_drinks:'مشروبات باردة',
@@ -351,6 +356,11 @@ const T = {
     myOrdersTitle:'My Orders',trackByPhone:'Track your orders by phone number',
     searchBtn:'Search',noOrdersFound:'No orders found for this number',
     newRequestBtn:'New Request',publicNameRequired:'Please enter your name and phone number',
+    publicInvalidPhone:'Phone number is invalid, please check it',
+    publicLocationUnavailable:'The selected location is unavailable, please choose another',
+    publicKitchenUnavailable:'The selected kitchen is unavailable, please choose another',
+    publicOrderErrorGeneric:'Something went wrong while sending your request, please try again',
+    publicMyInfoTab:'My Info',publicInfoSaved:'Your info has been saved',
 
     /* Phase 4d — hospitality menu / coffee ordering */
     mcat_all:'All',mcat_hot_drinks:'Hot Drinks',mcat_cold_drinks:'Cold Drinks',
@@ -1059,6 +1069,18 @@ function renderFieldTabs(){
       ${mk(hospManagerView==='kitchens','building',tr('kitchensTitle'),"hospManagerView='kitchens';mobileNavActive='hospmgr-kitchens';renderHospitalityManager()")}
     </div>`;
   }
+  if(['system_admin','facility_manager'].includes(me.role) && adminModuleContext==='hospitality'){
+    const orders = data?.hospitalityOrders||[];
+    const newCount = orders.filter(o=>o.status==='submitted').length;
+    const canManage = me.role==='system_admin';
+    return `<div class="fieldTabs" role="tablist">
+      ${mk(hospManagerView==='dashboard','dashboard',tr('hospDashboardTab'),"hospManagerView='dashboard';mobileNavActive='hospmgr-dashboard';renderAdminHospitality()")}
+      ${mk(hospManagerView==='orders','coffee',tr('hospOrdersTab'),"hospManagerView='orders';mobileNavActive='hospmgr-orders';renderAdminHospitality()",newCount)}
+      ${mk(hospManagerView==='reports','reports',tr('hospReportsTab'),"hospManagerView='reports';mobileNavActive='hospmgr-reports';renderAdminHospitality()")}
+      ${canManage?mk(hospManagerView==='products','coffee',tr('productsTitle'),"hospManagerView='products';mobileNavActive='hospmgr-products';renderAdminHospitality()"):''}
+      ${canManage?mk(hospManagerView==='kitchens','building',tr('kitchensTitle'),"hospManagerView='kitchens';mobileNavActive='hospmgr-kitchens';renderAdminHospitality()"):''}
+    </div>`;
+  }
   return '';
 }
 function fieldShell(me, contentHtml, opts={}){
@@ -1112,6 +1134,7 @@ function render(){
   if(me.role==='hospitality_manager') return renderHospitalityManager();
   if(me.role==='system_admin' && !adminModuleContext) return renderSystemAdmin();
   if(me.role==='facility_manager' && !adminModuleContext) return renderFacilityConsole();
+  if(['system_admin','facility_manager'].includes(me.role) && adminModuleContext==='hospitality') return renderAdminHospitality();
   setDoc();
   if(_lastView==='users' && view!=='users'){ usersSearch=''; usersRoleFilter='all'; usersStatusFilter='all'; }
   if(_lastView==='locations' && view!=='locations'){ locsFloorFilter='all'; }
@@ -1370,6 +1393,20 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
       {v:'hospmgr-products', label:tr('productsTitle'), icon:'coffee', count:0, action:"hospManagerView='products';mobileNavActive='hospmgr-products';renderHospitalityManager()", active:hospManagerView==='products'},
       {v:'hospmgr-kitchens', label:tr('kitchensTitle'), icon:'building', count:0, action:"hospManagerView='kitchens';mobileNavActive='hospmgr-kitchens';renderHospitalityManager()", active:hospManagerView==='kitchens'}
     ];
+  }else if(adminModuleContext==='hospitality' && ['system_admin','facility_manager'].includes(role)){
+    showMore = false;
+    const orders = data?.hospitalityOrders||[];
+    const newCount = orders.filter(o=>o.status==='submitted').length;
+    const canManage = role==='system_admin';
+    primary = [
+      {v:'hospmgr-dashboard', label:tr('hospDashboardTab'), icon:'dashboard', count:0, action:"hospManagerView='dashboard';mobileNavActive='hospmgr-dashboard';renderAdminHospitality()", active:hospManagerView==='dashboard'},
+      {v:'hospmgr-orders', label:tr('hospOrdersTab'), icon:'coffee', count:newCount, action:"hospManagerView='orders';mobileNavActive='hospmgr-orders';renderAdminHospitality()", active:hospManagerView==='orders'},
+      {v:'hospmgr-reports', label:tr('hospReportsTab'), icon:'reports', count:0, action:"hospManagerView='reports';mobileNavActive='hospmgr-reports';renderAdminHospitality()", active:hospManagerView==='reports'},
+      ...(canManage?[
+        {v:'hospmgr-products', label:tr('productsTitle'), icon:'coffee', count:0, action:"hospManagerView='products';mobileNavActive='hospmgr-products';renderAdminHospitality()", active:hospManagerView==='products'},
+        {v:'hospmgr-kitchens', label:tr('kitchensTitle'), icon:'building', count:0, action:"hospManagerView='kitchens';mobileNavActive='hospmgr-kitchens';renderAdminHospitality()", active:hospManagerView==='kitchens'}
+      ]:[])
+    ];
   }else{
     primary = [
       {v:'dashboard', label:tr('dashboard'), icon:'dashboard', count:0},
@@ -1617,10 +1654,19 @@ function showFmNavMore(){
 
 /* ── module entry / exit ───────────────────────────────────── */
 function enterModule(key){
-  if(key!=='cleaning') return;
-  adminModuleContext = 'cleaning';
-  view = 'dashboard';
-  render();
+  if(key==='cleaning'){
+    adminModuleContext = 'cleaning';
+    view = 'dashboard';
+    render();
+    return;
+  }
+  if(key==='hospitality'){
+    adminModuleContext = 'hospitality';
+    hospManagerView = 'dashboard';
+    mobileNavActive = 'hospmgr-dashboard';
+    render();
+    return;
+  }
 }
 function exitModule(){
   adminModuleContext = null;
@@ -4019,6 +4065,89 @@ async function ensureHospPerf(){
   _hospPerfLoading = false;
 }
 
+/* ── shared manager-style dashboard for hospitality_manager & the
+   system_admin/facility_manager hospitality module — mirrors the
+   cleaning_manager dashboard (hero + KPI grid + analytical cards) ── */
+function hospManagerDashboardHtml(orders, workers){
+  const terminal = ['completed','cancelled','rejected'];
+  const today = new Date().toDateString();
+  const todayOrders = orders.filter(o=>new Date(o.createdAt).toDateString()===today);
+  const openOrders = orders.filter(o=>!terminal.includes(o.status));
+  const completedOrders = orders.filter(o=>o.status==='completed');
+  const overdue = hospPerfData ? hospPerfData.overdue : orders.filter(o=>!terminal.includes(o.status) && o.slaDeadline && new Date(o.slaDeadline)<new Date()).length;
+  const totalForSla = hospPerfData ? hospPerfData.totalOrders : orders.length;
+  const slaCompliance = totalForSla>0 ? Math.round((totalForSla-overdue)/totalForSla*100) : 100;
+  const avgCompletion = hospPerfData ? hospPerfData.avgCompletionMins : null;
+
+  const hour = new Date().getHours();
+  const greeting = lang==='ar' ? (hour<12?'صباح الخير':'مساء الخير') : (hour<12?'Good morning':'Good afternoon');
+  const roleContext = lang==='ar' ? `${tr(me.role)} · مركز العمليات` : `${tr(me.role)} · Operations center`;
+  const summaryText = lang==='ar'
+    ? `${num(openOrders.length)} طلبات مفتوحة · ${num(slaCompliance)}% التزام SLA`
+    : `${num(openOrders.length)} open orders · ${num(slaCompliance)}% SLA compliance`;
+
+  const heroHtml = `<div class="dashHero">
+    <div class="dashHero-left">
+      <span class="dashHero-greeting">${roleContext}</span>
+      <div class="dashHero-title">${greeting}، ${esc(me.name.split(' ')[0])}</div>
+      <p class="dashHero-sub">${summaryText} · ${fmtDate(new Date())}</p>
+    </div>
+    <div class="dashHero-right">
+      <div class="dashHero-stat">
+        <div class="dashHero-stat-val">${num(todayOrders.length)}</div>
+        <div class="dashHero-stat-lbl">${tr('kpiTodayOrders')}</div>
+      </div>
+      <div class="dashHero-stat">
+        <div class="dashHero-stat-val">${num(openOrders.length)}</div>
+        <div class="dashHero-stat-lbl">${tr('kpiOpenOrders')}</div>
+      </div>
+      <div class="dashHero-stat">
+        <div class="dashHero-stat-val">${slaCompliance}%</div>
+        <div class="dashHero-stat-lbl">${tr('kpiSlaCompliance')}</div>
+      </div>
+    </div>
+  </div>`;
+
+  const kpiHtml = `<div class="kpiGrid">
+    ${kpiCard(num(todayOrders.length), tr('kpiTodayOrders'), 'coffee', 'brand')}
+    ${kpiCard(num(openOrders.length), tr('kpiOpenOrders'), 'sync', 'warn')}
+    ${kpiCard(num(completedOrders.length), tr('kpiCompletedOrders'), 'check', 'ok')}
+    ${kpiCard(num(overdue), tr('kpiOverdueOrders'), 'bell', overdue?'bad':'ok')}
+    ${kpiCard(slaCompliance+'%', tr('kpiSlaCompliance'), 'shield', slaCompliance>=80?'ok':'warn')}
+    ${kpiCard(avgCompletion!=null?(avgCompletion+(lang==='ar'?' د':' min')):'—', tr('kpiAvgCompletion'), 'sync', 'brand')}
+  </div>`;
+
+  const perfWorkers = hospPerfData ? hospPerfData.workers : [];
+  const byStatusHtml = `<div class="card">
+    <div class="card-head">
+      <span class="card-title">${tr('ordersByStatusTitle')}</span>
+    </div>
+    <div class="hospStatusGrid">
+      ${HOSPITALITY_STATUSES_ORDER.map(s=>{
+        const count = hospPerfData ? (hospPerfData.byStatus[s]||0) : orders.filter(o=>o.status===s).length;
+        return `<div class="hospStatusGrid-item"><span class="badge ${hospStatusBadgeClass(s)}">${hospStatusLabel(s)}</span><b>${num(count)}</b></div>`;
+      }).join('')}
+    </div>
+  </div>`;
+
+  const workerPerfHtml = `<div class="card">
+    <div class="card-head">
+      <span class="card-title">${tr('workerPerformanceTitle')}</span>
+    </div>
+    ${perfWorkers.length?`<div class="supTeamGrid">${perfWorkers.map(w=>`
+      <div class="supTeamCard"><div class="supTeamCard-info"><div class="supTeamCard-name">${esc(w.name)}</div>
+      <div class="supTeamCard-meta">${tr('completedCountLabel')}: ${num(w.completed)} · ${tr('openCountLabel')}: ${num(w.open)}</div></div></div>`).join('')}</div>`
+      :`<div class="empty-state"><div class="empty-icon">${ic('users',24)}</div><div class="empty-title">${tr('noPerformanceData')}</div></div>`}
+  </div>`;
+
+  const contentHtml = `<div class="contentGrid">
+    ${byStatusHtml}
+    ${workerPerfHtml}
+  </div>`;
+
+  return `${heroHtml}${kpiHtml}${contentHtml}`;
+}
+
 function renderHospitalitySupervisor(){
   setDoc();
   const orders = data.hospitalityOrders||[];
@@ -4072,49 +4201,7 @@ async function renderHospitalityManager(){
   if(hospManagerView==='products') await ensureHospMenuItems();
   if(hospManagerView==='kitchens') await ensureHospKitchens();
 
-  const terminal = ['completed','cancelled','rejected'];
-  const today = new Date().toDateString();
-  const todayOrders = orders.filter(o=>new Date(o.createdAt).toDateString()===today);
-  const openOrders = orders.filter(o=>!terminal.includes(o.status));
-  const completedOrders = orders.filter(o=>o.status==='completed');
-  const overdue = hospPerfData ? hospPerfData.overdue : orders.filter(o=>!terminal.includes(o.status) && o.slaDeadline && new Date(o.slaDeadline)<new Date()).length;
-  const totalForSla = hospPerfData ? hospPerfData.totalOrders : orders.length;
-  const slaCompliance = totalForSla>0 ? Math.round((totalForSla-overdue)/totalForSla*100) : 100;
-  const avgCompletion = hospPerfData ? hospPerfData.avgCompletionMins : null;
-
-  const kpiHtml = `<div class="supStats">
-    ${supStat(todayOrders.length, tr('kpiTodayOrders'), 'coffee', 'brand')}
-    ${supStat(openOrders.length, tr('kpiOpenOrders'), 'sync', 'warn')}
-    ${supStat(completedOrders.length, tr('kpiCompletedOrders'), 'check', 'ok')}
-    ${supStat(overdue, tr('kpiOverdueOrders'), 'bell', overdue?'bad':'ok')}
-    ${supStat(slaCompliance+'%', tr('kpiSlaCompliance'), 'shield', slaCompliance>=80?'ok':'warn')}
-    ${supStat(avgCompletion!=null?(avgCompletion+(lang==='ar'?' د':' min')):'—', tr('kpiAvgCompletion'), 'sync', 'brand')}
-  </div>`;
-
-  const byStatusHtml = `<div class="wCard">
-    <div class="wCard-title">${ic('dashboard',16)} ${tr('ordersByStatusTitle')}</div>
-    <div class="hospStatusGrid">
-      ${HOSPITALITY_STATUSES_ORDER.map(s=>{
-        const count = hospPerfData ? (hospPerfData.byStatus[s]||0) : orders.filter(o=>o.status===s).length;
-        return `<div class="hospStatusGrid-item"><span class="badge ${hospStatusBadgeClass(s)}">${hospStatusLabel(s)}</span><b>${num(count)}</b></div>`;
-      }).join('')}
-    </div>
-  </div>`;
-
-  const perfWorkers = hospPerfData ? hospPerfData.workers : [];
-  const workerPerfHtml = `<div class="wCard">
-    <div class="wCard-title">${ic('users',16)} ${tr('workerPerformanceTitle')}</div>
-    ${perfWorkers.length?`<div class="supTeamGrid">${perfWorkers.map(w=>`
-      <div class="supTeamCard"><div class="supTeamCard-info"><div class="supTeamCard-name">${esc(w.name)}</div>
-      <div class="supTeamCard-meta">${tr('completedCountLabel')}: ${num(w.completed)} · ${tr('openCountLabel')}: ${num(w.open)}</div></div></div>`).join('')}</div>`
-      :`<div class="empty-state"><div class="empty-icon">${ic('users',24)}</div><div class="empty-title">${tr('noPerformanceData')}</div></div>`}
-  </div>`;
-
-  const dashboardHtml = `<div class="supervisorDashboard">
-    ${kpiHtml}
-    ${byStatusHtml}
-    ${workerPerfHtml}
-  </div>`;
+  const dashboardHtml = hospManagerDashboardHtml(orders, workers);
 
   const ordersHtml = hospOrdersBoard(orders, workers);
   const reportsHtml = hospReportsView(orders, locations, workers);
@@ -4128,6 +4215,36 @@ async function renderHospitalityManager(){
     : dashboardHtml;
 
   app.innerHTML = fieldShell(me, content, {sync:true, noSticky:true});
+}
+
+/* ── hospitality module entry for system_admin / facility_manager ──
+   system_admin: full dashboard/orders/reports/products/kitchens (same as hospitality_manager)
+   facility_manager: operational overview only — no products/kitchens management ──── */
+async function renderAdminHospitality(){
+  setDoc();
+  const canManage = me.role==='system_admin';
+  if(!canManage && ['products','kitchens'].includes(hospManagerView)) hospManagerView = 'dashboard';
+
+  const orders = data.hospitalityOrders||[];
+  const workers = (data.users||[]).filter(u=>(u.roles||[u.role]).includes('hospitality_worker'));
+  const locations = data.locations||[];
+
+  if(hospManagerView==='dashboard') await ensureHospPerf();
+  if(canManage && hospManagerView==='products') await ensureHospMenuItems();
+  if(canManage && hospManagerView==='kitchens') await ensureHospKitchens();
+
+  const dashboardHtml = hospManagerDashboardHtml(orders, workers);
+
+  const ordersHtml = hospOrdersBoard(orders, workers);
+  const reportsHtml = hospReportsView(orders, locations, workers);
+
+  const content = hospManagerView==='orders' ? ordersHtml
+    : hospManagerView==='reports' ? reportsHtml
+    : (canManage && hospManagerView==='products') ? hospitalityProductsView()
+    : (canManage && hospManagerView==='kitchens') ? hospitalityKitchensView()
+    : dashboardHtml;
+
+  app.innerHTML = fieldShell(me, content, {sync:true, noSticky:true, back:true, backAction:'exitModule()'});
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -4773,7 +4890,7 @@ function saveHospRequesterInfo(info){
   try{ localStorage.setItem(HOSP_REQUESTER_KEY, JSON.stringify({...loadHospRequesterInfo(), ...info})); }catch(e){}
 }
 
-function publicHospShell(inner, cartCount=0, wide=false){
+function publicHospShell(inner, cartCount=0, wide=false, activeTab=''){
   setDoc();
   const cartBar = cartCount>0 ? `
     <div class="cartBar">
@@ -4782,16 +4899,63 @@ function publicHospShell(inner, cartCount=0, wide=false){
     </div>` : '';
   app.innerHTML = `
 <main class="loginPage">
-  <div class="fpBox${wide?' fpBox--wide':''}">
+  <div class="fpBox${wide?' fpBox--wide':''}${activeTab?' fpBox--withNav':''}">
     <div class="fpBox-logo">
       <img src="/assets/logos/logo-icon-dark.svg" onerror="this.src='/assets/logos/logo-icon-light.svg'" alt="REGA">
     </div>
     <h2 class="fpBox-title">${tr('publicOrderTitle')}</h2>
     <p class="fpBox-sub">${tr('publicOrderSub')}</p>
+    ${activeTab?publicHospNavTabsHtml(activeTab):''}
     ${inner}
     ${cartBar}
   </div>
+  ${activeTab?publicHospNavBottomHtml(activeTab):''}
 </main>`;
+}
+
+/* ── shared navigation for the public ordering page: segmented tabs
+   on tablet/desktop (.fieldTabs), bottom nav on mobile (.mobileBottomNav) ── */
+function publicHospNavItems(){
+  const cartCount = publicHospCartCount();
+  return [
+    {v:'myinfo',   label:tr('publicMyInfoTab'), icon:'users'},
+    {v:'menu',     label:tr('browseMenuTitle'), icon:'coffee'},
+    {v:'cart',     label:tr('cartTitle'),       icon:'shopping-cart', count:cartCount},
+    {v:'myorders', label:tr('myOrdersTitle'),   icon:'clipboardList'}
+  ];
+}
+
+function publicHospNavTabsHtml(active){
+  const items = publicHospNavItems();
+  return `<div class="fieldTabs" role="tablist" style="margin-bottom:16px">
+    ${items.map(i=>`<button class="fieldTab${active===i.v?' active':''}" role="tab" onclick="publicHospGoTab('${i.v}')">
+      <span class="fieldTab-main"><span class="fieldTab-icon">${ic(i.icon,16)}</span><span class="fieldTab-label">${i.label}</span></span>
+      ${i.count?`<span class="badge brand fieldTab-count">${num(i.count)}</span>`:''}
+    </button>`).join('')}
+  </div>`;
+}
+
+function publicHospNavBottomHtml(active){
+  const items = publicHospNavItems();
+  return `<nav class="mobileBottomNav" style="--mobile-nav-count:${items.length}" aria-label="${lang==='ar'?'تنقل':'Navigation'}">
+    ${items.map(i=>`<button class="mobileBottomNav-item${active===i.v?' active':''}" onclick="publicHospGoTab('${i.v}')">
+      <span class="mobileBottomNav-icon">${ic(i.icon,18)}</span>
+      <span class="mobileBottomNav-label">${i.label}</span>
+      ${i.count?`<span class="countBubble mobileBottomNav-badge">${num(i.count)}</span>`:''}
+    </button>`).join('')}
+  </nav>`;
+}
+
+async function publicHospGoTab(tab){
+  if(tab==='myinfo'){ publicHospStep='identify'; return renderPublicHospitality(); }
+  if(tab==='menu'){ publicHospStep='menu'; return renderPublicHospitality(); }
+  if(tab==='cart'){
+    await ensurePublicHospLocations();
+    await ensurePublicHospKitchens();
+    publicHospStep = 'checkout';
+    return renderPublicHospitality();
+  }
+  if(tab==='myorders'){ publicHospStep='myorders'; publicHospOrders=null; return renderPublicHospitality(); }
 }
 
 function renderPublicHospitality(){
@@ -4802,23 +4966,28 @@ function renderPublicHospitality(){
   return renderPublicHospitalityIdentify();
 }
 
-function renderPublicHospitalityIdentify(){
+async function renderPublicHospitalityIdentify(){
+  await ensurePublicHospLocations();
+  const locOptions = [{v:'',l:tr('allLocations')}, ...(publicHospLocations||[]).map(l=>({v:l.id, l:lang==='ar'?l.nameAr:l.nameEn, sel:publicHospLocation===l.id}))];
   const body = `
     ${fc(tr('requesterNameLabel'), inp('phName',{value:publicHospName}))}
     ${fc(tr('requesterPhoneLabel'), inp('phPhone',{value:publicHospPhone, cls:'ltr', type:'tel'}))}
-    <button class="btn wide" onclick="publicHospContinue()">${tr('continueBtn')}</button>
-    <button class="btn secondary wide" style="margin-top:10px" onclick="publicHospStep='myorders';publicHospOrders=null;renderPublicHospitality()">${tr('myOrdersTitle')}</button>
+    ${fc(tr('locationLabel'), sel('phMyInfoLocation', locOptions))}
+    <button class="btn wide" onclick="publicHospSaveInfo()">${tr('continueBtn')}</button>
   `;
-  publicHospShell(body);
+  publicHospShell(body, publicHospCartCount(), false, 'myinfo');
 }
 
-async function publicHospContinue(){
+async function publicHospSaveInfo(){
   const name = document.getElementById('phName').value.trim();
   const phone = document.getElementById('phPhone').value.trim();
+  const locationId = document.getElementById('phMyInfoLocation').value;
   if(!name || !phone) return toast(tr('publicNameRequired'),'bad');
   publicHospName = name;
   publicHospPhone = phone;
-  saveHospRequesterInfo({name, phone});
+  publicHospLocation = locationId;
+  saveHospRequesterInfo({name, phone, locationId});
+  toast(tr('publicInfoSaved'),'ok');
   publicHospStep = 'menu';
   renderPublicHospitality();
 }
@@ -4899,9 +5068,8 @@ async function renderPublicHospitalityMenu(){
     </div>
     ${filtered.length ? `<div class="productGrid">${filtered.map(i=>productCardHtml(i)).join('')}</div>`
       : `<div class="empty-state"><div class="empty-icon">${ic('coffee',28)}</div><div class="empty-title">${tr('noMenuItems')}</div></div>`}
-    <button class="btn secondary wide" style="margin-top:14px" onclick="publicHospStep='identify';renderPublicHospitality()">${tr('cancel')}</button>
   `;
-  publicHospShell(body, publicHospCartCount(), true);
+  publicHospShell(body, publicHospCartCount(), true, 'menu');
 }
 
 async function publicHospGoCheckout(){
@@ -4939,7 +5107,7 @@ function renderPublicHospitalityCheckout(){
     <button class="btn wide" onclick="publicHospSubmit()"${canSubmit?'':' disabled'}>${tr('sendOrder')}</button>
     <button class="btn secondary wide" style="margin-top:10px" onclick="publicHospStep='menu';renderPublicHospitality()">${tr('backToMenu')}</button>
   `;
-  publicHospShell(body, 0, true);
+  publicHospShell(body, 0, true, 'cart');
 }
 
 async function publicHospSubmit(){
@@ -4949,6 +5117,10 @@ async function publicHospSubmit(){
   const notes = document.getElementById('phNotes').value.trim();
   if(!locationId) return toast(tr('selectLocationToOrder'),'bad');
   if(!kitchenId) return toast(tr('selectKitchenToOrder'),'bad');
+  if(!publicHospName || !publicHospPhone){
+    toast(tr('publicNameRequired'),'bad');
+    return publicHospGoTab('myinfo');
+  }
   publicHospLocation = locationId;
   saveHospRequesterInfo({locationId});
   const items = Object.entries(publicHospCart).map(([id,qty])=>{
@@ -4969,7 +5141,13 @@ async function publicHospSubmit(){
     publicHospStep = 'sent';
     renderPublicHospitality();
   }catch(e){
-    toast(lang==='ar'?'حدث خطأ، حاول مرة أخرى':'Error, please try again','bad');
+    const map = {
+      MISSING_FIELDS: tr('publicInvalidPhone'),
+      LOCATION_NOT_FOUND: tr('publicLocationUnavailable'),
+      KITCHEN_NOT_FOUND: tr('publicKitchenUnavailable'),
+      TOO_MANY_ATTEMPTS: lang==='ar'?'محاولات كثيرة، حاول لاحقاً':'Too many attempts, try later'
+    };
+    toast(map[e.message] || tr('publicOrderErrorGeneric'),'bad');
   }
 }
 
@@ -4981,9 +5159,9 @@ function renderPublicHospitalitySent(){
       <p class="empty-sub">${tr('orderSentDesc')}</p>
       ${publicHospRef?`<div class="ticketCard-ref" style="margin-top:8px">${esc(publicHospRef)}</div>`:''}
     </div>
-    <button class="btn wide" style="margin-top:16px" onclick="publicHospStep='identify';publicHospName='';publicHospPhone='';renderPublicHospitality()">${tr('newRequestBtn')}</button>
+    <button class="btn wide" style="margin-top:16px" onclick="publicHospStep='menu';renderPublicHospitality()">${tr('newRequestBtn')}</button>
   `;
-  publicHospShell(body);
+  publicHospShell(body, 0, false, 'sent');
 }
 
 function renderPublicHospitalityMyOrders(){
@@ -4991,9 +5169,8 @@ function renderPublicHospitalityMyOrders(){
     ${fc(tr('requesterPhoneLabel'), inp('phLookupPhone',{value:publicHospPhone, cls:'ltr', type:'tel'}))}
     <button class="btn wide" onclick="publicHospLookup()">${tr('searchBtn')}</button>
     <div id="phOrdersList" style="margin-top:14px">${publicHospOrders ? publicHospOrdersListHtml() : ''}</div>
-    <button class="btn secondary wide" style="margin-top:10px" onclick="publicHospStep='identify';renderPublicHospitality()">${tr('cancel')}</button>
   `;
-  publicHospShell(body);
+  publicHospShell(body, 0, false, 'myorders');
 }
 
 function publicHospOrdersListHtml(){

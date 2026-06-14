@@ -164,8 +164,13 @@ function sanitize(v, maxLen = MAX_FIELD_LEN) {
 function sanitizeUsername(v) {
   return sanitize(v, 50).replace(/[^a-zA-Z0-9_\-]/g, '');
 }
+/** Convert Arabic-Indic (٠-٩) and Extended Arabic-Indic (۰-۹) digits to ASCII 0-9. */
+function normalizeDigits(v) {
+  return String(v).replace(/[٠-٩۰-۹]/g, d =>
+    String(d.charCodeAt(0) & 0xF));
+}
 function sanitizePhone(v) {
-  return sanitize(v, 20).replace(/[^0-9+]/g, '');
+  return normalizeDigits(sanitize(v, 20)).replace(/[^0-9+]/g, '');
 }
 
 /* ═══════════════════════════════════════════════════════════════

@@ -2044,6 +2044,10 @@ tbody tr:hover td{background:var(--surface-2)}
   .productCard{padding:9px;border-radius:var(--r)}
   .cartBar{margin:14px -16px -24px;padding:12px 16px;border-radius:0}
 
+  /* keep sticky cart bar above the fixed bottom nav on the public hospitality page */
+  .fpBox--withNav{padding-bottom:calc(var(--mobile-nav-h) + env(safe-area-inset-bottom,0px))}
+  .fpBox--withNav .cartBar{bottom:calc(var(--mobile-nav-h) + env(safe-area-inset-bottom,0px))}
+
   .tableWrap,.usersTableWrap,.perfTableWrap{
     overflow:visible;border:0;background:transparent;border-radius:0;
   }
