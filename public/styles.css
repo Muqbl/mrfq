@@ -2221,6 +2221,8 @@ tbody tr:hover td{background:var(--surface-2)}
 .empOrderCard-meta{font-size:11px;color:var(--muted);margin-top:0;display:flex;gap:10px;flex-wrap:wrap;align-items:center;line-height:1.55}
 .empOrderCard-assigned{font-size:var(--fs-xs);color:var(--ok);margin-top:4px;display:flex;align-items:center;gap:4px}
 .empOrderCard-queue{font-size:var(--fs-xs);color:var(--warn);margin-top:4px}
+.empOrderCard-items{font-size:var(--fs-xs);color:var(--ink);margin-top:8px;display:flex;align-items:flex-start;gap:6px;line-height:1.5}
+.empOrderCard-notes{font-size:var(--fs-xs);color:var(--muted);margin-top:6px;display:flex;align-items:flex-start;gap:6px;line-height:1.5}
 
 /* ═══════════════════════════════════════════════════════════════
    HOSPITALITY COFFEE-APP ORDERING — product grid, cart, qty stepper

@@ -205,6 +205,9 @@ const T = {
     deactivateKitchen:'تعطيل',activateKitchen:'تفعيل',saveKitchen:'حفظ المطبخ',
     noKitchens:'لا توجد مطابخ بعد',kitchenNoWorkerWarning:'لا يوجد عامل مسؤول عن هذا المطبخ',
     kitchenSortOrder:'ترتيب العرض',
+
+    /* Phase 4d (v2) — requester info persistence / My Orders details */
+    itemsLabel:'الأصناف',lastUpdated:'آخر تحديث',editInfoBtn:'تعديل البيانات',
   },
   en:{
     app:'إدارة المرافق',sub:'Professional management for every facility, at any time',
@@ -375,6 +378,9 @@ const T = {
     deactivateKitchen:'Deactivate',activateKitchen:'Activate',saveKitchen:'Save Kitchen',
     noKitchens:'No kitchens yet',kitchenNoWorkerWarning:'This kitchen has no responsible worker',
     kitchenSortOrder:'Sort Order',
+
+    /* Phase 4d (v2) — requester info persistence / My Orders details */
+    itemsLabel:'Items',lastUpdated:'Last Updated',editInfoBtn:'Edit Info',
   }
 };
 
@@ -4748,6 +4754,7 @@ function renderWorkspaceSelector(){
 let publicHospStep = 'identify'; // identify | menu | checkout | sent | myorders
 let publicHospName = '';
 let publicHospPhone = '';
+let publicHospLocation = '';
 let publicHospLocations = null;
 let publicHospOrders = null;
 let publicHospRef = '';
@@ -4756,6 +4763,15 @@ let publicHospCart = {}; // { menuItemId: qty }
 let publicHospCategory = 'all';
 let publicHospKitchens = null;
 let publicHospKitchen = '';
+
+/* ── requester info persistence (frontend-only, no session) ──── */
+const HOSP_REQUESTER_KEY = 'rega_hosp_requester';
+function loadHospRequesterInfo(){
+  try{ return JSON.parse(localStorage.getItem(HOSP_REQUESTER_KEY)||'{}'); }catch(e){ return {}; }
+}
+function saveHospRequesterInfo(info){
+  try{ localStorage.setItem(HOSP_REQUESTER_KEY, JSON.stringify({...loadHospRequesterInfo(), ...info})); }catch(e){}
+}
 
 function publicHospShell(inner, cartCount=0, wide=false){
   setDoc();
@@ -4802,6 +4818,7 @@ async function publicHospContinue(){
   if(!name || !phone) return toast(tr('publicNameRequired'),'bad');
   publicHospName = name;
   publicHospPhone = phone;
+  saveHospRequesterInfo({name, phone});
   publicHospStep = 'menu';
   renderPublicHospitality();
 }
@@ -4900,7 +4917,7 @@ function renderPublicHospitalityCheckout(){
   const cartEntries = Object.entries(publicHospCart)
     .map(([id,qty])=>{ const item = items.find(i=>i.id===id); return item?{item,qty}:null; })
     .filter(Boolean);
-  const locOptions = (publicHospLocations||[]).map(l=>({v:l.id, l:lang==='ar'?l.nameAr:l.nameEn}));
+  const locOptions = (publicHospLocations||[]).map(l=>({v:l.id, l:lang==='ar'?l.nameAr:l.nameEn, sel:publicHospLocation===l.id}));
   const kitchens = publicHospKitchens || [];
   const kitchenOptions = kitchens.map(k=>({v:k.id, l:lang==='ar'?k.nameAr:k.nameEn, sel:publicHospKitchen===k.id}));
   const canSubmit = cartEntries.length>0 && kitchens.length>0;
@@ -4932,6 +4949,8 @@ async function publicHospSubmit(){
   const notes = document.getElementById('phNotes').value.trim();
   if(!locationId) return toast(tr('selectLocationToOrder'),'bad');
   if(!kitchenId) return toast(tr('selectKitchenToOrder'),'bad');
+  publicHospLocation = locationId;
+  saveHospRequesterInfo({locationId});
   const items = Object.entries(publicHospCart).map(([id,qty])=>{
     const item = (publicHospMenu||[]).find(i=>i.id===id);
     if(!item) return null;
@@ -4989,11 +5008,14 @@ function publicHospOrdersListHtml(){
         </div>
         <span class="badge ${hospStatusBadgeClass(o.status)}">${hospStatusLabel(o.status)}</span>
       </div>
+      ${(o.items&&o.items.length)?`<div class="empOrderCard-items">${ic('clipboardList',12)} ${esc(o.items.join('، '))}</div>`:''}
       <div class="ticketCard-meta empOrderCard-meta">
         <span>${ic('locations',12)} ${esc(lang==='ar'?o.locationNameAr:o.locationNameEn)}</span>
         ${(o.kitchenNameAr||o.kitchenNameEn)?`<span>${ic('coffee',12)} ${tr('orderedFromKitchen')} ${esc(lang==='ar'?o.kitchenNameAr:o.kitchenNameEn)}</span>`:''}
-        <span>${fmt(o.createdAt)}</span>
+        <span>${ic('clock',12)} ${fmt(o.createdAt)}</span>
+        ${o.updatedAt&&o.updatedAt!==o.createdAt?`<span>${ic('clock',12)} ${tr('lastUpdated')}: ${fmt(o.updatedAt)}</span>`:''}
       </div>
+      ${o.notes?`<div class="empOrderCard-notes">${ic('clipboardList',12)} ${esc(o.notes)}</div>`:''}
     </div>`).join('')}</div>`;
 }
 
@@ -5025,6 +5047,10 @@ function renderWorkspaceSwitcher(){
 /* ─── INIT ───────────────────────────────────────────────────── */
 // Standalone public hospitality request page — no login/session required
 if(location.pathname.startsWith('/order/hospitality')){
+  const savedHospInfo = loadHospRequesterInfo();
+  publicHospName = savedHospInfo.name || '';
+  publicHospPhone = savedHospInfo.phone || '';
+  publicHospLocation = savedHospInfo.locationId || '';
   renderPublicHospitality();
 } else {
 
