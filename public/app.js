@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════════════
-   REGA FACILITIES — App v16
+   MRFQ FACILITIES — App v16
    Complete Frontend Rebuild — inspired by وفّر design language
    ══════════════════════════════════════════════════════════════ */
 
@@ -623,7 +623,7 @@ async function switchWorkspace(role){
 }
 /* num() — always Western digits, body font via CSS */
 const num = v => String(v);
-const offlineKey = 'rega_offline_v16';
+const offlineKey = 'mrfq_offline_v16';
 
 /* ─── OFFLINE QUEUE ──────────────────────────────────────────── */
 function getQ(){try{return JSON.parse(localStorage.getItem(offlineKey)||'[]')}catch(e){return[]}}
@@ -1019,7 +1019,7 @@ function renderPlatformTopbar(me, opts={}){
     <div class="topbar-start">
       ${backBtn}
       <div class="tb-brand">
-        <div class="tb-brand-icon"><img src="/assets/logos/logo-icon-dark.svg" onerror="this.style.display='none'" alt="REGA"></div>
+        <div class="tb-brand-icon"><img src="/assets/logos/logo-icon-dark.svg" onerror="this.style.display='none'" alt="MRFQ"></div>
         ${brandInner}
       </div>
     </div>
@@ -1266,7 +1266,7 @@ function loginPage(){
     <div class="loginPanel">
       <button class="loginLangBtn" onclick="switchLang()" type="button" aria-label="${tr('lang')}" title="${tr('lang')}">${ic('language',22)}</button>
       <div class="loginPanel-logo">
-        <img src="/assets/logos/logo-icon-dark.svg" onerror="this.src='/assets/logos/logo-icon-light.svg'" alt="REGA">
+        <img src="/assets/logos/logo-icon-dark.svg" onerror="this.src='/assets/logos/logo-icon-light.svg'" alt="MRFQ">
       </div>
       <h2 class="loginPanel-title">${tr('app')}</h2>
       ${fc(tr('user'), `<div class="input-wrap login-input-wrap"><span class="input-icon input-icon-static">${ic('user',16)}</span>${inp('lu',{type:'text', autocomplete:'username', placeholder:tr('user'), cls:'login-input'})}</div>`)}
@@ -1293,7 +1293,7 @@ function showForcePasswordChange(){
 <main class="loginPage">
   <div class="fpBox">
     <div class="fpBox-logo">
-      <img src="/assets/logos/logo-icon-dark.svg" onerror="this.src='/assets/logos/logo-icon-light.svg'" alt="REGA">
+      <img src="/assets/logos/logo-icon-dark.svg" onerror="this.src='/assets/logos/logo-icon-light.svg'" alt="MRFQ">
     </div>
     <h2 class="fpBox-title">${lang==='ar'?'تغيير كلمة المرور':'Change Password'}</h2>
     <p class="fpBox-sub">${lang==='ar'?'يجب تغيير كلمة المرور المؤقتة قبل استخدام النظام':'You must change your temporary password before using the system'}</p>
@@ -2444,7 +2444,7 @@ function exportExcelReports(){
   const csv='﻿'+rows.map(row=>row.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
-  a.download=`rega-reports-${new Date().toISOString().slice(0,10)}.csv`;
+  a.download=`mrfq-reports-${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
   toast(lang==='ar'?'تم تصدير الملف':'File exported','ok');
 }
@@ -2457,16 +2457,14 @@ function exportPDFReports(){
   });
   const dir=lang==='ar'?'rtl':'ltr';
   const html=`<!DOCTYPE html><html lang="${lang}" dir="${dir}"><head><meta charset="utf-8">
-<title>REGA — ${tr('reports')}</title>
+<title>MRFQ — ${tr('reports')}</title>
 <style>
-  @font-face{font-family:'REGASa';src:url('/assets/fonts/REGAsa-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
-  @font-face{font-family:'REGASa';src:url('/assets/fonts/REGAsa-ExtraBold.ttf') format('truetype');font-weight:800;font-display:swap}
   @font-face{font-family:'IBMPlexArabic';src:url('/assets/fonts/IBMPlexSansArabic-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
   @font-face{font-family:'IBMPlexArabic';src:url('/assets/fonts/IBMPlexSansArabic-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'IBMPlexArabic',Tahoma,Arial,sans-serif;padding:24px;color:#123238;direction:${dir}}
   .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #005257}
-  .brand{font-family:'REGASa','IBMPlexArabic',Tahoma,Arial,sans-serif;color:#005257;font-size:20px;font-weight:800}
+  .brand{font-family:'IBMPlexArabic',Tahoma,Arial,sans-serif;color:#005257;font-size:20px;font-weight:800}
   .meta{font-size:11px;color:#6F787F;margin-top:4px}
   table{width:100%;border-collapse:collapse;font-size:12px;margin-top:16px}
   th{background:#005257;color:#fff;padding:9px 10px;text-align:${lang==='ar'?'right':'left'};font-weight:700}
@@ -3129,14 +3127,14 @@ function showAddRoleModal(userId){
   const existingRoles = u.roles||[u.role];
 
   const ROLE_COLORS = {
-    system_admin:       {bg:'var(--bg-soft)', color:'var(--rega-navy)'},
-    facility_manager:   {bg:'var(--bg-soft)', color:'var(--rega-dark-teal)'},
-    cleaning_manager:   {bg:'rgba(111,79,152,.12)', color:'var(--rega-purple)'},
-    cleaning_supervisor:{bg:'rgba(0,132,141,.12)', color:'var(--rega-teal)'},
+    system_admin:       {bg:'var(--bg-soft)', color:'var(--mrfq-navy)'},
+    facility_manager:   {bg:'var(--bg-soft)', color:'var(--mrfq-dark-teal)'},
+    cleaning_manager:   {bg:'rgba(111,79,152,.12)', color:'var(--mrfq-purple)'},
+    cleaning_supervisor:{bg:'rgba(0,132,141,.12)', color:'var(--mrfq-teal)'},
     cleaner:            {bg:'var(--ok-bg)', color:'var(--ok)'},
-    employee:           {bg:'rgba(117,206,200,.16)', color:'var(--rega-dark-teal)'},
-    hospitality_manager:   {bg:'rgba(111,79,152,.12)', color:'var(--rega-purple)'},
-    hospitality_supervisor:{bg:'rgba(0,132,141,.12)', color:'var(--rega-teal)'},
+    employee:           {bg:'rgba(117,206,200,.16)', color:'var(--mrfq-dark-teal)'},
+    hospitality_manager:   {bg:'rgba(111,79,152,.12)', color:'var(--mrfq-purple)'},
+    hospitality_supervisor:{bg:'rgba(0,132,141,.12)', color:'var(--mrfq-teal)'},
     hospitality_worker:    {bg:'var(--ok-bg)', color:'var(--ok)'}
   };
 
@@ -4822,15 +4820,13 @@ async function exportPerformancePDF(){
   const scored = metrics.map(w=>({...w, weighted:workerWeightedScore(w)})).sort((a,b)=>b.weighted-a.weighted);
   const dir=lang==='ar'?'rtl':'ltr';
   const html=`<!DOCTYPE html><html lang="${lang}" dir="${dir}"><head><meta charset="utf-8">
-<title>REGA — ${tr('performance')}</title>
+<title>MRFQ — ${tr('performance')}</title>
 <style>
-@font-face{font-family:'REGASa';src:url('/assets/fonts/REGAsa-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
-@font-face{font-family:'REGASa';src:url('/assets/fonts/REGAsa-ExtraBold.ttf') format('truetype');font-weight:800;font-display:swap}
 @font-face{font-family:'IBMPlexArabic';src:url('/assets/fonts/IBMPlexSansArabic-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
 @font-face{font-family:'IBMPlexArabic';src:url('/assets/fonts/IBMPlexSansArabic-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
 *{box-sizing:border-box;margin:0;padding:0}body{font-family:'IBMPlexArabic',Arial,sans-serif;padding:24px;color:#123238;direction:${dir}}
 .header{display:flex;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #005257}
-.brand{font-family:'REGASa','IBMPlexArabic',Arial,sans-serif;color:#005257;font-size:20px;font-weight:800}.meta{font-size:11px;color:#6F787F;margin-top:4px}
+.brand{font-family:'IBMPlexArabic',Arial,sans-serif;color:#005257;font-size:20px;font-weight:800}.meta{font-size:11px;color:#6F787F;margin-top:4px}
 table{width:100%;border-collapse:collapse;font-size:12px;margin-top:16px}
 th{background:#005257;color:#fff;padding:9px 10px;text-align:${lang==='ar'?'right':'left'};font-weight:700}
 td{padding:8px 10px;border-bottom:1px solid #E1E9E6;vertical-align:top}
@@ -4846,7 +4842,7 @@ tr:nth-child(even) td{background:#F8FAF9}
   <button class="pdfBtn primary" onclick="window.print()">${lang==='ar'?'طباعة PDF':'Print PDF'}</button>
 </div>
 <div class="header">
-  <div><div class="brand">REGA — ${tr('performance')}</div><div class="meta">${new Date().toISOString().slice(0,10)} · ${lang==='ar'?'آخر 30 يوم':'Last 30 days'}</div></div>
+  <div><div class="brand">MRFQ — ${tr('performance')}</div><div class="meta">${new Date().toISOString().slice(0,10)} · ${lang==='ar'?'آخر 30 يوم':'Last 30 days'}</div></div>
   <div class="meta">${lang==='ar'?'مُصدَّر بواسطة: ':'Exported by: '}${esc(me.name)}</div>
 </div>
 <table><thead><tr>
@@ -5110,7 +5106,7 @@ let publicHospKitchens = null;
 let publicHospKitchen = '';
 
 /* ── requester info persistence (frontend-only, no session) ──── */
-const HOSP_REQUESTER_KEY = 'rega_hosp_requester';
+const HOSP_REQUESTER_KEY = 'mrfq_hosp_requester';
 function loadHospRequesterInfo(){
   try{ return JSON.parse(localStorage.getItem(HOSP_REQUESTER_KEY)||'{}'); }catch(e){ return {}; }
 }
@@ -5129,7 +5125,7 @@ function publicHospShell(inner, cartCount=0, wide=false, activeTab=''){
 <main class="loginPage">
   <div class="fpBox${wide?' fpBox--wide':''}${activeTab?' fpBox--withNav':''}">
     <div class="fpBox-logo">
-      <img src="/assets/logos/logo-icon-dark.svg" onerror="this.src='/assets/logos/logo-icon-light.svg'" alt="REGA">
+      <img src="/assets/logos/logo-icon-dark.svg" onerror="this.src='/assets/logos/logo-icon-light.svg'" alt="MRFQ">
     </div>
     <h2 class="fpBox-title">${tr('publicOrderTitle')}</h2>
     <p class="fpBox-sub">${tr('publicOrderSub')}</p>

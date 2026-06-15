@@ -16,7 +16,7 @@ const ROOT = path.join(__dirname, '..');
 const PORT = 3996;
 const BASE = `http://127.0.0.1:${PORT}`;
 
-const TMP_DIR     = fs.mkdtempSync(path.join(os.tmpdir(), 'rega-smoke-4d-'));
+const TMP_DIR     = fs.mkdtempSync(path.join(os.tmpdir(), 'mrfq-smoke-4d-'));
 const DB_PATH     = path.join(TMP_DIR, 'test.db');
 const UPLOADS_DIR = path.join(TMP_DIR, 'uploads');
 

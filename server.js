@@ -2158,7 +2158,7 @@ server.listen(PORT, () => {
   const hasPersistentVolume = process.env.DB_PATH && process.env.DB_PATH.startsWith('/');
   console.log('');
   console.log('╔══════════════════════════════════════════════════════════╗');
-  console.log('║   REGA Facility Care — PROTOTYPE / نسخة تجريبية          ║');
+  console.log('║   MRFQ Facility Care — PROTOTYPE / نسخة تجريبية          ║');
   console.log('║   بيانات غير حقيقية — Demo Data Only                     ║');
   console.log('╠══════════════════════════════════════════════════════════╣');
   console.log(`║   Port    : ${String(PORT).padEnd(47)}║`);
@@ -2170,7 +2170,7 @@ server.listen(PORT, () => {
     console.log('');
     console.log('⚠️  WARNING: DB_PATH not set — using ephemeral local storage.');
     console.log('   On Railway/cloud: set DB_PATH to a persistent volume path');
-    console.log('   e.g. DB_PATH=/data/rega.db to prevent data loss on redeploy.');
+    console.log('   e.g. DB_PATH=/data/mrfq.db to prevent data loss on redeploy.');
   }
   console.log('');
 });

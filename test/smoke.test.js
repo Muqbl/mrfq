@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Smoke + role + state-machine tests for the REGA Cleaning module.
+ * Smoke + role + state-machine tests for the MRFQ Cleaning module.
  * Spawns the server against an isolated temp SQLite DB/uploads dir,
  * exercises the closing-plan checklist end to end, then tears down.
  *
@@ -17,7 +17,7 @@ const ROOT = path.join(__dirname, '..');
 const PORT = 3999;
 const BASE = `http://127.0.0.1:${PORT}`;
 
-const TMP_DIR     = fs.mkdtempSync(path.join(os.tmpdir(), 'rega-smoke-'));
+const TMP_DIR     = fs.mkdtempSync(path.join(os.tmpdir(), 'mrfq-smoke-'));
 const DB_PATH     = path.join(TMP_DIR, 'test.db');
 const UPLOADS_DIR = path.join(TMP_DIR, 'uploads');
 

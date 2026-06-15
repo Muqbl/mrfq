@@ -1,7 +1,7 @@
 {
-  "name": "rega-facility-care-prototype",
+  "name": "mrfq-facility-care-prototype",
   "version": "2.0.0",
-  "description": "REGA Facility Care — Prototype for governance review. Not for production use.",
+  "description": "MRFQ Facility Care — Prototype for governance review. Not for production use.",
   "scripts": {
     "start": "node server.js",
     "seed":  "node scripts/seed-demo.js",

@@ -1,5 +1,5 @@
 # سيناريو العرض التجريبي — Demo Scenario
-**REGA Facility Care Prototype | نسخة تجريبية**
+**MRFQ Facility Care Prototype | نسخة تجريبية**
 
 ---
 

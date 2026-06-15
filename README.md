@@ -1,4 +1,5 @@
-# REGA Facility Care Enterprise V12.5
+# مِرفق — MRFQ
+## Facilities Management & Operations Platform
 
 نسخة تشغيلية كاملة لمنصة العناية بالمرافق والنظافة والبلاغات.
 
@@ -21,10 +22,23 @@
 
 ## ملفات الهوية
 ضع الملفات داخل public/assets:
-- REGA_LOGO.svg
-- REGA_LOGO_White.svg
-- REGASa-Bold.ttf
+- logo-icon-dark.svg / logo-icon-light.svg
+- logo-full-dark.svg / logo-full-light.svg
 - IBMPlexSansArabic-Regular.ttf
 - IBMPlexSansArabic-Medium.ttf
 - IBMPlexSansArabic-SemiBold.ttf
 - IBMPlexSansArabic-Bold.ttf
+
+## Architecture
+
+MRFQ follows a 3-layer architecture:
+
+1. **Presentation Layer**
+   HTML/CSS/JavaScript UI for desktop, tablet, and mobile.
+
+2. **Application/API Layer**
+   Node.js backend, API routes, permissions, workflow, and validation.
+
+3. **Data Layer**
+   SQLite demo database for prototype use.
+   The production database can be replaced later after approval.
