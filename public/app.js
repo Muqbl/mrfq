@@ -4192,11 +4192,16 @@ function hospManagerDashboardHtml(orders, workers){
     ? `${num(openOrders.length)} طلبات مفتوحة · ${num(slaCompliance)}% التزام SLA`
     : `${num(openOrders.length)} open orders · ${num(slaCompliance)}% SLA compliance`;
 
+  const renderFn = me.role==='hospitality_manager' ? 'renderHospitalityManager' : 'renderAdminHospitality';
   const heroHtml = `<div class="dashHero">
     <div class="dashHero-left">
       <span class="dashHero-greeting">${roleContext}</span>
       <div class="dashHero-title">${greeting}، ${esc(me.name.split(' ')[0])}</div>
       <p class="dashHero-sub">${summaryText} · ${fmtDate(new Date())}</p>
+      <div class="dashHero-actions">
+        <button class="dashHero-action" onclick="hospManagerView='orders';mobileNavActive='hospmgr-orders';${renderFn}()">${ic('coffee',14)} ${tr('hospOrdersTab')}</button>
+        <button class="dashHero-action" onclick="hospManagerView='reports';mobileNavActive='hospmgr-reports';${renderFn}()">${ic('reports',14)} ${tr('hospReportsTab')}</button>
+      </div>
     </div>
     <div class="dashHero-right">
       <div class="dashHero-stat">
@@ -4214,7 +4219,7 @@ function hospManagerDashboardHtml(orders, workers){
     </div>
   </div>`;
 
-  const kpiHtml = `<div class="kpiGrid">
+  const kpiHtml = `<div class="kpiGrid kpiGrid--6">
     ${kpiCard(num(todayOrders.length), tr('kpiTodayOrders'), 'coffee', 'brand')}
     ${kpiCard(num(openOrders.length), tr('kpiOpenOrders'), 'sync', 'warn')}
     ${kpiCard(num(completedOrders.length), tr('kpiCompletedOrders'), 'check', 'ok')}
