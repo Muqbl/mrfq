@@ -182,6 +182,31 @@ Cache-Control: no-store
 
 ---
 
+## 11. Addendum — Hospitality Module (Added After Initial Review)
+
+Following the initial review documented above, a Hospitality module was added to the same
+3-layer architecture (presentation / API / SQLite data layer described in `README.md`).
+It introduces:
+
+- **New roles:** `hospitality_manager`, `hospitality_supervisor`, `hospitality_worker`, and `employee`
+  (added to `ALLOWED_ROLES`, enforced server-side via `canHospitality*` helpers in `server.js`).
+- **Multi-role support:** a `user_roles` table allows a user to hold more than one role.
+- **New DB tables:** `hospitality_orders`, `hospitality_menu_items`, `hospitality_menu_categories`,
+  `hospitality_kitchens`, plus general-purpose `facilities`, `buildings`, `event_log`, and
+  `approval_history` tables.
+- **New API endpoints:** authenticated `/api/hospitality/*` routes (orders, assignment, menu,
+  menu categories, kitchens, performance) and unauthenticated `/api/public/hospitality/*` routes
+  (order submission, menu/category/kitchen listings, order lookup by phone).
+- **New public page:** `/order/hospitality` — an unauthenticated request page for employees/visitors
+  to submit hospitality orders (food/beverage/services), tracked by requester name and phone number.
+- **Status flow:** orders move from submission → assignment (to a `hospitality_worker`) → in-progress
+  → completion, mirroring the existing cleaning-ticket workflow's authorization model.
+
+This addendum reflects the current implemented state only; it does not change the test results,
+classification, or residual risks recorded above, which remain accurate as of their original date.
+
+---
+
 ## System Classification
 
 > **PROTOTYPE — نسخة تجريبية**  

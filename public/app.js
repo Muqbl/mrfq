@@ -572,6 +572,10 @@ function fmtDate(d){
   const Y=dt.getFullYear(), M=pad(dt.getMonth()+1), D=pad(dt.getDate());
   return lang==='ar' ? `${Y}/${M}/${D}` : `${M}/${D}/${Y}`;
 }
+function currentMonthLabel(lang){
+  const now = new Date();
+  return now.toLocaleDateString(lang==='ar' ? 'ar' : 'en-US', { month: 'long', year: 'numeric' });
+}
 
 /* ── SLA helpers ─────────────────────────────────────────── */
 function slaInfo(ticket){
@@ -4748,7 +4752,7 @@ ${scored.length>=1?`
 <div class="card" style="margin-bottom:20px">
   <div class="card-head">
     <span class="card-title">${ic('award',16)} ${tr('monthlyRecognition')}</span>
-    <span class="badge gold">${lang==='ar'?'يونيو 2026':'June 2026'}</span>
+    <span class="badge gold">${currentMonthLabel(lang)}</span>
   </div>
   <div class="recognitionPodium">
     ${scored.slice(0,3).map((w,i)=>`
