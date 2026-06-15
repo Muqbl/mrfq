@@ -38,8 +38,8 @@ const TASKS = {
 /* ─── TRANSLATIONS ────────────────────────────────────────────── */
 const T = {
   ar:{
-    app:'مِرفق — MRFQ',sub:'منصة إدارة المرافق والخدمات التشغيلية',
-    loginTitle:'مِرفق — MRFQ',welcomeBack:'مرحباً بعودتك',
+    app:'مِرفق',sub:'منصة إدارة المرافق والخدمات التشغيلية',
+    loginTitle:'مِرفق',welcomeBack:'مرحباً بعودتك',
     login:'تسجيل الدخول',user:'اسم المستخدم',pass:'كلمة المرور',lang:'English',logout:'خروج',
     dashboard:'لوحة التحكم',reports:'التقارير',users:'المستخدمون',locations:'المرافق',
     assignments:'التوزيع',tickets:'البلاغات',analytics:'التحليلات',
@@ -1007,7 +1007,7 @@ function renderPlatformTopbar(me, opts={}){
   const notifBtn = `<button class="icon-btn tb-notif" id="tb-notif-btn" onclick="toggleNotif(event)" title="${lang==='ar'?'الإشعارات':'Notifications'}">${ic('bell',20)}${pendingRpts>0||openTickets>0?`<span class="tb-notif-badge"></span>`:''}</button>`;
 
   /* Unified brand — same platform name for all roles */
-  const brandInner = `<span class="tb-brand-name">مِرفق — MRFQ</span>`;
+  const brandInner = `<span class="tb-brand-name">${lang==='ar'?'مِرفق':'MRFQ'}</span>`;
   const showBack = opts.back === true || (opts.back !== false && appHasBackTarget());
   const backBtn = showBack
     ? `<button class="icon-btn tb-back" onclick="${opts.backAction||'appBack()'}" aria-label="${lang==='ar'?'رجوع':'Back'}" title="${lang==='ar'?'رجوع':'Back'}">${ic(lang==='ar'?'arrow':'arrow-left',20)}</button>`
