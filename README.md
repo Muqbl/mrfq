@@ -22,7 +22,7 @@
 
 ## ملفات الهوية
 ضع الملفات داخل public/assets:
-- mrfq-logo-icon-dark-v2.svg / mrfq-logo-icon-light-v2.svg
+- mrfq-logo-icon-dark-v3.svg / mrfq-logo-icon-light-v3.svg
 - IBMPlexSansArabic-Regular.ttf
 - IBMPlexSansArabic-Medium.ttf
 - IBMPlexSansArabic-SemiBold.ttf
