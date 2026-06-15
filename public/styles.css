@@ -2219,8 +2219,8 @@ tbody tr:hover td{background:var(--surface-2)}
 
 /* ── public hospitality menu — compact category chips (mirrors .filterChips/.filterChip) ─────── */
 .hospCatChips{
-  display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;
-  padding:2px 0;scrollbar-width:none;flex-wrap:wrap;margin-top:8px;
+  display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
+  white-space:nowrap;flex-wrap:nowrap;scrollbar-width:none;padding:2px 0 4px;margin-top:8px;
 }
 .hospCatChips::-webkit-scrollbar{display:none}
 .hospCatChip{
