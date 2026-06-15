@@ -657,6 +657,7 @@ tbody tr:hover td{background:var(--surface-2)}
 .workerReportItem.actionable:active{box-shadow:none}
 .loginPanel-logo{
   width:80px;height:80px;border-radius:20px;
+  background:#F3F5F4;
   display:grid;place-items:center;margin:0 auto 18px;flex-shrink:0;
 }
 .loginPanel-logo img{width:46px;height:46px;object-fit:contain;filter:brightness(0) saturate(100%) invert(9%) sepia(32%) saturate(800%) hue-rotate(163deg) brightness(88%) contrast(100%)}
