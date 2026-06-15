@@ -1,7 +1,7 @@
 {
-  "name": "إدارة المرافق",
-  "short_name": "إدارة المرافق",
-  "description": "إدارة المرافق",
+  "name": "مِرفق — MRFQ",
+  "short_name": "MRFQ",
+  "description": "منصة إدارة المرافق والخدمات التشغيلية",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
