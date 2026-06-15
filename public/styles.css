@@ -1043,7 +1043,8 @@ tbody tr:hover td{background:var(--surface-2)}
 .dashHero-stat-lbl{font-size:10px;color:rgba(255,255,255,.60);font-weight:700;font-family:var(--font-ui);margin-top:4px}
 
 /* ─── ANALYTICS GRID ─────────────────────────────────────────── */
-.analyticsGrid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(220px,.8fr) minmax(220px,.8fr);gap:12px;margin-bottom:16px}
+.analyticsGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.analyticsGrid>.chartCard:first-child{grid-column:span 2}
 .chartCard{padding:16px 18px}
 .chartCard-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
 .chartCard-title{font-family:var(--font-head);font-size:var(--fs-sm);font-weight:700;color:var(--ink)}
