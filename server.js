@@ -1090,6 +1090,7 @@ const server = http.createServer(async (req, res) => {
         const u  = db.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL').get(id);
         if (!u) return send(res, 404, { error: 'USER_NOT_FOUND' });
         if (u.username === 'admin' && me.username !== 'admin') return send(res, 403, { error: 'CANNOT_EDIT_SYSADMIN' });
+        if (b.role && !ALLOWED_ROLES.includes(b.role)) return send(res, 400, { error: 'INVALID_ROLE' });
         if (b.role && !allowedRoleEditor(me.role, b.role)) return send(res, 403, { error: 'ROLE_NOT_ALLOWED' });
         const sets = [];
         const vals = [];
@@ -1266,10 +1267,11 @@ const server = http.createServer(async (req, res) => {
 
       /* ── TICKETS: COMPLETE ──────────────────────────────────── */
       if (req.method === 'POST' && url.pathname === '/api/tickets/complete') {
+        if (me.role !== 'cleaner') return send(res, 403, { error: 'FORBIDDEN' });
         const b = await bodyJSON(req);
         const t = db.prepare('SELECT * FROM tickets WHERE id = ? AND deleted_at IS NULL').get(b.id);
         if (!t) return send(res, 404, { error: 'TICKET_NOT_FOUND' });
-        if (me.role === 'cleaner' && t.assigned_to !== me.id) return send(res, 403, { error: 'FORBIDDEN' });
+        if (t.assigned_to !== me.id) return send(res, 403, { error: 'FORBIDDEN' });
         if (!(TICKET_TRANSITIONS[t.status] || []).includes('waiting_verification')) {
           return send(res, 400, { error: 'INVALID_TRANSITION' });
         }

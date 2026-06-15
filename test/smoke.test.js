@@ -144,10 +144,25 @@ test('role: manager can manage users, supervisor cannot', async () => {
   assert.equal(rSup.status, 403);
   const rMgr = await manager('/api/users', { method: 'POST', body: JSON.stringify(newUser) });
   assert.equal(rMgr.status, 200);
+  tmpUserId = rMgr.body.user.id;
+});
+
+test('PUT /api/users/:id rejects invalid role (400 INVALID_ROLE)', async () => {
+  const manager = await login('manager', PASSWORDS.manager);
+  const r = await manager(`/api/users/${tmpUserId}`, { method: 'PUT', body: JSON.stringify({ role: 'super_admin' }) });
+  assert.equal(r.status, 400);
+  assert.equal(r.body.error, 'INVALID_ROLE');
+});
+
+test('PUT /api/users/:id accepts valid role', async () => {
+  const manager = await login('manager', PASSWORDS.manager);
+  const r = await manager(`/api/users/${tmpUserId}`, { method: 'PUT', body: JSON.stringify({ role: 'cleaning_supervisor' }) });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.user.role, 'cleaning_supervisor');
 });
 
 /* ── 4-12. Full ticket lifecycle ─────────────────────────────── */
-let ticketId, reportId;
+let ticketId, reportId, tmpUserId;
 
 test('create cleaning ticket (manager, with worker -> auto status assigned)', async () => {
   const manager = await login('manager', PASSWORDS.manager);
@@ -190,6 +205,18 @@ test('worker (assigned) cannot complete a ticket assigned to someone else (403)'
   const r = await worker3('/api/tickets/complete', { method: 'POST', body: JSON.stringify({ id: ticketId, photos: [TINY_PNG] }) });
   assert.equal(r.status, 403);
   assert.equal(r.body.error, 'FORBIDDEN');
+});
+
+test('non-cleaner roles cannot use /api/tickets/complete (403)', async () => {
+  const supervisor = await login('supervisor1', PASSWORDS.supervisor);
+  const rSup = await supervisor('/api/tickets/complete', { method: 'POST', body: JSON.stringify({ id: ticketId, photos: [TINY_PNG] }) });
+  assert.equal(rSup.status, 403);
+  assert.equal(rSup.body.error, 'FORBIDDEN');
+
+  const manager = await login('manager', PASSWORDS.manager);
+  const rMgr = await manager('/api/tickets/complete', { method: 'POST', body: JSON.stringify({ id: ticketId, photos: [TINY_PNG] }) });
+  assert.equal(rMgr.status, 403);
+  assert.equal(rMgr.body.error, 'FORBIDDEN');
 });
 
 test('worker completes ticket -> waiting_verification', async () => {

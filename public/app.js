@@ -2363,7 +2363,7 @@ function toggleNotif(e){
     ...pendingReps.map(r=>({
       color:'var(--warn)',
       label: lang==='ar'? `تقرير بانتظار الاعتماد` : 'Report pending approval',
-      sub:   (lang==='ar'?r.locationNameAr:r.locationNameEn)||r.locationNameAr,
+      sub:   esc((lang==='ar'?r.locationNameAr:r.locationNameEn)||r.locationNameAr),
       time:  fmt(r.createdAt),
       go:()=>{ view='reports'; reportFilter='pending'; render(); }
     })),
