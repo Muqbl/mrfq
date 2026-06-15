@@ -630,6 +630,7 @@ tbody tr:hover td{background:var(--surface-2)}
 }
 .fpBox-logo{
   width:72px;height:72px;border-radius:18px;
+  background:#F3F5F4;
   display:grid;place-items:center;margin:0 auto 16px;
 }
 .fpBox-logo img{width:40px;height:40px;object-fit:contain;filter:brightness(0) saturate(100%) invert(9%) sepia(32%) saturate(800%) hue-rotate(163deg) brightness(88%) contrast(100%)}
