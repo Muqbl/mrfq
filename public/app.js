@@ -1019,7 +1019,7 @@ function renderPlatformTopbar(me, opts={}){
     <div class="topbar-start">
       ${backBtn}
       <div class="tb-brand">
-        <div class="tb-brand-icon"><img src="/assets/logos/mrfq-logo-icon-dark-v3.svg" onerror="this.style.display='none'" alt="MRFQ"></div>
+        <div class="tb-brand-icon"><img src="/assets/logos/mrfq-logo-icon-dark-v4.svg" onerror="this.style.display='none'" alt="MRFQ"></div>
         ${brandInner}
       </div>
     </div>
@@ -1266,7 +1266,7 @@ function loginPage(){
     <div class="loginPanel">
       <button class="loginLangBtn" onclick="switchLang()" type="button" aria-label="${tr('lang')}" title="${tr('lang')}">${ic('language',22)}</button>
       <div class="loginPanel-logo">
-        <img src="/assets/logos/mrfq-logo-icon-dark-v3.svg" onerror="this.src='/assets/logos/mrfq-logo-icon-light-v3.svg'" alt="MRFQ">
+        <img src="/assets/logos/mrfq-logo-icon-dark-v4.svg" onerror="this.src='/assets/logos/mrfq-logo-icon-light-v4.svg'" alt="MRFQ">
       </div>
       <h2 class="loginPanel-title">${tr('app')}</h2>
       ${fc(tr('user'), `<div class="input-wrap login-input-wrap"><span class="input-icon input-icon-static">${ic('user',16)}</span>${inp('lu',{type:'text', autocomplete:'username', placeholder:tr('user'), cls:'login-input'})}</div>`)}
@@ -1293,7 +1293,7 @@ function showForcePasswordChange(){
 <main class="loginPage">
   <div class="fpBox">
     <div class="fpBox-logo">
-      <img src="/assets/logos/mrfq-logo-icon-dark-v3.svg" onerror="this.src='/assets/logos/mrfq-logo-icon-light-v3.svg'" alt="MRFQ">
+      <img src="/assets/logos/mrfq-logo-icon-dark-v4.svg" onerror="this.src='/assets/logos/mrfq-logo-icon-light-v4.svg'" alt="MRFQ">
     </div>
     <h2 class="fpBox-title">${lang==='ar'?'تغيير كلمة المرور':'Change Password'}</h2>
     <p class="fpBox-sub">${lang==='ar'?'يجب تغيير كلمة المرور المؤقتة قبل استخدام النظام':'You must change your temporary password before using the system'}</p>
@@ -5130,7 +5130,7 @@ function publicHospShell(inner, cartCount=0, wide=false, activeTab=''){
 <main class="loginPage">
   <div class="fpBox${wide?' fpBox--wide':''}${activeTab?' fpBox--withNav':''}">
     <div class="fpBox-logo">
-      <img src="/assets/logos/mrfq-logo-icon-dark-v3.svg" onerror="this.src='/assets/logos/mrfq-logo-icon-light-v3.svg'" alt="MRFQ">
+      <img src="/assets/logos/mrfq-logo-icon-dark-v4.svg" onerror="this.src='/assets/logos/mrfq-logo-icon-light-v4.svg'" alt="MRFQ">
     </div>
     <h2 class="fpBox-title">${tr('publicOrderTitle')}</h2>
     <p class="fpBox-sub">${tr('publicOrderSub')}</p>
