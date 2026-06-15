@@ -629,10 +629,10 @@ tbody tr:hover td{background:var(--surface-2)}
   display:flex;flex-direction:column;align-items:stretch;
 }
 .fpBox-logo{
-  width:72px;height:72px;border-radius:18px;overflow:hidden;
+  width:72px;height:72px;border-radius:18px;
   display:grid;place-items:center;margin:0 auto 16px;
 }
-.fpBox-logo img{width:100%;height:100%;object-fit:cover}
+.fpBox-logo img{width:40px;height:40px;object-fit:contain;filter:brightness(0) saturate(100%) invert(9%) sepia(32%) saturate(800%) hue-rotate(163deg) brightness(88%) contrast(100%)}
 .fpBox-title{font-family:var(--font-head);font-size:22px;font-weight:800;color:var(--ink);text-align:center;margin-bottom:8px}
 .fpBox-sub{color:var(--muted);font-size:var(--fs-sm);text-align:center;margin-bottom:24px;line-height:1.7}
 .fpBox--wide{width:min(720px,calc(100% - 40px))}
@@ -656,10 +656,10 @@ tbody tr:hover td{background:var(--surface-2)}
 .workerReportItem.actionable:hover{box-shadow:var(--shadow-sm)}
 .workerReportItem.actionable:active{box-shadow:none}
 .loginPanel-logo{
-  width:80px;height:80px;border-radius:20px;overflow:hidden;
+  width:80px;height:80px;border-radius:20px;
   display:grid;place-items:center;margin:0 auto 18px;flex-shrink:0;
 }
-.loginPanel-logo img{width:100%;height:100%;object-fit:cover}
+.loginPanel-logo img{width:46px;height:46px;object-fit:contain;filter:brightness(0) saturate(100%) invert(9%) sepia(32%) saturate(800%) hue-rotate(163deg) brightness(88%) contrast(100%)}
 .loginPanel h2,.loginPanel-title{font-size:24px;font-weight:800;margin-bottom:6px;font-family:var(--font-head);color:var(--ink);text-align:center}
 .loginPanel-sub{font-size:var(--fs-xs);color:var(--muted);margin-bottom:22px;line-height:1.65;text-align:center}
 .loginPanel-foot{font-size:11px;color:var(--muted);text-align:center;margin-top:16px;line-height:1.6;opacity:.75}
