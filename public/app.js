@@ -5310,9 +5310,9 @@ async function renderPublicHospitalityMenu(){
   const filtered = publicHospCategory==='all' ? items : items.filter(i=>i.category===publicHospCategory);
   const body = `
     <div class="wCard-title" style="margin-bottom:8px">${ic('coffee',16)} ${tr('browseMenuTitle')}</div>
-    <div class="empCatGrid empCatGrid--chips" style="margin-bottom:14px">
-      ${categories.map(c=>`<button class="empCatBtn empCatBtn--chip${publicHospCategory===c?' active':''}" onclick="publicHospSetCategory('${c}')">
-        <span class="empCatBtn-icon">${ic(menuCatIcon(c),18)}</span>
+    <div class="hospCatChips" style="margin-bottom:14px">
+      ${categories.map(c=>`<button class="hospCatChip${publicHospCategory===c?' active':''}" onclick="publicHospSetCategory('${c}')">
+        <span class="empCatBtn-icon">${ic(menuCatIcon(c),14)}</span>
         <span>${esc(publicCategoryLabel(c))}</span>
       </button>`).join('')}
     </div>

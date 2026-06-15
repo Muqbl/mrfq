@@ -2217,22 +2217,22 @@ tbody tr:hover td{background:var(--surface-2)}
 }
 .empCatBtn.active .empCatBtn-icon{background:rgba(10,78,91,.12);color:var(--brand)}
 
-/* ── public hospitality menu — horizontal category chips ─────── */
-.empCatGrid--chips{
-  display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
-  gap:8px;margin-top:8px;scrollbar-width:none;
+/* ── public hospitality menu — compact category chips (mirrors .filterChips/.filterChip) ─────── */
+.hospCatChips{
+  display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  padding:2px 0;scrollbar-width:none;flex-wrap:wrap;margin-top:8px;
 }
-.empCatGrid--chips::-webkit-scrollbar{display:none}
-.empCatBtn--chip{
-  flex:0 0 auto;flex-direction:row;align-items:center;gap:6px;
-  padding:9px 16px;border-radius:var(--r-full);white-space:nowrap;
+.hospCatChips::-webkit-scrollbar{display:none}
+.hospCatChip{
+  display:inline-flex;align-items:center;gap:5px;
+  flex:0 0 auto;padding:6px 13px;border:1.5px solid var(--line);background:var(--surface);
+  color:var(--muted);font-family:var(--font-ui);font-size:11px;font-weight:700;
+  border-radius:var(--r-full);cursor:pointer;white-space:nowrap;min-height:32px;
+  transition:all var(--t-fast);
 }
-.empCatBtn--chip .empCatBtn-icon{
-  width:22px;height:22px;background:transparent;color:currentColor;
-}
-@media(min-width:769px){
-  .empCatGrid--chips{flex-wrap:wrap;overflow:visible}
-}
+.hospCatChip:hover{border-color:rgba(14,111,104,.25);color:var(--brand)}
+.hospCatChip.active{background:var(--bg-soft);color:var(--rega-green);border-color:rgba(0,164,136,.22)}
+.hospCatChip .empCatBtn-icon{width:14px;height:14px;background:transparent;color:currentColor;display:inline-flex}
 
 /* ── Employee order history cards ───────────────────────────── */
 .empOrderCard{padding:16px}
