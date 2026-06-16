@@ -2335,7 +2335,7 @@ function reportCard(r,full){
           <div class="reportCard-actions-primary">
             <button class="btn ok sm action-btn" onclick="reviewReport('${r.id}','approved')">${ic('check',13)} ${tr('approve')}</button>
           </div>
-          <div class="reportCard-actions-secondary">
+          <div class="reportCard-actions-secondary${canDelete()?'':' reportCard-actions-secondary--full'}">
             <button class="btn warn sm action-btn" onclick="reviewReport('${r.id}','needs_recleaning')">${ic('flip',13)} ${tr('reclean')}</button>
             <button class="btn danger sm action-btn" onclick="reviewReport('${r.id}','rejected')">${ic('x',13)} ${tr('reject')}</button>
           </div>
