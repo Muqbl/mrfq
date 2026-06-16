@@ -2258,13 +2258,13 @@ function reports(){
   </div>
   <div class="pageActions reportHeaderActions">
     <button class="btn secondary sm" onclick="load()">${ic('sync',14)} ${lang==='ar'?'تحديث':'Refresh'}</button>
-    <details class="exportMenu">
+    ${me.role!=='cleaning_supervisor'?`<details class="exportMenu">
       <summary class="btn secondary sm">${ic('reports',14)} ${lang==='ar'?'تصدير':'Export'}</summary>
       <div class="exportMenu-list">
         <button onclick="exportExcelReports()">${ic('arrow',14)} ${lang==='ar'?'Excel':'Excel'}</button>
         <button onclick="exportPDFReports()">${ic('reports',14)} ${lang==='ar'?'PDF':'PDF'}</button>
       </div>
-    </details>
+    </details>`:''}
   </div>
 </div>
 <div class="filterBar reportTabs">
