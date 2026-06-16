@@ -318,3 +318,56 @@ test('assign rejects a non hospitality_worker user', async () => {
   assert.equal(r.status, 404);
   assert.equal(r.body.error, 'WORKER_NOT_FOUND');
 });
+
+/* ── 10. Public-flow order ownership (phone-based) ───────────── */
+test('employee cancels public-flow order when phone matches', async () => {
+  const cr = await fetch(BASE + '/api/public/hospitality/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      requesterName: 'Phone Owner', requesterPhone: '0501122334',
+      locationId: 'lobby-gf', kitchenId: 'kit-main', orderType: 'general'
+    })
+  });
+  assert.equal(cr.status, 200);
+  const publicId = (await cr.json()).order.id;
+
+  const employee = await login(HOSP_USERS.employee.username, HOSP_USERS.employee.password);
+  const r = await employee(`/api/hospitality/orders/${publicId}`, {
+    method: 'PUT', body: JSON.stringify({ status: 'cancelled', requesterPhone: '0501122334' })
+  });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.order.status, 'cancelled');
+});
+
+test('employee blocked from public-flow order when phone does not match', async () => {
+  const cr = await fetch(BASE + '/api/public/hospitality/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      requesterName: 'Other Person', requesterPhone: '0509988776',
+      locationId: 'lobby-gf', kitchenId: 'kit-main', orderType: 'general'
+    })
+  });
+  assert.equal(cr.status, 200);
+  const otherId = (await cr.json()).order.id;
+
+  const employee = await login(HOSP_USERS.employee.username, HOSP_USERS.employee.password);
+  const r = await employee(`/api/hospitality/orders/${otherId}`, {
+    method: 'PUT', body: JSON.stringify({ status: 'cancelled', requesterPhone: '0501122334' })
+  });
+  assert.equal(r.status, 403);
+});
+
+test('sanitizePhone rejects short numbers (public order returns 400)', async () => {
+  const r = await fetch(BASE + '/api/public/hospitality/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      requesterName: 'Test', requesterPhone: '123',
+      locationId: 'lobby-gf', kitchenId: 'kit-main', orderType: 'general'
+    })
+  });
+  assert.equal(r.status, 400);
+  assert.equal((await r.json()).error, 'MISSING_FIELDS');
+});

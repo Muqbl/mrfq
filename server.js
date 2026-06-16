@@ -170,7 +170,9 @@ function normalizeDigits(v) {
     String(d.charCodeAt(0) & 0xF));
 }
 function sanitizePhone(v) {
-  return normalizeDigits(sanitize(v, 20)).replace(/[^0-9+]/g, '');
+  const p = normalizeDigits(sanitize(v, 20)).replace(/[^0-9+]/g, '');
+  if (!p || p.length < 9) return null;
+  return p;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1675,7 +1677,11 @@ const server = http.createServer(async (req, res) => {
           if (order.assigned_to !== me.id) return send(res, 403, { error: 'FORBIDDEN' });
           allowed = HOSPITALITY_WORKER_TRANSITIONS[order.status] || [];
         } else if (me.role === 'employee') {
-          if (order.requested_by_id !== me.id) return send(res, 403, { error: 'FORBIDDEN' });
+          const isAppOrder   = order.requested_by_id && order.requested_by_id === me.id;
+          const sentPhone    = sanitizePhone(b.requesterPhone);
+          const storedPhone  = sanitizePhone(order.requester_phone);
+          const isPhoneMatch = sentPhone && storedPhone && sentPhone === storedPhone;
+          if (!isAppOrder && !isPhoneMatch) return send(res, 403, { error: 'FORBIDDEN' });
           allowed = HOSPITALITY_EMPLOYEE_TRANSITIONS[order.status] || [];
         } else {
           return send(res, 403, { error: 'FORBIDDEN' });
