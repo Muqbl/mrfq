@@ -1777,12 +1777,27 @@ function adminDashboard(){
   const lastEvent = [...(data.reports||[]),...(data.tickets||[])].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt))[0];
   const lastActivityStr = lastEvent ? fmt(lastEvent.createdAt) : '—';
 
+  const hour = new Date().getHours();
+  const greeting = lang==='ar'
+    ? (hour<12?'صباح الخير':'مساء الخير')
+    : (hour<12?'Good morning':'Good afternoon');
+  const roleContext = me.role==='facility_manager'
+    ? (lang==='ar'?`${tr('facility_manager')} · لوحة المرافق`:`${tr('facility_manager')} · Facility Console`)
+    : (lang==='ar'?`${tr('system_admin')} · لوحة النظام`:`${tr('system_admin')} · System Dashboard`);
+  const summaryText = lang==='ar'
+    ? `${num(openTickets)} بلاغ مفتوح · ${num(activeModulesCount)}/${num(MODULES.length)} أقسام نشطة`
+    : `${num(openTickets)} open tickets · ${num(activeModulesCount)}/${num(MODULES.length)} active modules`;
+
   return `
 <div class="dashHero">
   <div class="dashHero-left">
-    <span class="dashHero-greeting">${me.role==='facility_manager'?tr('facilityConsole'):tr('systemAdminConsole')}</span>
-    <div class="dashHero-title">${esc(T[lang].app)}</div>
-    <p class="dashHero-sub">${tr('platformTagline')}</p>
+    <span class="dashHero-greeting">${roleContext}</span>
+    <div class="dashHero-title">${greeting}، ${esc(me.name.split('،')[0].split(' ')[0])}</div>
+    <p class="dashHero-sub">${summaryText} · ${fmtDate(new Date())}</p>
+    <div class="dashHero-actions">
+      <button class="dashHero-action" onclick="adminNavigateTo('modules')">${ic('layers',14)} ${tr('modules')}</button>
+      ${me.role==='system_admin'?`<button class="dashHero-action" onclick="adminNavigateTo('users')">${ic('users',14)} ${tr('users')}</button>`:`<button class="dashHero-action" onclick="adminNavigateTo('reports')">${ic('reports',14)} ${tr('reports')}</button>`}
+    </div>
   </div>
   <div class="dashHero-right">
     <div class="dashHero-stat">
@@ -2335,9 +2350,6 @@ function reportCard(r,full){
             <span class="ratingLabel">${tr('ratingByManager')}</span>
             ${starRatingWidget(r.id,'manager',r.ratingManager)}
           </div>
-        </div>`:(r.ratingSupervisor!=null||r.ratingManager!=null)?`<div class="ratingRow">
-          ${r.ratingSupervisor!=null?`<div class="ratingGroup"><span class="ratingLabel">${tr('ratingBySupervisor')}</span>${starRatingWidget(r.id,'supervisor',r.ratingSupervisor,true)}</div>`:''}
-          ${r.ratingManager!=null?`<div class="ratingGroup"><span class="ratingLabel">${tr('ratingByManager')}</span>${starRatingWidget(r.id,'manager',r.ratingManager,true)}</div>`:''}
         </div>`:''}`:''}
     </div>
   </article>`;
