@@ -4932,10 +4932,7 @@ function renderSupervisor(){
       </div>
     </div>`;
 
-  const reportsHtml=`<div class="wCard">
-    <div class="wCard-title">${ic('reports',16)} ${lang==='ar'?'التقارير للمراجعة':'Reports for Review'} ${countBubble(pendingRpts.length,'warn')}</div>
-    ${pendingRpts.length?`<div class="wCard-list">${pendingRpts.map(r=>supReportCard(r)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد تقارير للمراجعة':'No reports to review'}</div></div>`}
-  </div>`;
+  const reportsHtml = reports();
 
   const teamHtml=`
       <div class="wCard">
