@@ -5188,7 +5188,12 @@ async function publicHospGoTab(tab){
     publicHospStep = 'checkout';
     return renderPublicHospitality();
   }
-  if(tab==='myorders'){ publicHospStep='myorders'; publicHospOrders=null; return renderPublicHospitality(); }
+  if(tab==='myorders'){
+    publicHospStep='myorders'; publicHospOrders=null;
+    if(!publicHospPhone){ const s=loadHospRequesterInfo(); publicHospPhone=s.phone||''; publicHospName=s.name||''; publicHospLocation=s.locationId||''; }
+    if(publicHospPhone){ renderPublicHospitality(); publicHospLookup(); return; }
+    return renderPublicHospitality();
+  }
 }
 
 function renderPublicHospitality(){
