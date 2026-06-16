@@ -5022,6 +5022,20 @@ function supTicketCard(t, mode, workers){
 }
 
 function supReportCard(r){
+  const before = (r.beforePhotos||[]);
+  const after  = (r.afterPhotos||[]);
+  const hasTyped = before.length||after.length;
+  const imgs = imgList(r);
+  const photosHtml = hasTyped ? `
+    <div class="reportCard-media" style="margin:8px 0">
+      ${before.length?`<div class="photoGroup"><div class="photoGroup-label">${ic('camera',12)} ${tr('beforePhotos')}</div><div class="photoGroup-imgs">${before.map((src,i)=>`<img class="reportCard-thumb" src="${src}" loading="lazy" onclick='openGallery(${JSON.stringify(before)},${i})' alt="">`).join('')}</div></div>`:''}
+      ${after.length?`<div class="photoGroup"><div class="photoGroup-label ok">${ic('check',12)} ${tr('afterPhotos')}</div><div class="photoGroup-imgs">${after.map((src,i)=>`<img class="reportCard-thumb" src="${src}" loading="lazy" onclick='openGallery(${JSON.stringify(after)},${i})' alt="">`).join('')}</div></div>`:''}
+    </div>
+  ` : imgs.length ? `
+    <div class="reportCard-media single" style="margin:8px 0">
+      ${imgs.slice(0,4).map((src,i)=>`<img class="reportCard-thumb" src="${src}" loading="lazy" onclick='openGallery(${JSON.stringify(imgs)},${i})' alt="">`).join('')}
+    </div>
+  ` : '';
   return`<div class="ticketCard supTicketCard">
     <div class="ticketCard-top">
       <div class="ticketCard-main">
@@ -5030,6 +5044,8 @@ function supReportCard(r){
       </div>
       <span class="badge ${r.status==='completed'?'ok':'brand'}">${tr(r.status)||r.status}</span>
     </div>
+    ${photosHtml}
+    ${r.notes?`<p class="ticketCard-desc">${esc(r.notes)}</p>`:''}
     <div class="ticketCard-actions supTicketCard-actions">
       <button class="btn sm ok" onclick="supReview('${r.id}','approved','')">${ic('check',14)} ${lang==='ar'?'اعتماد':'Approve'}</button>
       <button class="btn sm warn" onclick="supReviewPrompt('${r.id}','needs_recleaning')">${lang==='ar'?'إعادة تنظيف':'Reclean'}</button>
