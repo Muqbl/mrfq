@@ -4546,12 +4546,23 @@ ${allRecent.length?`
 }
 
 function employeeMore(){
+  const defLoc=me.defaultLocationId?(data.locations||[]).find(l=>l.id===me.defaultLocationId):null;
   return`<div class="wCard">
-    <div class="wCard-title">${ic('menu',16)} ${lang==='ar'?'المزيد':'More'}</div>
-    <div class="empty-state">
-      <div class="empty-icon">${ic('menu',28)}</div>
-      <div class="empty-title">${lang==='ar'?'لا توجد خيارات إضافية':'No additional options'}</div>
-      <p class="empty-sub">${lang==='ar'?'الإشعارات واللغة وتسجيل الخروج متاحة من الشريط العلوي.':'Notifications, language, and logout are available in the topbar.'}</p>
+    <div class="wCard-title" style="margin-bottom:16px">${ic('users',16)} ${lang==='ar'?'ملف الحساب':'My Account'}</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="detailRow"><span class="detailRow-label">${lang==='ar'?'الاسم':'Name'}</span><span class="detailRow-val">${esc(me.name)}</span></div>
+      <div class="detailRow"><span class="detailRow-label">${lang==='ar'?'اسم المستخدم':'Username'}</span><span class="detailRow-val mono ltr">${esc(me.username)}</span></div>
+      ${me.employeeNo?`<div class="detailRow"><span class="detailRow-label">${lang==='ar'?'رقم الموظف':'Emp No'}</span><span class="detailRow-val mono">${esc(me.employeeNo)}</span></div>`:''}
+      ${defLoc?`<div class="detailRow"><span class="detailRow-label">${lang==='ar'?'موقع المكتب':'Office'}</span><span class="detailRow-val mono">${esc(defLoc.id)} — ${esc(lang==='ar'?defLoc.nameAr:defLoc.nameEn)}</span></div>`:''}
+    </div>
+    <hr style="margin:20px 0;border:none;border-top:1px solid var(--border)">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn secondary wide" onclick="toggleLang()">
+        ${ic('globe',16)} ${lang==='ar'?'Switch to English':'التبديل إلى العربية'}
+      </button>
+      <button class="btn danger wide" onclick="logout()">
+        ${ic('logout',16)} ${lang==='ar'?'تسجيل الخروج':'Logout'}
+      </button>
     </div>
   </div>`;
 }
@@ -4661,7 +4672,7 @@ function employeeHospForm(){
   const cats=empHospMenuCategories||[];
   const allItems=empHospMenuItems||[];
   const kitchens=empHospKitchens||[];
-  const menuItems=empHospCatFilter?allItems.filter(i=>i.categoryId===empHospCatFilter):allItems;
+  const menuItems=empHospCatFilter?allItems.filter(i=>i.category===empHospCatFilter):allItems;
   const cartTotal=Object.values(empHospCart).reduce((s,v)=>s+v,0);
   if(!empHospLocId) empHospLocId=localStorage.getItem('mrfq_hosp_loc')||me.defaultLocationId||'';
   const locName=(data.locations||[]).find(l=>l.id===empHospLocId);
