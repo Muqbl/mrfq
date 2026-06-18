@@ -5061,9 +5061,84 @@ function renderMaintenanceWorker(){
 }
 
 /* ── renderMaintenanceSupervisor ──────────────────────────────── */
+function maintenanceSupervisorDashboard(){
+  const tickets=data.tickets||[];
+  const reportsData=data.reports||[];
+  const workers=(data.users||[]).filter(u=>(u.roles||[u.role]).includes('maintenance_worker'));
+  const submitted=tickets.filter(t=>t.status==='submitted');
+  const waiting=tickets.filter(t=>t.status==='waiting_verification');
+  const inProgress=tickets.filter(t=>['assigned','accepted','diagnosing','in_progress','awaiting_parts','awaiting_vendor','awaiting_permit','on_hold'].includes(t.status));
+  const breached=tickets.filter(t=>t.slaBreached&&!['completed','rejected','cancelled'].includes(t.status));
+  const pendingReports=reportsData.filter(r=>(r.approvalStatus||'pending')==='pending');
+  const upcoming=(maintenanceData().schedules||[]).filter(s=>s.active&&new Date(s.nextRunAt)-Date.now()<7*86400000);
+  const attention=[...breached,...waiting.filter(t=>!breached.some(b=>b.id===t.id))].slice(0,5);
+  return `<div class="supervisorDashboard">
+    <div class="supStats">
+      ${supStat(submitted.length,lang==='ar'?'أوامر جديدة':'New Orders','tickets','bad')}
+      ${supStat(waiting.length,lang==='ar'?'بانتظار التحقق':'Pending Verify','check','warn')}
+      ${supStat(inProgress.length,lang==='ar'?'جارٍ التنفيذ':'In Progress','sync','brand')}
+      ${supStat(pendingReports.length,lang==='ar'?'تقارير للمراجعة':'Reports to Review','reports','ok')}
+    </div>
+    <div class="wCard supervisorDashboardAlert">
+      <div><div class="supervisorDashboardAlert-title">${ic(breached.length?'bell':'check',16)} ${lang==='ar'?'حالة تشغيل الصيانة':'Maintenance operations status'}</div>
+      <div class="supervisorDashboardAlert-sub">${breached.length
+        ?(lang==='ar'?`${num(breached.length)} أمر عمل تجاوز اتفاقية الخدمة`:`${breached.length} work orders breached SLA`)
+        :(lang==='ar'?'لا توجد تجاوزات SLA حالياً':'No active SLA breaches')}</div></div>
+      <button class="btn secondary sm" onclick="supervisorView='requests';mobileNavActive='supervisor-requests';renderMaintenanceSupervisor()">${lang==='ar'?'أوامر العمل':'Work Orders'}</button>
+    </div>
+    <div class="wCard">
+      <div class="wCard-title">${ic('dashboard',16)} ${lang==='ar'?'اختصارات التشغيل':'Operational shortcuts'}</div>
+      <div class="quickActionGrid quickActionGrid--supervisor">
+        <button class="quickAction" onclick="supervisorView='requests';mobileNavActive='supervisor-requests';renderMaintenanceSupervisor()"><span>${ic('tickets',18)}</span><b>${tr('maintOrders')}</b><small>${num(submitted.length+waiting.length+inProgress.length)}</small></button>
+        <button class="quickAction" onclick="supervisorView='team';mobileNavActive='supervisor-team';renderMaintenanceSupervisor()"><span>${ic('users',18)}</span><b>${tr('maintTeam')}</b><small>${num(workers.length)}</small></button>
+        <button class="quickAction" onclick="supervisorView='reports';mobileNavActive='supervisor-reports';renderMaintenanceSupervisor()"><span>${ic('reports',18)}</span><b>${tr('reports')}</b><small>${num(pendingReports.length)}</small></button>
+      </div>
+    </div>
+    <div class="supSectionsGrid">
+      <div class="wCard"><div class="wCard-title">${ic('bell',16)} ${lang==='ar'?'تحتاج متابعة':'Needs Attention'} ${countBubble(attention.length,'warn')}</div>
+        ${attention.length?`<div class="wCard-list">${maintenanceOrderMini(attention)}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد أوامر حرجة':'No critical orders'}</div></div>`}
+      </div>
+      <div class="wCard"><div class="wCard-title">${ic('clock',16)} ${tr('maintUpcoming')} ${countBubble(upcoming.length)}</div>
+        ${maintenanceScheduleMini(upcoming.slice(0,5))}
+      </div>
+    </div>
+  </div>`;
+}
+
+function maintenanceSupervisorRequests(){
+  const tickets=data.tickets||[];
+  const submitted=tickets.filter(t=>t.status==='submitted');
+  const waiting=tickets.filter(t=>t.status==='waiting_verification');
+  const active=tickets.filter(t=>['assigned','accepted','diagnosing','in_progress','awaiting_parts','awaiting_vendor','awaiting_permit','on_hold','reclean_required'].includes(t.status));
+  const group=(title,icon,items,color='')=>`<div class="wCard${items.length>2?' wCard--full':''}">
+    <div class="wCard-title">${ic(icon,16)} ${title} ${countBubble(items.length,color)}</div>
+    ${items.length?`<div class="ticketGrid">${items.map(maintenanceOrderCard).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد أوامر':'No work orders'}</div></div>`}
+  </div>`;
+  return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintOrders')}</div><div class="pageSub">${tickets.length} ${lang==='ar'?'أمر عمل':'work orders'}</div></div>
+    <button class="btn" onclick="showMaintenanceOrderForm()">${ic('plus',15)} ${tr('maintTicketCreate')}</button></div>
+    <div class="supSectionsGrid">
+      ${group(lang==='ar'?'أوامر جديدة':'New Orders','tickets',submitted,'bad')}
+      ${group(lang==='ar'?'بانتظار التحقق':'Pending Verification','check',waiting,'warn')}
+      ${group(lang==='ar'?'قيد التنفيذ والمتابعة':'Active Team Queue','sync',active,'brand')}
+    </div>`;
+}
+
+function maintenanceSupervisorTeam(){
+  const workers=(data.users||[]).filter(u=>(u.roles||[u.role]).includes('maintenance_worker'));
+  const assignees=maintenanceData().assignees||[];
+  return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintTeam')}</div><div class="pageSub">${workers.length} ${lang==='ar'?'فني':'technicians'}</div></div></div>
+    <div class="wCard"><div class="wCard-title">${ic('users',16)} ${lang==='ar'?'حالة فريق الصيانة':'Maintenance Team Status'} ${countBubble(workers.length)}</div>
+    ${workers.length?`<div class="supTeamGrid">${workers.map(w=>{const assigned=assignees.filter(a=>a.technicianId===w.id&&!['completed','cancelled'].includes(a.status));const lead=assigned.filter(a=>a.isLead).length;return `<div class="supTeamCard"><div class="supTeamCard-info"><div class="supTeamCard-name">${esc(w.name)}</div><div class="supTeamCard-meta">${assigned.length} ${lang==='ar'?'أوامر نشطة':'active orders'}${lead?` · ${lead} ${tr('leadTechnician')}`:''}</div></div>${assigned.length?`<span class="badge warn">${assigned.length}</span>`:`<span class="badge ok">${lang==='ar'?'متاح':'Free'}</span>`}</div>`}).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('users',24)}</div><div class="empty-title">${lang==='ar'?'لا يوجد فنيون':'No technicians'}</div></div>`}
+    </div>`;
+}
+
 function renderMaintenanceSupervisor(){
   setDoc();
-  maintShell(me,maintenancePageContent(),{renderFn:'renderMaintenanceSupervisor'});
+  const content=supervisorView==='requests'?maintenanceSupervisorRequests()
+    :supervisorView==='team'?maintenanceSupervisorTeam()
+    :supervisorView==='reports'?reports()
+    :maintenanceSupervisorDashboard();
+  app.innerHTML=fieldShell(me,content,{sync:true,noSticky:true});
 }
 
 /* ── renderMaintenanceManager ─────────────────────────────────── */
