@@ -4736,16 +4736,17 @@ async function submitEmployeeHospOrder(){
   if(!kitchenId)return toast(lang==='ar'?'اختر المطبخ':'Select a kitchen','bad');
   const cartTotal=Object.values(empHospCart).reduce((s,v)=>s+v,0);
   if(!cartTotal)return toast(lang==='ar'?'اختر صنفاً على الأقل':'Add at least one item','bad');
-  const items=Object.entries(empHospCart).flatMap(([id,qty])=>{
+  const items=Object.entries(empHospCart).map(([id,qty])=>{
     const item=(empHospMenuItems||[]).find(m=>m.id===id);
-    const name=lang==='ar'?item?.nameAr:(item?.nameEn||item?.nameAr||id);
-    return Array(qty).fill(name);
+    const nameAr=item?.nameAr||id;
+    const nameEn=item?.nameEn||item?.nameAr||id;
+    return qty>1?`${lang==='ar'?nameAr:nameEn} × ${qty}`:(lang==='ar'?nameAr:nameEn);
   });
   const notes=document.getElementById('empHospNotes')?.value.trim()||'';
   const btn=document.querySelector('.submitBtn');
   if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner" style="width:22px;height:22px;border-width:2.5px"></div>`}
   try{
-    const res=await api('/hospitality/orders',{method:'POST',body:JSON.stringify({locationId:locId,kitchenId,items,notes,orderType:'general'})});
+    const res=await api('/hospitality/orders',{method:'POST',body:JSON.stringify({locationId:locId,kitchenId,items,notes,orderType:'menu'})});
     empHospCart={};
     const wc=document.querySelector('.platform-main.platform-main--field');
     if(wc)wc.innerHTML=`
