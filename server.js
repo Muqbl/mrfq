@@ -481,6 +481,8 @@ function dbSettings() {
     frequencyMinutes: parseInt(s.frequency_minutes, 10) || 120,
     requirePhoto:     s.require_photo     === '1',
     prototypeMode:    s.prototype_mode    === '1',
+    employeeCleaningRequestsEnabled: s.employee_cleaning_requests_enabled !== '0',
+    employeeMaintenanceRequestsEnabled: s.employee_maintenance_requests_enabled !== '0',
     slaMins: {
       emergency:    parseInt(s.sla_mins_emergency,   10) || SLA_MINS.emergency,
       spill:        parseInt(s.sla_mins_spill,        10) || SLA_MINS.spill,
@@ -501,7 +503,8 @@ function dbAssignments() {
 }
 function dbTickets()  {
   return getDb().prepare(`
-    SELECT t.*, GROUP_CONCAT(p.filename) AS photo_files
+    SELECT t.*, GROUP_CONCAT(p.filename) AS photo_files,
+      GROUP_CONCAT(p.photo_type) AS photo_types
     FROM tickets t
     LEFT JOIN photos p ON p.ticket_id = t.id AND p.deleted_at IS NULL
     WHERE t.deleted_at IS NULL
@@ -711,7 +714,11 @@ function resolveKitchenAssignment(db, kitchenId) {
 /** Map DB ticket row → frontend camelCase */
 function ticketRow(r) {
   if (!r) return null;
-  const photos = r.photo_files ? r.photo_files.split(',').map(f => `/uploads/${f}`) : [];
+  const photoFiles = r.photo_files ? r.photo_files.split(',') : [];
+  const photoTypes = r.photo_types ? r.photo_types.split(',') : [];
+  const photos = photoFiles.map(f => `/uploads/${f}`);
+  const beforePhotos = photoFiles.filter((_,i)=>(photoTypes[i]||'general')==='before').map(f=>`/uploads/${f}`);
+  const afterPhotos = photoFiles.filter((_,i)=>(photoTypes[i]||'general')==='after').map(f=>`/uploads/${f}`);
   return {
     id:             r.id,
     title:          r.title,
@@ -749,7 +756,9 @@ function ticketRow(r) {
     responseTimeMins:            r.response_time_mins  ?? null,
     completionTimeMins:          r.completion_time_mins ?? null,
     module:                      r.module || 'cleaning',
-    photos
+    photos,
+    beforePhotos,
+    afterPhotos
   };
 }
 
@@ -986,9 +995,24 @@ function buildBootstrap(me) {
    SSE CLIENTS  (in-memory — reconnects after restart are fine)
    ═══════════════════════════════════════════════════════════════ */
 const sseClients = new Set();
+function canReceiveTicketEvent(user, ticket) {
+  if (!ticket || !user) return false;
+  if (['system_admin','facility_manager'].includes(user.role)) return true;
+  if (user.role === 'employee') return ticket.createdById === user.id;
+  if (ticket.module === 'maintenance')
+    return ['maintenance_manager','maintenance_supervisor'].includes(user.role) ||
+      (user.role === 'maintenance_worker' && (ticket.assignedTo === user.id || !!getDb().prepare(
+        'SELECT 1 FROM maintenance_work_order_assignees WHERE work_order_id=? AND technician_id=?'
+      ).get(ticket.id,user.id)));
+  return ['cleaning_manager','cleaning_supervisor'].includes(user.role) ||
+    (user.role === 'cleaner' && ticket.assignedTo === user.id);
+}
 function broadcast(event, payload) {
   const msg = `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
-  for (const c of sseClients) { try { c.write(msg); } catch { sseClients.delete(c); } }
+  for (const c of sseClients) {
+    if (payload?.ticket && !canReceiveTicketEvent(c.user, payload.ticket)) continue;
+    try { c.res.write(msg); } catch { sseClients.delete(c); }
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1261,11 +1285,12 @@ const server = http.createServer(async (req, res) => {
           'Connection':    'keep-alive'
         });
         res.write(`event: connected\ndata: ${JSON.stringify({ userId: me.id })}\n\n`);
-        sseClients.add(res);
+        const client = { res, user: publicUser(me) };
+        sseClients.add(client);
         const hb = setInterval(() => {
-          try { res.write(': hb\n\n'); } catch { clearInterval(hb); sseClients.delete(res); }
+          try { res.write(': hb\n\n'); } catch { clearInterval(hb); sseClients.delete(client); }
         }, 25_000);
-        req.on('close', () => { clearInterval(hb); sseClients.delete(res); });
+        req.on('close', () => { clearInterval(hb); sseClients.delete(client); });
         return;
       }
 
@@ -1772,7 +1797,10 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'POST' && url.pathname === '/api/settings') {
         if (!['system_admin', 'facility_manager'].includes(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const b = await bodyJSON(req);
-        const ALLOWED_KEYS = ['sla_mins_emergency','sla_mins_spill','sla_mins_restroom','sla_mins_meeting_room','sla_mins_general','maint_sla_mins_electrical','maint_sla_mins_plumbing','maint_sla_mins_hvac','maint_sla_mins_civil','maint_sla_mins_general','frequency_minutes','require_photo'];
+        const REQUEST_CHANNEL_KEYS = ['employee_cleaning_requests_enabled','employee_maintenance_requests_enabled'];
+        if (me.role !== 'system_admin' && Object.keys(b).some(k=>REQUEST_CHANNEL_KEYS.includes(k)))
+          return send(res, 403, { error: 'FORBIDDEN' });
+        const ALLOWED_KEYS = ['sla_mins_emergency','sla_mins_spill','sla_mins_restroom','sla_mins_meeting_room','sla_mins_general','maint_sla_mins_electrical','maint_sla_mins_plumbing','maint_sla_mins_hvac','maint_sla_mins_civil','maint_sla_mins_general','frequency_minutes','require_photo',...REQUEST_CHANNEL_KEYS];
         Object.entries(b).filter(([k]) => ALLOWED_KEYS.includes(k)).forEach(([k, v]) => {
           db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(k, String(v));
         });
@@ -2065,7 +2093,9 @@ const server = http.createServer(async (req, res) => {
         if (t.assigned_to !== me.id && !isTeamMember) return send(res, 403, { error: 'FORBIDDEN' });
         if (!(TICKET_TRANSITIONS[t.status]||[]).includes('waiting_verification'))
           return send(res, 400, { error: 'INVALID_TRANSITION' });
-        processPhotos(b.photos, me.id, null, t.id);
+        if (Array.isArray(b.beforePhotos)) processPhotosTyped(b.beforePhotos, me.id, null, t.id, 'before');
+        if (Array.isArray(b.afterPhotos)) processPhotosTyped(b.afterPhotos, me.id, null, t.id, 'after');
+        if (!Array.isArray(b.beforePhotos) && !Array.isArray(b.afterPhotos)) processPhotos(b.photos, me.id, null, t.id);
         const completionMins = Math.round((Date.now() - new Date(t.created_at).getTime()) / 60_000);
         const slaBreached    = t.sla_deadline && new Date(t.sla_deadline) < new Date() ? 1 : (t.sla_breached||0);
         db.prepare(`
@@ -2334,37 +2364,50 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'POST' && url.pathname === '/api/order') {
         if (me.role !== 'employee') return send(res, 403, { error: 'FORBIDDEN' });
         const b   = await bodyJSON(req);
+        const serviceType = b.serviceType === 'maintenance' ? 'maintenance' : 'cleaning';
+        const requestSettings = dbSettings();
+        if (serviceType === 'cleaning' && !requestSettings.employeeCleaningRequestsEnabled)
+          return send(res, 403, { error: 'SERVICE_DISABLED' });
+        if (serviceType === 'maintenance' && !requestSettings.employeeMaintenanceRequestsEnabled)
+          return send(res, 403, { error: 'SERVICE_DISABLED' });
         const loc = db.prepare('SELECT * FROM locations WHERE id = ? AND deleted_at IS NULL').get(sanitize(b.locationId, 80));
         if (!loc) return send(res, 404, { error: 'LOCATION_NOT_FOUND' });
-        const VALID_CATS = ['general','spill','restroom','meeting_room','emergency'];
+        const VALID_CATS = serviceType === 'maintenance'
+          ? ['electrical','plumbing','hvac','civil','general']
+          : ['general','spill','restroom','meeting_room','emergency'];
         const category   = VALID_CATS.includes(b.category) ? b.category : 'general';
-        const autoPriority = { emergency: 'high', spill: 'high', meeting_room: 'high', restroom: 'medium', general: 'medium' };
+        const autoPriority = serviceType === 'maintenance'
+          ? { electrical:'high', plumbing:'high', hvac:'high', civil:'medium', general:'medium' }
+          : { emergency:'high', spill:'high', meeting_room:'high', restroom:'medium', general:'medium' };
         const priority   = autoPriority[category] || ((['high','medium','low'].includes(b.priority)) ? b.priority : 'medium');
-        const refNo      = generateRefNo(db);
-        const CAT_TITLES = { general:'طلب تنظيف', spill:'بلاغ انسكاب', restroom:'مشكلة دورة مياه', meeting_room:'تنظيف قاعة اجتماع', emergency:'تنظيف طارئ' };
-        const title      = sanitize(b.title || '', 200) || CAT_TITLES[category] || 'طلب تنظيف';
-        const worker = autoAssign(loc.id, db);
+        const refNo      = generateRefNo(db, serviceType === 'maintenance' ? 'MNT' : 'CLN');
+        const CAT_TITLES = serviceType === 'maintenance'
+          ? { general:'طلب صيانة', electrical:'مشكلة كهرباء', plumbing:'مشكلة سباكة', hvac:'مشكلة تكييف', civil:'أعمال مدنية' }
+          : { general:'طلب تنظيف', spill:'بلاغ انسكاب', restroom:'مشكلة دورة مياه', meeting_room:'تنظيف قاعة اجتماع', emergency:'تنظيف طارئ' };
+        const title      = sanitize(b.title || '', 200) || CAT_TITLES[category] || (serviceType === 'maintenance' ? 'طلب صيانة' : 'طلب تنظيف');
+        const worker = serviceType === 'cleaning' ? autoAssign(loc.id, db) : null;
         const workerUser = worker ? db.prepare('SELECT * FROM users WHERE id = ?').get(worker.id) : null;
         const id          = newId('t');
         const ts          = now();
-        const slaDeadline = computeSlaDeadline(category);
+        const slaDeadline = serviceType === 'maintenance' ? computeMaintSlaDeadline(category) : computeSlaDeadline(category);
         const orderStatus = workerUser ? 'assigned' : 'submitted';
         db.prepare(`
           INSERT INTO tickets (id,title,description,location_id,location_name_ar,location_name_en,
             assigned_to,assigned_to_name,created_by,created_by_id,status,priority,
-            category,reference_no,notes,sla_deadline,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            category,reference_no,notes,sla_deadline,module,maintenance_type,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `).run(id, title, sanitize(b.description, 1000),
                loc.id, loc.name_ar, loc.name_en,
                workerUser?.id || null, workerUser?.name || '',
-               me.name, me.id, orderStatus, priority, category, refNo, '', slaDeadline, ts, ts);
+               me.name, me.id, orderStatus, priority, category, refNo, '', slaDeadline,
+               serviceType, serviceType === 'maintenance' ? 'corrective' : 'corrective', ts, ts);
         // Optional photo
         if (b.photo) {
           processPhotosTyped([b.photo], me.id, null, id, 'general');
         }
         const ticket = ticketRow(db.prepare('SELECT t.*, NULL AS photo_files FROM tickets t WHERE t.id = ?').get(id));
         broadcast('ticket_created', { ticket });
-        logEvent(db, 'ticket.submitted', 'ticket', id, me, { category, refNo, status: orderStatus, locationId: loc.id });
+        logEvent(db, 'ticket.submitted', 'ticket', id, me, { category, refNo, status: orderStatus, locationId: loc.id }, serviceType);
         return send(res, 200, { ticket, autoAssigned: !!workerUser });
       }
 
