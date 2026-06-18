@@ -1722,7 +1722,7 @@ const server = http.createServer(async (req, res) => {
 
       /* ── TICKETS: DELETE (soft) ─────────────────────────────── */
       if (req.method === 'DELETE' && url.pathname.startsWith('/api/tickets/')) {
-        if (!['system_admin','cleaning_manager'].includes(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        if (!canDelete(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const id = sanitize(url.pathname.split('/').pop(), 50);
         const t  = db.prepare('SELECT 1 FROM tickets WHERE id = ? AND deleted_at IS NULL').get(id);
         if (!t) return send(res, 404, { error: 'TICKET_NOT_FOUND' });

@@ -525,6 +525,12 @@ let reportFilter = 'all';
 let operationsDays = 30;
 let employeeServiceType = '';
 let employeeHistoryFilter = 'all';
+let empHospCart = {};
+let empHospMenuItems = null;
+let empHospKitchens = null;
+let empHospMenuCategories = null;
+let empHospCatFilter = '';
+let empHospLocId = '';
 let usersSearch = '', usersRoleFilter = 'all', usersStatusFilter = 'all';
 let locsFloorFilter = 'all';
 let assignFloorFilter = 'all';
@@ -4450,7 +4456,9 @@ async function submitReport(locationId){
 function renderEmployee(){
   setDoc();
   const myOrders = (data.tickets||[]).filter(t=>t.createdById===me.id);
-  const activeCount = myOrders.filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
+  const myHospOrders = data.hospitalityOrders||[];
+  const activeCount = myOrders.filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length
+    + myHospOrders.filter(o=>!['completed','cancelled','rejected'].includes(o.status)).length;
   const panel = employeeView==='new'
     ? employeeSubmitForm()
     : employeeView==='history'
@@ -4469,7 +4477,11 @@ function renderEmployee(){
 }
 
 function employeeHome(orders, activeCount){
-  const latest = orders.slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)).slice(0,3);
+  const myHospOrders = data.hospitalityOrders||[];
+  const allRecent = [
+    ...orders.map(t=>({...t, _type:'ticket', _sort:new Date(t.createdAt||0)})),
+    ...myHospOrders.map(o=>({...o, _type:'hosp', _sort:new Date(o.createdAt||0)}))
+  ].sort((a,b)=>b._sort-a._sort).slice(0,4);
   return`
 <div class="wCard wCard--compact">
   <div class="wCard-title">${ic('dashboard',16)} ${lang==='ar'?'الرئيسية':'Home'}</div>
@@ -4479,16 +4491,32 @@ function employeeHome(orders, activeCount){
       <div class="empHomeSummary-title">${lang==='ar'?'بوابة خدمات المرافق':'Facility Services Portal'}</div>
       <div class="empHomeSummary-sub">${activeCount?`${num(activeCount)} ${lang==='ar'?'طلبات قيد المتابعة':'active requests'}`:(lang==='ar'?'لا توجد طلبات مفتوحة':'No open requests')}</div>
     </div>
-    ${countBubble(orders.length)}
+    ${countBubble(orders.length+myHospOrders.length)}
   </div>
   <button class="btn wide" onclick="employeeServiceType='';employeeView='new';mobileNavActive='employee-new';renderEmployee()">${ic('send',18)} ${lang==='ar'?'طلب خدمة':'Request a Service'}</button>
 </div>
-${latest.length?`
+${allRecent.length?`
 <div class="wCard">
   <div class="wCard-title">${ic('clipboardList',16)} ${lang==='ar'?'آخر طلباتي':'Recent requests'}</div>
   <div class="wCard-list" style="gap:10px">
-    ${latest.map(t=>{
-      const stCls = t.status==='completed'?'ok':['reclean_required','rejected','cancelled'].includes(t.status)?'bad':t.status==='waiting_verification'?'warn':'brand';
+    ${allRecent.map(item=>{
+      if(item._type==='hosp'){
+        const stCls=hospStatusBadgeClass(item.status);
+        const itemNames=(Array.isArray(item.items)?item.items:JSON.parse(item.items||'[]')).slice(0,2).join(' · ');
+        return`<div class="ticketCard empOrderCard">
+          <div class="ticketCard-top empOrderCard-head">
+            <div class="ticketCard-main">
+              <div class="ticketCard-title empOrderCard-title">${lang==='ar'?'طلب ضيافة':'Hospitality Order'}</div>
+              ${item.referenceNo?`<div class="ticketCard-ref empOrderCard-ref">${esc(item.referenceNo)}</div>`:''}
+            </div>
+            <span class="badge ${stCls}">${hospStatusLabel(item.status)}</span>
+          </div>
+          <div class="ticketCard-meta empOrderCard-meta"><span>${ic('locations',12)} ${esc(lang==='ar'?item.locationNameAr:item.locationNameEn)}</span><span>${fmt(item.createdAt)}</span></div>
+          <div class="ticketCard-badges"><span class="badge warn">${ic('coffee',11)} ${lang==='ar'?'ضيافة':'Hospitality'}</span>${itemNames?`<span class="badge">${esc(itemNames)}</span>`:''}</div>
+        </div>`;
+      }
+      const t=item;
+      const stCls=t.status==='completed'?'ok':['reclean_required','rejected','cancelled'].includes(t.status)?'bad':t.status==='waiting_verification'?'warn':'brand';
       const isMaintenance=t.module==='maintenance';
       return`<div class="ticketCard empOrderCard">
         <div class="ticketCard-top empOrderCard-head">
@@ -4524,10 +4552,19 @@ function employeeSubmitForm(){
   const maintenanceEnabled=settings.employeeMaintenanceRequestsEnabled!==false;
   if(employeeServiceType==='cleaning'&&!cleaningEnabled)employeeServiceType='';
   if(employeeServiceType==='maintenance'&&!maintenanceEnabled)employeeServiceType='';
-  if(!employeeServiceType)return `<div class="wCard wCard--compact"><div class="wCard-title">${ic('layers',16)} ${lang==='ar'?'اختر الخدمة المطلوبة':'Choose a Service'}</div><p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:14px">${lang==='ar'?'كل خدمة لها نموذجها وتصنيفاتها ومسارها التشغيلي المستقل.':'Each service has its own form, categories, and operational workflow.'}</p><div class="empCatGrid">
-    <button class="empCatBtn${cleaningEnabled?'':' empCatBtn--disabled'}" ${cleaningEnabled?`onclick="employeeServiceType='cleaning';currentPhotos=[];renderEmployee()"`:'disabled aria-disabled="true"'}><span class="empCatBtn-icon">${ic('reports',22)}</span><span>${lang==='ar'?'خدمة النظافة':'Cleaning Service'}</span>${cleaningEnabled?'':`<small>${lang==='ar'?'متوقفة حالياً':'Currently unavailable'}</small>`}</button>
-    <button class="empCatBtn${maintenanceEnabled?'':' empCatBtn--disabled'}" ${maintenanceEnabled?`onclick="employeeServiceType='maintenance';currentPhotos=[];renderEmployee()"`:'disabled aria-disabled="true"'}><span class="empCatBtn-icon">${ic('tool',22)}</span><span>${lang==='ar'?'خدمة الصيانة':'Maintenance Service'}</span>${maintenanceEnabled?'':`<small>${lang==='ar'?'متوقفة حالياً':'Currently unavailable'}</small>`}</button>
-  </div></div>`;
+
+  if(!employeeServiceType)return `<div class="wCard wCard--compact">
+    <div class="wCard-title">${ic('layers',16)} ${lang==='ar'?'اختر الخدمة المطلوبة':'Choose a Service'}</div>
+    <p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:14px">${lang==='ar'?'كل خدمة لها نموذجها وتصنيفاتها ومسارها التشغيلي المستقل.':'Each service has its own form, categories, and operational workflow.'}</p>
+    <div class="empCatGrid">
+      <button class="empCatBtn${cleaningEnabled?'':' empCatBtn--disabled'}" ${cleaningEnabled?`onclick="employeeServiceType='cleaning';currentPhotos=[];renderEmployee()"`:'disabled aria-disabled="true"'}><span class="empCatBtn-icon">${ic('reports',22)}</span><span>${lang==='ar'?'خدمة النظافة':'Cleaning Service'}</span>${cleaningEnabled?'':`<small>${lang==='ar'?'متوقفة حالياً':'Currently unavailable'}</small>`}</button>
+      <button class="empCatBtn${maintenanceEnabled?'':' empCatBtn--disabled'}" ${maintenanceEnabled?`onclick="employeeServiceType='maintenance';currentPhotos=[];renderEmployee()"`:'disabled aria-disabled="true"'}><span class="empCatBtn-icon">${ic('tool',22)}</span><span>${lang==='ar'?'خدمة الصيانة':'Maintenance Service'}</span>${maintenanceEnabled?'':`<small>${lang==='ar'?'متوقفة حالياً':'Currently unavailable'}</small>`}</button>
+      <button class="empCatBtn" onclick="employeeServiceType='hospitality';empHospCart={};empHospCatFilter='';empHospLocId='';renderEmployee()"><span class="empCatBtn-icon">${ic('coffee',22)}</span><span>${lang==='ar'?'طلب ضيافة':'Hospitality Order'}</span></button>
+    </div>
+  </div>`;
+
+  if(employeeServiceType==='hospitality') return employeeHospForm();
+
   const isMaintenance=employeeServiceType==='maintenance';
   const CATS = isMaintenance?['general','electrical','plumbing','hvac','civil']:['general','spill','restroom','meeting_room','emergency'];
   const CAT_ICONS = {general:'locations',spill:'alert-circle',restroom:'locations',meeting_room:'users',emergency:'bell',electrical:'alert',plumbing:'locations',hvac:'sync',civil:'building'};
@@ -4589,26 +4626,197 @@ function employeeSubmitForm(){
 </div>`;
 }
 
+function employeeHospForm(){
+  // Load menu data lazily
+  if(!empHospMenuItems){
+    Promise.all([
+      fetch('/api/public/hospitality/menu').then(r=>r.json()),
+      fetch('/api/public/hospitality/kitchens').then(r=>r.json()),
+      fetch('/api/public/hospitality/menu-categories').then(r=>r.json())
+    ]).then(([m,k,c])=>{
+      empHospMenuItems=m.items||[];
+      empHospKitchens=k.kitchens||[];
+      empHospMenuCategories=c.categories||[];
+      renderEmployee();
+    }).catch(()=>toast(lang==='ar'?'تعذر تحميل القائمة':'Menu load failed','bad'));
+    return `<div class="wCard wCard--compact">
+      <button class="linkBtn" onclick="employeeServiceType='';renderEmployee()">${ic('arrow-left',14)} ${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
+      <div class="wCard-title" style="margin-top:12px">${ic('coffee',18)} ${lang==='ar'?'طلب ضيافة':'Hospitality Order'}</div>
+      <div class="empty-state"><div class="empty-icon">${ic('sync',28)}</div><div class="empty-title">${lang==='ar'?'جارٍ تحميل القائمة...':'Loading menu…'}</div></div>
+    </div>`;
+  }
+
+  const cats=empHospMenuCategories||[];
+  const allItems=empHospMenuItems||[];
+  const kitchens=empHospKitchens||[];
+  const menuItems=empHospCatFilter?allItems.filter(i=>i.categoryId===empHospCatFilter):allItems;
+  const cartTotal=Object.values(empHospCart).reduce((s,v)=>s+v,0);
+  const locName=(data.locations||[]).find(l=>l.id===empHospLocId);
+
+  return`
+<div class="wCard wCard--compact">
+  <button class="linkBtn" onclick="employeeServiceType='';empHospCart={};renderEmployee()">${ic('arrow-left',14)} ${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
+  <div class="wCard-title" style="margin-top:12px">${ic('coffee',18)} ${lang==='ar'?'طلب ضيافة':'Hospitality Order'}</div>
+</div>
+
+<div class="wCard wCard--compact">
+  <div class="wCard-title"><span class="wCard-number">1</span>${lang==='ar'?'حدد الموقع':'Select Location'}</div>
+  <div class="field">
+    <label>${lang==='ar'?'كود الموقع':'Location Code'}</label>
+    <div class="locInput-row">
+      <button class="locInput-scan" onclick="openQRScanner()" title="${tr('scanQR')}">${ic('qr',18)}</button>
+      <div class="locInput-field"><input id="empHospLocInput" class="inp ltr" value="${esc(empHospLocId)}" placeholder="wc-gf-a" oninput="empHospLocId=parseLoc(this.value);const l=(data.locations||[]).find(x=>x.id===empHospLocId);document.getElementById('empHospLocName').textContent=l?(lang==='ar'?l.nameAr:l.nameEn):'';"></div>
+    </div>
+  </div>
+  <div id="empHospLocName" style="font-size:var(--fs-xs);color:var(--brand-mid);min-height:18px;margin-top:4px">${locName?(lang==='ar'?locName.nameAr:locName.nameEn):''}</div>
+</div>
+
+<div class="wCard">
+  <div class="wCard-title"><span class="wCard-number">2</span>${lang==='ar'?'اختر ما تريد':'Choose Items'} ${cartTotal?`<span class="countBubble" style="margin-right:8px">${cartTotal}</span>`:''}</div>
+  ${cats.length?`<div class="fieldTabs" role="tablist" style="margin-bottom:14px">
+    <button class="fieldTab${!empHospCatFilter?' active':''}" onclick="empHospCatFilter='';renderEmployee()"><span class="fieldTab-main"><span class="fieldTab-label">${lang==='ar'?'الكل':'All'}</span></span></button>
+    ${cats.map(c=>`<button class="fieldTab${empHospCatFilter===c.id?' active':''}" onclick="empHospCatFilter='${c.id}';renderEmployee()"><span class="fieldTab-main"><span class="fieldTab-label">${esc(lang==='ar'?c.nameAr:c.nameEn||c.nameAr)}</span></span></button>`).join('')}
+  </div>`:''}
+  <div class="productGrid">
+    ${menuItems.length?menuItems.map(item=>{
+      const qty=empHospCart[item.id]||0;
+      const name=lang==='ar'?item.nameAr:(item.nameEn||item.nameAr);
+      return`<div class="productCard${qty?'':''}" id="ehc_${item.id}">
+        ${item.imageUrl?`<div class="productCard-img" style="background-image:url('${item.imageUrl}');background-size:cover;background-position:center"></div>`:`<div class="productCard-img">${ic('coffee',28)}</div>`}
+        <div class="productCard-body">
+          <div class="productCard-title">${esc(name)}</div>
+          ${item.descriptionAr||item.descriptionEn?`<div class="productCard-desc">${esc(lang==='ar'?item.descriptionAr:item.descriptionEn||item.descriptionAr)}</div>`:''}
+          <div class="productCard-actions" style="margin-top:10px;display:flex;align-items:center;gap:8px">
+            <button class="btn secondary sm iconOnlyBtn" onclick="empHospCartAdd('${item.id}',-1)" style="width:32px;height:32px">${ic('minus',14)}</button>
+            <span id="ehq_${item.id}" style="font-weight:700;min-width:20px;text-align:center;font-size:var(--fs-base)">${qty||0}</span>
+            <button class="btn sm iconOnlyBtn" onclick="empHospCartAdd('${item.id}',1)" style="width:32px;height:32px;background:var(--brand)">${ic('plus',14)}</button>
+          </div>
+        </div>
+      </div>`;
+    }).join(''):`<div class="empty-state" style="grid-column:1/-1"><div class="empty-title">${lang==='ar'?'لا توجد أصناف':'No items'}</div></div>`}
+  </div>
+</div>
+
+<div class="wCard">
+  <div class="wCard-title"><span class="wCard-number">3</span>${lang==='ar'?'تفاصيل الطلب':'Order Details'}</div>
+  ${kitchens.length?`<div class="field"><label>${lang==='ar'?'المطبخ':'Kitchen'}</label>${sel('empHospKitchen',kitchens.map((k,i)=>({v:k.id,l:lang==='ar'?k.nameAr:(k.nameEn||k.nameAr),sel:i===0})))}</div>`:''}
+  <div class="field">
+    <label>${lang==='ar'?'ملاحظات (اختياري)':'Notes (optional)'}</label>
+    ${ta('empHospNotes','',{rows:2,placeholder:lang==='ar'?'أي تفاصيل إضافية...':'Any additional notes…'})}
+  </div>
+</div>
+
+<div style="height:90px"></div>
+<div class="stickySubmit">
+  <button class="submitBtn" onclick="submitEmployeeHospOrder()">${ic('send',18)} ${lang==='ar'?'إرسال الطلب':'Send Order'}${cartTotal?` (${cartTotal})`:''}</button>
+</div>`;
+}
+
+function empHospCartAdd(id, delta){
+  empHospCart[id]=Math.max(0,(empHospCart[id]||0)+delta);
+  if(!empHospCart[id]) delete empHospCart[id];
+  const qtyEl=document.getElementById('ehq_'+id);
+  if(qtyEl) qtyEl.textContent=empHospCart[id]||0;
+  const total=Object.values(empHospCart).reduce((s,v)=>s+v,0);
+  document.querySelectorAll('.submitBtn').forEach(b=>{
+    b.innerHTML=`${ic('send',18)} ${lang==='ar'?'إرسال الطلب':'Send Order'}${total?` (${total})`:''}`
+  });
+}
+
+async function submitEmployeeHospOrder(){
+  const locId=empHospLocId||parseLoc(document.getElementById('empHospLocInput')?.value||'');
+  if(!locId)return toast(lang==='ar'?'أدخل كود الموقع':'Enter location code','bad');
+  const loc=(data.locations||[]).find(l=>l.id===locId);
+  if(!loc)return toast(lang==='ar'?`الموقع "${locId}" غير موجود`:`Location "${locId}" not found`,'bad');
+  const kitchenId=document.getElementById('empHospKitchen')?.value;
+  if(!kitchenId)return toast(lang==='ar'?'اختر المطبخ':'Select a kitchen','bad');
+  const cartTotal=Object.values(empHospCart).reduce((s,v)=>s+v,0);
+  if(!cartTotal)return toast(lang==='ar'?'اختر صنفاً على الأقل':'Add at least one item','bad');
+  const items=Object.entries(empHospCart).flatMap(([id,qty])=>{
+    const item=(empHospMenuItems||[]).find(m=>m.id===id);
+    const name=lang==='ar'?item?.nameAr:(item?.nameEn||item?.nameAr||id);
+    return Array(qty).fill(name);
+  });
+  const notes=document.getElementById('empHospNotes')?.value.trim()||'';
+  const btn=document.querySelector('.submitBtn');
+  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner" style="width:22px;height:22px;border-width:2.5px"></div>`}
+  try{
+    const res=await api('/hospitality/orders',{method:'POST',body:JSON.stringify({locationId:locId,kitchenId,items,notes,orderType:'general'})});
+    empHospCart={};
+    const wc=document.querySelector('.platform-main.platform-main--field');
+    if(wc)wc.innerHTML=`
+      <div class="wCard" style="text-align:center;padding:40px 24px;margin-top:24px">
+        <div style="width:72px;height:72px;border-radius:50%;background:var(--ok-bg);margin:0 auto 16px;display:grid;place-items:center;color:var(--ok)">${ic('check',32)}</div>
+        <div style="font-family:var(--font-head);font-size:var(--fs-xl);font-weight:800;color:var(--ink)">${lang==='ar'?'تم إرسال الطلب':'Order Sent'}</div>
+        ${res.order?.referenceNo?`<div style="font-family:ui-monospace,monospace;font-size:var(--fs-sm);color:var(--brand-mid);margin-top:8px">${esc(res.order.referenceNo)}</div>`:''}
+        <p style="color:var(--muted);margin-top:8px;font-size:var(--fs-sm)">${lang==='ar'?'سيتم تجهيز طلبك وإيصاله قريباً.':'Your order will be prepared and delivered shortly.'}</p>
+        <button class="btn wide" style="margin-top:20px" onclick="employeeServiceType='hospitality';empHospCart={};empHospCatFilter='';empHospLocId='${locId}';renderEmployee()">${lang==='ar'?'طلب آخر':'New Order'}</button>
+        <button class="btn secondary wide" style="margin-top:10px" onclick="employeeServiceType='';employeeView='new';renderEmployee()">${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
+        <button class="btn secondary wide" style="margin-top:10px" onclick="employeeView='history';renderEmployee();load()">${tr('myRequests')}</button>
+      </div>`;
+    setTopbarBackButton(true,"employeeServiceType='';employeeView='new';renderEmployee()");
+    toast(lang==='ar'?'تم إرسال طلب الضيافة':'Hospitality order sent','ok');
+    load();
+  }catch(e){
+    if(btn){btn.disabled=false;btn.innerHTML=`${ic('send',18)} ${lang==='ar'?'إرسال الطلب':'Send Order'}`}
+    toast(lang==='ar'?'حدث خطأ، حاول مرة أخرى':'Error, please try again','bad');
+  }
+}
+
 function employeeHistory(orders){
-  if(!orders.length) return`
+  const myHospOrders=data.hospitalityOrders||[];
+  const totalAll=orders.length+myHospOrders.length;
+  if(!totalAll) return`
 <div class="wCard"><div class="empty-state">
   <div class="empty-icon">${ic('clipboardList',36)}</div>
   <div class="empty-title">${lang==='ar'?'لا توجد طلبات بعد':'No requests yet'}</div>
   <p class="empty-sub">${lang==='ar'?'قدّم أول طلب خدمة من تبويب طلب جديد':'Submit your first service request from the New tab'}</p>
 </div></div>`;
 
-  const filtered=employeeHistoryFilter==='all'?orders:orders.filter(t=>t.module===employeeHistoryFilter);
+  const tabs=[['all',lang==='ar'?'الكل':'All'],['cleaning',lang==='ar'?'النظافة':'Cleaning'],['maintenance',lang==='ar'?'الصيانة':'Maintenance'],['hospitality',lang==='ar'?'الضيافة':'Hospitality']];
+  let filteredTickets = employeeHistoryFilter==='all'?orders
+    :employeeHistoryFilter==='hospitality'?[]
+    :orders.filter(t=>t.module===employeeHistoryFilter);
+  let filteredHosp = (employeeHistoryFilter==='all'||employeeHistoryFilter==='hospitality')?myHospOrders:[];
+  const combined=[
+    ...filteredTickets.map(t=>({...t,_type:'ticket',_sort:new Date(t.createdAt||0)})),
+    ...filteredHosp.map(o=>({...o,_type:'hosp',_sort:new Date(o.createdAt||0)}))
+  ].sort((a,b)=>b._sort-a._sort);
+
   return`
 <div class="wCard">
-  <div class="wCard-title">${ic('clipboardList',16)} ${tr('myRequests')} (${orders.length})</div>
+  <div class="wCard-title">${ic('clipboardList',16)} ${tr('myRequests')} (${totalAll})</div>
   <div class="fieldTabs" role="tablist" style="margin-bottom:14px">
-    ${[['all',lang==='ar'?'الكل':'All'],['cleaning',lang==='ar'?'النظافة':'Cleaning'],['maintenance',lang==='ar'?'الصيانة':'Maintenance']].map(([v,l])=>`<button class="fieldTab${employeeHistoryFilter===v?' active':''}" onclick="employeeHistoryFilter='${v}';renderEmployee()"><span class="fieldTab-main"><span class="fieldTab-label">${l}</span></span></button>`).join('')}
+    ${tabs.map(([v,l])=>`<button class="fieldTab${employeeHistoryFilter===v?' active':''}" onclick="employeeHistoryFilter='${v}';renderEmployee()"><span class="fieldTab-main"><span class="fieldTab-label">${l}</span></span></button>`).join('')}
   </div>
   <div class="wCard-list" style="gap:10px">
-    ${filtered.length?filtered.map(t=>{
-      const stCls = t.status==='completed'?'ok':['reclean_required','rejected','cancelled'].includes(t.status)?'bad':t.status==='waiting_verification'?'warn':'brand';
+    ${combined.length?combined.map(item=>{
+      if(item._type==='hosp'){
+        const stCls=hospStatusBadgeClass(item.status);
+        const itemNames=(Array.isArray(item.items)?item.items:JSON.parse(item.items||'[]')).slice(0,3).join(' · ');
+        return`<div class="ticketCard empOrderCard">
+          <div class="ticketCard-top empOrderCard-head">
+            <div class="ticketCard-main">
+              <div class="ticketCard-title empOrderCard-title">${lang==='ar'?'طلب ضيافة':'Hospitality Order'}</div>
+              ${item.referenceNo?`<div class="ticketCard-ref empOrderCard-ref">${esc(item.referenceNo)}</div>`:''}
+            </div>
+            <span class="badge ${stCls}">${hospStatusLabel(item.status)}</span>
+          </div>
+          <div class="ticketCard-meta empOrderCard-meta">
+            <span>${ic('locations',12)} ${esc(lang==='ar'?item.locationNameAr:item.locationNameEn)}</span>
+            <span>${fmt(item.createdAt)}</span>
+          </div>
+          <div class="ticketCard-badges">
+            <span class="badge warn">${ic('coffee',11)} ${lang==='ar'?'ضيافة':'Hospitality'}</span>
+            ${itemNames?`<span class="badge">${esc(itemNames)}</span>`:''}
+          </div>
+          ${item.assignedToName?`<div class="empOrderCard-assigned">${ic('users',11)} ${lang==='ar'?'تم التعيين لـ:':'Assigned to:'} ${esc(item.assignedToName)}</div>`:''}
+        </div>`;
+      }
+      const t=item;
+      const stCls=t.status==='completed'?'ok':['reclean_required','rejected','cancelled'].includes(t.status)?'bad':t.status==='waiting_verification'?'warn':'brand';
       const isMaintenance=t.module==='maintenance';
-      const catLabel = isMaintenance?maintCatLabel(t.category||'general'):tr('cat_'+(t.category||'general'));
+      const catLabel=isMaintenance?maintCatLabel(t.category||'general'):tr('cat_'+(t.category||'general'));
       return`<div class="ticketCard empOrderCard">
         <div class="ticketCard-top empOrderCard-head">
           <div class="ticketCard-main">
