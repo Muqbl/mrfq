@@ -36,6 +36,7 @@ let maintenanceAssetId;
 let maintenancePartId;
 let maintenanceScheduleId;
 let maintenanceTeamOrderId;
+let employeeMaintenanceTicketId;
 
 /* ── cookie-aware fetch helper ─────────────────────────────────── */
 function client() {
@@ -445,6 +446,64 @@ test('maintenance: create roles and role-scoped bootstraps work', async () => {
   }
 });
 
+test('employee request channels can be controlled only by system admin', async () => {
+  const admin = await login('admin', PASSWORDS.admin);
+  const fm = await login('fm', PASSWORDS.fm);
+  const disabled = await admin('/api/settings', { method:'POST', body:JSON.stringify({ employee_maintenance_requests_enabled:0 }) });
+  assert.equal(disabled.status, 200);
+  assert.equal(disabled.body.settings.employeeMaintenanceRequestsEnabled, false);
+  const forbidden = await fm('/api/settings', { method:'POST', body:JSON.stringify({ employee_maintenance_requests_enabled:1 }) });
+  assert.equal(forbidden.status, 403);
+});
+
+test('employee creates a maintenance request from the unified order endpoint', async () => {
+  const employee = await login('employee1', PASSWORDS.worker);
+  const boot = await employee('/api/bootstrap');
+  const locationId = boot.body.locations[0].id;
+  const disabled = await employee('/api/order', { method:'POST', body:JSON.stringify({
+    serviceType:'maintenance', locationId, category:'hvac', description:'المكيف لا يعمل'
+  }) });
+  assert.equal(disabled.status, 403);
+  assert.equal(disabled.body.error, 'SERVICE_DISABLED');
+
+  const admin = await login('admin', PASSWORDS.admin);
+  const enabled = await admin('/api/settings', { method:'POST', body:JSON.stringify({ employee_maintenance_requests_enabled:1 }) });
+  assert.equal(enabled.status, 200);
+  const created = await employee('/api/order', { method:'POST', body:JSON.stringify({
+    serviceType:'maintenance', locationId, category:'hvac', description:'المكيف لا يعمل',
+    assignedTo:'u-w3', technicianIds:['u-w3'], assetId:'forbidden-asset'
+  }) });
+  assert.equal(created.status, 200);
+  assert.equal(created.body.ticket.module, 'maintenance');
+  assert.equal(created.body.ticket.status, 'submitted');
+  assert.equal(created.body.ticket.assignedTo, null);
+  assert.match(created.body.ticket.referenceNo, /^MNT-/);
+  employeeMaintenanceTicketId = created.body.ticket.id;
+
+  const employeeAfter = await employee('/api/bootstrap');
+  assert.ok(employeeAfter.body.tickets.some(t=>t.id===employeeMaintenanceTicketId));
+  const maintSupervisor = await login('maint-supervisor', PASSWORDS.worker);
+  const maintBoot = await maintSupervisor('/api/bootstrap');
+  assert.ok(maintBoot.body.tickets.some(t=>t.id===employeeMaintenanceTicketId));
+  const cleaningSupervisor = await login('supervisor1', PASSWORDS.supervisor);
+  const cleaningBoot = await cleaningSupervisor('/api/bootstrap');
+  assert.ok(!cleaningBoot.body.tickets.some(t=>t.id===employeeMaintenanceTicketId));
+});
+
+test('disabled cleaning request channel rejects new employee cleaning orders', async () => {
+  const admin = await login('admin', PASSWORDS.admin);
+  const employee = await login('employee1', PASSWORDS.worker);
+  const boot = await employee('/api/bootstrap');
+  await admin('/api/settings', { method:'POST', body:JSON.stringify({ employee_cleaning_requests_enabled:0 }) });
+  const rejected = await employee('/api/order', { method:'POST', body:JSON.stringify({
+    serviceType:'cleaning', locationId:boot.body.locations[0].id, category:'general'
+  }) });
+  assert.equal(rejected.status, 403);
+  assert.equal(rejected.body.error, 'SERVICE_DISABLED');
+  const restored = await admin('/api/settings', { method:'POST', body:JSON.stringify({ employee_cleaning_requests_enabled:1 }) });
+  assert.equal(restored.status, 200);
+});
+
 test('maintenance: worker can progress only own assigned ticket', async () => {
   const manager = await login('maint-manager', PASSWORDS.worker);
   const boot = await manager('/api/bootstrap');
@@ -511,6 +570,8 @@ test('maintenance operations: technician workflow, parts and diagnostic close', 
   }
   const used=await worker(`/api/maintenance-tickets/${maintenanceTeamOrderId}/parts`,{method:'POST',body:JSON.stringify({partId:maintenancePartId,quantity:2})});
   assert.equal(used.status,200);assert.equal(used.body.parts.find(p=>p.id===maintenancePartId).quantity,8);
-  const close=await worker('/api/maintenance-tickets/complete',{method:'POST',body:JSON.stringify({id:maintenanceTeamOrderId,diagnosis:'انسداد الفلتر',rootCause:'تراكم الغبار',downtimeMins:45,laborCost:120,vendorName:'مورد تجريبي',notes:'تم الإصلاح'})});
+  const close=await worker('/api/maintenance-tickets/complete',{method:'POST',body:JSON.stringify({id:maintenanceTeamOrderId,diagnosis:'انسداد الفلتر',rootCause:'تراكم الغبار',downtimeMins:45,laborCost:120,vendorName:'مورد تجريبي',notes:'تم الإصلاح',beforePhotos:[TINY_PNG],afterPhotos:[TINY_PNG]})});
   assert.equal(close.status,200);assert.equal(close.body.ticket.status,'waiting_verification');assert.equal(close.body.ticket.diagnosis,'انسداد الفلتر');
+  const after=await worker('/api/bootstrap');const closed=after.body.tickets.find(t=>t.id===maintenanceTeamOrderId);
+  assert.equal(closed.beforePhotos.length,1);assert.equal(closed.afterPhotos.length,1);
 });

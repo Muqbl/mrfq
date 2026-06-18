@@ -522,6 +522,8 @@ let cameraMode = 'general'; // 'before' | 'after' | 'general'
 let editUserId = null, currentTicketId = null;
 let resetPasswordUserId = null;
 let reportFilter = 'all';
+let employeeServiceType = 'cleaning';
+let employeeHistoryFilter = 'all';
 let usersSearch = '', usersRoleFilter = 'all', usersStatusFilter = 'all';
 let locsFloorFilter = 'all';
 let assignFloorFilter = 'all';
@@ -1950,6 +1952,16 @@ function adminDashboard(){
 
 /* ── modules overview page ─────────────────────────────────── */
 function adminModules(){
+  const s=data.settings||{};
+  const requestControls=me.role==='system_admin'?`
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-head"><span class="card-title">${ic('lock',16)} ${lang==='ar'?'قنوات طلبات الموظفين':'Employee Request Channels'}</span></div>
+    <p style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:12px">${lang==='ar'?'يمكن إيقاف استقبال الطلبات الجديدة لكل خدمة دون تعطيل عمليات القسم الحالية.':'Stop new employee requests for either service without disabling its existing operations.'}</p>
+    <div class="perfStatGrid">
+      ${employeeRequestChannelRow('cleaning',s.employeeCleaningRequestsEnabled!==false)}
+      ${employeeRequestChannelRow('maintenance',s.employeeMaintenanceRequestsEnabled!==false)}
+    </div>
+  </div>`:'';
   return `
 <div class="pageHeader">
   <div class="pageHeader-left">
@@ -1957,9 +1969,27 @@ function adminModules(){
     <div class="pageSub">${num(MODULES.filter(m=>m.status==='active').length)}/${num(MODULES.length)} ${tr('moduleStatusActive')}</div>
   </div>
 </div>
+${requestControls}
 <div class="moduleGrid">
   ${MODULES.map(m=>moduleCard(m)).join('')}
 </div>`;
+}
+
+function employeeRequestChannelRow(service,enabled){
+  const label=service==='maintenance'?(lang==='ar'?'طلبات الصيانة':'Maintenance Requests'):(lang==='ar'?'طلبات النظافة':'Cleaning Requests');
+  return `<div class="perfStatRow"><span class="perfStatLabel">${ic(service==='maintenance'?'tool':'reports',15)} ${label}</span>
+    <div style="display:flex;align-items:center;gap:8px"><span class="badge ${enabled?'ok':'bad'}">${enabled?(lang==='ar'?'يستقبل الطلبات':'Accepting'):(lang==='ar'?'مغلق':'Closed')}</span>
+    <button class="btn ${enabled?'danger':'secondary'} sm" onclick="setEmployeeRequestChannel('${service}',${!enabled})">${enabled?(lang==='ar'?'إيقاف':'Disable'):(lang==='ar'?'تشغيل':'Enable')}</button></div></div>`;
+}
+
+async function setEmployeeRequestChannel(service,enabled){
+  const key=service==='maintenance'?'employee_maintenance_requests_enabled':'employee_cleaning_requests_enabled';
+  try{
+    const res=await api('/settings',{method:'POST',body:JSON.stringify({[key]:enabled?1:0})});
+    if(res.settings)data.settings=res.settings;
+    render();
+    toast(enabled?(lang==='ar'?'تم فتح استقبال الطلبات':'Request channel enabled'):(lang==='ar'?'تم إغلاق استقبال الطلبات':'Request channel disabled'),'ok');
+  }catch(e){toast(e.message,'bad')}
 }
 
 function moduleCard(m){
@@ -4302,6 +4332,7 @@ ${latest.length?`
   <div class="wCard-list" style="gap:10px">
     ${latest.map(t=>{
       const stCls = t.status==='completed'?'ok':['reclean_required','rejected','cancelled'].includes(t.status)?'bad':t.status==='waiting_verification'?'warn':'brand';
+      const isMaintenance=t.module==='maintenance';
       return`<div class="ticketCard empOrderCard">
         <div class="ticketCard-top empOrderCard-head">
           <div class="ticketCard-main">
@@ -4311,6 +4342,7 @@ ${latest.length?`
           <span class="badge ${stCls}">${tr(t.status)||t.status}</span>
         </div>
         <div class="ticketCard-meta empOrderCard-meta"><span>${ic('locations',12)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</span><span>${fmt(t.createdAt)}</span></div>
+        <div class="ticketCard-badges"><span class="badge ${isMaintenance?'gold':'brand'}">${ic(isMaintenance?'tool':'reports',11)} ${isMaintenance?(lang==='ar'?'صيانة':'Maintenance'):(lang==='ar'?'نظافة':'Cleaning')}</span></div>
       </div>`;
     }).join('')}
   </div>
@@ -4330,11 +4362,27 @@ function employeeMore(){
 }
 
 function employeeSubmitForm(){
-  const CATS = ['general','spill','restroom','meeting_room','emergency'];
-  const CAT_ICONS = {general:'locations',spill:'alert-circle',restroom:'locations',meeting_room:'users',emergency:'bell'};
+  const settings=data.settings||{};
+  const cleaningEnabled=settings.employeeCleaningRequestsEnabled!==false;
+  const maintenanceEnabled=settings.employeeMaintenanceRequestsEnabled!==false;
+  if(!cleaningEnabled&&!maintenanceEnabled)return `<div class="wCard"><div class="empty-state"><div class="empty-icon">${ic('lock',32)}</div><div class="empty-title">${lang==='ar'?'استقبال الطلبات متوقف مؤقتاً':'Requests are temporarily closed'}</div><p class="empty-sub">${lang==='ar'?'يمكنك متابعة طلباتك السابقة من سجل طلباتي.':'You can still track previous requests in My Requests.'}</p></div></div>`;
+  if(employeeServiceType==='cleaning'&&!cleaningEnabled)employeeServiceType='maintenance';
+  if(employeeServiceType==='maintenance'&&!maintenanceEnabled)employeeServiceType='cleaning';
+  const isMaintenance=employeeServiceType==='maintenance';
+  const CATS = isMaintenance?['general','electrical','plumbing','hvac','civil']:['general','spill','restroom','meeting_room','emergency'];
+  const CAT_ICONS = {general:'locations',spill:'alert-circle',restroom:'locations',meeting_room:'users',emergency:'bell',electrical:'alert',plumbing:'locations',hvac:'sync',civil:'building'};
+  const catLabel=c=>isMaintenance?maintCatLabel(c):tr('cat_'+c);
   return`
 <div class="wCard wCard--compact">
-  <div class="wCard-title"><span class="wCard-number">1</span>${lang==='ar'?'حدد الموقع':'Select Location'}</div>
+  <div class="wCard-title"><span class="wCard-number">1</span>${lang==='ar'?'اختر نوع الخدمة':'Choose Service Type'}</div>
+  <div class="empCatGrid">
+    ${cleaningEnabled?`<button class="empCatBtn${!isMaintenance?' active':''}" onclick="employeeServiceType='cleaning';currentPhotos=[];renderEmployee()"><span class="empCatBtn-icon">${ic('reports',20)}</span><span>${lang==='ar'?'طلب نظافة':'Cleaning Request'}</span></button>`:''}
+    ${maintenanceEnabled?`<button class="empCatBtn${isMaintenance?' active':''}" onclick="employeeServiceType='maintenance';currentPhotos=[];renderEmployee()"><span class="empCatBtn-icon">${ic('tool',20)}</span><span>${lang==='ar'?'طلب صيانة':'Maintenance Request'}</span></button>`:''}
+  </div>
+</div>
+
+<div class="wCard wCard--compact">
+  <div class="wCard-title"><span class="wCard-number">2</span>${lang==='ar'?'حدد الموقع':'Select Location'}</div>
   <div class="field">
     <label>${lang==='ar'?'كود الموقع':'Location Code'}</label>
     <div class="locInput-row">
@@ -4352,19 +4400,19 @@ function employeeSubmitForm(){
 </div>
 
 <div class="wCard">
-  <div class="wCard-title"><span class="wCard-number">2</span>${tr('reqCategory')}</div>
+  <div class="wCard-title"><span class="wCard-number">3</span>${tr('reqCategory')}</div>
   <div class="empCatGrid">
     ${CATS.map(c=>`
       <button class="empCatBtn" data-cat="${c}" onclick="document.querySelectorAll('.empCatBtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.getElementById('empCatVal').value='${c}'">
         <span class="empCatBtn-icon">${ic(CAT_ICONS[c]||'locations',20)}</span>
-        <span>${tr('cat_'+c)}</span>
+        <span>${catLabel(c)}</span>
       </button>`).join('')}
   </div>
   <input type="hidden" id="empCatVal" value="general">
 </div>
 
 <div class="wCard">
-  <div class="wCard-title"><span class="wCard-number">3</span>${lang==='ar'?'تفاصيل الطلب':'Request Details'}</div>
+  <div class="wCard-title"><span class="wCard-number">4</span>${lang==='ar'?'تفاصيل الطلب':'Request Details'}</div>
   <div class="field">
     <label>${tr('description')} <span style="color:var(--muted);font-weight:400">(${lang==='ar'?'اختياري':'optional'})</span></label>
     ${ta('empDesc','',{rows:3, placeholder:lang==='ar'?'صف المشكلة بالتفصيل...':'Describe the issue in detail...'})}
@@ -4389,16 +4437,21 @@ function employeeHistory(orders){
 <div class="wCard"><div class="empty-state">
   <div class="empty-icon">${ic('clipboardList',36)}</div>
   <div class="empty-title">${lang==='ar'?'لا توجد طلبات بعد':'No requests yet'}</div>
-  <p class="empty-sub">${lang==='ar'?'قدّم أول طلب تنظيف من التبويب الأول':'Submit your first cleaning request from the first tab'}</p>
+  <p class="empty-sub">${lang==='ar'?'قدّم أول طلب خدمة من تبويب طلب جديد':'Submit your first service request from the New tab'}</p>
 </div></div>`;
 
+  const filtered=employeeHistoryFilter==='all'?orders:orders.filter(t=>t.module===employeeHistoryFilter);
   return`
 <div class="wCard">
   <div class="wCard-title">${ic('clipboardList',16)} ${tr('myRequests')} (${orders.length})</div>
+  <div class="fieldTabs" role="tablist" style="margin-bottom:14px">
+    ${[['all',lang==='ar'?'الكل':'All'],['cleaning',lang==='ar'?'النظافة':'Cleaning'],['maintenance',lang==='ar'?'الصيانة':'Maintenance']].map(([v,l])=>`<button class="fieldTab${employeeHistoryFilter===v?' active':''}" onclick="employeeHistoryFilter='${v}';renderEmployee()"><span class="fieldTab-main"><span class="fieldTab-label">${l}</span></span></button>`).join('')}
+  </div>
   <div class="wCard-list" style="gap:10px">
-    ${orders.map(t=>{
+    ${filtered.length?filtered.map(t=>{
       const stCls = t.status==='completed'?'ok':['reclean_required','rejected','cancelled'].includes(t.status)?'bad':t.status==='waiting_verification'?'warn':'brand';
-      const catLabel = tr('cat_'+(t.category||'general'));
+      const isMaintenance=t.module==='maintenance';
+      const catLabel = isMaintenance?maintCatLabel(t.category||'general'):tr('cat_'+(t.category||'general'));
       return`<div class="ticketCard empOrderCard">
         <div class="ticketCard-top empOrderCard-head">
           <div class="ticketCard-main">
@@ -4412,11 +4465,12 @@ function employeeHistory(orders){
           <span>${fmt(t.createdAt)}</span>
         </div>
         <div class="ticketCard-badges">
+          <span class="badge ${isMaintenance?'gold':'brand'}">${ic(isMaintenance?'tool':'reports',11)} ${isMaintenance?(lang==='ar'?'صيانة':'Maintenance'):(lang==='ar'?'نظافة':'Cleaning')}</span>
           <span class="badge">${catLabel}</span>
         </div>
         ${t.assignedToName?`<div class="empOrderCard-assigned">${ic('users',11)} ${lang==='ar'?'تم التعيين لـ:':'Assigned to:'} ${esc(t.assignedToName)}</div>`:`<div class="empOrderCard-queue">${lang==='ar'?'في قائمة انتظار المشرف':'In supervisor queue'}</div>`}
       </div>`;
-    }).join('')}
+    }).join(''):`<div class="empty-state"><div class="empty-icon">${ic('filter',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد طلبات في هذا القسم':'No requests in this category'}</div></div>`}
   </div>
 </div>`;
 }
@@ -4426,6 +4480,7 @@ async function submitEmployeeOrder(){
   const rawLoc = locInput?.value || '';
   const locId = parseLoc(rawLoc);
   const category = document.getElementById('empCatVal')?.value || 'general';
+  const serviceType = employeeServiceType==='maintenance'?'maintenance':'cleaning';
   const desc = document.getElementById('empDesc')?.value.trim() || '';
   if(!locId) return invalidLocationToast(rawLoc);
   if(locInput) locInput.value = locId;
@@ -4436,7 +4491,7 @@ async function submitEmployeeOrder(){
   const photo = currentPhotos[0] || null;
   try{
     const res = await api('/order',{method:'POST',body:JSON.stringify({
-      locationId:locId, category, description:desc,
+      locationId:locId, category, description:desc, serviceType,
       photo: photo || undefined
     })});
     currentPhotos = [];
@@ -4448,14 +4503,14 @@ async function submitEmployeeOrder(){
         <div style="width:72px;height:72px;border-radius:50%;background:var(--ok-bg);margin:0 auto 16px;display:grid;place-items:center;color:var(--ok)">${ic('check',32)}</div>
         <div style="font-family:var(--font-head);font-size:var(--fs-xl);font-weight:800;color:var(--ink)">${tr('requestSubmitted')}</div>
         ${res.ticket.referenceNo?`<div style="font-family:ui-monospace,monospace;font-size:var(--fs-sm);color:var(--brand-mid);margin-top:8px">${esc(res.ticket.referenceNo)}</div>`:''}
-        <p style="color:var(--muted);margin-top:8px;font-size:var(--fs-sm)">${res.autoAssigned?(lang==='ar'?'تم التعيين التلقائي لعامل النظافة':'Auto-assigned to a cleaning worker'):(lang==='ar'?'تم إرسال الطلب للمشرف':'Sent to supervisor queue')}</p>
+        <p style="color:var(--muted);margin-top:8px;font-size:var(--fs-sm)">${res.autoAssigned?(lang==='ar'?'تم التعيين التلقائي لعامل النظافة':'Auto-assigned to a cleaning worker'):(serviceType==='maintenance'?(lang==='ar'?'تم إرسال الطلب إلى مشرف الصيانة':'Sent to maintenance supervisor'):(lang==='ar'?'تم إرسال الطلب لمشرف النظافة':'Sent to cleaning supervisor'))}</p>
         <button class="btn wide" style="margin-top:20px" onclick="employeeView='new';mobileNavActive='employee-new';renderEmployee()">${lang==='ar'?'طلب جديد':'New Request'}</button>
         <button class="btn secondary wide" style="margin-top:10px" onclick="employeeView='history';mobileNavActive='employee-history';load().then(renderEmployee)">${tr('myRequests')}</button>
       </div>`;
       setTopbarBackButton(true, "employeeView='new';mobileNavActive='employee-new';renderEmployee()");
   }catch(e){
     if(btn){btn.disabled=false;btn.innerHTML=`${ic('send',18)} ${tr('submitRequest')}`}
-    toast(lang==='ar'?'حدث خطأ، حاول مرة أخرى':'Error, please try again','bad');
+    toast(e.message==='SERVICE_DISABLED'?(lang==='ar'?'استقبال هذا النوع من الطلبات متوقف حالياً':'This request channel is currently closed'):(lang==='ar'?'حدث خطأ، حاول مرة أخرى':'Error, please try again'),'bad');
   }
 }
 
@@ -5291,8 +5346,18 @@ function showMaintenanceUsePart(orderId){
 async function saveMaintenanceUsePart(orderId){try{await api(`/maintenance-tickets/${orderId}/parts`,{method:'POST',body:JSON.stringify({partId:document.getElementById('muse-part').value,quantity:Number(document.getElementById('muse-qty').value)})});document.getElementById('maintenanceUsePartModal')?.remove();toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}}
 
 async function maintWorkerStatus(id,status){try{await api(`/maintenance-tickets/${id}`,{method:'PUT',body:JSON.stringify({status})});toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}}
-function showMaintenanceCloseForm(id){const body=`${fc(lang==='ar'?'التشخيص':'Diagnosis',ta('mclose-diagnosis','',{rows:3}))}${fc(lang==='ar'?'السبب الجذري':'Root Cause',ta('mclose-root','',{rows:3}))}<div class="formGrid">${fc(lang==='ar'?'وقت التوقف بالدقائق':'Downtime Minutes',inp('mclose-down',{type:'number',value:0}))}${fc(lang==='ar'?'تكلفة العمل':'Labor Cost',inp('mclose-cost',{type:'number',value:0}))}${fc(lang==='ar'?'المورد':'Vendor',inp('mclose-vendor'))}</div>${fc(tr('notes'),ta('mclose-notes','',{rows:2}))}`;showModal('maintenanceCloseModal',lang==='ar'?'طلب إغلاق أمر العمل':'Request Work Order Closure',body,`<button class="btn ok" onclick="submitMaintenanceClose('${id}')">${tr('submit')}</button><button class="btn secondary" onclick="document.getElementById('maintenanceCloseModal').remove()">${tr('cancel')}</button>`,{wide:true})}
-async function submitMaintenanceClose(id){try{await api('/maintenance-tickets/complete',{method:'POST',body:JSON.stringify({id,diagnosis:document.getElementById('mclose-diagnosis').value,rootCause:document.getElementById('mclose-root').value,downtimeMins:Number(document.getElementById('mclose-down').value),laborCost:Number(document.getElementById('mclose-cost').value),vendorName:document.getElementById('mclose-vendor').value,notes:document.getElementById('mclose-notes').value})});document.getElementById('maintenanceCloseModal')?.remove();toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}}
+function showMaintenanceCloseForm(id){
+  currentBeforePhotos=[];currentAfterPhotos=[];
+  const body=`${fc(lang==='ar'?'التشخيص':'Diagnosis',ta('mclose-diagnosis','',{rows:3}))}${fc(lang==='ar'?'السبب الجذري':'Root Cause',ta('mclose-root','',{rows:3}))}
+    <div class="formGrid">${fc(lang==='ar'?'وقت التوقف بالدقائق':'Downtime Minutes',inp('mclose-down',{type:'number',value:0}))}${fc(lang==='ar'?'تكلفة العمل':'Labor Cost',inp('mclose-cost',{type:'number',value:0}))}${fc(lang==='ar'?'المورد':'Vendor',inp('mclose-vendor'))}</div>
+    ${fc(tr('notes'),ta('mclose-notes','',{rows:2}))}
+    <div class="formGrid">
+      <div class="field"><label>${tr('beforePhotos')} <span style="color:var(--muted);font-weight:400">(${lang==='ar'?'اختياري':'optional'})</span></label><button class="cameraBtn" onclick="openCamera('before')">${ic('camera',20)}<span>${tr('addPhoto')} — ${tr('beforePhotos')}</span></button><div id="beforePreviews" class="photoGrid" style="margin-top:10px"></div></div>
+      <div class="field"><label>${tr('afterPhotos')} <span style="color:var(--muted);font-weight:400">(${lang==='ar'?'اختياري':'optional'})</span></label><button class="cameraBtn" onclick="openCamera('after')">${ic('camera',20)}<span>${tr('addPhoto')} — ${tr('afterPhotos')}</span></button><div id="afterPreviews" class="photoGrid" style="margin-top:10px"></div></div>
+    </div>`;
+  showModal('maintenanceCloseModal',lang==='ar'?'طلب إغلاق أمر العمل':'Request Work Order Closure',body,`<button class="btn ok" onclick="submitMaintenanceClose('${id}')">${tr('submit')}</button><button class="btn secondary" onclick="document.getElementById('maintenanceCloseModal').remove();currentBeforePhotos=[];currentAfterPhotos=[]">${tr('cancel')}</button>`,{wide:true});
+}
+async function submitMaintenanceClose(id){try{await api('/maintenance-tickets/complete',{method:'POST',body:JSON.stringify({id,diagnosis:document.getElementById('mclose-diagnosis').value,rootCause:document.getElementById('mclose-root').value,downtimeMins:Number(document.getElementById('mclose-down').value),laborCost:Number(document.getElementById('mclose-cost').value),vendorName:document.getElementById('mclose-vendor').value,notes:document.getElementById('mclose-notes').value,beforePhotos:currentBeforePhotos,afterPhotos:currentAfterPhotos})});document.getElementById('maintenanceCloseModal')?.remove();currentBeforePhotos=[];currentAfterPhotos=[];toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}}
 
 /* ── maintenance actions ──────────────────────────────────────── */
 async function maintUpdateTicket(id, update, renderFn){
