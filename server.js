@@ -396,6 +396,7 @@ const publicUser = u => {
     roles:               u._roles || [u.role],
     active:              u.active === 1 || u.active === true,
     employeeNo:          u.employee_no || '',
+    defaultLocationId:   u.default_location_id || '',
     forcePasswordChange: u.force_password_change === 1 || u.force_password_change === true,
     lastPasswordChange:  u.last_password_change || ''
   };
@@ -1477,6 +1478,7 @@ const server = http.createServer(async (req, res) => {
         if (b.username)   { sets.push('username = ?');    vals.push(sanitizeUsername(b.username)); }
         if (b.role)       { sets.push('role = ?');        vals.push(sanitize(b.role, 50)); }
         if (b.employeeNo !== undefined) { sets.push('employee_no = ?'); vals.push(sanitize(b.employeeNo, 50)); }
+        if (b.defaultLocationId !== undefined) { sets.push('default_location_id = ?'); vals.push(sanitize(b.defaultLocationId, 80)); }
         if (b.password) {
           const pwd = sanitize(b.password, 200);
           if (pwd.length < 8) return send(res, 400, { error: 'WEAK_PASSWORD' });

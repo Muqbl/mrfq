@@ -3730,13 +3730,17 @@ function showUserFormModal(id){
   const u = id?(data.users||[]).find(x=>x.id===id):null;
   editUserId = id||null;
   const titleHtml = `<div>${u?`${ic('edit',16)} ${tr('edit')}`:ic('plus',16)+' '+tr('addUser')}${['cleaning_manager','maintenance_manager'].includes(me.role)?`<div class="modal-subtitle">${lang==='ar'?'تدير العمال والمشرفين':'Manages workers & supervisors'}</div>`:''}</div>`;
+  const isEmployee = u?.role==='employee';
+  const locOptions = [{v:'',l:lang==='ar'?'— بدون —':'— None —',sel:!u?.defaultLocationId},
+    ...(data.locations||[]).map(l=>({v:l.id,l:`${esc(lang==='ar'?l.nameAr:l.nameEn)} (${l.id})`,sel:u?.defaultLocationId===l.id}))];
   const body=`
   <div class="formGrid">
     ${fc(tr('name'),    inp('un',{value:u?.name||''}))}
     ${fc(tr('username'),inp('uu',{value:u?.username||'', cls:'ltr'}))}
     ${fc(tr('password'),inp('up',{type:'password', placeholder:'••••••••', cls:'ltr'}))}
-    ${fc(tr('role'),    sel('ur', editableRoles.map(r=>({v:r,l:tr(r),sel:u?.role===r}))))}
+    ${fc(tr('role'),    sel('ur', editableRoles.map(r=>({v:r,l:tr(r),sel:u?.role===r})), {onchange:"document.getElementById('uDefaultLocRow').style.display=this.value==='employee'?'':'none'"}))}
     ${fc(tr('employeeNo'),inp('ue',{value:u?.employeeNo||'', cls:'ltr'}))}
+    <div id="uDefaultLocRow" style="display:${isEmployee?'':'none'};grid-column:1/-1">${fc(lang==='ar'?'موقع المكتب (الضيافة)':'Office Location (Hospitality)',sel('uDefaultLoc',locOptions))}</div>
     ${fc(tr('status'),  sel('ua',[{v:'true',l:tr('activeUser'),sel:u?.active},{v:'false',l:tr('inactive'),sel:u&&!u.active}]))}
   </div>`;
   const foot=`<button class="btn" onclick="saveUser()">${ic('check',16)} ${tr('save')}</button>
@@ -3764,6 +3768,7 @@ async function saveUser(){
     password:document.getElementById('up').value,
     role:document.getElementById('ur').value,
     employeeNo:document.getElementById('ue').value.trim(),
+    defaultLocationId:document.getElementById('uDefaultLoc')?.value||'',
     active:document.getElementById('ua').value==='true'
   };
   if(editUserId) await api('/users/'+editUserId,{method:'PUT',body:JSON.stringify(payload)});
@@ -4655,7 +4660,7 @@ function employeeHospForm(){
   const kitchens=empHospKitchens||[];
   const menuItems=empHospCatFilter?allItems.filter(i=>i.categoryId===empHospCatFilter):allItems;
   const cartTotal=Object.values(empHospCart).reduce((s,v)=>s+v,0);
-  if(!empHospLocId) empHospLocId=localStorage.getItem('mrfq_hosp_loc')||'';
+  if(!empHospLocId) empHospLocId=localStorage.getItem('mrfq_hosp_loc')||me.defaultLocationId||'';
   const locName=(data.locations||[]).find(l=>l.id===empHospLocId);
 
   return`
@@ -4670,7 +4675,7 @@ function employeeHospForm(){
     <label>${lang==='ar'?'كود الموقع':'Location Code'}</label>
     <div class="locInput-row">
       <button class="locInput-scan" onclick="openQRScanner()" title="${tr('scanQR')}">${ic('qr',18)}</button>
-      <div class="locInput-field">${inp('empHospLocInput',{cls:'ltr',placeholder:'wc-gf-a',value:empHospLocId||localStorage.getItem('mrfq_hosp_loc')||''})}</div>
+      <div class="locInput-field">${inp('empHospLocInput',{cls:'ltr',placeholder:'wc-gf-a',value:empHospLocId||localStorage.getItem('mrfq_hosp_loc')||me.defaultLocationId||''})}</div>
     </div>
   </div>
   <div id="empHospLocName" style="font-size:var(--fs-xs);color:var(--brand-mid);min-height:18px;margin-top:4px">${locName?(lang==='ar'?locName.nameAr:locName.nameEn):''}</div>

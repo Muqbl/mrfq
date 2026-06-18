@@ -607,6 +607,12 @@ const MIGRATIONS = {
       ('cat-snacks',      'وجبات خفيفة',   'Snacks',      'snacks',      1, 3,  '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
       ('cat-other',       'أخرى',          'Other',       'other',       1, 99, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
   `
+,
+
+  /* ── v16: employee default location ───────────────────────── */
+  16: `
+    ALTER TABLE users ADD COLUMN default_location_id TEXT NOT NULL DEFAULT '';
+  `
 };
 
 module.exports = { getDb };
