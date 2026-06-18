@@ -555,19 +555,27 @@ let adminModuleContext = null; // null | 'cleaning'
 let perfData = null; // cached performance data
 let workspaceSelected = false; // true after user picks workspace this session
 
-/* ─── PLATFORM MODULES (system admin "Modules" overview) ───────── */
-const MODULES = [
+/* ─── PLATFORM MODULE REGISTRY ──────────────────────────────────
+   Add future modules here once. Dashboards, module cards, worker
+   performance, and module entry all consume this registry. */
+const MODULE_REGISTRY = [
   {key:'cleaning', icon:'reports', status:'active',
     nameAr:'النظافة', nameEn:'Cleaning',
     descAr:'إدارة بلاغات النظافة والعمال والتقارير ومؤشرات الأداء',
-    descEn:'Manage cleaning tickets, workers, reports and performance'},
+    descEn:'Manage cleaning tickets, workers, reports and performance',
+    operations:{itemSource:'tickets',moduleValue:'cleaning',reportModule:'cleaning',workerRole:'cleaner'},
+    open(){adminModuleContext='cleaning';view='dashboard';}},
   {key:'maintenance', icon:'tool', status:'active',
     nameAr:'الصيانة', nameEn:'Maintenance',
-    descAr:'صيانة المرافق والأجهزة', descEn:'Facilities and equipment maintenance'},
+    descAr:'صيانة المرافق والأجهزة', descEn:'Facilities and equipment maintenance',
+    operations:{itemSource:'tickets',moduleValue:'maintenance',reportModule:'maintenance',workerRole:'maintenance_worker'},
+    open(){adminModuleContext='maintenance';view='dashboard';mobileNavActive='dashboard';}},
   {key:'hospitality', icon:'coffee', status:'active',
     nameAr:'الضيافة', nameEn:'Hospitality',
     descAr:'طلب ضيافة عام من قائمة المشروبات والوجبات مع توجيه تلقائي للمطبخ المسؤول ولوحات المشرف والمدير',
-    descEn:'Public coffee/snack menu ordering with kitchen-based direct assignment, plus supervisor and manager dashboards'},
+    descEn:'Public coffee/snack menu ordering with kitchen-based direct assignment, plus supervisor and manager dashboards',
+    operations:{itemSource:'hospitalityOrders',workerRole:'hospitality_worker'},
+    open(){adminModuleContext='hospitality';hospManagerView='dashboard';mobileNavActive='hospmgr-dashboard';}},
   {key:'security', icon:'shield', status:'planned',
     nameAr:'الأمن', nameEn:'Security',
     descAr:'إدارة الأمن والمراقبة', descEn:'Security and surveillance management'},
@@ -578,6 +586,8 @@ const MODULES = [
     nameAr:'خدمة الزوار', nameEn:'Visitor Services',
     descAr:'طلبات وملاحظات المستخدمين', descEn:'User requests and feedback'}
 ];
+const MODULES = MODULE_REGISTRY; // backwards-compatible alias for existing module cards
+function moduleDefinition(key){return MODULE_REGISTRY.find(module=>module.key===key)}
 
 /* ─── HOSPITALITY MODULE — order types & status labels ─────────── */
 
@@ -1876,26 +1886,10 @@ function showFmNavMore(){
 
 /* ── module entry / exit ───────────────────────────────────── */
 function enterModule(key){
-  if(key==='cleaning'){
-    adminModuleContext = 'cleaning';
-    view = 'dashboard';
-    render();
-    return;
-  }
-  if(key==='hospitality'){
-    adminModuleContext = 'hospitality';
-    hospManagerView = 'dashboard';
-    mobileNavActive = 'hospmgr-dashboard';
-    render();
-    return;
-  }
-  if(key==='maintenance'){
-    adminModuleContext = 'maintenance';
-    view = 'dashboard';
-    mobileNavActive = 'dashboard';
-    render();
-    return;
-  }
+  const module=moduleDefinition(key);
+  if(!module||module.status!=='active'||typeof module.open!=='function')return;
+  module.open();
+  render();
 }
 function exitModule(){
   adminModuleContext = null;
@@ -2127,8 +2121,22 @@ function operationsWithinPeriod(items){
   const since=Date.now()-operationsDays*86400000;
   return (items||[]).filter(x=>!x.createdAt||new Date(x.createdAt).getTime()>=since);
 }
-function operationsModuleCard(module,label,icon,items,reports=[]){
-  const terminal=module==='hospitality'?['completed','cancelled','rejected']:['completed','cancelled','rejected'];
+function moduleOperationalItems(module,withinPeriod=true){
+  const operations=module.operations;if(!operations)return[];
+  const source=data[operations.itemSource]||[];
+  const scoped=operations.itemSource==='tickets'?source.filter(item=>(item.module||'cleaning')===operations.moduleValue):source;
+  return withinPeriod?operationsWithinPeriod(scoped):scoped;
+}
+function moduleOperationalReports(module,withinPeriod=true){
+  if(!module.operations?.reportModule)return[];
+  const scoped=(data.reports||[]).filter(report=>(report.module||'cleaning')===module.operations.reportModule);
+  return withinPeriod?operationsWithinPeriod(scoped):scoped;
+}
+function moduleWorkerItems(module,workerId){
+  return moduleOperationalItems(module,false).filter(item=>item.assignedTo===workerId||(module.key==='maintenance'&&maintenanceAssignees(item.id).some(a=>a.technicianId===workerId)));
+}
+function operationsModuleCard(module,items,reports=[]){
+  const terminal=['completed','cancelled','rejected'];
   const open=items.filter(x=>!terminal.includes(x.status)).length;
   const completed=items.filter(x=>x.status==='completed').length;
   const breached=items.filter(x=>x.slaBreached||x.overdue).length;
@@ -2136,63 +2144,52 @@ function operationsModuleCard(module,label,icon,items,reports=[]){
   const total=Math.max(1,items.length);
   const sla=Math.max(0,Math.round((1-breached/total)*100));
   return `<article class="opsModuleCard">
-    <div class="opsModuleCard-head"><span class="opsModuleCard-icon">${ic(icon,20)}</span><div><b>${label}</b><small>${items.length} ${lang==='ar'?'عملية خلال الفترة':'operations in period'}</small></div></div>
+    <div class="opsModuleCard-head"><span class="opsModuleCard-icon">${ic(module.icon,20)}</span><div><b>${esc(lang==='ar'?module.nameAr:module.nameEn)}</b><small>${items.length} ${lang==='ar'?'عملية خلال الفترة':'operations in period'}</small></div></div>
     <div class="opsModuleMetrics">
       <div><strong>${open}</strong><span>${lang==='ar'?'مفتوحة':'Open'}</span></div>
       <div><strong>${completed}</strong><span>${lang==='ar'?'مكتملة':'Completed'}</span></div>
       <div><strong>${pending}</strong><span>${lang==='ar'?'للمراجعة':'To review'}</span></div>
       <div><strong>${sla}%</strong><span>SLA</span></div>
     </div>
-    <button class="btn secondary sm wide" onclick="enterModule('${module}')">${lang==='ar'?'فتح الوحدة':'Open module'}</button>
+    <button class="btn secondary sm wide" onclick="enterModule('${module.key}')">${lang==='ar'?'فتح الوحدة':'Open module'}</button>
   </article>`;
 }
-function operationsWorkerRows(module,role,label){
-  const users=(data.users||[]).filter(u=>(u.roles||[u.role]).includes(role));
-  const tickets=(data.tickets||[]).filter(t=>t.module===module);
-  const reports=(data.reports||[]).filter(r=>r.module===module);
-  const orders=data.hospitalityOrders||[];
+function operationsWorkerRows(module){
+  const users=(data.users||[]).filter(u=>(u.roles||[u.role]).includes(module.operations.workerRole));
+  const reports=moduleOperationalReports(module,false);
+  const label=lang==='ar'?module.nameAr:module.nameEn;
   return users.map(w=>{
     const workerReports=reports.filter(r=>r.workerId===w.id);
-    const workerItems=module==='hospitality'?orders.filter(o=>o.assignedTo===w.id):tickets.filter(t=>t.assignedTo===w.id||maintenanceAssignees(t.id).some(a=>a.technicianId===w.id));
+    const workerItems=moduleWorkerItems(module,w.id);
     const completed=workerItems.filter(x=>x.status==='completed').length;
     const open=workerItems.filter(x=>!['completed','cancelled','rejected'].includes(x.status)).length;
     const ratingValues=workerReports.flatMap(r=>[r.ratingSupervisor,r.ratingManager]).map(Number).filter(Number.isFinite);
     const avgRating=ratingValues.length?ratingValues.reduce((s,x)=>s+x,0)/ratingValues.length:null;
-    return `<div class="opsWorkerRow"><div><b>${esc(w.name)}</b><small>${label} · ${completed} ${lang==='ar'?'مكتملة':'completed'} · ${open} ${lang==='ar'?'مفتوحة':'open'}</small></div><div class="opsWorkerRow-end">${avgRating!=null?`<span class="badge gold">${ic('star',11)} ${avgRating.toFixed(1)}</span>`:''}<button class="btn secondary sm" onclick="showOperationsWorkerProfile('${w.id}','${module}')">${lang==='ar'?'ملف الأداء':'Profile'}</button></div></div>`;
+    return `<div class="opsWorkerRow"><div><b>${esc(w.name)}</b><small>${esc(label)} · ${completed} ${lang==='ar'?'مكتملة':'completed'} · ${open} ${lang==='ar'?'مفتوحة':'open'}</small></div><div class="opsWorkerRow-end">${avgRating!=null?`<span class="badge gold">${ic('star',11)} ${avgRating.toFixed(1)}</span>`:''}<button class="btn secondary sm" onclick="showOperationsWorkerProfile('${w.id}','${module.key}')">${lang==='ar'?'ملف الأداء':'Profile'}</button></div></div>`;
   }).join('');
 }
 function operationsOverview(){
-  const tickets=operationsWithinPeriod(data.tickets||[]);
-  const reportsInPeriod=operationsWithinPeriod(data.reports||[]);
-  const hospitality=operationsWithinPeriod(data.hospitalityOrders||[]);
-  const cleaningTickets=tickets.filter(t=>t.module!=='maintenance');
-  const maintenanceTickets=tickets.filter(t=>t.module==='maintenance');
-  const cleaningReports=reportsInPeriod.filter(r=>r.module!=='maintenance');
-  const maintenanceReports=reportsInPeriod.filter(r=>r.module==='maintenance');
+  const operationalModules=MODULE_REGISTRY.filter(module=>module.status==='active'&&module.operations);
+  const tickets=operationsWithinPeriod(data.tickets||[]),hospitality=operationsWithinPeriod(data.hospitalityOrders||[]);
   const alerts=[
     ...tickets.filter(t=>t.slaBreached).map(t=>({label:t.title,sub:`${ticketStatusLabel(t)} · SLA`,module:t.module||'cleaning'})),
     ...(maintenanceData().parts||[]).filter(p=>p.lowStock).map(p=>({label:lang==='ar'?p.nameAr:p.nameEn||p.nameAr,sub:lang==='ar'?'مخزون منخفض':'Low stock',module:'maintenance'})),
     ...(maintenanceData().assets||[]).filter(a=>a.status==='down').map(a=>({label:lang==='ar'?a.nameAr:a.nameEn||a.nameAr,sub:lang==='ar'?'أصل متوقف':'Asset down',module:'maintenance'})),
     ...hospitality.filter(o=>o.slaBreached||o.overdue).map(o=>({label:o.referenceNo||tr('hospitalityOrder'),sub:lang==='ar'?'طلب ضيافة متأخر':'Overdue hospitality order',module:'hospitality'}))
   ];
-  return `<div class="pageHeader"><div><div class="pageTitle">${lang==='ar'?'مركز الأداء التشغيلي':'Operations Performance Center'}</div><div class="pageSub">${lang==='ar'?'مقارنة موحدة للنظافة والصيانة والضيافة':'Unified comparison for Cleaning, Maintenance, and Hospitality'}</div></div><div class="pageActions"><select class="ctrl" onchange="operationsDays=Number(this.value);render()"><option value="7" ${operationsDays===7?'selected':''}>7 ${lang==='ar'?'أيام':'days'}</option><option value="30" ${operationsDays===30?'selected':''}>30 ${lang==='ar'?'يوماً':'days'}</option><option value="90" ${operationsDays===90?'selected':''}>90 ${lang==='ar'?'يوماً':'days'}</option></select></div></div>
+  return `<div class="pageHeader"><div><div class="pageTitle">${lang==='ar'?'مركز الأداء التشغيلي':'Operations Performance Center'}</div><div class="pageSub">${lang==='ar'?'مقارنة موحدة للمودلات التشغيلية المسجلة':'Unified comparison for registered operational modules'}</div></div><div class="pageActions"><select class="ctrl" onchange="operationsDays=Number(this.value);render()"><option value="7" ${operationsDays===7?'selected':''}>7 ${lang==='ar'?'أيام':'days'}</option><option value="30" ${operationsDays===30?'selected':''}>30 ${lang==='ar'?'يوماً':'days'}</option><option value="90" ${operationsDays===90?'selected':''}>90 ${lang==='ar'?'يوماً':'days'}</option></select></div></div>
   <div class="opsModuleGrid">
-    ${operationsModuleCard('cleaning',tr('cleaningModuleLabel'),'reports',cleaningTickets,cleaningReports)}
-    ${operationsModuleCard('maintenance',tr('maintenanceModuleLabel'),'tool',maintenanceTickets,maintenanceReports)}
-    ${operationsModuleCard('hospitality',tr('hospitalityModuleLabel'),'coffee',hospitality,[])}
+    ${operationalModules.map(module=>operationsModuleCard(module,moduleOperationalItems(module),moduleOperationalReports(module))).join('')}
   </div>
   <div class="contentGrid opsOverviewGrid"><div class="card"><div class="card-head"><span class="card-title">${ic('users',16)} ${lang==='ar'?'أداء الفرق':'Team Performance'}</span></div><div class="opsWorkerList">
-    ${operationsWorkerRows('cleaning','cleaner',lang==='ar'?'النظافة':'Cleaning')}
-    ${operationsWorkerRows('maintenance','maintenance_worker',lang==='ar'?'الصيانة':'Maintenance')}
-    ${operationsWorkerRows('hospitality','hospitality_worker',lang==='ar'?'الضيافة':'Hospitality')}
+    ${operationalModules.map(operationsWorkerRows).join('')}
   </div></div><div class="card"><div class="card-head"><span class="card-title">${ic('bell',16)} ${lang==='ar'?'تنبيهات تشغيلية':'Operational Alerts'}</span><span class="badge ${alerts.length?'bad':'ok'}">${alerts.length}</span></div>${alerts.length?`<div class="opsAlertList">${alerts.slice(0,12).map(a=>`<button class="opsAlertRow" onclick="enterModule('${a.module}')"><span class="opsAlertDot"></span><span><b>${esc(a.label)}</b><small>${esc(a.sub)}</small></span></button>`).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد تنبيهات حرجة':'No critical alerts'}</div></div>`}</div></div>`;
 }
 function showOperationsWorkerProfile(workerId,module){
   const worker=(data.users||[]).find(u=>u.id===workerId);if(!worker)return;
-  const reports=(data.reports||[]).filter(r=>r.workerId===workerId&&r.module===module);
-  const tickets=(data.tickets||[]).filter(t=>t.module===module&&(t.assignedTo===workerId||maintenanceAssignees(t.id).some(a=>a.technicianId===workerId)));
-  const orders=(data.hospitalityOrders||[]).filter(o=>o.assignedTo===workerId);
-  const items=module==='hospitality'?orders:tickets;
+  const definition=moduleDefinition(module);if(!definition?.operations)return;
+  const reports=moduleOperationalReports(definition,false).filter(r=>r.workerId===workerId);
+  const items=moduleWorkerItems(definition,workerId);
   const completed=items.filter(x=>x.status==='completed').length,open=items.filter(x=>!['completed','cancelled','rejected'].includes(x.status)).length;
   const values=reports.flatMap(r=>[r.ratingSupervisor,r.ratingManager]).map(Number).filter(Number.isFinite);
   const rating=values.length?values.reduce((s,x)=>s+x,0)/values.length:null;
@@ -2515,6 +2512,11 @@ function taskDone(tasks,pair){return (tasks||[]).includes(pair[0])||(tasks||[]).
 
 function reports(){
   const maintenanceContext=isMaintenanceRole()||adminModuleContext==='maintenance'||(data.reports||[]).some(r=>r.module==='maintenance')&&!(data.reports||[]).some(r=>r.module==='cleaning');
+  const maintFilterKeys=['pending','approved','rejected','needs_recleaning','all'];
+  const cleaningFilterKeys=['new','pending','approved','rejected','needs_recleaning','all'];
+  // Reset filter if it belongs to the opposite context (e.g. 'new' chip doesn't exist in maintenance)
+  if(maintenanceContext && !maintFilterKeys.includes(reportFilter)) reportFilter='all';
+  if(!maintenanceContext && !cleaningFilterKeys.includes(reportFilter)) reportFilter='all';
   const filters = maintenanceContext?[
     {key:'pending',label:lang==='ar'?'بانتظار المراجعة':'Pending Review'},
     {key:'approved',label:tr('filterApproved')},
@@ -2529,7 +2531,9 @@ function reports(){
     {key:'needs_recleaning',label:tr('reclean')},
     {key:'all',label:tr('filterAll')},
   ];
+  const moduleFilter=maintenanceContext?'maintenance':'cleaning';
   const filtered = (data.reports||[]).filter(r=>{
+    if((r.module||'cleaning')!==moduleFilter) return false;
     if(reportFilter==='all') return true;
     if(reportFilter==='new' || reportFilter==='pending') {
       return (r.approvalStatus||'pending')==='pending_approval'||(r.approvalStatus||'pending')==='pending';
