@@ -5089,26 +5089,29 @@ function hospOrdersBoard(orders, workers){
   const delivered = orders.filter(o=>o.status==='delivered' && !overdueIds.has(o.id));
   const inProgress = orders.filter(o=>['accepted','preparing','ready','out_for_delivery'].includes(o.status) && o.assignedTo && !overdueIds.has(o.id));
 
+  const emptyCompact = (msg) => `<div style="padding:12px 0;color:var(--muted);font-size:var(--fs-sm);display:flex;align-items:center;gap:6px">${ic('check',14)} ${msg}</div>`;
+  const submittedCls = submitted.length && !unassigned.length ? 'wCard wCard--full' : 'wCard';
+  const unassignedCls = unassigned.length && !submitted.length ? 'wCard wCard--full' : 'wCard';
   return `<div class="supSectionsGrid">
     ${overdue.length?`<div class="wCard--full"><div class="wCard supervisorSlaCard">
       <div class="supervisorSlaHead"><div class="wCard-title supervisorSlaTitle">${ic('bell',16)} ${tr('overdueOrdersLabel')} ${countBubble(overdue.length,'bad')}</div></div>
       <div class="wCard-list supTicketList">${overdue.map(o=>hospOrderCard(o,'view',workers)).join('')}</div>
     </div></div>`:''}
-    <div class="wCard">
+    <div class="${submittedCls}">
       <div class="wCard-title">${ic('coffee',16)} ${tr('newOrders')} ${countBubble(submitted.length,'bad')}</div>
-      ${submitted.length?`<div class="wCard-list supTicketList">${submitted.map(o=>hospOrderCard(o,'new',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${tr('noNewOrders')}</div></div>`}
+      ${submitted.length?`<div class="wCard-list supTicketList">${submitted.map(o=>hospOrderCard(o,'new',workers)).join('')}</div>`:emptyCompact(tr('noNewOrders'))}
     </div>
-    <div class="wCard">
+    <div class="${unassignedCls}">
       <div class="wCard-title">${ic('users',16)} ${tr('assignToWorker')} ${countBubble(unassigned.length,'warn')}</div>
-      ${unassigned.length?`<div class="wCard-list supTicketList">${unassigned.map(o=>hospOrderCard(o,'assign',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${tr('noUnassignedOrders')}</div></div>`}
+      ${unassigned.length?`<div class="wCard-list supTicketList">${unassigned.map(o=>hospOrderCard(o,'assign',workers)).join('')}</div>`:emptyCompact(tr('noUnassignedOrders'))}
     </div>
-    <div class="wCard">
+    ${delivered.length?`<div class="wCard wCard--full">
       <div class="wCard-title">${ic('truck',16)} ${tr('deliveredOrdersLabel')} ${countBubble(delivered.length,'ok')}</div>
-      ${delivered.length?`<div class="wCard-list supTicketList">${delivered.map(o=>hospOrderCard(o,'complete',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${tr('noOrdersAtAll')}</div></div>`}
-    </div>
+      <div class="wCard-list supTicketList">${delivered.map(o=>hospOrderCard(o,'complete',workers)).join('')}</div>
+    </div>`:''}
     <div class="wCard wCard--full">
       <div class="wCard-title">${ic('sync',16)} ${tr('allOrdersLabel')} ${countBubble(inProgress.length)}</div>
-      ${inProgress.length?`<div class="wCard-list supTicketList">${inProgress.map(o=>hospOrderCard(o,'view',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('sync',24)}</div><div class="empty-title">${tr('noOrdersAtAll')}</div></div>`}
+      ${inProgress.length?`<div class="wCard-list supTicketList">${inProgress.map(o=>hospOrderCard(o,'view',workers)).join('')}</div>`:emptyCompact(tr('noOrdersAtAll'))}
     </div>
   </div>`;
 }
@@ -5703,11 +5706,11 @@ function maintenanceSupervisorDashboard(){
       </div>
     </div>
     <div class="supSectionsGrid">
-      <div class="wCard"><div class="wCard-title">${ic('bell',16)} ${lang==='ar'?'تحتاج متابعة':'Needs Attention'} ${countBubble(attention.length,'warn')}</div>
-        ${attention.length?`<div class="wCard-list">${maintenanceOrderMini(attention)}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد أوامر حرجة':'No critical orders'}</div></div>`}
+      <div class="wCard${attention.length&&!upcoming.length?' wCard--full':''}"><div class="wCard-title">${ic('bell',16)} ${lang==='ar'?'تحتاج متابعة':'Needs Attention'} ${countBubble(attention.length,'warn')}</div>
+        ${attention.length?`<div class="wCard-list">${maintenanceOrderMini(attention)}</div>`:`<div style="padding:10px 0;color:var(--muted);font-size:var(--fs-sm);display:flex;align-items:center;gap:6px">${ic('check',14)} ${lang==='ar'?'لا توجد أوامر حرجة':'No critical orders'}</div>`}
       </div>
-      <div class="wCard"><div class="wCard-title">${ic('clock',16)} ${tr('maintUpcoming')} ${countBubble(upcoming.length)}</div>
-        ${maintenanceScheduleMini(upcoming.slice(0,5))}
+      <div class="wCard${upcoming.length&&!attention.length?' wCard--full':''}"><div class="wCard-title">${ic('clock',16)} ${tr('maintUpcoming')} ${countBubble(upcoming.length)}</div>
+        ${upcoming.length?maintenanceScheduleMini(upcoming.slice(0,5)):`<div style="padding:10px 0;color:var(--muted);font-size:var(--fs-sm);display:flex;align-items:center;gap:6px">${ic('check',14)} ${lang==='ar'?'لا توجد جداول قادمة':'No upcoming schedules'}</div>`}
       </div>
     </div>
   </div>`;
@@ -5719,17 +5722,21 @@ function maintenanceSupervisorRequests(){
   const waiting=tickets.filter(t=>t.status==='waiting_verification');
   const active=tickets.filter(t=>['assigned','accepted','diagnosing','in_progress','awaiting_parts','awaiting_vendor','awaiting_permit','on_hold','reclean_required'].includes(t.status));
   const closed=tickets.filter(t=>['completed','rejected','cancelled'].includes(t.status));
-  const group=(title,icon,items,color='')=>`<div class="wCard${items.length>2?' wCard--full':''}">
+  const maintEmptyCompact=(msg)=>`<div style="padding:10px 0;color:var(--muted);font-size:var(--fs-sm);display:flex;align-items:center;gap:6px">${ic('check',14)} ${msg}</div>`;
+  const group=(title,icon,items,color='',partnerLen=0)=>{
+    const full=items.length>2||(items.length>0&&partnerLen===0);
+    return `<div class="wCard${full?' wCard--full':''}">
     <div class="wCard-title">${ic(icon,16)} ${title} ${countBubble(items.length,color)}</div>
-    ${items.length?`<div class="ticketGrid">${items.map(maintenanceOrderCard).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد أوامر':'No work orders'}</div></div>`}
+    ${items.length?`<div class="ticketGrid">${items.map(maintenanceOrderCard).join('')}</div>`:maintEmptyCompact(lang==='ar'?'لا توجد أوامر':'No work orders')}
   </div>`;
+  };
   return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintOrders')}</div><div class="pageSub">${tickets.length} ${lang==='ar'?'أمر عمل':'work orders'}</div></div>
     <button class="btn" onclick="showMaintenanceOrderForm()">${ic('plus',15)} ${tr('maintTicketCreate')}</button></div>
     <div class="supSectionsGrid">
-      ${group(lang==='ar'?'أوامر جديدة':'New Orders','tickets',submitted,'bad')}
-      ${group(lang==='ar'?'بانتظار التحقق':'Pending Verification','check',waiting,'warn')}
-      ${group(lang==='ar'?'قيد التنفيذ والمتابعة':'Active Team Queue','sync',active,'brand')}
-      ${group(lang==='ar'?'سجل الأوامر المغلقة':'Closed Work Order History','check',closed,'ok')}
+      ${group(lang==='ar'?'أوامر جديدة':'New Orders','tickets',submitted,'bad',waiting.length)}
+      ${group(lang==='ar'?'بانتظار التحقق':'Pending Verification','check',waiting,'warn',submitted.length)}
+      ${group(lang==='ar'?'قيد التنفيذ والمتابعة':'Active Team Queue','sync',active,'brand',closed.length)}
+      ${group(lang==='ar'?'سجل الأوامر المغلقة':'Closed Work Order History','check',closed,'ok',active.length)}
     </div>`;
 }
 
@@ -6808,20 +6815,23 @@ function renderSupervisor(){
     <button class="btn secondary sm" onclick="supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()">${lang==='ar'?'الطلبات':'Requests'}</button>
   </div>`;
 
+  const supEmptyCompact=(msg)=>`<div style="padding:10px 0;color:var(--muted);font-size:var(--fs-sm);display:flex;align-items:center;gap:6px">${ic('check',14)} ${msg}</div>`;
+  const subCls = submitted.length&&!waitingVerif.length?'wCard wCard--full':!submitted.length&&!waitingVerif.length?'wCard--full':'wCard';
+  const verifCls = waitingVerif.length&&!submitted.length?'wCard wCard--full':'wCard';
   const requestsHtml=`
     <div class="supSectionsGrid">
       ${slaHtml?`<div class="wCard--full">${slaHtml}</div>`:''}
-      <div class="wCard">
+      <div class="${subCls}">
         <div class="wCard-title">${ic('tickets',16)} ${lang==='ar'?'الطلبات المفتوحة':'Open Requests'} ${countBubble(submitted.length,'bad')}</div>
-        ${submitted.length?`<div class="wCard-list supTicketList">${submitted.map(t=>supTicketCard(t,'assign',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد طلبات مفتوحة':'No open requests'}</div></div>`}
+        ${submitted.length?`<div class="wCard-list supTicketList">${submitted.map(t=>supTicketCard(t,'assign',workers)).join('')}</div>`:supEmptyCompact(lang==='ar'?'لا توجد طلبات مفتوحة':'No open requests')}
       </div>
-      <div class="wCard">
+      <div class="${verifCls}">
         <div class="wCard-title">${ic('check',16)} ${lang==='ar'?'بانتظار التحقق':'Pending Verification'} ${countBubble(waitingVerif.length,'warn')}</div>
-        ${waitingVerif.length?`<div class="wCard-list supTicketList">${waitingVerif.map(t=>supTicketCard(t,'verify',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا يوجد ما يحتاج تحقق':'Nothing pending'}</div></div>`}
+        ${waitingVerif.length?`<div class="wCard-list supTicketList">${waitingVerif.map(t=>supTicketCard(t,'verify',workers)).join('')}</div>`:supEmptyCompact(lang==='ar'?'لا يوجد ما يحتاج تحقق':'Nothing pending')}
       </div>
       <div class="wCard wCard--full">
         <div class="wCard-title">${ic('sync',16)} ${lang==='ar'?'قيد التنفيذ':'Team Queue'} ${countBubble(inProgress.length)}</div>
-        ${inProgress.length?`<div class="wCard-list supTicketList">${inProgress.map(t=>supTicketCard(t,'view',workers)).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('sync',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد طلبات قيد التنفيذ':'No requests in progress'}</div></div>`}
+        ${inProgress.length?`<div class="wCard-list supTicketList">${inProgress.map(t=>supTicketCard(t,'view',workers)).join('')}</div>`:supEmptyCompact(lang==='ar'?'لا توجد طلبات قيد التنفيذ':'No requests in progress')}
       </div>
     </div>`;
 
