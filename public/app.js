@@ -852,7 +852,7 @@ function goBack(){
 function appHasBackTarget(){
   if(!me) return false;
   if(['cleaning_supervisor','maintenance_supervisor'].includes(me.role)) return supervisorView!=='dashboard';
-  if(me.role==='maintenance_worker') return maintWorkerView!=='tasks';
+  if(me.role==='maintenance_worker'){const mf=document.getElementById('maintWorkerForm');return !!(mf&&mf.innerHTML.trim())||maintWorkerView!=='tasks';}
   if(me.role==='cleaner'){
     const form=document.getElementById('workerForm');
     return !!(form&&form.innerHTML.trim()) || workerView!=='task';
@@ -870,6 +870,8 @@ function appBack(){
       return;
     }
   }else if(me.role==='maintenance_worker'){
+    const mf=document.getElementById('maintWorkerForm');
+    if(mf&&mf.innerHTML.trim()){maintWorkerGoBack();return;}
     if(maintWorkerView!=='tasks'){
       maintWorkerView='tasks';
       mobileNavActive='maint-worker-tasks';
@@ -5268,10 +5270,11 @@ function renderMaintenanceWorker(){
   const team=active.filter(t=>maintenanceAssignees(t.id).length>1);
   const history=(data.tickets||[]).filter(t=>['completed','rejected','cancelled'].includes(t.status));
   const upcoming=(md.schedules||[]).filter(s=>s.active&&(s.defaultTechnicianIds||[]).includes(me.id));
-  const content=maintWorkerView==='team'?maintenanceWorkerOrders(team)
+  const orderBlock=maintWorkerView==='team'?maintenanceWorkerOrders(team)
     :maintWorkerView==='upcoming'?maintenanceWorkerSchedules(upcoming)
     :maintWorkerView==='history'?maintenanceWorkerOrders(history,true)
     :maintenanceWorkerOrders(active);
+  const content=orderBlock+'<div id="maintWorkerForm"></div>';
   maintShell(me,content,{renderFn:'renderMaintenanceWorker'});
 }
 
@@ -5468,8 +5471,20 @@ function maintenancePartsPage(){
 }
 function maintenanceReportsPage(){const parts=maintenanceData().orderParts||[];const partsCost=parts.reduce((s,p)=>s+p.totalCost,0);const labor=(data.tickets||[]).reduce((s,t)=>s+(Number(t.laborCost)||0),0);return `<div class="kpiGrid">${kpiCard(partsCost.toFixed(2),lang==='ar'?'تكلفة القطع':'Parts Cost','tool','gold')}${kpiCard(labor.toFixed(2),lang==='ar'?'تكلفة العمل':'Labor Cost','users','brand')}${kpiCard((data.reports||[]).length,lang==='ar'?'تقارير الفنيين':'Technician Reports','reports','ok')}${kpiCard((data.tickets||[]).filter(t=>t.status==='completed').length,lang==='ar'?'أوامر مكتملة':'Completed Orders','check','ok')}</div>${reports()}`}
 
-function maintenanceWorkerOrders(items,history=false){return `<div class="pageHeader"><div><div class="pageTitle">${history?tr('maintHistory'):tr('maintMyTasks')}</div><div class="pageSub">${items.length} ${tr('maintOrders')}</div></div></div>${items.length?items.map(t=>maintenanceWorkerOrderCard(t,history)).join(''):`<div class="wCard"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}`}
-function maintenanceWorkerOrderCard(t,history){const team=maintenanceAssignees(t.id);return `<div class="wCard"><div class="ticketCard-top"><div><div class="ticketCard-title">${esc(t.title)}</div><div class="ticketCard-ref">${esc(t.referenceNo)}</div></div>${maintStatusBadge(t.status)}</div><div class="ticketCard-meta"><span>${esc(t.locationNameAr)}</span><span>${maintTypeLabel(t.maintenanceType)}</span></div>${team.length>1?`<div class="ticketCard-requester">${ic('users',12)} ${team.map(a=>`${a.isLead?'★ ':''}${esc(a.technicianName)}`).join(' · ')}</div>`:''}${!history?maintenanceWorkerActions(t):''}</div>`}
+function maintenanceWorkerOrders(items,isHistory=false){
+  const header=`<div class="pageHeader"><div><div class="pageTitle">${isHistory?tr('maintHistory'):tr('maintMyTasks')}</div><div class="pageSub">${items.length} ${tr('maintOrders')}</div></div></div>`;
+  if(!items.length) return `${header}<div class="wCard"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`;
+  if(isHistory) return `${header}${items.map(t=>maintenanceWorkerOrderCard(t,true)).join('')}`;
+  return `${header}<div class="wCard"><div class="wCard-title">${ic('tickets',16)} ${tr('maintMyTasks')}</div><div class="assignedList">${items.map(t=>maintenanceWorkerOrderCard(t,false)).join('')}</div></div>`;
+}
+function maintenanceWorkerOrderCard(t,isHistory){
+  const team=maintenanceAssignees(t.id);
+  const teamLine=team.length>1?`<div class="assignedItem-sub">${ic('users',12)} ${team.map(a=>`${a.isLead?'★ ':''}${esc(a.technicianName)}`).join(' · ')}</div>`:'';
+  if(isHistory){
+    return `<div class="wCard"><div class="ticketCard-top"><div><div class="ticketCard-title">${esc(t.title)}</div><div class="ticketCard-ref">${esc(t.referenceNo)}</div></div>${maintStatusBadge(t.status)}</div><div class="ticketCard-meta"><span>${esc(t.locationNameAr)}</span><span>${maintTypeLabel(t.maintenanceType)}</span></div>${teamLine}</div>`;
+  }
+  return `<button class="assignedItem" onclick="startMaintenanceForm('${t.id}')"><div><div class="assignedItem-name">${esc(t.title)}</div><div class="assignedItem-sub">${esc(t.locationNameAr)} · ${maintTypeLabel(t.maintenanceType)} · ${esc(t.referenceNo)}</div>${teamLine}</div><div style="display:flex;align-items:center;gap:8px">${maintStatusBadge(t.status)}<span>${ic('arrow',16)}</span></div></button>`;
+}
 function maintenanceWorkerActions(t){
   const action=(status,label,cls='secondary')=>`<button class="btn ${cls} sm" onclick="maintWorkerStatus('${t.id}','${status}')">${label}</button>`;
   const waiting=['awaiting_parts','awaiting_vendor','awaiting_permit','on_hold'].includes(t.status);
@@ -5485,6 +5500,105 @@ function maintenanceWorkerActions(t){
   </div>`;
 }
 function maintenanceWorkerSchedules(items){return `<div class="pageHeader"><div class="pageTitle">${tr('maintUpcoming')}</div></div><div>${maintenanceScheduleMini(items)}</div>`}
+
+function maintWorkerGoBack(){
+  const form=document.getElementById('maintWorkerForm');
+  if(form&&form.innerHTML.trim()){
+    form.innerHTML='';
+    currentBeforePhotos=[]; currentAfterPhotos=[];
+    if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
+    setTopbarBackButton(false);
+    window.scrollTo({top:0,behavior:'smooth'});
+    return;
+  }
+  maintWorkerView='tasks';
+  renderMaintenanceWorker();
+}
+
+function startMaintenanceForm(ticketId){
+  const t=(data.tickets||[]).find(x=>x.id===ticketId);
+  if(!t) return;
+  currentBeforePhotos=[]; currentAfterPhotos=[];
+  setTopbarBackButton(true,'maintWorkerGoBack()');
+  document.getElementById('maintWorkerForm').innerHTML=`
+    <div class="wCard">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:4px">
+        <div>
+          <div style="font-family:var(--font-head);font-size:var(--fs-lg);font-weight:800;color:var(--ink);line-height:1.35">${esc(t.title)}</div>
+          <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:4px">${ic('tickets',12)} ${esc(t.locationNameAr)} · ${esc(t.referenceNo)}</div>
+        </div>
+        ${maintStatusBadge(t.status)}
+      </div>
+    </div>
+    <div class="wCard">
+      <div class="wCard-title">${ic('camera',16)} ${lang==='ar'?'صور قبل الصيانة':'Before Photos'}</div>
+      <p style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:12px">${tr('beforePhotoHint')}</p>
+      <button class="cameraBtn" onclick="openCamera('before')">${ic('camera',22)}<span>${tr('addPhoto')} — ${lang==='ar'?'قبل الصيانة':'Before Maintenance'}</span></button>
+      <div id="beforePreviews" class="photoGrid" style="margin-top:12px"></div>
+    </div>
+    <div class="wCard">
+      <div class="wCard-title">${ic('check',16)} ${lang==='ar'?'قائمة التحقق':'Checklist'}</div>
+      <div class="taskChecklist">
+        ${MAINT_TASKS.map((p,i)=>`<label class="taskItem" id="mti_${i}"><input class="taskCheck" type="checkbox" checked value="${esc(lang==='ar'?p[0]:p[1])}" onchange="this.closest('.taskItem').classList.toggle('checked',this.checked)"><span class="taskItem-label">${esc(lang==='ar'?p[0]:p[1])}</span></label>`).join('')}
+      </div>
+      <div class="field" style="margin-top:16px"><label>${lang==='ar'?'التشخيص':'Diagnosis'}</label>${ta('mwDiagnosis','',{rows:2,placeholder:lang==='ar'?'ما تم تشخيصه وإصلاحه...':'What was diagnosed and repaired...'})}</div>
+      <div class="field"><label>${tr('notes')}</label>${ta('mwNotes','',{rows:2,placeholder:lang==='ar'?'ملاحظات اختيارية...':'Optional notes...'})}</div>
+    </div>
+    <div class="wCard">
+      <div class="wCard-title">${ic('camera',16)} ${lang==='ar'?'صور بعد الصيانة':'After Photos'}</div>
+      <p style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:12px">${tr('afterPhotoHint')}</p>
+      <button class="cameraBtn" onclick="openCamera('after')">${ic('camera',22)}<span>${tr('addPhoto')} — ${lang==='ar'?'بعد الصيانة':'After Maintenance'}</span></button>
+      <div id="afterPreviews" class="photoGrid" style="margin-top:12px"></div>
+    </div>
+    <div style="height:80px"></div>
+    <div class="stickySubmit">
+      <button class="submitBtn" onclick="submitMaintenanceWorkerReport('${ticketId}')">${ic('check',20)} ${tr('submit')}</button>
+    </div>`;
+  document.querySelectorAll('#maintWorkerForm .taskItem').forEach(el=>el.classList.add('checked'));
+  document.getElementById('maintWorkerForm').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+async function submitMaintenanceWorkerReport(ticketId){
+  const hasPhotos=currentBeforePhotos.length||currentAfterPhotos.length;
+  if(!hasPhotos) return toast(tr('photoRequired'),'bad');
+  const btn=document.querySelector('.submitBtn');
+  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner" style="width:24px;height:24px;border-width:2.5px"></div>`}
+  const t=(data.tickets||[]).find(x=>x.id===ticketId);
+  const locationId=t?.locationId;
+  const diagnosis=document.getElementById('mwDiagnosis')?.value||'';
+  const notes=document.getElementById('mwNotes')?.value||'';
+  const tasks=[...document.querySelectorAll('.taskCheck:checked')].map(x=>x.value);
+  try{
+    await api('/maintenance-tickets/complete',{method:'POST',body:JSON.stringify({
+      id:ticketId,diagnosis,notes,
+      beforePhotos:currentBeforePhotos,afterPhotos:currentAfterPhotos
+    })});
+    if(locationId){
+      try{
+        const rj=await api('/maintenance-reports',{method:'POST',body:JSON.stringify({
+          locationId,tasks,
+          notes:[diagnosis,notes].filter(Boolean).join('\n'),
+          beforePhotos:currentBeforePhotos,afterPhotos:currentAfterPhotos
+        })});
+        if(rj.report)(data.reports=data.reports||[]).unshift(rj.report);
+      }catch(e){}
+    }
+    toast(tr('reportSent'),'ok');
+    currentBeforePhotos=[]; currentAfterPhotos=[];
+    document.getElementById('maintWorkerForm').innerHTML=`
+      <div class="wCard" style="text-align:center;padding:32px">
+        <div style="width:64px;height:64px;border-radius:50%;background:var(--ok-bg);margin:0 auto 16px;display:grid;place-items:center;color:var(--ok)">${ic('check',28)}</div>
+        <div style="font-family:var(--font-head);font-size:var(--fs-xl);font-weight:800;color:var(--ink)">${tr('reportSent')}</div>
+        <p style="color:var(--muted);margin-top:8px;font-size:var(--fs-sm)">${fmt(new Date())}</p>
+        <button class="btn wide" style="margin-top:20px" onclick="maintWorkerGoBack()">${lang==='ar'?'العودة للأوامر':'Back to Orders'}</button>
+      </div>`;
+    setTopbarBackButton(false);
+    await load();
+  }catch(e){
+    if(btn){btn.disabled=false;btn.innerHTML=`${ic('check',20)} ${tr('submit')}`}
+    toast(e.message,'bad');
+  }
+}
 
 function maintenanceWorkerChecks(selected=[]){
   const workers=(data.users||[]).filter(u=>u.role==='maintenance_worker');
