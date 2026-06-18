@@ -469,6 +469,13 @@ const IC = {
   tool:`<svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94L5.41 21.41a2 2 0 0 1-2.83-2.83L10.66 10.5a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
   coffee:`<svg viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>`,
   truck:`<svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>`,
+  refresh:`<svg viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`,
+  alert:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+  circle:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>`,
+  chat:`<svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+  download:`<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
+  'alert-red':`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+  map:`<svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>`,
 };
 const ic=(name,size=18)=>`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${IC[name]?.replace(/<svg[^>]*>/,'').replace(/<\/svg>/,'')??''}</svg>`;
 
@@ -1993,11 +2000,15 @@ function adminSettings(){
   const s = data.settings||{};
   const sla = s.slaMins||{emergency:15,spill:30,restroom:30,meeting_room:60,general:240};
   const slaLabels = {
-    emergency: lang==='ar'?'طوارئ 🚨':'Emergency 🚨',
-    spill:     lang==='ar'?'انسكاب 💧':'Spill 💧',
-    restroom:  lang==='ar'?'دورات المياه 🚻':'Restroom 🚻',
-    meeting_room: lang==='ar'?'قاعة اجتماعات 🏢':'Meeting Room 🏢',
-    general:   lang==='ar'?'عام 📋':'General 📋'
+    emergency:    lang==='ar'?'طوارئ':'Emergency',
+    spill:        lang==='ar'?'انسكاب':'Spill',
+    restroom:     lang==='ar'?'دورات المياه':'Restroom',
+    meeting_room: lang==='ar'?'قاعة اجتماعات':'Meeting Room',
+    general:      lang==='ar'?'عام':'General'
+  };
+  const slaIcons = {
+    emergency:'alert', spill:'sync', restroom:'locations',
+    meeting_room:'building', general:'list'
   };
   return `
 <div class="pageHeader">
@@ -2021,7 +2032,7 @@ function adminSettings(){
     <div class="formGrid-4" style="margin-bottom:14px">
       ${Object.entries(slaLabels).map(([cat,label])=>`
         <div>
-          <label style="font-size:var(--fs-xs);font-weight:700;display:block;margin-bottom:4px">${label}</label>
+          <label style="font-size:var(--fs-xs);font-weight:700;display:flex;align-items:center;gap:5px;margin-bottom:4px">${ic(slaIcons[cat]||'clock',13)} ${label}</label>
           <input id="sla-${cat}" type="number" min="1" max="1440" value="${sla[cat]||''}" class="inp" style="width:100%">
         </div>
       `).join('')}
