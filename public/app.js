@@ -2003,6 +2003,7 @@ function adminModules(){
     <div class="perfStatGrid">
       ${employeeRequestChannelRow('cleaning',s.employeeCleaningRequestsEnabled!==false)}
       ${employeeRequestChannelRow('maintenance',s.employeeMaintenanceRequestsEnabled!==false)}
+      ${employeeRequestChannelRow('hospitality',s.employeeHospitalityRequestsEnabled!==false)}
     </div>
   </div>`:'';
   return `
@@ -2019,14 +2020,15 @@ ${requestControls}
 }
 
 function employeeRequestChannelRow(service,enabled){
-  const label=service==='maintenance'?(lang==='ar'?'طلبات الصيانة':'Maintenance Requests'):(lang==='ar'?'طلبات النظافة':'Cleaning Requests');
-  return `<div class="perfStatRow"><span class="perfStatLabel">${ic(service==='maintenance'?'tool':'reports',15)} ${label}</span>
+  const label=service==='maintenance'?(lang==='ar'?'طلبات الصيانة':'Maintenance Requests'):service==='hospitality'?(lang==='ar'?'طلبات الضيافة':'Hospitality Requests'):(lang==='ar'?'طلبات النظافة':'Cleaning Requests');
+  const icon=service==='maintenance'?'tool':service==='hospitality'?'coffee':'reports';
+  return `<div class="perfStatRow"><span class="perfStatLabel">${ic(icon,15)} ${label}</span>
     <div style="display:flex;align-items:center;gap:8px"><span class="badge ${enabled?'ok':'bad'}">${enabled?(lang==='ar'?'يستقبل الطلبات':'Accepting'):(lang==='ar'?'مغلق':'Closed')}</span>
     <button class="btn ${enabled?'danger':'secondary'} sm" onclick="setEmployeeRequestChannel('${service}',${!enabled})">${enabled?(lang==='ar'?'إيقاف':'Disable'):(lang==='ar'?'تشغيل':'Enable')}</button></div></div>`;
 }
 
 async function setEmployeeRequestChannel(service,enabled){
-  const key=service==='maintenance'?'employee_maintenance_requests_enabled':'employee_cleaning_requests_enabled';
+  const key=service==='maintenance'?'employee_maintenance_requests_enabled':service==='hospitality'?'employee_hospitality_requests_enabled':'employee_cleaning_requests_enabled';
   try{
     const res=await api('/settings',{method:'POST',body:JSON.stringify({[key]:enabled?1:0})});
     if(res.settings)data.settings=res.settings;
@@ -4550,8 +4552,10 @@ function employeeSubmitForm(){
   const settings=data.settings||{};
   const cleaningEnabled=settings.employeeCleaningRequestsEnabled!==false;
   const maintenanceEnabled=settings.employeeMaintenanceRequestsEnabled!==false;
+  const hospitalityEnabled=settings.employeeHospitalityRequestsEnabled!==false;
   if(employeeServiceType==='cleaning'&&!cleaningEnabled)employeeServiceType='';
   if(employeeServiceType==='maintenance'&&!maintenanceEnabled)employeeServiceType='';
+  if(employeeServiceType==='hospitality'&&!hospitalityEnabled)employeeServiceType='';
 
   if(!employeeServiceType)return `<div class="wCard wCard--compact">
     <div class="wCard-title">${ic('layers',16)} ${lang==='ar'?'اختر الخدمة المطلوبة':'Choose a Service'}</div>
@@ -4559,7 +4563,7 @@ function employeeSubmitForm(){
     <div class="empCatGrid">
       <button class="empCatBtn${cleaningEnabled?'':' empCatBtn--disabled'}" ${cleaningEnabled?`onclick="employeeServiceType='cleaning';currentPhotos=[];renderEmployee()"`:'disabled aria-disabled="true"'}><span class="empCatBtn-icon">${ic('reports',22)}</span><span>${lang==='ar'?'خدمة النظافة':'Cleaning Service'}</span>${cleaningEnabled?'':`<small>${lang==='ar'?'متوقفة حالياً':'Currently unavailable'}</small>`}</button>
       <button class="empCatBtn${maintenanceEnabled?'':' empCatBtn--disabled'}" ${maintenanceEnabled?`onclick="employeeServiceType='maintenance';currentPhotos=[];renderEmployee()"`:'disabled aria-disabled="true"'}><span class="empCatBtn-icon">${ic('tool',22)}</span><span>${lang==='ar'?'خدمة الصيانة':'Maintenance Service'}</span>${maintenanceEnabled?'':`<small>${lang==='ar'?'متوقفة حالياً':'Currently unavailable'}</small>`}</button>
-      <button class="empCatBtn" onclick="employeeServiceType='hospitality';empHospCart={};empHospCatFilter='';empHospLocId='';renderEmployee()"><span class="empCatBtn-icon">${ic('coffee',22)}</span><span>${lang==='ar'?'طلب ضيافة':'Hospitality Order'}</span></button>
+      <button class="empCatBtn${hospitalityEnabled?'':' empCatBtn--disabled'}" ${hospitalityEnabled?`onclick="employeeServiceType='hospitality';empHospCart={};empHospCatFilter='';empHospLocId='';renderEmployee()"`:'disabled aria-disabled="true"'}><span class="empCatBtn-icon">${ic('coffee',22)}</span><span>${lang==='ar'?'طلب ضيافة':'Hospitality Order'}</span>${hospitalityEnabled?'':`<small>${lang==='ar'?'متوقفة حالياً':'Currently unavailable'}</small>`}</button>
     </div>
   </div>`;
 
@@ -4581,15 +4585,16 @@ function employeeSubmitForm(){
     <label>${lang==='ar'?'كود الموقع':'Location Code'}</label>
     <div class="locInput-row">
       <button class="locInput-scan" onclick="openQRScanner()" title="${tr('scanQR')}" aria-label="${tr('scanQR')}">${ic('qr',18)}</button>
-      <div class="locInput-field">${inp('empLocCode',{cls:'ltr', placeholder:'wc-gf-a'})}</div>
+      <div class="locInput-field">${inp('empLocCode',{cls:'ltr', placeholder:'wc-gf-a', value:localStorage.getItem('mrfq_emp_loc')||''})}</div>
     </div>
   </div>
-  <div id="empLocName" style="font-size:var(--fs-xs);color:var(--brand-mid);min-height:18px;margin-top:4px"></div>
+  <div id="empLocName" style="font-size:var(--fs-xs);color:var(--brand-mid);min-height:18px;margin-top:4px">${(()=>{const saved=localStorage.getItem('mrfq_emp_loc');const loc=saved&&(data.locations||[]).find(l=>l.id===saved);return loc?(lang==='ar'?loc.nameAr:loc.nameEn):'';})()}</div>
   <script>document.getElementById('empLocCode')?.addEventListener('input',function(){
     const id=parseLoc(this.value);
     const loc=(data&&data.locations||[]).find(l=>l.id===id);
     const el=document.getElementById('empLocName');
     if(el)el.textContent=loc?(lang==='ar'?loc.nameAr:loc.nameEn):'';
+    if(id)localStorage.setItem('mrfq_emp_loc',id);
   });<\/script>
 </div>
 
@@ -4651,6 +4656,7 @@ function employeeHospForm(){
   const kitchens=empHospKitchens||[];
   const menuItems=empHospCatFilter?allItems.filter(i=>i.categoryId===empHospCatFilter):allItems;
   const cartTotal=Object.values(empHospCart).reduce((s,v)=>s+v,0);
+  if(!empHospLocId) empHospLocId=localStorage.getItem('mrfq_emp_loc')||'';
   const locName=(data.locations||[]).find(l=>l.id===empHospLocId);
 
   return`
@@ -4665,10 +4671,16 @@ function employeeHospForm(){
     <label>${lang==='ar'?'كود الموقع':'Location Code'}</label>
     <div class="locInput-row">
       <button class="locInput-scan" onclick="openQRScanner()" title="${tr('scanQR')}">${ic('qr',18)}</button>
-      <div class="locInput-field"><input id="empHospLocInput" class="inp ltr" value="${esc(empHospLocId)}" placeholder="wc-gf-a" oninput="empHospLocId=parseLoc(this.value);const l=(data.locations||[]).find(x=>x.id===empHospLocId);document.getElementById('empHospLocName').textContent=l?(lang==='ar'?l.nameAr:l.nameEn):'';"></div>
+      <div class="locInput-field">${inp('empHospLocInput',{cls:'ltr',placeholder:'wc-gf-a',value:empHospLocId||localStorage.getItem('mrfq_emp_loc')||''})}</div>
     </div>
   </div>
   <div id="empHospLocName" style="font-size:var(--fs-xs);color:var(--brand-mid);min-height:18px;margin-top:4px">${locName?(lang==='ar'?locName.nameAr:locName.nameEn):''}</div>
+  <script>document.getElementById('empHospLocInput')?.addEventListener('input',function(){
+    empHospLocId=parseLoc(this.value);
+    const l=(data.locations||[]).find(x=>x.id===empHospLocId);
+    document.getElementById('empHospLocName').textContent=l?(lang==='ar'?l.nameAr:l.nameEn):'';
+    if(empHospLocId)localStorage.setItem('mrfq_emp_loc',empHospLocId);
+  });<\/script>
 </div>
 
 <div class="wCard">
@@ -4851,6 +4863,7 @@ async function submitEmployeeOrder(){
   if(locInput) locInput.value = locId;
   const loc = (data.locations||[]).find(l=>l.id===locId);
   if(!loc) return toast(lang==='ar'?`الموقع "${locId}" غير موجود`:`Location "${locId}" not found`,'bad');
+  localStorage.setItem('mrfq_emp_loc', locId);
   const btn = document.querySelector('.submitBtn');
   if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner" style="width:22px;height:22px;border-width:2.5px"></div>`}
   const photo = currentPhotos[0] || null;

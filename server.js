@@ -483,6 +483,7 @@ function dbSettings() {
     prototypeMode:    s.prototype_mode    === '1',
     employeeCleaningRequestsEnabled: s.employee_cleaning_requests_enabled !== '0',
     employeeMaintenanceRequestsEnabled: s.employee_maintenance_requests_enabled !== '0',
+    employeeHospitalityRequestsEnabled: s.employee_hospitality_requests_enabled !== '0',
     slaMins: {
       emergency:    parseInt(s.sla_mins_emergency,   10) || SLA_MINS.emergency,
       spill:        parseInt(s.sla_mins_spill,        10) || SLA_MINS.spill,
@@ -1822,7 +1823,7 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'POST' && url.pathname === '/api/settings') {
         if (!['system_admin', 'facility_manager'].includes(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const b = await bodyJSON(req);
-        const REQUEST_CHANNEL_KEYS = ['employee_cleaning_requests_enabled','employee_maintenance_requests_enabled'];
+        const REQUEST_CHANNEL_KEYS = ['employee_cleaning_requests_enabled','employee_maintenance_requests_enabled','employee_hospitality_requests_enabled'];
         if (me.role !== 'system_admin' && Object.keys(b).some(k=>REQUEST_CHANNEL_KEYS.includes(k)))
           return send(res, 403, { error: 'FORBIDDEN' });
         const ALLOWED_KEYS = ['sla_mins_emergency','sla_mins_spill','sla_mins_restroom','sla_mins_meeting_room','sla_mins_general','maint_sla_mins_electrical','maint_sla_mins_plumbing','maint_sla_mins_hvac','maint_sla_mins_civil','maint_sla_mins_general','frequency_minutes','require_photo',...REQUEST_CHANNEL_KEYS];
