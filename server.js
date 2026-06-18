@@ -1902,7 +1902,7 @@ const server = http.createServer(async (req, res) => {
         const cid = sanitize(url.pathname.split('/').pop(), 50);
         const c   = db.prepare('SELECT * FROM ticket_comments WHERE id=? AND deleted_at IS NULL').get(cid);
         if (!c) return send(res, 404, { error: 'NOT_FOUND' });
-        const canDel = c.user_id === me.id || ['system_admin','facility_manager','cleaning_manager'].includes(me.role);
+        const canDel = c.user_id === me.id || ['system_admin','facility_manager','cleaning_manager','maintenance_manager','maintenance_supervisor'].includes(me.role);
         if (!canDel) return send(res, 403, { error: 'FORBIDDEN' });
         db.prepare('UPDATE ticket_comments SET deleted_at=? WHERE id=?').run(now(), cid);
         return send(res, 200, { ok: true });

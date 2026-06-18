@@ -3048,14 +3048,14 @@ async function refreshComments(){
     list.innerHTML=`<div class="empty-state" style="padding:16px 0"><div class="empty-icon">${ic('chat',24)}</div><div class="empty-title" style="font-size:var(--fs-sm)">${lang==='ar'?'لا توجد تعليقات بعد':'No comments yet'}</div></div>`;
     return;
   }
-  const roleLabel = r => ({system_admin:lang==='ar'?'مدير النظام':'Admin',facility_manager:lang==='ar'?'مدير المرافق':'FM',cleaning_manager:lang==='ar'?'مدير النظافة':'Manager',cleaning_supervisor:lang==='ar'?'مشرف':'Supervisor',cleaner:lang==='ar'?'عامل':'Worker'}[r]||r);
+  const roleLabel = r => ({system_admin:lang==='ar'?'مدير النظام':'Admin',facility_manager:lang==='ar'?'مدير المرافق':'FM',cleaning_manager:lang==='ar'?'مدير النظافة':'Cleaning Mgr',cleaning_supervisor:lang==='ar'?'مشرف نظافة':'Cleaning Sup',cleaner:lang==='ar'?'عامل نظافة':'Cleaner',maintenance_manager:lang==='ar'?'مدير الصيانة':'Maint. Mgr',maintenance_supervisor:lang==='ar'?'مشرف صيانة':'Maint. Sup',maintenance_worker:lang==='ar'?'فني صيانة':'Technician',employee:lang==='ar'?'موظف':'Employee'}[r]||r);
   list.innerHTML = comments.map(c=>`
     <div class="commentItem${c.userId===me.id?' commentItem--mine':''}">
       <div class="commentItem-header">
         <span class="commentItem-name">${esc(c.userName)}</span>
         <span class="commentItem-role">${roleLabel(c.userRole)}</span>
         <span class="commentItem-time">${fmt(c.createdAt)}</span>
-        ${(c.userId===me.id||['system_admin','facility_manager','cleaning_manager'].includes(me.role))
+        ${(c.userId===me.id||['system_admin','facility_manager','cleaning_manager','maintenance_manager','maintenance_supervisor'].includes(me.role))
           ?`<button class="commentItem-del" onclick="deleteComment('${c.id}')" title="${lang==='ar'?'حذف':'Delete'}">×</button>`:''}
       </div>
       <div class="commentItem-body">${esc(c.body)}</div>
@@ -5785,6 +5785,7 @@ function maintenanceOrderCard(t){
     </div>
     <div class="ticketCard-actions">
       <button class="btn secondary sm" onclick="openTicketDetail('${t.id}')">${lang==='ar'?'التفاصيل':'Details'}</button>
+      <button class="btn secondary sm" onclick="openComments('${t.id}')">${ic('chat',13)} ${lang==='ar'?'تعليقات':'Comments'}</button>
       ${!terminal&&canManageOrder?`<button class="btn secondary sm" onclick="showMaintenanceTeamForm('${t.id}')">${ic('users',13)} ${lang==='ar'?'إسناد':'Assign'}</button>`:''}
       ${!terminal?`<button class="btn secondary sm" onclick="showMaintenanceUsePart('${t.id}')">${ic('tool',13)} ${lang==='ar'?'قطعة':'Part'}</button>`:''}
       ${t.status==='waiting_verification'&&canManageOrder?`
