@@ -1192,7 +1192,6 @@ function renderFieldTabs(){
       ${mk(employeeView==='home','dashboard',lang==='ar'?'الرئيسية':'Home',"employeeView='home';mobileNavActive='employee-home';renderEmployee()")}
       ${mk(employeeView==='new','send',lang==='ar'?'طلب خدمة':'Request Service',"employeeServiceType='';employeeView='new';mobileNavActive='employee-new';renderEmployee()")}
       ${mk(employeeView==='history','clipboardList',tr('myRequests'),"employeeView='history';mobileNavActive='employee-history';renderEmployee()",activeCount)}
-      ${mk(employeeView==='more','menu',lang==='ar'?'المزيد':'More',"employeeView='more';mobileNavActive='employee-more';renderEmployee()")}
     </div>`;
   }
   if(me.role==='hospitality_supervisor'){
@@ -1543,8 +1542,7 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
     primary = [
       {v:'employee-home', label:lang==='ar'?'الرئيسية':'Home', icon:'dashboard', count:0, action:"employeeView='home';mobileNavActive='employee-home';renderEmployee()", active:employeeView==='home'},
       {v:'employee-new', label:lang==='ar'?'طلب خدمة':'Request', icon:'send', count:0, action:"employeeServiceType='';employeeView='new';mobileNavActive='employee-new';renderEmployee()", active:employeeView==='new'},
-      {v:'employee-history', label:tr('myRequests'), icon:'clipboardList', count:activeCount, action:"employeeView='history';mobileNavActive='employee-history';renderEmployee()", active:employeeView==='history'},
-      {v:'employee-more', label:lang==='ar'?'المزيد':'More', icon:'menu', count:0, action:"employeeView='more';mobileNavActive='employee-more';renderEmployee()", active:employeeView==='more'}
+      {v:'employee-history', label:tr('myRequests'), icon:'clipboardList', count:activeCount, action:"employeeView='history';mobileNavActive='employee-history';renderEmployee()", active:employeeView==='history'}
     ];
   }else if(role==='maintenance_worker'){
     showMore=false;
@@ -3733,7 +3731,6 @@ function showUserFormModal(id){
   const u = id?(data.users||[]).find(x=>x.id===id):null;
   editUserId = id||null;
   const titleHtml = `<div>${u?`${ic('edit',16)} ${tr('edit')}`:ic('plus',16)+' '+tr('addUser')}${['cleaning_manager','maintenance_manager'].includes(me.role)?`<div class="modal-subtitle">${lang==='ar'?'تدير العمال والمشرفين':'Manages workers & supervisors'}</div>`:''}</div>`;
-  const isEmployee = u?.role==='employee';
   const locOptions = [{v:'',l:lang==='ar'?'— بدون —':'— None —',sel:!u?.defaultLocationId},
     ...(data.locations||[]).map(l=>({v:l.id,l:`${esc(lang==='ar'?l.nameAr:l.nameEn)} (${l.id})`,sel:u?.defaultLocationId===l.id}))];
   const body=`
@@ -3741,9 +3738,9 @@ function showUserFormModal(id){
     ${fc(tr('name'),    inp('un',{value:u?.name||''}))}
     ${fc(tr('username'),inp('uu',{value:u?.username||'', cls:'ltr'}))}
     ${fc(tr('password'),inp('up',{type:'password', placeholder:'••••••••', cls:'ltr'}))}
-    ${fc(tr('role'),    sel('ur', editableRoles.map(r=>({v:r,l:tr(r),sel:u?.role===r})), {onchange:"document.getElementById('uDefaultLocRow').style.display=this.value==='employee'?'':'none'"}))}
+    ${fc(tr('role'),    sel('ur', editableRoles.map(r=>({v:r,l:tr(r),sel:u?.role===r}))))}
     ${fc(tr('employeeNo'),inp('ue',{value:u?.employeeNo||'', cls:'ltr'}))}
-    <div id="uDefaultLocRow" style="display:${isEmployee?'':'none'};grid-column:1/-1">${fc(lang==='ar'?'موقع المكتب (الضيافة)':'Office Location (Hospitality)',sel('uDefaultLoc',locOptions))}</div>
+    <div style="grid-column:1/-1">${fc(lang==='ar'?'موقع المكتب':'Office Location',sel('uDefaultLoc',locOptions))}</div>
     ${fc(tr('status'),  sel('ua',[{v:'true',l:tr('activeUser'),sel:u?.active},{v:'false',l:tr('inactive'),sel:u&&!u.active}]))}
   </div>`;
   const foot=`<button class="btn" onclick="saveUser()">${ic('check',16)} ${tr('save')}</button>
@@ -4473,9 +4470,7 @@ function renderEmployee(){
     ? employeeSubmitForm()
     : employeeView==='history'
       ? employeeHistory(myOrders)
-      : employeeView==='more'
-        ? employeeMore()
-        : employeeHome(myOrders, activeCount);
+      : employeeHome(myOrders, activeCount);
   const empContent=`
     <div class="empPage">
       <div class="empPanel">
@@ -4545,27 +4540,6 @@ ${allRecent.length?`
 </div>`:''}`;
 }
 
-function employeeMore(){
-  const defLoc=me.defaultLocationId?(data.locations||[]).find(l=>l.id===me.defaultLocationId):null;
-  return`<div class="wCard">
-    <div class="wCard-title" style="margin-bottom:16px">${ic('users',16)} ${lang==='ar'?'ملف الحساب':'My Account'}</div>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      <div class="detailRow"><span class="detailRow-label">${lang==='ar'?'الاسم':'Name'}</span><span class="detailRow-val">${esc(me.name)}</span></div>
-      <div class="detailRow"><span class="detailRow-label">${lang==='ar'?'اسم المستخدم':'Username'}</span><span class="detailRow-val mono ltr">${esc(me.username)}</span></div>
-      ${me.employeeNo?`<div class="detailRow"><span class="detailRow-label">${lang==='ar'?'رقم الموظف':'Emp No'}</span><span class="detailRow-val mono">${esc(me.employeeNo)}</span></div>`:''}
-      ${defLoc?`<div class="detailRow"><span class="detailRow-label">${lang==='ar'?'موقع المكتب':'Office'}</span><span class="detailRow-val mono">${esc(defLoc.id)} — ${esc(lang==='ar'?defLoc.nameAr:defLoc.nameEn)}</span></div>`:''}
-    </div>
-    <hr style="margin:20px 0;border:none;border-top:1px solid var(--border)">
-    <div style="display:flex;flex-direction:column;gap:10px">
-      <button class="btn secondary wide" onclick="toggleLang()">
-        ${ic('globe',16)} ${lang==='ar'?'Switch to English':'التبديل إلى العربية'}
-      </button>
-      <button class="btn danger wide" onclick="logout()">
-        ${ic('logout',16)} ${lang==='ar'?'تسجيل الخروج':'Logout'}
-      </button>
-    </div>
-  </div>`;
-}
 
 function employeeSubmitForm(){
   const settings=data.settings||{};
