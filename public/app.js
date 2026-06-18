@@ -2495,6 +2495,20 @@ async function submitRating(reportId, ratingType, value){
   }catch(e){ toast(lang==='ar'?'خطأ في التقييم':'Rating error','bad'); }
 }
 
+function reportRatingControls(r){
+  if(['cleaning_manager','maintenance_manager'].includes(me.role)) return `<div class="ratingRow">
+    <div class="ratingGroup"><span class="ratingLabel">${tr('ratingByManager')}</span>${starRatingWidget(r.id,'manager',r.ratingManager)}</div>
+  </div>`;
+  if(['cleaning_supervisor','maintenance_supervisor'].includes(me.role)) return `<div class="ratingRow">
+    <div class="ratingGroup"><span class="ratingLabel">${tr('ratingBySupervisor')}</span>${starRatingWidget(r.id,'supervisor',r.ratingSupervisor)}</div>
+  </div>`;
+  if(me.role==='system_admin') return `<div class="ratingRow">
+    <div class="ratingGroup"><span class="ratingLabel">${tr('ratingBySupervisor')}</span>${starRatingWidget(r.id,'supervisor',r.ratingSupervisor)}</div>
+    <div class="ratingGroup"><span class="ratingLabel">${tr('ratingByManager')}</span>${starRatingWidget(r.id,'manager',r.ratingManager)}</div>
+  </div>`;
+  return '';
+}
+
 function reportCard(r,full){
   const imgs = imgList(r);
   const before = (r.beforePhotos||[]);
@@ -2518,7 +2532,7 @@ function reportCard(r,full){
         <span class="badge" style="margin-inline-start:auto">${ic('arrow',11)} ${lang==='ar'?'تفاصيل':'Details'}</span>
       </div>
     </div>
-    ${full&&canReview()?`
+    ${full&&canReview()&&['pending','pending_approval'].includes(st)?`
       <div class="reportCard-actions" onclick="event.stopPropagation()">
         <div class="reportCard-actions-primary">
           <button class="btn ok sm action-btn" onclick="reviewReport('${r.id}','approved')">${ic('check',13)} ${tr('approve')}</button>
@@ -2528,17 +2542,8 @@ function reportCard(r,full){
           <button class="btn danger sm action-btn" onclick="reviewReport('${r.id}','rejected')">${ic('x',13)} ${tr('reject')}</button>
         </div>
         ${canDelete()?`<div class="reportCard-actions-danger"><button class="btn secondary sm action-btn reportDeleteBtn" onclick="deleteReport('${r.id}')" aria-label="${lang==='ar'?'حذف التقرير':'Delete report'}" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button></div>`:''}
-      </div>
-      <div onclick="event.stopPropagation()">
-        ${['cleaning_manager','maintenance_manager'].includes(me.role)?`<div class="ratingRow">
-          <div class="ratingGroup"><span class="ratingLabel">${tr('ratingByManager')}</span>${starRatingWidget(r.id,'manager',r.ratingManager)}</div>
-        </div>`:['cleaning_supervisor','maintenance_supervisor'].includes(me.role)?`<div class="ratingRow">
-          <div class="ratingGroup"><span class="ratingLabel">${tr('ratingBySupervisor')}</span>${starRatingWidget(r.id,'supervisor',r.ratingSupervisor)}</div>
-        </div>`:me.role==='system_admin'?`<div class="ratingRow">
-          <div class="ratingGroup"><span class="ratingLabel">${tr('ratingBySupervisor')}</span>${starRatingWidget(r.id,'supervisor',r.ratingSupervisor)}</div>
-          <div class="ratingGroup"><span class="ratingLabel">${tr('ratingByManager')}</span>${starRatingWidget(r.id,'manager',r.ratingManager)}</div>
-        </div>`:''}
       </div>`:''}
+    ${full&&canReview()?`<div onclick="event.stopPropagation()">${reportRatingControls(r)}</div>`:''}
   </article>`;
 }
 
@@ -4405,12 +4410,11 @@ function employeeSubmitForm(){
   const settings=data.settings||{};
   const cleaningEnabled=settings.employeeCleaningRequestsEnabled!==false;
   const maintenanceEnabled=settings.employeeMaintenanceRequestsEnabled!==false;
-  if(!cleaningEnabled&&!maintenanceEnabled)return `<div class="wCard"><div class="empty-state"><div class="empty-icon">${ic('lock',32)}</div><div class="empty-title">${lang==='ar'?'استقبال الطلبات متوقف مؤقتاً':'Requests are temporarily closed'}</div><p class="empty-sub">${lang==='ar'?'يمكنك متابعة طلباتك السابقة من سجل طلباتي.':'You can still track previous requests in My Requests.'}</p></div></div>`;
   if(employeeServiceType==='cleaning'&&!cleaningEnabled)employeeServiceType='';
   if(employeeServiceType==='maintenance'&&!maintenanceEnabled)employeeServiceType='';
   if(!employeeServiceType)return `<div class="wCard wCard--compact"><div class="wCard-title">${ic('layers',16)} ${lang==='ar'?'اختر الخدمة المطلوبة':'Choose a Service'}</div><p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:14px">${lang==='ar'?'كل خدمة لها نموذجها وتصنيفاتها ومسارها التشغيلي المستقل.':'Each service has its own form, categories, and operational workflow.'}</p><div class="empCatGrid">
-    ${cleaningEnabled?`<button class="empCatBtn" onclick="employeeServiceType='cleaning';currentPhotos=[];renderEmployee()"><span class="empCatBtn-icon">${ic('reports',22)}</span><span>${lang==='ar'?'خدمة النظافة':'Cleaning Service'}</span></button>`:''}
-    ${maintenanceEnabled?`<button class="empCatBtn" onclick="employeeServiceType='maintenance';currentPhotos=[];renderEmployee()"><span class="empCatBtn-icon">${ic('tool',22)}</span><span>${lang==='ar'?'خدمة الصيانة':'Maintenance Service'}</span></button>`:''}
+    <button class="empCatBtn${cleaningEnabled?'':' empCatBtn--disabled'}" ${cleaningEnabled?`onclick="employeeServiceType='cleaning';currentPhotos=[];renderEmployee()"`:'disabled aria-disabled="true"'}><span class="empCatBtn-icon">${ic('reports',22)}</span><span>${lang==='ar'?'خدمة النظافة':'Cleaning Service'}</span>${cleaningEnabled?'':`<small>${lang==='ar'?'متوقفة حالياً':'Currently unavailable'}</small>`}</button>
+    <button class="empCatBtn${maintenanceEnabled?'':' empCatBtn--disabled'}" ${maintenanceEnabled?`onclick="employeeServiceType='maintenance';currentPhotos=[];renderEmployee()"`:'disabled aria-disabled="true"'}><span class="empCatBtn-icon">${ic('tool',22)}</span><span>${lang==='ar'?'خدمة الصيانة':'Maintenance Service'}</span>${maintenanceEnabled?'':`<small>${lang==='ar'?'متوقفة حالياً':'Currently unavailable'}</small>`}</button>
   </div></div>`;
   const isMaintenance=employeeServiceType==='maintenance';
   const CATS = isMaintenance?['general','electrical','plumbing','hvac','civil']:['general','spill','restroom','meeting_room','emergency'];
@@ -5218,12 +5222,16 @@ function maintenanceSupervisorRequests(){
     </div>`;
 }
 
+function maintenanceWorkerRating(workerId,key){
+  return avgNumeric((data.reports||[]).filter(r=>r.workerId===workerId).map(r=>r[key]));
+}
+
 function maintenanceSupervisorTeam(){
   const workers=(data.users||[]).filter(u=>(u.roles||[u.role]).includes('maintenance_worker'));
   const assignees=maintenanceData().assignees||[];
   return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintTeam')}</div><div class="pageSub">${workers.length} ${lang==='ar'?'فني':'technicians'}</div></div></div>
     <div class="wCard"><div class="wCard-title">${ic('users',16)} ${lang==='ar'?'حالة فريق الصيانة':'Maintenance Team Status'} ${countBubble(workers.length)}</div>
-    ${workers.length?`<div class="supTeamGrid">${workers.map(w=>{const assigned=assignees.filter(a=>a.technicianId===w.id&&!['completed','cancelled'].includes(a.status));const lead=assigned.filter(a=>a.isLead).length;return `<div class="supTeamCard"><div class="supTeamCard-info"><div class="supTeamCard-name">${esc(w.name)}</div><div class="supTeamCard-meta">${assigned.length} ${lang==='ar'?'أوامر نشطة':'active orders'}${lead?` · ${lead} ${tr('leadTechnician')}`:''}</div></div>${assigned.length?`<span class="badge warn">${assigned.length}</span>`:`<span class="badge ok">${lang==='ar'?'متاح':'Free'}</span>`}</div>`}).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('users',24)}</div><div class="empty-title">${lang==='ar'?'لا يوجد فنيون':'No technicians'}</div></div>`}
+    ${workers.length?`<div class="supTeamGrid">${workers.map(w=>{const assigned=assignees.filter(a=>a.technicianId===w.id&&!['completed','cancelled'].includes(a.status));const lead=assigned.filter(a=>a.isLead).length;const supervisorRating=maintenanceWorkerRating(w.id,'ratingSupervisor'),managerRating=maintenanceWorkerRating(w.id,'ratingManager');return `<div class="supTeamCard"><div class="supTeamCard-info"><div class="supTeamCard-name">${esc(w.name)}</div><div class="supTeamCard-meta">${assigned.length} ${lang==='ar'?'أوامر نشطة':'active orders'}${lead?` · ${lead} ${tr('leadTechnician')}`:''}</div><div class="supTeamCard-meta">${ic('star',12)} ${tr('ratingBySupervisor')}: ${supervisorRating!=null?supervisorRating.toFixed(1):tr('noRating')} · ${tr('ratingByManager')}: ${managerRating!=null?managerRating.toFixed(1):tr('noRating')}</div></div>${assigned.length?`<span class="badge warn">${assigned.length}</span>`:`<span class="badge ok">${lang==='ar'?'متاح':'Free'}</span>`}</div>`}).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('users',24)}</div><div class="empty-title">${lang==='ar'?'لا يوجد فنيون':'No technicians'}</div></div>`}
     </div>`;
 }
 
@@ -5332,7 +5340,7 @@ function assetStatusLabel(s){return ({operational:lang==='ar'?'يعمل':'Operat
 
 function maintenanceTeamPage(){
   const workers=(data.users||[]).filter(u=>u.role==='maintenance_worker'), tickets=data.tickets||[];
-  return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintTeam')}</div><div class="pageSub">${workers.length} ${lang==='ar'?'فني':'technicians'}</div></div></div><div class="supTeamGrid">${workers.map(w=>{const assigned=(maintenanceData().assignees||[]).filter(a=>a.technicianId===w.id&&!['completed'].includes(a.status));const lead=assigned.filter(a=>a.isLead).length;return `<div class="supTeamCard"><div class="supTeamCard-info"><div class="supTeamCard-name">${esc(w.name)}</div><div class="supTeamCard-meta">${assigned.length} ${tr('openTasks')} · ${lead} ${tr('leadTechnician')}</div></div><span class="badge ${assigned.length?'warn':'ok'}">${assigned.length?assigned.length:(lang==='ar'?'متاح':'Free')}</span></div>`}).join('')}</div>`;
+  return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintTeam')}</div><div class="pageSub">${workers.length} ${lang==='ar'?'فني':'technicians'}</div></div></div><div class="supTeamGrid">${workers.map(w=>{const assigned=(maintenanceData().assignees||[]).filter(a=>a.technicianId===w.id&&!['completed'].includes(a.status));const lead=assigned.filter(a=>a.isLead).length;const supervisorRating=maintenanceWorkerRating(w.id,'ratingSupervisor'),managerRating=maintenanceWorkerRating(w.id,'ratingManager');return `<div class="supTeamCard"><div class="supTeamCard-info"><div class="supTeamCard-name">${esc(w.name)}</div><div class="supTeamCard-meta">${assigned.length} ${tr('openTasks')} · ${lead} ${tr('leadTechnician')}</div><div class="supTeamCard-meta">${ic('star',12)} ${tr('ratingBySupervisor')}: ${supervisorRating!=null?supervisorRating.toFixed(1):tr('noRating')} · ${tr('ratingByManager')}: ${managerRating!=null?managerRating.toFixed(1):tr('noRating')}</div></div><span class="badge ${assigned.length?'warn':'ok'}">${assigned.length?assigned.length:(lang==='ar'?'متاح':'Free')}</span></div>`}).join('')}</div>`;
 }
 
 function maintenancePartsPage(){

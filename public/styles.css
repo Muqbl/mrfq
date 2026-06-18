@@ -2217,6 +2217,13 @@ tbody tr:hover td{background:var(--surface-2)}
   transition:all var(--t-base);cursor:pointer;text-align:center;
 }
 .empCatBtn:hover{background:var(--surface-3);border-color:var(--brand-mid)}
+.empCatBtn--disabled,
+.empCatBtn--disabled:hover{
+  background:var(--surface-2);border-color:var(--line);color:var(--muted-light);
+  cursor:not-allowed;box-shadow:none;transform:none;filter:grayscale(1);opacity:.72;
+}
+.empCatBtn--disabled .empCatBtn-icon{background:var(--surface-3);color:var(--muted-light)}
+.empCatBtn--disabled small{font-size:10px;font-weight:600;color:var(--muted-light)}
 .empCatBtn.active{
   background:rgba(10,78,91,.08);border-color:var(--brand);color:var(--brand);
 }

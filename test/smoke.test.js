@@ -588,4 +588,14 @@ test('maintenance operations: technician workflow, parts and diagnostic close', 
   assert.equal(close.status,200);assert.equal(close.body.ticket.status,'waiting_verification');assert.equal(close.body.ticket.diagnosis,'انسداد الفلتر');
   const after=await worker('/api/bootstrap');const closed=after.body.tickets.find(t=>t.id===maintenanceTeamOrderId);
   assert.equal(closed.beforePhotos.length,1);assert.equal(closed.afterPhotos.length,1);
+  const createdReport=await worker('/api/maintenance-reports',{method:'POST',body:JSON.stringify({locationId:closed.locationId,tasks:['فحص التشغيل'],notes:'تقرير تقييم الفني'})});
+  assert.equal(createdReport.status,200);const report=createdReport.body.report;
+  const supervisor=await login('maint-supervisor',PASSWORDS.worker);
+  const reviewed=await supervisor('/api/maintenance-reports/review',{method:'POST',body:JSON.stringify({id:report.id,status:'approved'})});
+  assert.equal(reviewed.status,200);
+  const supervisorRated=await supervisor('/api/maintenance-reports/rate',{method:'POST',body:JSON.stringify({id:report.id,ratingType:'supervisor',value:5})});
+  assert.equal(supervisorRated.status,200);assert.equal(supervisorRated.body.report.ratingSupervisor,5);
+  const manager=await login('maint-manager',PASSWORDS.worker);
+  const managerRated=await manager('/api/maintenance-reports/rate',{method:'POST',body:JSON.stringify({id:report.id,ratingType:'manager',value:4})});
+  assert.equal(managerRated.status,200);assert.equal(managerRated.body.report.ratingManager,4);
 });
