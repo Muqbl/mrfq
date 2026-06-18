@@ -447,6 +447,11 @@ const MIGRATIONS = {
     CREATE INDEX IF NOT EXISTS idx_comments_user   ON ticket_comments(user_id);
   `,
 
+  /* ── v21: employee default location ─────────────────────── */
+  21: `
+    ALTER TABLE users ADD COLUMN default_location_id TEXT NOT NULL DEFAULT '';
+  `,
+
   /* ── v17: recurring cleaning tasks ───────────────────────── */
   17: `
     CREATE TABLE IF NOT EXISTS recurring_tasks (
@@ -609,10 +614,6 @@ const MIGRATIONS = {
   `
 ,
 
-  /* ── v16: employee default location ───────────────────────── */
-  16: `
-    ALTER TABLE users ADD COLUMN default_location_id TEXT NOT NULL DEFAULT '';
-  `
 };
 
 module.exports = { getDb };
