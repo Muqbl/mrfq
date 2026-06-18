@@ -1344,7 +1344,7 @@ tbody tr:hover td{background:var(--surface-2)}
 .platform-main.platform-main--no-sticky{padding-bottom:24px!important}
 
 /* Supervisor multi-column sections grid — auto-fill, no breakpoints needed */
-.supSectionsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+.supSectionsGrid{display:grid;grid-template-columns:repeat(2,minmax(280px,1fr));gap:16px;align-items:start}
 .supSectionsGrid>.wCard--full{grid-column:1/-1}
 
 /* ─── Supervisor workspace ────────────────────────────────── */
@@ -1371,7 +1371,7 @@ tbody tr:hover td{background:var(--surface-2)}
   font-family:var(--font-ui);font-size:var(--fs-xs);font-weight:800;cursor:pointer;white-space:nowrap;
 }
 .supervisorSlaLink:hover{color:var(--brand)}
-.supTicketList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.supTicketList{display:flex;flex-direction:column;gap:10px}
 .supTicketCard{padding:16px}
 .supTicketCard-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:0}
 /* ctrl size variants */
@@ -2020,7 +2020,7 @@ tbody tr:hover td{background:var(--surface-2)}
   .ticketCard-badges{display:flex;flex-wrap:wrap}
   .ticketCard-actions{justify-content:stretch}
   .ticketCard-actions .btn{flex:1;justify-content:center}
-  .supTicketList{grid-template-columns:1fr}
+  .supTicketList{flex-direction:column}
   .supTicketList .supTicketCard{padding:14px;border-radius:var(--r-lg)}
   .supTicketCard-actions .btn,.supTicketCard-actions .ctrl{width:100%;min-height:46px}
   .supTicketCard-actions .ctrl-sm{height:46px;min-height:46px;font-size:14px}

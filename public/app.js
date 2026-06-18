@@ -152,7 +152,7 @@ const T = {
     moduleStatusInProgress:'قيد التطوير',
     orderType:'نوع الطلب',
     ot_coffee:'قهوة',ot_tea:'شاي',ot_water:'مياه',ot_snacks:'وجبات خفيفة',
-    ot_meeting_service:'خدمة قاعة اجتماعات',ot_other:'أخرى',
+    ot_meeting_service:'خدمة قاعة اجتماعات',ot_other:'أخرى',ot_general:'طلب من القائمة',
     hospitalityWorkerTitle:'طلبات الضيافة',hospitalityWorkerDesc:'الطلبات المسندة إليك',
     noAssignedHospOrders:'لا توجد طلبات مسندة حالياً',
     startPreparing:'بدء التحضير',markReady:'جاهز',
@@ -353,7 +353,7 @@ const T = {
     moduleStatusInProgress:'In Progress',
     orderType:'Order Type',
     ot_coffee:'Coffee',ot_tea:'Tea',ot_water:'Water',ot_snacks:'Snacks',
-    ot_meeting_service:'Meeting Room Service',ot_other:'Other',
+    ot_meeting_service:'Meeting Room Service',ot_other:'Other',ot_general:'Menu Order',
     hospitalityWorkerTitle:'Hospitality Orders',hospitalityWorkerDesc:'Orders assigned to you',
     noAssignedHospOrders:'No orders assigned yet',
     startPreparing:'Start Preparing',markReady:'Mark Ready',
@@ -4988,23 +4988,31 @@ function hospOrderCard(o, mode, workers){
     ? `${o.requesterName}${o.requesterPhone?` · ${o.requesterPhone}`:''}`
     : (o.requestedBy || '');
   const showAssign = canHospitalityAssign() && !['completed','cancelled','rejected'].includes(o.status) && mode!=='new' && mode!=='assign';
+  const items = o.items||[];
+  const MAX_ITEMS = 3;
+  const itemsHtml = items.length
+    ? `<div class="ticketCard-badges">${items.slice(0,MAX_ITEMS).map(i=>`<span class="badge">${esc(i)}</span>`).join('')}${items.length>MAX_ITEMS?`<span class="badge" style="color:var(--muted)">+${items.length-MAX_ITEMS}</span>`:''}</div>`
+    : '';
+  const locName = esc(lang==='ar'?o.locationNameAr:o.locationNameEn);
   return`<div class="ticketCard empOrderCard">
     <div class="ticketCard-top empOrderCard-head">
       <div class="ticketCard-main">
         <div class="ticketCard-title empOrderCard-title">${esc(tr('ot_'+o.orderType)||o.orderType)}</div>
-        ${o.referenceNo?`<div class="ticketCard-ref empOrderCard-ref">${esc(o.referenceNo)}</div>`:''}
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:2px">
+          ${o.referenceNo?`<span class="ticketCard-ref empOrderCard-ref">${esc(o.referenceNo)}</span>`:''}
+          <span style="font-size:var(--fs-xs);color:var(--muted)">${fmt(o.updatedAt||o.createdAt)}</span>
+        </div>
       </div>
       <span class="badge ${stCls}">${hospStatusLabel(o.status)}</span>
     </div>
-    <div class="ticketCard-meta empOrderCard-meta">
-      <span>${ic('locations',12)} ${esc(lang==='ar'?o.locationNameAr:o.locationNameEn)}</span>
-      <span>${fmt(o.updatedAt||o.createdAt)}</span>
+    <div class="ticketCard-meta empOrderCard-meta" style="margin-top:6px">
+      <span>${ic('locations',12)} <strong>${locName}</strong></span>
+      ${requester?`<span>${ic('user',12)} ${esc(requester)}</span>`:''}
     </div>
-    ${requester?`<div class="ticketCard-requester">${ic('user',12)} <span class="ticketCard-requester-label">${tr('requesterLabel')}:</span> <span class="ticketCard-requester-name">${esc(requester)}</span></div>`:''}
     ${o.assignedToName?`<div class="ticketCard-meta empOrderCard-meta"><span>${ic('users',12)} ${esc(o.assignedToName)}</span></div>`
       :(showAssign?`<div class="ticketCard-meta empOrderCard-meta"><span class="badge warn">${tr('pendingAssignmentBadge')}</span></div>`:'')}
-    ${o.items&&o.items.length?`<div class="ticketCard-badges">${o.items.map(i=>`<span class="badge">${esc(i)}</span>`).join('')}</div>`:''}
-    ${o.notes?`<div class="empOrderCard-queue">${esc(o.notes)}</div>`:''}
+    ${itemsHtml}
+    ${o.notes?`<div class="empOrderCard-queue" style="font-size:var(--fs-xs)">${esc(o.notes)}</div>`:''}
     <div class="ticketCard-actions supTicketCard-actions"><button class="btn sm secondary" onclick="showHospitalityActivity('${o.id}')">${ic('list',13)} ${lang==='ar'?'سجل الطلب':'Activity'}</button></div>
     ${mode==='new'?`
     <div class="ticketCard-actions supTicketCard-actions">
