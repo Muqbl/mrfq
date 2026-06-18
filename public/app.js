@@ -2274,7 +2274,7 @@ function adminSettings(){
       ${Object.entries(slaLabels).map(([cat,label])=>`
         <div>
           <label style="font-size:var(--fs-xs);font-weight:700;display:flex;align-items:center;gap:5px;margin-bottom:4px">${ic(slaIcons[cat]||'clock',13)} ${label}</label>
-          <input id="sla-${cat}" type="number" min="1" max="1440" value="${sla[cat]||''}" class="inp" style="width:100%">
+          <input id="sla-${cat}" type="number" min="1" max="1440" value="${sla[cat]||''}" class="ctrl" style="width:100%">
         </div>
       `).join('')}
     </div>
@@ -2926,7 +2926,7 @@ function ticketCards(items){
   return`<div class="ticketGrid">${items.map(t=>{
     const prCls = t.priority==='high'?'bad':t.priority==='low'?'info':'warn';
     const canEdit = canTicket();
-    const canDel = ['system_admin','cleaning_manager','maintenance_manager'].includes(me.role);
+    const canDel = ['system_admin','facility_manager','cleaning_manager','maintenance_manager'].includes(me.role);
     const catLabel = isMaintenanceRole() ? maintCatLabel(t.category||'general') : (tr('cat_'+(t.category||'general')) || (t.category||'general'));
     const catClr = t.category==='emergency'?'bad':t.category==='spill'?'warn':t.category==='meeting_room'?'brand':'';
     const statusCls = t.status==='completed'?'ok':['reclean_required','rejected','cancelled'].includes(t.status)?'bad':t.status==='waiting_verification'?'warn':'brand';
@@ -3030,7 +3030,7 @@ async function openComments(ticketId){
     `${ic('chat',16)} ${lang==='ar'?'تعليقات البلاغ':'Ticket Comments'} — ${title}`,
     `<div id="commentsList" style="min-height:60px">${lang==='ar'?'جاري التحميل...':'Loading...'}</div>
      <div style="display:flex;gap:8px;margin-top:12px">
-       <input id="commentInput" class="inp" style="flex:1" placeholder="${lang==='ar'?'اكتب تعليق...':'Write a comment...'}" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitComment()}">
+       <input id="commentInput" class="ctrl" style="flex:1" placeholder="${lang==='ar'?'اكتب تعليق...':'Write a comment...'}" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitComment()}">
        <button class="btn sm" onclick="submitComment()">${ic('arrow',14)} ${lang==='ar'?'إرسال':'Send'}</button>
      </div>`,
     `<button class="btn secondary" onclick="document.getElementById('commentsModal')?.remove()">${lang==='ar'?'إغلاق':'Close'}</button>`
@@ -5805,17 +5805,27 @@ async function deleteMaintTicketConfirm(id){
 
 function maintenanceSchedulesPage(){
   const items=maintenanceData().schedules||[]; const canEdit=['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role);
+  const canDel=['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role);
   return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintSchedules')}</div><div class="pageSub">${items.length} ${lang==='ar'?'خطة':'plans'}</div></div>${canEdit?`<button class="btn" onclick="showMaintenanceScheduleForm()">${ic('plus',15)} ${lang==='ar'?'خطة دورية':'New Plan'}</button>`:''}</div>
     <div class="contentGrid">${items.length?items.map(s=>`<div class="card"><div class="card-head"><span class="card-title">${ic('clock',16)} ${esc(lang==='ar'?s.titleAr:s.titleEn||s.titleAr)}</span><span class="badge ${s.active?'ok':'bad'}">${s.active?tr('activeUser'):tr('inactive')}</span></div>
     <div class="perfStatGrid"><div class="perfStatRow"><span>${lang==='ar'?'التكرار':'Frequency'}</span><b>${scheduleFrequencyLabel(s)}</b></div><div class="perfStatRow"><span>${lang==='ar'?'التنفيذ القادم':'Next run'}</span><b>${fmt(s.nextRunAt)}</b></div><div class="perfStatRow"><span>${tr('maintAssets')}</span><b>${(s.assetIds||[]).length}</b></div><div class="perfStatRow"><span>${tr('maintTeam')}</span><b>${(s.defaultTechnicianIds||[]).length}</b></div></div>
-    ${canEdit?`<div class="ticketCard-actions"><button class="btn secondary sm" onclick="showMaintenanceScheduleTeamForm('${s.id}')">${ic('users',13)} ${lang==='ar'?'إسناد الفنيين':'Assign Technicians'}</button><button class="btn secondary sm" onclick="runMaintenanceSchedule('${s.id}')">${lang==='ar'?'إنشاء أمر الآن':'Run now'}</button></div>`:''}</div>`).join(''):`<div class="card"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}</div>`;
+    ${canEdit?`<div class="ticketCard-actions"><button class="btn secondary sm" onclick="showMaintenanceScheduleTeamForm('${s.id}')">${ic('users',13)} ${lang==='ar'?'إسناد الفنيين':'Assign Technicians'}</button><button class="btn secondary sm" onclick="runMaintenanceSchedule('${s.id}')">${lang==='ar'?'إنشاء أمر الآن':'Run now'}</button>${canDel?`<button class="btn danger sm iconOnlyBtn" onclick="deleteMaintenanceSchedule('${s.id}')" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button>`:''}</div>`:''}</div>`).join(''):`<div class="card"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}</div>`;
+}
+async function deleteMaintenanceSchedule(id){
+  if(!confirm(lang==='ar'?'حذف هذه الخطة الدورية؟':'Delete this schedule?'))return;
+  try{await api('/maintenance/schedules/'+id,{method:'DELETE'});toast(lang==='ar'?'تم الحذف':'Deleted','ok');await load();}catch(e){toast(e.message,'bad');}
 }
 function scheduleFrequencyLabel(s){const unit={daily:lang==='ar'?'يوم':'day',weekly:lang==='ar'?'أسبوع':'week',monthly:lang==='ar'?'شهر':'month',quarterly:lang==='ar'?'ربع سنة':'quarter',yearly:lang==='ar'?'سنة':'year'}[s.frequencyUnit]||s.frequencyUnit;return `${lang==='ar'?'كل':'Every'} ${s.frequencyValue} ${unit}`}
 
 function maintenanceAssetsPage(){
   const items=maintenanceData().assets||[]; const canEdit=['system_admin','facility_manager','maintenance_manager'].includes(me.role);
   return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintAssets')}</div><div class="pageSub">${items.length} ${lang==='ar'?'أصل':'assets'}</div></div>${canEdit?`<button class="btn" onclick="showMaintenanceAssetForm()">${ic('plus',15)} ${lang==='ar'?'إضافة أصل':'Add Asset'}</button>`:''}</div>
-    <div class="productGrid">${items.length?items.map(a=>`<div class="productCard productCard--admin"><div class="productCard-img">${ic('building',28)}</div><div class="productCard-body"><div class="productCard-title">${esc(lang==='ar'?a.nameAr:a.nameEn||a.nameAr)}</div><div class="productCard-desc">${esc(a.code)} · ${esc(a.serialNo||'—')}</div><div class="productCard-badges"><span class="badge ${a.status==='operational'?'ok':a.status==='down'?'bad':'warn'}">${assetStatusLabel(a.status)}</span><span class="badge">${maintCatLabel(a.category)}</span><span class="badge ${a.criticality==='critical'?'bad':''}">${a.criticality}</span></div></div></div>`).join(''):`<div class="card"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}</div>`;
+    <div class="productGrid">${items.length?items.map(a=>`<div class="productCard productCard--admin"><div class="productCard-img">${ic('building',28)}</div><div class="productCard-body"><div class="productCard-title">${esc(lang==='ar'?a.nameAr:a.nameEn||a.nameAr)}</div><div class="productCard-desc">${esc(a.code)} · ${esc(a.serialNo||'—')}</div><div class="productCard-badges"><span class="badge ${a.status==='operational'?'ok':a.status==='down'?'bad':'warn'}">${assetStatusLabel(a.status)}</span><span class="badge">${maintCatLabel(a.category)}</span><span class="badge ${a.criticality==='critical'?'bad':''}">${a.criticality}</span></div></div>${canEdit?`<div class="productCard-actions"><button class="btn danger sm iconOnlyBtn" onclick="deleteMaintenanceAsset('${a.id}')" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button></div>`:''}</div>`).join(''):`<div class="card"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}</div>`;
+}
+async function deleteMaintenanceAsset(id){
+  const a=(maintenanceData().assets||[]).find(x=>x.id===id);
+  if(!confirm(lang==='ar'?`حذف الأصل "${a?.nameAr||id}"؟`:`Delete asset "${a?.nameAr||id}"?`))return;
+  try{await api('/maintenance/assets/'+id,{method:'DELETE'});toast(lang==='ar'?'تم الحذف':'Deleted','ok');await load();}catch(e){toast(e.message,'bad');}
 }
 function assetStatusLabel(s){return ({operational:lang==='ar'?'يعمل':'Operational',down:lang==='ar'?'متوقف':'Down',maintenance:lang==='ar'?'تحت الصيانة':'Under Maintenance',retired:lang==='ar'?'مستبعد':'Retired'}[s]||s)}
 
@@ -5826,7 +5836,21 @@ function maintenanceTeamPage(){
 
 function maintenancePartsPage(){
   const items=maintenanceData().parts||[];const canEdit=['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role);
-  return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintParts')}</div><div class="pageSub">${items.length} ${lang==='ar'?'صنف':'items'}</div></div>${canEdit?`<button class="btn" onclick="showMaintenancePartForm()">${ic('plus',15)} ${lang==='ar'?'إضافة قطعة':'Add Part'}</button>`:''}</div><div class="contentGrid">${items.map(p=>`<div class="card"><div class="card-head"><span class="card-title">${esc(lang==='ar'?p.nameAr:p.nameEn||p.nameAr)}</span><span class="badge ${p.lowStock?'bad':'ok'}">${p.quantity} ${esc(p.unit)}</span></div><div class="pageSub">${esc(p.sku)} · ${lang==='ar'?'حد الطلب':'Reorder'}: ${p.reorderLevel} · ${p.unitCost}</div></div>`).join('')||`<div class="card"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}</div>`;
+  const canDel=['system_admin','facility_manager','maintenance_manager'].includes(me.role);
+  return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintParts')}</div><div class="pageSub">${items.length} ${lang==='ar'?'صنف':'items'}</div></div>${canEdit?`<button class="btn" onclick="showMaintenancePartForm()">${ic('plus',15)} ${lang==='ar'?'إضافة قطعة':'Add Part'}</button>`:''}</div><div class="contentGrid">${items.map(p=>`<div class="card"><div class="card-head"><span class="card-title">${esc(lang==='ar'?p.nameAr:p.nameEn||p.nameAr)}</span><span class="badge ${p.lowStock?'bad':'ok'}">${p.quantity} ${esc(p.unit)}</span></div><div class="pageSub">${esc(p.sku)} · ${lang==='ar'?'حد الطلب':'Reorder'}: ${p.reorderLevel} · ${p.unitCost}</div>${canEdit?`<div class="ticketCard-actions"><button class="btn secondary sm" onclick="showMaintenancePartEditForm('${p.id}')">${ic('edit',13)} ${lang==='ar'?'تعديل':'Edit'}</button>${canDel?`<button class="btn danger sm iconOnlyBtn" onclick="deleteMaintenancePart('${p.id}')" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button>`:''}</div>`:''}</div>`).join('')||`<div class="card"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}</div>`;
+}
+function showMaintenancePartEditForm(id){
+  const p=(maintenanceData().parts||[]).find(x=>x.id===id); if(!p)return;
+  const body=`<div class="formGrid">${fc('SKU',inp('mpt-sku',{value:esc(p.sku),disabled:true}))}${fc(lang==='ar'?'اسم القطعة':'Part Name',inp('mpt-name',{value:esc(lang==='ar'?p.nameAr:p.nameEn||p.nameAr)}))}${fc(lang==='ar'?'الوحدة':'Unit',inp('mpt-unit',{value:esc(p.unit)}))}${fc(lang==='ar'?'الكمية':'Quantity',inp('mpt-qty',{type:'number',value:p.quantity}))}${fc(lang==='ar'?'حد إعادة الطلب':'Reorder Level',inp('mpt-reorder',{type:'number',value:p.reorderLevel}))}${fc(lang==='ar'?'تكلفة الوحدة':'Unit Cost',inp('mpt-cost',{type:'number',value:p.unitCost}))}${fc(tr('location'),inp('mpt-location',{value:esc(p.location||'')}))}</div>`;
+  showModal('maintenancePartModal',lang==='ar'?'تعديل قطعة':'Edit Part',body,`<button class="btn" onclick="saveMaintenancePartEdit('${id}')">${tr('save')}</button><button class="btn secondary" onclick="document.getElementById('maintenancePartModal').remove()">${tr('cancel')}</button>`);
+}
+async function saveMaintenancePartEdit(id){
+  try{await api('/maintenance/parts/'+id,{method:'PUT',body:JSON.stringify({nameAr:document.getElementById('mpt-name').value,unit:document.getElementById('mpt-unit').value,quantity:Number(document.getElementById('mpt-qty').value),reorderLevel:Number(document.getElementById('mpt-reorder').value),unitCost:Number(document.getElementById('mpt-cost').value),location:document.getElementById('mpt-location').value})});document.getElementById('maintenancePartModal')?.remove();toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad');}
+}
+async function deleteMaintenancePart(id){
+  const p=(maintenanceData().parts||[]).find(x=>x.id===id);
+  if(!confirm(lang==='ar'?`حذف القطعة "${p?.nameAr||id}"؟`:`Delete part "${p?.nameAr||id}"?`))return;
+  try{await api('/maintenance/parts/'+id,{method:'DELETE'});toast(lang==='ar'?'تم الحذف':'Deleted','ok');await load();}catch(e){toast(e.message,'bad');}
 }
 function maintenanceReportsPage(){const parts=maintenanceData().orderParts||[];const partsCost=parts.reduce((s,p)=>s+p.totalCost,0);const labor=(data.tickets||[]).reduce((s,t)=>s+(Number(t.laborCost)||0),0);return `<div class="kpiGrid">${kpiCard(partsCost.toFixed(2),lang==='ar'?'تكلفة القطع':'Parts Cost','tool','gold')}${kpiCard(labor.toFixed(2),lang==='ar'?'تكلفة العمل':'Labor Cost','users','brand')}${kpiCard((data.reports||[]).length,lang==='ar'?'تقارير الفنيين':'Technician Reports','reports','ok')}${kpiCard((data.tickets||[]).filter(t=>t.status==='completed').length,lang==='ar'?'أوامر مكتملة':'Completed Orders','check','ok')}</div>${reports()}`}
 
@@ -6160,7 +6184,7 @@ function addMaintTask(){
   if(!el) return;
   const row = document.createElement('div');
   row.style.cssText='display:flex;gap:6px;margin-bottom:6px';
-  row.innerHTML=`<input class="form-control mr-task-input" placeholder="${lang==='ar'?'المهمة':'Task'}"><button class="btn btn-ghost btn-sm" type="button" onclick="this.parentNode.remove()">${ic('trash',14)}</button>`;
+  row.innerHTML=`<input class="ctrl" style="flex:1" placeholder="${lang==='ar'?'المهمة':'Task'}"><button class="btn secondary sm iconOnlyBtn" type="button" onclick="this.parentNode.remove()">${ic('trash',14)}</button>`;
   el.appendChild(row);
 }
 

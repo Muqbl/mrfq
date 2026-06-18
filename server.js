@@ -1995,6 +1995,15 @@ const server = http.createServer(async (req, res) => {
         sets.push('updated_at=?');vals.push(now(),id); db.prepare(`UPDATE maintenance_assets SET ${sets.join(',')} WHERE id=?`).run(...vals);
         return send(res,200,{assets:dbMaintenanceAssets()});
       }
+      if (req.method === 'DELETE' && /^\/api\/maintenance\/assets\/[^/]+$/.test(url.pathname)) {
+        if (!['system_admin','facility_manager','maintenance_manager'].includes(me.role)) return send(res,403,{error:'FORBIDDEN'});
+        const id=sanitize(url.pathname.split('/').pop(),50);
+        const asset=db.prepare('SELECT 1 FROM maintenance_assets WHERE id=? AND deleted_at IS NULL').get(id);
+        if (!asset) return send(res,404,{error:'ASSET_NOT_FOUND'});
+        db.prepare('UPDATE maintenance_assets SET deleted_at=?,updated_at=? WHERE id=?').run(now(),now(),id);
+        logEvent(db,'asset.deleted','asset',id,me,{id},'maintenance');
+        return send(res,200,{assets:dbMaintenanceAssets()});
+      }
 
       /* ── PREVENTIVE MAINTENANCE SCHEDULES ────────────────── */
       if (req.method === 'POST' && url.pathname === '/api/maintenance/schedules') {
@@ -2037,6 +2046,15 @@ const server = http.createServer(async (req, res) => {
         sets.push('updated_at=?');vals.push(now(),id);db.prepare(`UPDATE maintenance_schedules SET ${sets.join(',')} WHERE id=?`).run(...vals);
         return send(res,200,{schedules:dbMaintenanceSchedules()});
       }
+      if (req.method === 'DELETE' && /^\/api\/maintenance\/schedules\/[^/]+$/.test(url.pathname)) {
+        if (!['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role)) return send(res,403,{error:'FORBIDDEN'});
+        const id=sanitize(url.pathname.split('/').pop(),50);
+        const schedule=db.prepare('SELECT 1 FROM maintenance_schedules WHERE id=? AND deleted_at IS NULL').get(id);
+        if (!schedule) return send(res,404,{error:'SCHEDULE_NOT_FOUND'});
+        db.prepare('UPDATE maintenance_schedules SET deleted_at=?,updated_at=? WHERE id=?').run(now(),now(),id);
+        logEvent(db,'schedule.deleted','schedule',id,me,{id},'maintenance');
+        return send(res,200,{schedules:dbMaintenanceSchedules()});
+      }
       if (req.method === 'POST' && /^\/api\/maintenance\/schedules\/[^/]+\/run$/.test(url.pathname)) {
         if (!['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role)) return send(res,403,{error:'FORBIDDEN'});
         const id=sanitize(url.pathname.split('/')[4],50); const schedule=db.prepare('SELECT * FROM maintenance_schedules WHERE id=? AND deleted_at IS NULL').get(id);
@@ -2055,6 +2073,28 @@ const server = http.createServer(async (req, res) => {
           (id,sku,name_ar,name_en,unit,quantity,reorder_level,unit_cost,location,active,created_at,updated_at)
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).run(id,sku,nameAr,sanitize(b.nameEn,160),sanitize(b.unit,30)||'piece',
           Math.max(0,Number(b.quantity)||0),Math.max(0,Number(b.reorderLevel)||0),Math.max(0,Number(b.unitCost)||0),sanitize(b.location,120),1,ts,ts);
+        return send(res,200,{parts:dbMaintenanceParts()});
+      }
+      if (req.method === 'PUT' && /^\/api\/maintenance\/parts\/[^/]+$/.test(url.pathname)) {
+        if (!['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role)) return send(res,403,{error:'FORBIDDEN'});
+        const id=sanitize(url.pathname.split('/').pop(),50); const b=await bodyJSON(req);
+        const part=db.prepare('SELECT 1 FROM maintenance_parts WHERE id=? AND deleted_at IS NULL').get(id);
+        if (!part) return send(res,404,{error:'PART_NOT_FOUND'});
+        const fields={nameAr:'name_ar',nameEn:'name_en',unit:'unit',quantity:'quantity',reorderLevel:'reorder_level',unitCost:'unit_cost',location:'location'};
+        const sets=[]; const vals=[];
+        for (const [key,col] of Object.entries(fields)) if (b[key]!==undefined) { sets.push(`${col}=?`); vals.push(['quantity','reorderLevel','unitCost'].includes(key)?Math.max(0,Number(b[key])):sanitize(b[key],200)); }
+        if (!sets.length) return send(res,400,{error:'NO_FIELDS'});
+        sets.push('updated_at=?'); vals.push(now(),id);
+        db.prepare(`UPDATE maintenance_parts SET ${sets.join(',')} WHERE id=?`).run(...vals);
+        return send(res,200,{parts:dbMaintenanceParts()});
+      }
+      if (req.method === 'DELETE' && /^\/api\/maintenance\/parts\/[^/]+$/.test(url.pathname)) {
+        if (!['system_admin','facility_manager','maintenance_manager'].includes(me.role)) return send(res,403,{error:'FORBIDDEN'});
+        const id=sanitize(url.pathname.split('/').pop(),50);
+        const part=db.prepare('SELECT 1 FROM maintenance_parts WHERE id=? AND deleted_at IS NULL').get(id);
+        if (!part) return send(res,404,{error:'PART_NOT_FOUND'});
+        db.prepare('UPDATE maintenance_parts SET deleted_at=?,updated_at=? WHERE id=?').run(now(),now(),id);
+        logEvent(db,'part.deleted','part',id,me,{id},'maintenance');
         return send(res,200,{parts:dbMaintenanceParts()});
       }
       if (req.method === 'POST' && /^\/api\/maintenance-tickets\/[^/]+\/parts$/.test(url.pathname)) {
