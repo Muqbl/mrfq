@@ -522,7 +522,7 @@ let cameraMode = 'general'; // 'before' | 'after' | 'general'
 let editUserId = null, currentTicketId = null;
 let resetPasswordUserId = null;
 let reportFilter = 'all';
-let employeeServiceType = 'cleaning';
+let employeeServiceType = '';
 let employeeHistoryFilter = 'all';
 let usersSearch = '', usersRoleFilter = 'all', usersStatusFilter = 'all';
 let locsFloorFilter = 'all';
@@ -599,6 +599,13 @@ const hospStatusBadgeClass = s =>
 
 const app = document.getElementById('app');
 const tr = k => (T[lang]&&T[lang][k]) || k;
+function maintenanceStatusLabel(status){
+  const ar={submitted:'جديد',assigned:'مسند',accepted:'مقبول',diagnosing:'قيد التشخيص',in_progress:'قيد التنفيذ',awaiting_parts:'بانتظار قطع غيار',awaiting_vendor:'بانتظار مورد',awaiting_permit:'بانتظار تصريح',on_hold:'متوقف مؤقتاً',waiting_verification:'بانتظار التحقق',completed:'مكتمل',reclean_required:'إعادة العمل مطلوبة',rejected:'مرفوض',cancelled:'ملغي',pending:'بانتظار المراجعة',pending_approval:'بانتظار المراجعة',approved:'معتمد',needs_recleaning:'إعادة العمل مطلوبة'};
+  const en={submitted:'New',assigned:'Assigned',accepted:'Accepted',diagnosing:'Diagnosing',in_progress:'In Progress',awaiting_parts:'Awaiting Parts',awaiting_vendor:'Awaiting Vendor',awaiting_permit:'Awaiting Permit',on_hold:'On Hold',waiting_verification:'Pending Verification',completed:'Completed',reclean_required:'Rework Required',rejected:'Rejected',cancelled:'Cancelled',pending:'Pending Review',pending_approval:'Pending Review',approved:'Approved',needs_recleaning:'Rework Required'};
+  return (lang==='ar'?ar:en)[status]||status;
+}
+function ticketStatusLabel(ticket){return ticket?.module==='maintenance'?maintenanceStatusLabel(ticket.status):tr(ticket?.status)||ticket?.status}
+function reportStatusLabel(report){return report?.module==='maintenance'?maintenanceStatusLabel(report.approvalStatus||'pending'):tr(report?.approvalStatus||'pending')}
 const esc = s => String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 function fmt(d){
   if(!d) return '—';
@@ -784,7 +791,7 @@ function connectSSE(){
     const d=JSON.parse(e.data);
     const st=d.report.approvalStatus;
     playSound(st);
-    const msgs={approved:lang==='ar'?'تم اعتماد التقرير':'Report approved',rejected:lang==='ar'?'تم رفض التقرير':'Report rejected',needs_recleaning:lang==='ar'?'مطلوب إعادة تنظيف':'Re-cleaning required'};
+    const msgs={approved:lang==='ar'?'تم اعتماد التقرير':'Report approved',rejected:lang==='ar'?'تم رفض التقرير':'Report rejected',needs_recleaning:d.report.module==='maintenance'?(lang==='ar'?'مطلوب إعادة العمل':'Rework required'):(lang==='ar'?'مطلوب إعادة تنظيف':'Re-cleaning required')};
     toast(msgs[st]||st, st==='approved'?'ok':'bad');
     load();
   });
@@ -871,6 +878,11 @@ function appBack(){
       return;
     }
   }else if(me.role==='employee'){
+    if(employeeView==='new'&&employeeServiceType){
+      employeeServiceType='';
+      renderEmployee();
+      return;
+    }
     if(employeeView!=='home'){
       employeeView='home';
       mobileNavActive='employee-home';
@@ -1104,16 +1116,27 @@ function renderFieldTabs(){
       </span>
       ${count?`<span class="countBubble fieldTab-count">${num(count)}</span>`:''}
     </button>`;
-  if(['cleaning_supervisor','maintenance_supervisor'].includes(me.role)){
+  if(me.role==='maintenance_supervisor'){
     const openTickets = (data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
     const pendingReports = (data?.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
     const workers = (data?.users||[]).filter(u=>(u.roles||[u.role]).includes(operationalWorkerRole())).length;
-    const renderFn = isMaintenanceRole()?'renderMaintenanceSupervisor':'renderSupervisor';
     return `<div class="fieldTabs" role="tablist">
-      ${mk(supervisorView==='dashboard','dashboard',tr('dashboard'),`supervisorView='dashboard';mobileNavActive='supervisor-dashboard';${renderFn}()`)}
-      ${mk(supervisorView==='requests','tickets',lang==='ar'?'الطلبات':'Requests',`supervisorView='requests';mobileNavActive='supervisor-requests';${renderFn}()`,openTickets)}
-      ${mk(supervisorView==='team','users',lang==='ar'?'الفريق':'Team',`supervisorView='team';mobileNavActive='supervisor-team';${renderFn}()`,workers)}
-      ${mk(supervisorView==='reports','reports',tr('reports'),`supervisorView='reports';mobileNavActive='supervisor-reports';${renderFn}()`,pendingReports)}
+      ${mk(supervisorView==='dashboard','dashboard',tr('dashboard'),"supervisorView='dashboard';mobileNavActive='supervisor-dashboard';renderMaintenanceSupervisor()")}
+      ${mk(supervisorView==='requests','tickets',lang==='ar'?'أوامر العمل':'Work Orders',"supervisorView='requests';mobileNavActive='supervisor-requests';renderMaintenanceSupervisor()",openTickets)}
+      ${mk(supervisorView==='schedules','clock',tr('maintSchedules'),"supervisorView='schedules';mobileNavActive='supervisor-schedules';renderMaintenanceSupervisor()")}
+      ${mk(supervisorView==='team','users',tr('maintTeam'),"supervisorView='team';mobileNavActive='supervisor-team';renderMaintenanceSupervisor()",workers)}
+      ${mk(supervisorView==='reports','reports',lang==='ar'?'تقارير الصيانة':'Maintenance Reports',"supervisorView='reports';mobileNavActive='supervisor-reports';renderMaintenanceSupervisor()",pendingReports)}
+    </div>`;
+  }
+  if(me.role==='cleaning_supervisor'){
+    const openTickets = (data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
+    const pendingReports = (data?.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
+    const workers = (data?.users||[]).filter(u=>(u.roles||[u.role]).includes(operationalWorkerRole())).length;
+    return `<div class="fieldTabs" role="tablist">
+      ${mk(supervisorView==='dashboard','dashboard',tr('dashboard'),"supervisorView='dashboard';mobileNavActive='supervisor-dashboard';renderSupervisor()")}
+      ${mk(supervisorView==='requests','tickets',lang==='ar'?'الطلبات':'Requests',"supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()",openTickets)}
+      ${mk(supervisorView==='team','users',lang==='ar'?'الفريق':'Team',"supervisorView='team';mobileNavActive='supervisor-team';renderSupervisor()",workers)}
+      ${mk(supervisorView==='reports','reports',tr('reports'),"supervisorView='reports';mobileNavActive='supervisor-reports';renderSupervisor()",pendingReports)}
     </div>`;
   }
   if(me.role==='maintenance_worker'){
@@ -1140,7 +1163,7 @@ function renderFieldTabs(){
     const activeCount = (data?.tickets||[]).filter(t=>t.createdById===me.id&&!['completed','rejected','cancelled'].includes(t.status)).length;
     return `<div class="fieldTabs" role="tablist">
       ${mk(employeeView==='home','dashboard',lang==='ar'?'الرئيسية':'Home',"employeeView='home';mobileNavActive='employee-home';renderEmployee()")}
-      ${mk(employeeView==='new','send',lang==='ar'?'طلب جديد':'New',"employeeView='new';mobileNavActive='employee-new';renderEmployee()")}
+      ${mk(employeeView==='new','send',lang==='ar'?'طلب خدمة':'Request Service',"employeeServiceType='';employeeView='new';mobileNavActive='employee-new';renderEmployee()")}
       ${mk(employeeView==='history','clipboardList',tr('myRequests'),"employeeView='history';mobileNavActive='employee-history';renderEmployee()",activeCount)}
       ${mk(employeeView==='more','menu',lang==='ar'?'المزيد':'More',"employeeView='more';mobileNavActive='employee-more';renderEmployee()")}
     </div>`;
@@ -1492,7 +1515,7 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
     showMore = false;
     primary = [
       {v:'employee-home', label:lang==='ar'?'الرئيسية':'Home', icon:'dashboard', count:0, action:"employeeView='home';mobileNavActive='employee-home';renderEmployee()", active:employeeView==='home'},
-      {v:'employee-new', label:lang==='ar'?'طلب جديد':'New', icon:'send', count:0, action:"employeeView='new';mobileNavActive='employee-new';renderEmployee()", active:employeeView==='new'},
+      {v:'employee-new', label:lang==='ar'?'طلب خدمة':'Request', icon:'send', count:0, action:"employeeServiceType='';employeeView='new';mobileNavActive='employee-new';renderEmployee()", active:employeeView==='new'},
       {v:'employee-history', label:tr('myRequests'), icon:'clipboardList', count:activeCount, action:"employeeView='history';mobileNavActive='employee-history';renderEmployee()", active:employeeView==='history'},
       {v:'employee-more', label:lang==='ar'?'المزيد':'More', icon:'menu', count:0, action:"employeeView='more';mobileNavActive='employee-more';renderEmployee()", active:employeeView==='more'}
     ];
@@ -1515,13 +1538,22 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
       {v:'worker-assigned', label:lang==='ar'?'المسندة':'Assigned', icon:'locations', count:assignedCount, action:`workerView='assigned';mobileNavActive='worker-assigned';${isMaintenanceRole(role)?'renderMaintenanceWorker':'renderWorker'}()`, active:workerView==='assigned'},
       {v:'worker-reports', label:lang==='ar'?'تقاريري':'Reports', icon:'reports', count:pendingReports, action:`workerView='reports';mobileNavActive='worker-reports';${isMaintenanceRole(role)?'renderMaintenanceWorker':'renderWorker'}()`, active:workerView==='reports'}
     ];
-  }else if(['cleaning_supervisor','maintenance_supervisor'].includes(role)){
+  }else if(role==='maintenance_supervisor'){
     showMore = false;
     primary = [
-      {v:'supervisor-dashboard', label:tr('dashboard'), icon:'dashboard', count:0, action:`supervisorView='dashboard';mobileNavActive='supervisor-dashboard';${isMaintenanceRole(role)?'renderMaintenanceSupervisor':'renderSupervisor'}()`, active:supervisorView==='dashboard'},
-      {v:'supervisor-requests', label:lang==='ar'?'الطلبات':'Requests', icon:'tickets', count:openTickets, action:`supervisorView='requests';mobileNavActive='supervisor-requests';${isMaintenanceRole(role)?'renderMaintenanceSupervisor':'renderSupervisor'}()`, active:supervisorView==='requests'},
-      {v:'supervisor-team', label:lang==='ar'?'الفريق':'Team', icon:'users', count:0, action:`supervisorView='team';mobileNavActive='supervisor-team';${isMaintenanceRole(role)?'renderMaintenanceSupervisor':'renderSupervisor'}()`, active:supervisorView==='team'},
-      {v:'supervisor-reports', label:tr('reports'), icon:'reports', count:pendingReports, action:`supervisorView='reports';mobileNavActive='supervisor-reports';${isMaintenanceRole(role)?'renderMaintenanceSupervisor':'renderSupervisor'}()`, active:supervisorView==='reports'}
+      {v:'supervisor-dashboard',label:tr('dashboard'),icon:'dashboard',count:0,action:"supervisorView='dashboard';mobileNavActive='supervisor-dashboard';renderMaintenanceSupervisor()",active:supervisorView==='dashboard'},
+      {v:'supervisor-requests',label:lang==='ar'?'أوامر العمل':'Work Orders',icon:'tickets',count:openTickets,action:"supervisorView='requests';mobileNavActive='supervisor-requests';renderMaintenanceSupervisor()",active:supervisorView==='requests'},
+      {v:'supervisor-schedules',label:tr('maintSchedules'),icon:'clock',count:0,action:"supervisorView='schedules';mobileNavActive='supervisor-schedules';renderMaintenanceSupervisor()",active:supervisorView==='schedules'},
+      {v:'supervisor-team',label:tr('maintTeam'),icon:'users',count:0,action:"supervisorView='team';mobileNavActive='supervisor-team';renderMaintenanceSupervisor()",active:supervisorView==='team'},
+      {v:'supervisor-reports',label:lang==='ar'?'التقارير':'Reports',icon:'reports',count:pendingReports,action:"supervisorView='reports';mobileNavActive='supervisor-reports';renderMaintenanceSupervisor()",active:supervisorView==='reports'}
+    ];
+  }else if(role==='cleaning_supervisor'){
+    showMore = false;
+    primary = [
+      {v:'supervisor-dashboard', label:tr('dashboard'), icon:'dashboard', count:0, action:"supervisorView='dashboard';mobileNavActive='supervisor-dashboard';renderSupervisor()", active:supervisorView==='dashboard'},
+      {v:'supervisor-requests', label:lang==='ar'?'الطلبات':'Requests', icon:'tickets', count:openTickets, action:"supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()", active:supervisorView==='requests'},
+      {v:'supervisor-team', label:lang==='ar'?'الفريق':'Team', icon:'users', count:0, action:"supervisorView='team';mobileNavActive='supervisor-team';renderSupervisor()", active:supervisorView==='team'},
+      {v:'supervisor-reports', label:tr('reports'), icon:'reports', count:pendingReports, action:"supervisorView='reports';mobileNavActive='supervisor-reports';renderSupervisor()", active:supervisorView==='reports'}
     ];
   }else if(role==='maintenance_manager'){
     showMore = false;
@@ -2383,7 +2415,7 @@ function miniReportList(items){
         <div class="list-sub">${esc(r.workerName)} · ${fmt(r.createdAt)}</div>
       </div>
       <div class="list-end">
-        <span class="badge ${st==='approved'?'ok':st==='rejected'||st==='needs_recleaning'?'bad':'warn'}">${tr(st)}</span>
+        <span class="badge ${st==='approved'?'ok':st==='rejected'||st==='needs_recleaning'?'bad':'warn'}">${reportStatusLabel(r)}</span>
       </div>
     </div>`;
   }).join('')}</div>`;
@@ -2397,7 +2429,14 @@ function taskSetFor(type){return isMaintenanceRole()?MAINT_TASKS:(type==='restro
 function taskDone(tasks,pair){return (tasks||[]).includes(pair[0])||(tasks||[]).includes(pair[1])}
 
 function reports(){
-  const filters = [
+  const maintenanceContext=isMaintenanceRole()||adminModuleContext==='maintenance'||(data.reports||[]).some(r=>r.module==='maintenance')&&!(data.reports||[]).some(r=>r.module==='cleaning');
+  const filters = maintenanceContext?[
+    {key:'pending',label:lang==='ar'?'بانتظار المراجعة':'Pending Review'},
+    {key:'approved',label:tr('filterApproved')},
+    {key:'rejected',label:lang==='ar'?'مرفوض':'Rejected'},
+    {key:'needs_recleaning',label:lang==='ar'?'إعادة العمل':'Rework'},
+    {key:'all',label:tr('filterAll')},
+  ]:[
     {key:'new',label:tr('filterNew')},
     {key:'pending',label:tr('filterPending')},
     {key:'approved',label:tr('filterApproved')},
@@ -2474,7 +2513,7 @@ function reportCard(r,full){
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <span class="badge brand">${ic('camera',10)} ${num(totalPhotos)}</span>
         <span class="badge gold">${tr('quality')}: ${num(q)}%</span>
-        <span class="badge ${st==='approved'?'ok':st==='rejected'||st==='needs_recleaning'?'bad':'warn'}">${tr(st)}</span>
+        <span class="badge ${st==='approved'?'ok':st==='rejected'||st==='needs_recleaning'?'bad':'warn'}">${reportStatusLabel(r)}</span>
         ${rating!=null?`<span class="badge gold">${ic('star',10)} ${rating.toFixed(1)}</span>`:''}
         <span class="badge" style="margin-inline-start:auto">${ic('arrow',11)} ${lang==='ar'?'تفاصيل':'Details'}</span>
       </div>
@@ -2485,7 +2524,7 @@ function reportCard(r,full){
           <button class="btn ok sm action-btn" onclick="reviewReport('${r.id}','approved')">${ic('check',13)} ${tr('approve')}</button>
         </div>
         <div class="reportCard-actions-secondary${canDelete()?'':' reportCard-actions-secondary--full'}">
-          <button class="btn warn sm action-btn" onclick="reviewReport('${r.id}','needs_recleaning')">${ic('flip',13)} ${tr('reclean')}</button>
+          <button class="btn warn sm action-btn" onclick="reviewReport('${r.id}','needs_recleaning')">${ic('flip',13)} ${r.module==='maintenance'?(lang==='ar'?'إعادة العمل':'Rework'):tr('reclean')}</button>
           <button class="btn danger sm action-btn" onclick="reviewReport('${r.id}','rejected')">${ic('x',13)} ${tr('reject')}</button>
         </div>
         ${canDelete()?`<div class="reportCard-actions-danger"><button class="btn secondary sm action-btn reportDeleteBtn" onclick="deleteReport('${r.id}')" aria-label="${lang==='ar'?'حذف التقرير':'Delete report'}" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button></div>`:''}
@@ -2534,7 +2573,7 @@ function toggleNotif(e){
     ...openTkts.map(t=>({
       color:'var(--bad)',
       label: esc(t.title),
-      sub:   lang==='ar'? `${tr(t.status)||t.status} · ${tr('activeTicket')}` : `${tr(t.status)||t.status} · ${tr('activeTicket')}`,
+      sub:   `${ticketStatusLabel(t)} · ${tr('activeTicket')}`,
       time:  fmt(t.createdAt),
       go:()=>{ view='tickets'; render(); }
     }))
@@ -2659,7 +2698,7 @@ ${items.map((r,i)=>{
   return`<tr><td>${i+1}</td><td>${esc(r.workerName)}</td>
     <td>${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}<br><small style="color:#8A989C">${tr(r.locationType||'other')}</small></td>
     <td>${qualityScore(r)}%</td>
-    <td class="${cls}">${tr(st)}</td>
+    <td class="${cls}">${reportStatusLabel(r)}</td>
     <td style="white-space:nowrap">${fmt(r.createdAt)}</td>
   </tr>${r.notes?`<tr><td></td><td colspan="5" style="font-size:11px;color:#6F787F;padding-top:2px">${esc(r.notes)}</td></tr>`:''}`;
 }).join('')}
@@ -2785,7 +2824,7 @@ function ticketCards(items){
           <div class="ticketCard-title">${esc(t.title)}</div>
           ${t.referenceNo?`<div class="ticketCard-ref">${esc(t.referenceNo)}</div>`:''}
         </div>
-        <span class="badge ${statusCls}">${tr(t.status)||t.status}</span>
+        <span class="badge ${statusCls}">${ticketStatusLabel(t)}</span>
       </div>
       <div class="ticketCard-meta">
         <span>${ic('locations',12)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</span>
@@ -3117,15 +3156,16 @@ function fmtFull(ts){
 async function openTicketDetail(id){
   const t = (data.tickets||[]).find(x=>x.id===id);
   if(!t) return;
-  const catLabel = tr('cat_'+(t.category||'general')) || (t.category||'general');
+  const catLabel = t.module==='maintenance'?maintCatLabel(t.category||'general'):(tr('cat_'+(t.category||'general')) || (t.category||'general'));
   const statusCls = t.status==='completed'?'ok':['rejected','cancelled'].includes(t.status)?'bad':t.status==='waiting_verification'?'warn':'brand';
   const prCls = t.priority==='high'?'bad':t.priority==='low'?'info':'warn';
+  const before=t.beforePhotos||[],after=t.afterPhotos||[],hasTyped=before.length||after.length;
   const body = `
   <div class="detailModal">
     <div class="detailModal-section">
       <div class="detailModal-grid2">
         <div><span class="detailLabel">${lang==='ar'?'الموقع':'Location'}</span><span class="detailVal">${ic('locations',12)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</span></div>
-        <div><span class="detailLabel">${lang==='ar'?'الحالة':'Status'}</span><span class="badge ${statusCls}">${tr(t.status)||t.status}</span></div>
+        <div><span class="detailLabel">${lang==='ar'?'الحالة':'Status'}</span><span class="badge ${statusCls}">${ticketStatusLabel(t)}</span></div>
         <div><span class="detailLabel">${lang==='ar'?'المسند إليه':'Assigned'}</span><span class="detailVal">${ic('users',12)} ${esc(t.assignedToName||tr('unassigned'))}</span></div>
         <div><span class="detailLabel">${lang==='ar'?'الأولوية':'Priority'}</span><span class="badge ${prCls}">${tr(t.priority||'medium')}</span></div>
         <div><span class="detailLabel">${lang==='ar'?'الفئة':'Category'}</span><span class="badge">${catLabel}</span></div>
@@ -3138,8 +3178,8 @@ async function openTicketDetail(id){
     ${t.photos&&t.photos.length?`
     <div class="detailModal-section">
       <div class="detailModal-sectionTitle">${ic('camera',14)} ${lang==='ar'?'الصور':'Photos'} <span class="badge brand">${t.photos.length}</span></div>
-      <div class="detailModal-photos">
-        ${t.photos.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(t.photos)},${i})' alt="">`).join('')}
+      <div class="${hasTyped?'detailModal-photos-split':'detailModal-photos'}">
+        ${hasTyped?`${before.length?`<div><div class="photoGroup-label">${lang==='ar'?'قبل الصيانة':'Before Maintenance'}</div><div class="detailModal-photos">${before.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(before)},${i})' alt="">`).join('')}</div></div>`:''}${after.length?`<div><div class="photoGroup-label ok">${lang==='ar'?'بعد الصيانة':'After Maintenance'}</div><div class="detailModal-photos">${after.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(after)},${i})' alt="">`).join('')}</div></div>`:''}`:t.photos.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(t.photos)},${i})' alt="">`).join('')}
       </div>
     </div>`:
     `<div class="detailModal-section"><div class="detailModal-sectionTitle">${ic('camera',14)} ${lang==='ar'?'الصور':'Photos'}</div><div style="color:var(--muted);font-size:var(--fs-xs);padding:4px 0">${lang==='ar'?'لا توجد صور':'No photos'}</div></div>`}
@@ -3173,8 +3213,8 @@ async function openReportDetail(id){
     <div class="detailModal-section">
       <div class="detailModal-grid2">
         <div><span class="detailLabel">${lang==='ar'?'الموقع':'Location'}</span><span class="detailVal">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</span></div>
-        <div><span class="detailLabel">${lang==='ar'?'العامل':'Worker'}</span><span class="detailVal">${ic('users',12)} ${esc(r.workerName)}</span></div>
-        <div><span class="detailLabel">${lang==='ar'?'الحالة':'Status'}</span><span class="badge ${stCls}">${tr(st)}</span></div>
+        <div><span class="detailLabel">${r.module==='maintenance'?(lang==='ar'?'الفني':'Technician'):(lang==='ar'?'العامل':'Worker')}</span><span class="detailVal">${ic('users',12)} ${esc(r.workerName)}</span></div>
+        <div><span class="detailLabel">${lang==='ar'?'الحالة':'Status'}</span><span class="badge ${stCls}">${reportStatusLabel(r)}</span></div>
         <div><span class="detailLabel">${lang==='ar'?'التاريخ':'Date'}</span><span class="detailVal">${fmtFull(r.createdAt)}</span></div>
         ${r.approvedBy?`<div><span class="detailLabel">${lang==='ar'?'راجعه':'Reviewed by'}</span><span class="detailVal">${esc(r.approvedBy)}</span></div>`:''}
         ${r.reviewNote?`<div><span class="detailLabel">${lang==='ar'?'ملاحظة المراجع':'Review note'}</span><span class="detailVal">${esc(r.reviewNote)}</span></div>`:''}
@@ -3193,8 +3233,8 @@ async function openReportDetail(id){
       ${allImgs.length?`
       <div class="${hasTyped?'detailModal-photos-split':'detailModal-photos'}">
         ${hasTyped?`
-          ${before.length?`<div><div class="photoGroup-label" style="margin-bottom:6px">${ic('camera',12)} ${tr('beforePhotos')}</div><div class="detailModal-photos">${before.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(before)},${i})' alt="">`).join('')}</div></div>`:''}
-          ${after.length?`<div><div class="photoGroup-label ok" style="margin-bottom:6px">${ic('check',12)} ${tr('afterPhotos')}</div><div class="detailModal-photos">${after.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(after)},${i})' alt="">`).join('')}</div></div>`:''}
+          ${before.length?`<div><div class="photoGroup-label" style="margin-bottom:6px">${ic('camera',12)} ${r.module==='maintenance'?(lang==='ar'?'صور قبل الصيانة':'Before Maintenance Photos'):tr('beforePhotos')}</div><div class="detailModal-photos">${before.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(before)},${i})' alt="">`).join('')}</div></div>`:''}
+          ${after.length?`<div><div class="photoGroup-label ok" style="margin-bottom:6px">${ic('check',12)} ${r.module==='maintenance'?(lang==='ar'?'صور بعد الصيانة':'After Maintenance Photos'):tr('afterPhotos')}</div><div class="detailModal-photos">${after.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(after)},${i})' alt="">`).join('')}</div></div>`:''}
         `:allImgs.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(allImgs)},${i})' alt="">`).join('')}
       </div>`:
       `<div style="color:var(--muted);font-size:var(--fs-xs);padding:4px 0">${lang==='ar'?'لا توجد صور':'No photos'}</div>`}
@@ -4319,12 +4359,12 @@ function employeeHome(orders, activeCount){
   <div class="empHomeSummary">
     <div>
       <div class="empHomeSummary-kicker">${tr('app')}</div>
-      <div class="empHomeSummary-title">${lang==='ar'?'خدمات النظافة والمرافق':'Cleaning and facility services'}</div>
+      <div class="empHomeSummary-title">${lang==='ar'?'بوابة خدمات المرافق':'Facility Services Portal'}</div>
       <div class="empHomeSummary-sub">${activeCount?`${num(activeCount)} ${lang==='ar'?'طلبات قيد المتابعة':'active requests'}`:(lang==='ar'?'لا توجد طلبات مفتوحة':'No open requests')}</div>
     </div>
     ${countBubble(orders.length)}
   </div>
-  <button class="btn wide" onclick="employeeView='new';mobileNavActive='employee-new';renderEmployee()">${ic('send',18)} ${tr('submitRequest')}</button>
+  <button class="btn wide" onclick="employeeServiceType='';employeeView='new';mobileNavActive='employee-new';renderEmployee()">${ic('send',18)} ${lang==='ar'?'طلب خدمة':'Request a Service'}</button>
 </div>
 ${latest.length?`
 <div class="wCard">
@@ -4339,7 +4379,7 @@ ${latest.length?`
             <div class="ticketCard-title empOrderCard-title">${esc(t.title)}</div>
             ${t.referenceNo?`<div class="ticketCard-ref empOrderCard-ref">${esc(t.referenceNo)}</div>`:''}
           </div>
-          <span class="badge ${stCls}">${tr(t.status)||t.status}</span>
+          <span class="badge ${stCls}">${ticketStatusLabel(t)}</span>
         </div>
         <div class="ticketCard-meta empOrderCard-meta"><span>${ic('locations',12)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</span><span>${fmt(t.createdAt)}</span></div>
         <div class="ticketCard-badges"><span class="badge ${isMaintenance?'gold':'brand'}">${ic(isMaintenance?'tool':'reports',11)} ${isMaintenance?(lang==='ar'?'صيانة':'Maintenance'):(lang==='ar'?'نظافة':'Cleaning')}</span></div>
@@ -4366,23 +4406,24 @@ function employeeSubmitForm(){
   const cleaningEnabled=settings.employeeCleaningRequestsEnabled!==false;
   const maintenanceEnabled=settings.employeeMaintenanceRequestsEnabled!==false;
   if(!cleaningEnabled&&!maintenanceEnabled)return `<div class="wCard"><div class="empty-state"><div class="empty-icon">${ic('lock',32)}</div><div class="empty-title">${lang==='ar'?'استقبال الطلبات متوقف مؤقتاً':'Requests are temporarily closed'}</div><p class="empty-sub">${lang==='ar'?'يمكنك متابعة طلباتك السابقة من سجل طلباتي.':'You can still track previous requests in My Requests.'}</p></div></div>`;
-  if(employeeServiceType==='cleaning'&&!cleaningEnabled)employeeServiceType='maintenance';
-  if(employeeServiceType==='maintenance'&&!maintenanceEnabled)employeeServiceType='cleaning';
+  if(employeeServiceType==='cleaning'&&!cleaningEnabled)employeeServiceType='';
+  if(employeeServiceType==='maintenance'&&!maintenanceEnabled)employeeServiceType='';
+  if(!employeeServiceType)return `<div class="wCard wCard--compact"><div class="wCard-title">${ic('layers',16)} ${lang==='ar'?'اختر الخدمة المطلوبة':'Choose a Service'}</div><p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:14px">${lang==='ar'?'كل خدمة لها نموذجها وتصنيفاتها ومسارها التشغيلي المستقل.':'Each service has its own form, categories, and operational workflow.'}</p><div class="empCatGrid">
+    ${cleaningEnabled?`<button class="empCatBtn" onclick="employeeServiceType='cleaning';currentPhotos=[];renderEmployee()"><span class="empCatBtn-icon">${ic('reports',22)}</span><span>${lang==='ar'?'خدمة النظافة':'Cleaning Service'}</span></button>`:''}
+    ${maintenanceEnabled?`<button class="empCatBtn" onclick="employeeServiceType='maintenance';currentPhotos=[];renderEmployee()"><span class="empCatBtn-icon">${ic('tool',22)}</span><span>${lang==='ar'?'خدمة الصيانة':'Maintenance Service'}</span></button>`:''}
+  </div></div>`;
   const isMaintenance=employeeServiceType==='maintenance';
   const CATS = isMaintenance?['general','electrical','plumbing','hvac','civil']:['general','spill','restroom','meeting_room','emergency'];
   const CAT_ICONS = {general:'locations',spill:'alert-circle',restroom:'locations',meeting_room:'users',emergency:'bell',electrical:'alert',plumbing:'locations',hvac:'sync',civil:'building'};
   const catLabel=c=>isMaintenance?maintCatLabel(c):tr('cat_'+c);
   return`
 <div class="wCard wCard--compact">
-  <div class="wCard-title"><span class="wCard-number">1</span>${lang==='ar'?'اختر نوع الخدمة':'Choose Service Type'}</div>
-  <div class="empCatGrid">
-    ${cleaningEnabled?`<button class="empCatBtn${!isMaintenance?' active':''}" onclick="employeeServiceType='cleaning';currentPhotos=[];renderEmployee()"><span class="empCatBtn-icon">${ic('reports',20)}</span><span>${lang==='ar'?'طلب نظافة':'Cleaning Request'}</span></button>`:''}
-    ${maintenanceEnabled?`<button class="empCatBtn${isMaintenance?' active':''}" onclick="employeeServiceType='maintenance';currentPhotos=[];renderEmployee()"><span class="empCatBtn-icon">${ic('tool',20)}</span><span>${lang==='ar'?'طلب صيانة':'Maintenance Request'}</span></button>`:''}
-  </div>
+  <button class="linkBtn" onclick="employeeServiceType='';currentPhotos=[];renderEmployee()">${ic('arrow-left',14)} ${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
+  <div class="wCard-title" style="margin-top:12px">${ic(isMaintenance?'tool':'reports',18)} ${isMaintenance?(lang==='ar'?'طلب خدمة صيانة':'Maintenance Service Request'):(lang==='ar'?'طلب خدمة نظافة':'Cleaning Service Request')}</div>
 </div>
 
 <div class="wCard wCard--compact">
-  <div class="wCard-title"><span class="wCard-number">2</span>${lang==='ar'?'حدد الموقع':'Select Location'}</div>
+  <div class="wCard-title"><span class="wCard-number">1</span>${lang==='ar'?'حدد الموقع':'Select Location'}</div>
   <div class="field">
     <label>${lang==='ar'?'كود الموقع':'Location Code'}</label>
     <div class="locInput-row">
@@ -4400,7 +4441,7 @@ function employeeSubmitForm(){
 </div>
 
 <div class="wCard">
-  <div class="wCard-title"><span class="wCard-number">3</span>${tr('reqCategory')}</div>
+  <div class="wCard-title"><span class="wCard-number">2</span>${tr('reqCategory')}</div>
   <div class="empCatGrid">
     ${CATS.map(c=>`
       <button class="empCatBtn" data-cat="${c}" onclick="document.querySelectorAll('.empCatBtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.getElementById('empCatVal').value='${c}'">
@@ -4412,7 +4453,7 @@ function employeeSubmitForm(){
 </div>
 
 <div class="wCard">
-  <div class="wCard-title"><span class="wCard-number">4</span>${lang==='ar'?'تفاصيل الطلب':'Request Details'}</div>
+  <div class="wCard-title"><span class="wCard-number">3</span>${lang==='ar'?'تفاصيل الطلب':'Request Details'}</div>
   <div class="field">
     <label>${tr('description')} <span style="color:var(--muted);font-weight:400">(${lang==='ar'?'اختياري':'optional'})</span></label>
     ${ta('empDesc','',{rows:3, placeholder:lang==='ar'?'صف المشكلة بالتفصيل...':'Describe the issue in detail...'})}
@@ -4458,7 +4499,7 @@ function employeeHistory(orders){
             <div class="ticketCard-title empOrderCard-title">${esc(t.title)}</div>
             ${t.referenceNo?`<div class="ticketCard-ref empOrderCard-ref">${esc(t.referenceNo)}</div>`:''}
           </div>
-          <span class="badge ${stCls}">${tr(t.status)||t.status}</span>
+          <span class="badge ${stCls}">${ticketStatusLabel(t)}</span>
         </div>
         <div class="ticketCard-meta empOrderCard-meta">
           <span>${ic('locations',12)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</span>
@@ -4504,10 +4545,11 @@ async function submitEmployeeOrder(){
         <div style="font-family:var(--font-head);font-size:var(--fs-xl);font-weight:800;color:var(--ink)">${tr('requestSubmitted')}</div>
         ${res.ticket.referenceNo?`<div style="font-family:ui-monospace,monospace;font-size:var(--fs-sm);color:var(--brand-mid);margin-top:8px">${esc(res.ticket.referenceNo)}</div>`:''}
         <p style="color:var(--muted);margin-top:8px;font-size:var(--fs-sm)">${res.autoAssigned?(lang==='ar'?'تم التعيين التلقائي لعامل النظافة':'Auto-assigned to a cleaning worker'):(serviceType==='maintenance'?(lang==='ar'?'تم إرسال الطلب إلى مشرف الصيانة':'Sent to maintenance supervisor'):(lang==='ar'?'تم إرسال الطلب لمشرف النظافة':'Sent to cleaning supervisor'))}</p>
-        <button class="btn wide" style="margin-top:20px" onclick="employeeView='new';mobileNavActive='employee-new';renderEmployee()">${lang==='ar'?'طلب جديد':'New Request'}</button>
+        <button class="btn wide" style="margin-top:20px" onclick="employeeView='new';mobileNavActive='employee-new';renderEmployee()">${lang==='ar'?'طلب آخر من نفس الخدمة':'Another Request for This Service'}</button>
+        <button class="btn secondary wide" style="margin-top:10px" onclick="employeeServiceType='';employeeView='new';mobileNavActive='employee-new';renderEmployee()">${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
         <button class="btn secondary wide" style="margin-top:10px" onclick="employeeView='history';mobileNavActive='employee-history';load().then(renderEmployee)">${tr('myRequests')}</button>
       </div>`;
-      setTopbarBackButton(true, "employeeView='new';mobileNavActive='employee-new';renderEmployee()");
+      setTopbarBackButton(true, "employeeServiceType='';employeeView='new';mobileNavActive='employee-new';renderEmployee()");
   }catch(e){
     if(btn){btn.disabled=false;btn.innerHTML=`${ic('send',18)} ${tr('submitRequest')}`}
     toast(e.message==='SERVICE_DISABLED'?(lang==='ar'?'استقبال هذا النوع من الطلبات متوقف حالياً':'This request channel is currently closed'):(lang==='ar'?'حدث خطأ، حاول مرة أخرى':'Error, please try again'),'bad');
@@ -4958,7 +5000,7 @@ function maintShell(me, content, opts={}){
           ${item('dashboard',tr('dashboard'),'dashboard')}
           ${item('orders',tr('maintOrders'),'tickets',openTickets)}
           ${item('schedules',tr('maintSchedules'),'clock')}
-          ${item('reports',tr('reports'),'reports',pendingReports)}
+          ${item('reports',lang==='ar'?'تقارير الصيانة':'Maintenance Reports','reports',pendingReports)}
         </div>
         <div class="nav-section"><span class="nav-section-label">${tr('management')}</span>
           ${item('assets',tr('maintAssets'),'building')}
@@ -4977,14 +5019,9 @@ function maintShell(me, content, opts={}){
 /* ── status badge helper for maintenance ─────────────────────── */
 function maintStatusBadge(status){
   const map = {submitted:'badge-warn',assigned:'badge-info',accepted:'badge-info',
-    in_progress:'badge-brand',waiting_verification:'badge-warn',completed:'badge-done',
+    diagnosing:'badge-info',in_progress:'badge-brand',awaiting_parts:'badge-warn',awaiting_vendor:'badge-warn',awaiting_permit:'badge-warn',on_hold:'badge-warn',waiting_verification:'badge-warn',completed:'badge-done',
     rejected:'badge-bad',cancelled:'badge-bad',reclean_required:'badge-warn'};
-  const labels = {submitted:lang==='ar'?'جديد':'New',assigned:lang==='ar'?'مُعيَّن':'Assigned',
-    accepted:lang==='ar'?'مقبول':'Accepted',in_progress:lang==='ar'?'جارٍ':'In Progress',
-    waiting_verification:lang==='ar'?'بانتظار تحقق':'Pending Verification',
-    completed:lang==='ar'?'مكتمل':'Completed',rejected:lang==='ar'?'مرفوض':'Rejected',
-    cancelled:lang==='ar'?'ملغى':'Cancelled',reclean_required:lang==='ar'?'إعادة العمل':'Redo'};
-  return `<span class="badge ${map[status]||'badge-info'}">${labels[status]||status}</span>`;
+  return `<span class="badge ${map[status]||'badge-info'}">${maintenanceStatusLabel(status)}</span>`;
 }
 
 /* ── maintenance tickets list ────────────────────────────────── */
@@ -5145,6 +5182,7 @@ function maintenanceSupervisorDashboard(){
       <div class="wCard-title">${ic('dashboard',16)} ${lang==='ar'?'اختصارات التشغيل':'Operational shortcuts'}</div>
       <div class="quickActionGrid quickActionGrid--supervisor">
         <button class="quickAction" onclick="supervisorView='requests';mobileNavActive='supervisor-requests';renderMaintenanceSupervisor()"><span>${ic('tickets',18)}</span><b>${tr('maintOrders')}</b><small>${num(submitted.length+waiting.length+inProgress.length)}</small></button>
+        <button class="quickAction" onclick="supervisorView='schedules';mobileNavActive='supervisor-schedules';renderMaintenanceSupervisor()"><span>${ic('clock',18)}</span><b>${tr('maintSchedules')}</b><small>${num(upcoming.length)}</small></button>
         <button class="quickAction" onclick="supervisorView='team';mobileNavActive='supervisor-team';renderMaintenanceSupervisor()"><span>${ic('users',18)}</span><b>${tr('maintTeam')}</b><small>${num(workers.length)}</small></button>
         <button class="quickAction" onclick="supervisorView='reports';mobileNavActive='supervisor-reports';renderMaintenanceSupervisor()"><span>${ic('reports',18)}</span><b>${tr('reports')}</b><small>${num(pendingReports.length)}</small></button>
       </div>
@@ -5165,6 +5203,7 @@ function maintenanceSupervisorRequests(){
   const submitted=tickets.filter(t=>t.status==='submitted');
   const waiting=tickets.filter(t=>t.status==='waiting_verification');
   const active=tickets.filter(t=>['assigned','accepted','diagnosing','in_progress','awaiting_parts','awaiting_vendor','awaiting_permit','on_hold','reclean_required'].includes(t.status));
+  const closed=tickets.filter(t=>['completed','rejected','cancelled'].includes(t.status));
   const group=(title,icon,items,color='')=>`<div class="wCard${items.length>2?' wCard--full':''}">
     <div class="wCard-title">${ic(icon,16)} ${title} ${countBubble(items.length,color)}</div>
     ${items.length?`<div class="ticketGrid">${items.map(maintenanceOrderCard).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد أوامر':'No work orders'}</div></div>`}
@@ -5175,6 +5214,7 @@ function maintenanceSupervisorRequests(){
       ${group(lang==='ar'?'أوامر جديدة':'New Orders','tickets',submitted,'bad')}
       ${group(lang==='ar'?'بانتظار التحقق':'Pending Verification','check',waiting,'warn')}
       ${group(lang==='ar'?'قيد التنفيذ والمتابعة':'Active Team Queue','sync',active,'brand')}
+      ${group(lang==='ar'?'سجل الأوامر المغلقة':'Closed Work Order History','check',closed,'ok')}
     </div>`;
 }
 
@@ -5190,6 +5230,7 @@ function maintenanceSupervisorTeam(){
 function renderMaintenanceSupervisor(){
   setDoc();
   const content=supervisorView==='requests'?maintenanceSupervisorRequests()
+    :supervisorView==='schedules'?maintenanceSchedulesPage()
     :supervisorView==='team'?maintenanceSupervisorTeam()
     :supervisorView==='reports'?reports()
     :maintenanceSupervisorDashboard();
@@ -5251,20 +5292,25 @@ function maintenanceScheduleMini(items){return items.length?items.map(s=>`<div c
 
 function maintenanceOrdersPage(){
   const tickets=data.tickets||[]; const canCreate=['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role);
-  return `<div class="pageHeader"><div class="pageHeader-left"><div class="pageTitle">${tr('maintOrders')}</div><div class="pageSub">${tickets.length} ${lang==='ar'?'أمر عمل':'work orders'}</div></div>${canCreate?`<button class="btn" onclick="showMaintenanceOrderForm()">${ic('plus',15)} ${tr('maintTicketCreate')}</button>`:''}</div>
-    <div class="ticketGrid">${tickets.length?tickets.map(maintenanceOrderCard).join(''):`<div class="card"><div class="empty-state"><div class="empty-title">${tr('noTickets')}</div></div></div>`}</div>`;
+  const active=tickets.filter(t=>!['completed','rejected','cancelled'].includes(t.status));
+  const closed=tickets.filter(t=>['completed','rejected','cancelled'].includes(t.status));
+  return `<div class="pageHeader"><div class="pageHeader-left"><div class="pageTitle">${tr('maintOrders')}</div><div class="pageSub">${active.length} ${lang==='ar'?'نشط':'active'} · ${closed.length} ${lang==='ar'?'مغلق':'closed'}</div></div>${canCreate?`<button class="btn" onclick="showMaintenanceOrderForm()">${ic('plus',15)} ${tr('maintTicketCreate')}</button>`:''}</div>
+    <div class="wCard"><div class="wCard-title">${ic('sync',16)} ${lang==='ar'?'أوامر العمل النشطة':'Active Work Orders'} ${countBubble(active.length)}</div><div class="ticketGrid">${active.length?active.map(maintenanceOrderCard).join(''):`<div class="empty-state"><div class="empty-title">${lang==='ar'?'لا توجد أوامر نشطة':'No active work orders'}</div></div>`}</div></div>
+    <div class="wCard" style="margin-top:16px"><div class="wCard-title">${ic('check',16)} ${lang==='ar'?'سجل الأوامر المغلقة':'Closed Work Order History'} ${countBubble(closed.length,'ok')}</div><div class="ticketGrid">${closed.length?closed.map(maintenanceOrderCard).join(''):`<div class="empty-state"><div class="empty-title">${lang==='ar'?'لا توجد أوامر مغلقة':'No closed work orders'}</div></div>`}</div></div>`;
 }
 
 function maintenanceOrderCard(t){
   const team=maintenanceAssignees(t.id), parts=maintenanceOrderParts(t.id), asset=(maintenanceData().assets||[]).find(a=>a.id===t.assetId);
+  const terminal=['completed','rejected','cancelled'].includes(t.status);
+  const renderFn=me.role==='maintenance_supervisor'?'renderMaintenanceSupervisor':['system_admin','facility_manager'].includes(me.role)?'renderAdminMaintenance':'renderMaintenanceManager';
   return `<div class="ticketCard"><div class="ticketCard-top"><div class="ticketCard-main"><div class="ticketCard-title">${esc(t.title)}</div><div class="ticketCard-ref">${esc(t.referenceNo)}</div></div>${maintStatusBadge(t.status)}</div>
     <div class="ticketCard-meta"><span>${ic('locations',12)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</span>${asset?`<span>${ic('building',12)} ${esc(lang==='ar'?asset.nameAr:asset.nameEn||asset.nameAr)}</span>`:''}</div>
     <div class="ticketCard-badges"><span class="badge brand">${maintTypeLabel(t.maintenanceType)}</span><span class="badge">${maintCatLabel(t.category)}</span>${slaBadge(t)}${team.length?`<span class="badge ok">${ic('users',11)} ${team.length} ${lang==='ar'?'فني':'techs'}</span>`:`<span class="badge warn">${tr('unassigned')}</span>`}${parts.length?`<span class="badge gold">${ic('tool',11)} ${parts.length}</span>`:''}</div>
     ${team.length?`<div class="ticketCard-requester">${team.map(a=>`${a.isLead?'★ ':''}${esc(a.technicianName)}`).join(' · ')}</div>`:''}
     <div class="ticketCard-actions"><button class="btn secondary sm" onclick="openTicketDetail('${t.id}')">${lang==='ar'?'التفاصيل':'Details'}</button>
-      ${['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role)?`<button class="btn secondary sm" onclick="showMaintenanceTeamForm('${t.id}')">${ic('users',13)} ${lang==='ar'?'إسناد فريق':'Assign Team'}</button>`:''}
-      ${['system_admin','facility_manager','maintenance_manager','maintenance_supervisor','maintenance_worker'].includes(me.role)?`<button class="btn secondary sm" onclick="showMaintenanceUsePart('${t.id}')">${ic('tool',13)} ${lang==='ar'?'صرف قطعة':'Use Part'}</button>`:''}
-      ${t.status==='waiting_verification'&&['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role)?`<button class="btn ok sm" onclick="maintUpdateTicket('${t.id}',{status:'completed'},'${me.role==='maintenance_supervisor'?'renderMaintenanceSupervisor':'renderMaintenanceManager'}')">${tr('approve')}</button>`:''}
+      ${!terminal&&['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role)?`<button class="btn secondary sm" onclick="showMaintenanceTeamForm('${t.id}')">${ic('users',13)} ${lang==='ar'?'إسناد فريق':'Assign Team'}</button>`:''}
+      ${!terminal&&['system_admin','facility_manager','maintenance_manager','maintenance_supervisor','maintenance_worker'].includes(me.role)?`<button class="btn secondary sm" onclick="showMaintenanceUsePart('${t.id}')">${ic('tool',13)} ${lang==='ar'?'صرف قطعة':'Use Part'}</button>`:''}
+      ${t.status==='waiting_verification'&&['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role)?`<button class="btn ok sm" onclick="maintUpdateTicket('${t.id}',{status:'completed'},'${renderFn}')">${lang==='ar'?'اعتماد الإغلاق':'Approve Closure'}</button><button class="btn warn sm" onclick="maintUpdateTicket('${t.id}',{status:'reclean_required'},'${renderFn}')">${lang==='ar'?'إعادة للعمل':'Return for Rework'}</button><button class="btn danger sm" onclick="maintUpdateTicket('${t.id}',{status:'rejected'},'${renderFn}')">${tr('reject')}</button>`:''}
     </div></div>`;
 }
 
@@ -5273,7 +5319,7 @@ function maintenanceSchedulesPage(){
   return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintSchedules')}</div><div class="pageSub">${items.length} ${lang==='ar'?'خطة':'plans'}</div></div>${canEdit?`<button class="btn" onclick="showMaintenanceScheduleForm()">${ic('plus',15)} ${lang==='ar'?'خطة دورية':'New Plan'}</button>`:''}</div>
     <div class="contentGrid">${items.length?items.map(s=>`<div class="card"><div class="card-head"><span class="card-title">${ic('clock',16)} ${esc(lang==='ar'?s.titleAr:s.titleEn||s.titleAr)}</span><span class="badge ${s.active?'ok':'bad'}">${s.active?tr('activeUser'):tr('inactive')}</span></div>
     <div class="perfStatGrid"><div class="perfStatRow"><span>${lang==='ar'?'التكرار':'Frequency'}</span><b>${scheduleFrequencyLabel(s)}</b></div><div class="perfStatRow"><span>${lang==='ar'?'التنفيذ القادم':'Next run'}</span><b>${fmt(s.nextRunAt)}</b></div><div class="perfStatRow"><span>${tr('maintAssets')}</span><b>${(s.assetIds||[]).length}</b></div><div class="perfStatRow"><span>${tr('maintTeam')}</span><b>${(s.defaultTechnicianIds||[]).length}</b></div></div>
-    ${canEdit?`<div class="ticketCard-actions"><button class="btn secondary sm" onclick="runMaintenanceSchedule('${s.id}')">${lang==='ar'?'إنشاء أمر الآن':'Run now'}</button></div>`:''}</div>`).join(''):`<div class="card"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}</div>`;
+    ${canEdit?`<div class="ticketCard-actions"><button class="btn secondary sm" onclick="showMaintenanceScheduleTeamForm('${s.id}')">${ic('users',13)} ${lang==='ar'?'إسناد الفنيين':'Assign Technicians'}</button><button class="btn secondary sm" onclick="runMaintenanceSchedule('${s.id}')">${lang==='ar'?'إنشاء أمر الآن':'Run now'}</button></div>`:''}</div>`).join(''):`<div class="card"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}</div>`;
 }
 function scheduleFrequencyLabel(s){const unit={daily:lang==='ar'?'يوم':'day',weekly:lang==='ar'?'أسبوع':'week',monthly:lang==='ar'?'شهر':'month',quarterly:lang==='ar'?'ربع سنة':'quarter',yearly:lang==='ar'?'سنة':'year'}[s.frequencyUnit]||s.frequencyUnit;return `${lang==='ar'?'كل':'Every'} ${s.frequencyValue} ${unit}`}
 
@@ -5293,11 +5339,24 @@ function maintenancePartsPage(){
   const items=maintenanceData().parts||[];const canEdit=['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role);
   return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintParts')}</div><div class="pageSub">${items.length} ${lang==='ar'?'صنف':'items'}</div></div>${canEdit?`<button class="btn" onclick="showMaintenancePartForm()">${ic('plus',15)} ${lang==='ar'?'إضافة قطعة':'Add Part'}</button>`:''}</div><div class="contentGrid">${items.map(p=>`<div class="card"><div class="card-head"><span class="card-title">${esc(lang==='ar'?p.nameAr:p.nameEn||p.nameAr)}</span><span class="badge ${p.lowStock?'bad':'ok'}">${p.quantity} ${esc(p.unit)}</span></div><div class="pageSub">${esc(p.sku)} · ${lang==='ar'?'حد الطلب':'Reorder'}: ${p.reorderLevel} · ${p.unitCost}</div></div>`).join('')||`<div class="card"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}</div>`;
 }
-function maintenanceReportsPage(){const parts=maintenanceData().orderParts||[];const partsCost=parts.reduce((s,p)=>s+p.totalCost,0);const labor=(data.tickets||[]).reduce((s,t)=>s+(Number(t.laborCost)||0),0);return `<div class="kpiGrid">${kpiCard(partsCost.toFixed(2),lang==='ar'?'تكلفة القطع':'Parts Cost','tool','gold')}${kpiCard(labor.toFixed(2),lang==='ar'?'تكلفة العمل':'Labor Cost','users','brand')}${kpiCard((data.reports||[]).length,tr('reports'),'reports','ok')}${kpiCard((data.tickets||[]).filter(t=>t.status==='completed').length,tr('completed'),'check','ok')}</div>${reports()}`}
+function maintenanceReportsPage(){const parts=maintenanceData().orderParts||[];const partsCost=parts.reduce((s,p)=>s+p.totalCost,0);const labor=(data.tickets||[]).reduce((s,t)=>s+(Number(t.laborCost)||0),0);return `<div class="kpiGrid">${kpiCard(partsCost.toFixed(2),lang==='ar'?'تكلفة القطع':'Parts Cost','tool','gold')}${kpiCard(labor.toFixed(2),lang==='ar'?'تكلفة العمل':'Labor Cost','users','brand')}${kpiCard((data.reports||[]).length,lang==='ar'?'تقارير الفنيين':'Technician Reports','reports','ok')}${kpiCard((data.tickets||[]).filter(t=>t.status==='completed').length,lang==='ar'?'أوامر مكتملة':'Completed Orders','check','ok')}</div>${reports()}`}
 
 function maintenanceWorkerOrders(items,history=false){return `<div class="pageHeader"><div><div class="pageTitle">${history?tr('maintHistory'):tr('maintMyTasks')}</div><div class="pageSub">${items.length} ${tr('maintOrders')}</div></div></div>${items.length?items.map(t=>maintenanceWorkerOrderCard(t,history)).join(''):`<div class="wCard"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}`}
 function maintenanceWorkerOrderCard(t,history){const team=maintenanceAssignees(t.id);return `<div class="wCard"><div class="ticketCard-top"><div><div class="ticketCard-title">${esc(t.title)}</div><div class="ticketCard-ref">${esc(t.referenceNo)}</div></div>${maintStatusBadge(t.status)}</div><div class="ticketCard-meta"><span>${esc(t.locationNameAr)}</span><span>${maintTypeLabel(t.maintenanceType)}</span></div>${team.length>1?`<div class="ticketCard-requester">${ic('users',12)} ${team.map(a=>`${a.isLead?'★ ':''}${esc(a.technicianName)}`).join(' · ')}</div>`:''}${!history?maintenanceWorkerActions(t):''}</div>`}
-function maintenanceWorkerActions(t){const action=(status,label,cls='secondary')=>`<button class="btn ${cls} sm" onclick="maintWorkerStatus('${t.id}','${status}')">${label}</button>`;return `<div class="ticketCard-actions">${t.status==='assigned'?action('accepted',lang==='ar'?'قبول':'Accept','ok'):''}${['accepted','on_hold'].includes(t.status)?action('diagnosing',tr('diagnosing')):''}${t.status==='diagnosing'?action('in_progress',lang==='ar'?'بدء الإصلاح':'Start Repair','ok'):''}${['diagnosing','in_progress'].includes(t.status)?`${action('awaiting_parts',tr('awaiting_parts'),'warn')}${action('awaiting_vendor',tr('awaiting_vendor'),'warn')}${action('awaiting_permit',tr('awaiting_permit'),'warn')}`:''}<button class="btn secondary sm" onclick="showMaintenanceUsePart('${t.id}')">${ic('tool',12)} ${lang==='ar'?'صرف قطعة':'Use Part'}</button>${['in_progress','diagnosing'].includes(t.status)?`<button class="btn ok sm" onclick="showMaintenanceCloseForm('${t.id}')">${lang==='ar'?'طلب الإغلاق':'Request Close'}</button>`:''}</div>`}
+function maintenanceWorkerActions(t){
+  const action=(status,label,cls='secondary')=>`<button class="btn ${cls} sm" onclick="maintWorkerStatus('${t.id}','${status}')">${label}</button>`;
+  const waiting=['awaiting_parts','awaiting_vendor','awaiting_permit','on_hold'].includes(t.status);
+  return `<div class="ticketCard-actions">
+    ${t.status==='assigned'?action('accepted',lang==='ar'?'قبول':'Accept','ok'):''}
+    ${['accepted','on_hold'].includes(t.status)?action('diagnosing',tr('diagnosing')):''}
+    ${t.status==='reclean_required'?action('in_progress',lang==='ar'?'بدء إعادة العمل':'Start Rework','warn'):''}
+    ${t.status==='diagnosing'?action('in_progress',lang==='ar'?'بدء الإصلاح':'Start Repair','ok'):''}
+    ${waiting?action('in_progress',lang==='ar'?'استئناف العمل':'Resume Work','ok'):''}
+    ${['diagnosing','in_progress'].includes(t.status)?`${action('awaiting_parts',tr('awaiting_parts'),'warn')}${action('awaiting_vendor',tr('awaiting_vendor'),'warn')}${action('awaiting_permit',tr('awaiting_permit'),'warn')}`:''}
+    <button class="btn secondary sm" onclick="showMaintenanceUsePart('${t.id}')">${ic('tool',12)} ${lang==='ar'?'صرف قطعة':'Use Part'}</button>
+    ${['in_progress','diagnosing'].includes(t.status)?`<button class="btn ok sm" onclick="showMaintenanceCloseForm('${t.id}')">${lang==='ar'?'طلب الإغلاق':'Request Close'}</button>`:''}
+  </div>`;
+}
 function maintenanceWorkerSchedules(items){return `<div class="pageHeader"><div class="pageTitle">${tr('maintUpcoming')}</div></div><div>${maintenanceScheduleMini(items)}</div>`}
 
 function maintenanceWorkerChecks(selected=[]){
@@ -5330,6 +5389,16 @@ function showMaintenanceScheduleForm(){
   const foot=`<button class="btn" onclick="saveMaintenanceSchedule()">${tr('save')}</button><button class="btn secondary" onclick="document.getElementById('maintenanceScheduleModal').remove()">${tr('cancel')}</button>`;showModal('maintenanceScheduleModal',tr('maintSchedules'),body,foot,{wide:true});
 }
 async function saveMaintenanceSchedule(){try{await api('/maintenance/schedules',{method:'POST',body:JSON.stringify({titleAr:document.getElementById('mps-title').value,locationId:document.getElementById('mps-location').value,assetIds:[document.getElementById('mps-asset').value].filter(Boolean),category:document.getElementById('mps-category').value,frequencyUnit:document.getElementById('mps-frequency').value,frequencyValue:1,nextRunAt:new Date(document.getElementById('mps-next').value).toISOString(),estimatedMins:Number(document.getElementById('mps-mins').value),checklist:document.getElementById('mps-checklist').value.split('\n').map(x=>x.trim()).filter(Boolean),defaultTechnicianIds:selectedMaintenanceTechnicians(),leadTechnicianId:document.getElementById('mps-lead').value})});document.getElementById('maintenanceScheduleModal')?.remove();toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}}
+function showMaintenanceScheduleTeamForm(id){
+  const schedule=(maintenanceData().schedules||[]).find(s=>s.id===id);if(!schedule)return;
+  const workers=(data.users||[]).filter(u=>u.role==='maintenance_worker');
+  const body=`<div class="field"><label>${tr('maintTeam')}</label><div class="taskChecklist">${maintenanceWorkerChecks(schedule.defaultTechnicianIds||[])}</div></div>${fc(tr('leadTechnician'),sel('mps-team-lead',[{v:'',l:'—'},...workers.map(w=>({v:w.id,l:w.name,sel:w.id===schedule.leadTechnicianId}))]))}`;
+  const foot=`<button class="btn" onclick="saveMaintenanceScheduleTeam('${id}')">${tr('save')}</button><button class="btn secondary" onclick="document.getElementById('maintenanceScheduleTeamModal').remove()">${tr('cancel')}</button>`;
+  showModal('maintenanceScheduleTeamModal',lang==='ar'?'إسناد الصيانة الدورية':'Assign Preventive Maintenance',body,foot);
+}
+async function saveMaintenanceScheduleTeam(id){
+  try{await api(`/maintenance/schedules/${id}`,{method:'PUT',body:JSON.stringify({defaultTechnicianIds:selectedMaintenanceTechnicians(),leadTechnicianId:document.getElementById('mps-team-lead').value})});document.getElementById('maintenanceScheduleTeamModal')?.remove();toast(lang==='ar'?'تم تحديث إسناد الخطة':'Schedule assignment updated','ok');await load();}catch(e){toast(e.message,'bad')}
+}
 async function runMaintenanceSchedule(id){try{await api(`/maintenance/schedules/${id}/run`,{method:'POST'});toast(lang==='ar'?'تم إنشاء أمر العمل':'Work order created','ok');await load();}catch(e){toast(e.message,'bad')}}
 
 function showMaintenanceAssetForm(){const body=`<div class="formGrid">${fc(lang==='ar'?'رمز الأصل':'Asset Code',inp('mas-code'))}${fc(lang==='ar'?'اسم الأصل':'Asset Name',inp('mas-name'))}${fc(tr('reqCategory'),sel('mas-category',MAINT_CATS.map(c=>({v:c,l:maintCatLabel(c)}))))}${fc(tr('location'),sel('mas-location',(data.locations||[]).map(l=>({v:l.id,l:locName(l)}))))}${fc(lang==='ar'?'الرقم التسلسلي':'Serial Number',inp('mas-serial'))}${fc(lang==='ar'?'الشركة المصنعة':'Manufacturer',inp('mas-maker'))}${fc(lang==='ar'?'الموديل':'Model',inp('mas-model'))}${fc(lang==='ar'?'الأهمية':'Criticality',sel('mas-critical',[{v:'low',l:'Low'},{v:'medium',l:'Medium'},{v:'high',l:'High'},{v:'critical',l:'Critical'}]))}${fc(lang==='ar'?'الضمان حتى':'Warranty Until',inp('mas-warranty',{type:'date'}))}</div>`;showModal('maintenanceAssetModal',tr('maintAssets'),body,`<button class="btn" onclick="saveMaintenanceAsset()">${tr('save')}</button><button class="btn secondary" onclick="document.getElementById('maintenanceAssetModal').remove()">${tr('cancel')}</button>`)}
@@ -5352,8 +5421,8 @@ function showMaintenanceCloseForm(id){
     <div class="formGrid">${fc(lang==='ar'?'وقت التوقف بالدقائق':'Downtime Minutes',inp('mclose-down',{type:'number',value:0}))}${fc(lang==='ar'?'تكلفة العمل':'Labor Cost',inp('mclose-cost',{type:'number',value:0}))}${fc(lang==='ar'?'المورد':'Vendor',inp('mclose-vendor'))}</div>
     ${fc(tr('notes'),ta('mclose-notes','',{rows:2}))}
     <div class="formGrid">
-      <div class="field"><label>${tr('beforePhotos')} <span style="color:var(--muted);font-weight:400">(${lang==='ar'?'اختياري':'optional'})</span></label><button class="cameraBtn" onclick="openCamera('before')">${ic('camera',20)}<span>${tr('addPhoto')} — ${tr('beforePhotos')}</span></button><div id="beforePreviews" class="photoGrid" style="margin-top:10px"></div></div>
-      <div class="field"><label>${tr('afterPhotos')} <span style="color:var(--muted);font-weight:400">(${lang==='ar'?'اختياري':'optional'})</span></label><button class="cameraBtn" onclick="openCamera('after')">${ic('camera',20)}<span>${tr('addPhoto')} — ${tr('afterPhotos')}</span></button><div id="afterPreviews" class="photoGrid" style="margin-top:10px"></div></div>
+      <div class="field"><label>${lang==='ar'?'صور قبل الصيانة':'Before Maintenance Photos'} <span style="color:var(--muted);font-weight:400">(${lang==='ar'?'اختياري':'optional'})</span></label><button class="cameraBtn" onclick="openCamera('before')">${ic('camera',20)}<span>${tr('addPhoto')} — ${lang==='ar'?'قبل الصيانة':'Before Maintenance'}</span></button><div id="beforePreviews" class="photoGrid" style="margin-top:10px"></div></div>
+      <div class="field"><label>${lang==='ar'?'صور بعد الصيانة':'After Maintenance Photos'} <span style="color:var(--muted);font-weight:400">(${lang==='ar'?'اختياري':'optional'})</span></label><button class="cameraBtn" onclick="openCamera('after')">${ic('camera',20)}<span>${tr('addPhoto')} — ${lang==='ar'?'بعد الصيانة':'After Maintenance'}</span></button><div id="afterPreviews" class="photoGrid" style="margin-top:10px"></div></div>
     </div>`;
   showModal('maintenanceCloseModal',lang==='ar'?'طلب إغلاق أمر العمل':'Request Work Order Closure',body,`<button class="btn ok" onclick="submitMaintenanceClose('${id}')">${tr('submit')}</button><button class="btn secondary" onclick="document.getElementById('maintenanceCloseModal').remove();currentBeforePhotos=[];currentAfterPhotos=[]">${tr('cancel')}</button>`,{wide:true});
 }
@@ -6105,7 +6174,7 @@ function supTicketCard(t, mode, workers){
         <div class="ticketCard-title">${esc(t.title)}</div>
         ${t.referenceNo?`<div class="ticketCard-ref">${esc(t.referenceNo)}</div>`:''}
       </div>
-      <span class="badge ${statusCls}">${tr(t.status)||t.status}</span>
+      <span class="badge ${statusCls}">${ticketStatusLabel(t)}</span>
     </div>
     <div class="ticketCard-meta">
       <span>${ic('locations',12)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</span>
