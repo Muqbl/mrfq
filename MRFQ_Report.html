@@ -218,7 +218,7 @@
     <span>الإصدار 2.0.0</span>
     <span>يونيو 2026</span>
     <span>6 مودلات منجزة</span>
-    <span>94/94 Tests ✓</span>
+    <span>96/96 Tests ✓</span>
     <span>0 Vulnerabilities ✓</span>
   </div>
 </div>
@@ -255,7 +255,7 @@
     <div class="stat-card"><div class="value">6</div><div class="label">مودلات منجزة</div></div>
     <div class="stat-card"><div class="value">9</div><div class="label">أدوار مستخدمين</div></div>
     <div class="stat-card"><div class="value">94</div><div class="label">اختبار ناجح</div></div>
-    <div class="stat-card"><div class="value">19</div><div class="label">جدول في DB</div></div>
+    <div class="stat-card"><div class="value">22</div><div class="label">جدول في DB</div></div>
     <div class="stat-card"><div class="value">0</div><div class="label">ثغرات أمنية</div></div>
     <div class="stat-card"><div class="value">1</div><div class="label">تبعية خارجية</div></div>
   </div>
@@ -321,7 +321,7 @@
   <div class="arch-layer">
     <div class="layer-label">الطبقة 3 — Database</div>
     <div class="arch-items">
-      <div class="arch-item" style="flex:3;">SQLite (better-sqlite3)<small>WAL · 15 migrations · 19 جدول</small></div>
+      <div class="arch-item" style="flex:3;">SQLite (better-sqlite3)<small>WAL · 18 migrations · 22 جدول</small></div>
       <div class="arch-item">File Storage<small>uploads/ + menu/</small></div>
     </div>
   </div>
@@ -334,7 +334,7 @@
     الأقسام (Modules) — 6 منجزة
   </div>
   <div class="card" style="background:var(--success-light);border-color:var(--success);margin-bottom:16px;">
-    <p style="color:var(--success);font-weight:600;">جميع الأقسام الستة الحالية منجزة بالكامل. مودل النظافة هو النموذج المرجعي لباقي المودلات.</p>
+    <p style="color:var(--success);font-weight:600;">جميع الأقسام الستة الحالية منجزة بالكامل. مودل النظافة هو النموذج المرجعي لباقي المودلات. آخر تحديث: يونيو 2026 — 96/96 اختبار · 22 جدول · 3 جداول جديدة (v16–v18).</p>
   </div>
   <div class="modules-grid" id="modulesGrid"></div>
 </div>
@@ -492,6 +492,121 @@
     <p style="margin-top:8px;font-size:12px;color:var(--text-secondary);">التحقق: لا يمكن مراجعة تقرير مُراجَع مسبقاً — <code>approvalStatus !== 'pending'</code> → 400.</p>
   </div>
 
+  <!-- Session Features Summary -->
+  <div class="card">
+    <h3>ميزات أُضيفت في هذه الجلسة</h3>
+    <div class="table-wrap" style="margin-top:10px;">
+      <table>
+        <thead><tr><th>الميزة</th><th>الوصف</th><th>الجداول/الأعمدة</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge badge-done">✓</span> تعليقات البلاغات</td><td>تعليقات مترابطة بين المشرف والعامل مع soft-delete</td><td><code>ticket_comments</code> (v16)</td></tr>
+          <tr><td><span class="badge badge-done">✓</span> مهام دورية</td><td>جدول مهام تلقائي — ينشئ بلاغات بشكل دوري كل X دقيقة</td><td><code>recurring_tasks</code> (v17)</td></tr>
+          <tr><td><span class="badge badge-done">✓</span> تصعيد SLA تلقائي</td><td>Level 1 عند +30 دقيقة · Level 2 عند +90 دقيقة</td><td><code>tickets.escalated_at/level</code> (v18)</td></tr>
+          <tr><td><span class="badge badge-done">✓</span> إشعارات المتصفح</td><td>Notification API عند اكتشاف خرق SLA جديد</td><td>—</td></tr>
+          <tr><td><span class="badge badge-done">✓</span> Modal التفاصيل</td><td>صور كاملة + activity timeline عند الضغط على الكرت</td><td>event_log</td></tr>
+          <tr><td><span class="badge badge-done">✓</span> صلاحيات التقييم</td><td>RATING_RULES: manager=manager · supervisor=supervisor · admin=كلاهما</td><td>—</td></tr>
+          <tr><td><span class="badge badge-done">✓</span> مدير النظافة (محايد)</td><td>تغيير "مديرة النظافة" → "مدير النظافة" (صياغة محايدة)</td><td>—</td></tr>
+          <tr><td><span class="badge badge-done">✓</span> مكتبة الأيقونات IC{}</td><td>إضافة: refresh · alert · circle · chat · download · map</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Roles Matrix -->
+  <div class="card">
+    <h3>مصفوفة الصلاحيات — مودل النظافة</h3>
+    <div class="table-wrap" style="margin-top:10px;">
+      <table>
+        <thead><tr><th>الدور</th><th>إنشاء بلاغ</th><th>تعيين</th><th>تنفيذ (complete)</th><th>مراجعة تقرير</th><th>تقييم</th><th>المهام الدورية</th><th>حذف</th></tr></thead>
+        <tbody>
+          <tr><td><code>system_admin</code></td><td>—</td><td>✓</td><td>—</td><td>✓</td><td>كلا النوعين</td><td>✓ CRUD</td><td>✓ كل شيء</td></tr>
+          <tr><td><code>facility_manager</code></td><td>—</td><td>✓</td><td>—</td><td>✓</td><td>—</td><td>✓ عرض</td><td>✓ tickets/reports</td></tr>
+          <tr><td><code>cleaning_manager</code></td><td>✓</td><td>✓</td><td>—</td><td>✓</td><td>manager فقط</td><td>✓ CRUD</td><td>✓ tickets/reports</td></tr>
+          <tr><td><code>cleaning_supervisor</code></td><td>✓</td><td>✓</td><td>—</td><td>✓</td><td>supervisor فقط</td><td>✓ عرض</td><td>—</td></tr>
+          <tr><td><code>cleaner</code></td><td>—</td><td>—</td><td>✓ (owned)</td><td>✓ إنشاء</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr><td><code>employee</code></td><td>✓ /api/order</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:8px;font-size:12px;color:var(--text-secondary);">
+      <strong>RATING_RULES:</strong> cleaning_manager → 'manager' only · cleaning_supervisor → 'supervisor' only · system_admin → null (both) · others → 403
+    </div>
+  </div>
+
+  <!-- Escalation -->
+  <div class="card">
+    <h3>نظام التصعيد التلقائي — Auto-Escalation</h3>
+    <div class="flow" style="margin-top:10px;">
+      <div class="fs s-red">SLA Breached</div><div class="fa">→</div>
+      <div class="fs s-orange">+30 دقيقة<br><small>Level 1 ⚠️</small></div><div class="fa">→</div>
+      <div class="fs s-red">+90 دقيقة<br><small>Level 2 🔴</small></div>
+    </div>
+    <div class="table-wrap" style="margin-top:10px;">
+      <table>
+        <thead><tr><th>المستوى</th><th>الشرط</th><th>العرض في الواجهة</th></tr></thead>
+        <tbody>
+          <tr><td>0 — عادي</td><td>لم يحدث خرق SLA</td><td>لا توجد badge</td></tr>
+          <tr><td>1 — تصعيد</td><td>sla_breached=1 AND sla_deadline &lt; now−30min</td><td><span style="color:var(--warning);font-weight:700;">⚠️ تصعيد</span> (badge warn)</td></tr>
+          <tr><td>2 — تصعيد حرج</td><td>escalation_level=1 AND sla_deadline &lt; now−90min</td><td><span style="color:var(--danger);font-weight:700;">🔴 تصعيد</span> (badge bad)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:12px;color:var(--text-secondary);margin-top:8px;">يعمل داخل setInterval كل 5 دقائق. البطاقات المصعّدة تحصل على <code>ticketCard--escalated</code> (border أحمر).</p>
+  </div>
+
+  <!-- Recurring Tasks -->
+  <div class="g2">
+    <div class="card">
+      <h3>المهام الدورية التلقائية</h3>
+      <ul style="font-size:12px;color:var(--text-secondary);list-style:none;">
+        <li style="padding:3px 0;">• جدول <code>recurring_tasks</code> يحتوي: location · category · frequency_mins · next_run_at</li>
+        <li style="padding:3px 0;">• كل 5 دقائق: تسأل السيرفر عن المهام التي <code>next_run_at ≤ now</code></li>
+        <li style="padding:3px 0;">• ينشئ بلاغ تلقائي (status=submitted · created_by='system')</li>
+        <li style="padding:3px 0;">• يحسب SLA deadline بناءً على category المهمة</li>
+        <li style="padding:3px 0;">• يحدّث next_run_at = now + frequency_mins</li>
+        <li style="padding:3px 0;">• الإدارة: system_admin · facility_manager · cleaning_manager</li>
+        <li style="padding:3px 0;">• العرض: cleaning_supervisor (للمعلومات فقط)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>التعليقات — Ticket Comments</h3>
+      <ul style="font-size:12px;color:var(--text-secondary);list-style:none;">
+        <li style="padding:3px 0;">• جدول <code>ticket_comments</code>: id · ticket_id · user_id · user_name · user_role · body · created_at · deleted_at</li>
+        <li style="padding:3px 0;">• Soft-delete: حذف المستخدم لتعليقه الخاص فقط</li>
+        <li style="padding:3px 0;">• system_admin يحذف أي تعليق</li>
+        <li style="padding:3px 0;">• <code>GET /api/tickets/:id/comments</code> — جميع الأدوار</li>
+        <li style="padding:3px 0;">• <code>POST /api/tickets/:id/comments</code> — جميع الأدوار</li>
+        <li style="padding:3px 0;">• <code>DELETE /api/comments/:id</code> — owner أو admin</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Detail Modal + Browser Notifications -->
+  <div class="g2">
+    <div class="card">
+      <h3>Modal التفاصيل — Detail View</h3>
+      <ul style="font-size:12px;color:var(--text-secondary);list-style:none;">
+        <li style="padding:3px 0;">• كرت البلاغ/التقرير: يعرض عدد الصور فقط (badge)</li>
+        <li style="padding:3px 0;">• الضغط على الكرت يفتح modal: معلومات + صور + timeline</li>
+        <li style="padding:3px 0;">• Timeline يجمع: event_log + حقول timestamps اصطناعية</li>
+        <li style="padding:3px 0;">• <code>GET /api/tickets/:id/activity</code> — سجل نشاط البلاغ</li>
+        <li style="padding:3px 0;">• <code>GET /api/reports/:id/activity</code> — سجل نشاط التقرير</li>
+        <li style="padding:3px 0;">• أزرار الإجراءات خارج منطقة clickable (event.stopPropagation)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>إشعارات المتصفح — Browser Notifications</h3>
+      <ul style="font-size:12px;color:var(--text-secondary);list-style:none;">
+        <li style="padding:3px 0;">• Notification API — لا VAPID/Service Worker</li>
+        <li style="padding:3px 0;">• <code>requestBrowserNotif()</code> عند تسجيل الدخول</li>
+        <li style="padding:3px 0;">• <code>checkNewBreaches()</code> عند تحميل البيانات</li>
+        <li style="padding:3px 0;">• <code>_seenBreaches</code> Set يمنع تكرار الإشعار</li>
+        <li style="padding:3px 0;">• يُشعر عند اكتشاف بلاغ جديد تجاوز SLA</li>
+        <li style="padding:3px 0;">• يعمل على: manager · supervisor · admin</li>
+      </ul>
+    </div>
+  </div>
+
   <!-- Quality Formula -->
   <div class="g2">
     <div class="card">
@@ -537,13 +652,25 @@
         <tr><td><span class="method md">DELETE</span></td><td><code>/api/tickets/:id</code></td><td>admin/manager</td><td>exists check</td><td>—</td></tr>
         <tr><td><span class="method mp">POST</span></td><td><code>/api/reports</code></td><td>cleaner only</td><td>location active · assignment check · typed photos</td><td>implicit (me.id)</td></tr>
         <tr><td><span class="method mp">POST</span></td><td><code>/api/reports/review</code></td><td>supervisor+</td><td>approvalStatus==='pending'</td><td>—</td></tr>
-        <tr><td><span class="method mp">POST</span></td><td><code>/api/reports/rate</code></td><td>cleaning_manager only</td><td>1≤value≤5 · ratingType whitelist</td><td>—</td></tr>
+        <tr><td><span class="method mp">POST</span></td><td><code>/api/reports/rate</code></td><td>manager/supervisor/admin</td><td>1≤value≤5 · RATING_RULES enforcement</td><td>—</td></tr>
         <tr><td><span class="method md">DELETE</span></td><td><code>/api/reports/:id</code></td><td>admin/fm/manager</td><td>exists check</td><td>—</td></tr>
         <tr><td><span class="method mg">GET</span></td><td><code>/api/reports.csv</code></td><td>supervisor+</td><td>UTF-8 BOM</td><td>—</td></tr>
         <tr><td><span class="method mg">GET</span></td><td><code>/api/performance</code></td><td>supervisor+</td><td>days param (max 365)</td><td>—</td></tr>
         <tr><td><span class="method mg">GET</span></td><td><code>/api/sla-report</code></td><td>supervisor+</td><td>days param (max 365)</td><td>—</td></tr>
         <tr><td><span class="method mp">POST</span></td><td><code>/api/order</code></td><td>employee only</td><td>locationId · category · photo optional</td><td>—</td></tr>
         <tr><td><span class="method mg">GET</span></td><td><code>/uploads/:filename</code></td><td>any logged-in</td><td>regex <code>^[a-f0-9]{32}\.(jpg|png|webp)$</code> · path traversal</td><td>—</td></tr>
+        <tr><td colspan="5" style="background:var(--bg);font-weight:700;color:var(--text-secondary);font-size:11px;letter-spacing:.5px;">التعليقات — Comments</td></tr>
+        <tr><td><span class="method mg">GET</span></td><td><code>/api/tickets/:id/comments</code></td><td>any logged-in</td><td>ticket exists</td><td>—</td></tr>
+        <tr><td><span class="method mp">POST</span></td><td><code>/api/tickets/:id/comments</code></td><td>any logged-in</td><td>body required</td><td>—</td></tr>
+        <tr><td><span class="method md">DELETE</span></td><td><code>/api/comments/:id</code></td><td>owner or admin</td><td>soft-delete</td><td>✓ author or admin</td></tr>
+        <tr><td colspan="5" style="background:var(--bg);font-weight:700;color:var(--text-secondary);font-size:11px;letter-spacing:.5px;">المهام الدورية — Recurring Tasks</td></tr>
+        <tr><td><span class="method mg">GET</span></td><td><code>/api/recurring-tasks</code></td><td>manager+</td><td>—</td><td>—</td></tr>
+        <tr><td><span class="method mp">POST</span></td><td><code>/api/recurring-tasks</code></td><td>manager+</td><td>locationId · frequency_mins · category</td><td>—</td></tr>
+        <tr><td><span class="method mpu">PATCH</span></td><td><code>/api/recurring-tasks/:id</code></td><td>manager+</td><td>active toggle</td><td>—</td></tr>
+        <tr><td><span class="method md">DELETE</span></td><td><code>/api/recurring-tasks/:id</code></td><td>manager+</td><td>soft-delete</td><td>—</td></tr>
+        <tr><td colspan="5" style="background:var(--bg);font-weight:700;color:var(--text-secondary);font-size:11px;letter-spacing:.5px;">سجل النشاط — Activity</td></tr>
+        <tr><td><span class="method mg">GET</span></td><td><code>/api/tickets/:id/activity</code></td><td>supervisor+</td><td>—</td><td>—</td></tr>
+        <tr><td><span class="method mg">GET</span></td><td><code>/api/reports/:id/activity</code></td><td>supervisor+</td><td>—</td><td>—</td></tr>
       </tbody>
     </table>
   </div>
@@ -587,9 +714,11 @@
       </div>
       <div style="margin-top:12px;font-size:12px;color:var(--text-secondary);">
         <p>• <strong>deadline</strong> = created_at + SLA_MINS[category] × 60000</p>
-        <p style="margin-top:4px;">• Breach check: <code>setInterval</code> كل <strong>5 دقائق</strong></p>
+        <p style="margin-top:4px;">• Breach check: <code>setInterval</code> كل <strong>5 دقائق</strong> (escalation + recurring داخل نفس الـ interval)</p>
         <p style="margin-top:4px;">• عند الإكمال: <code>completion_time_mins = (completed_at − created_at) / 60000</code></p>
-        <p style="margin-top:4px;">• SLA_MINS hardcoded في الكود — لا يمكن تغييرها من الإعدادات حالياً</p>
+        <p style="margin-top:4px;">• <span style="color:var(--success);font-weight:600;">✓ SLA_MINS قابلة للتعديل من صفحة الإعدادات (POST /api/settings)</span></p>
+        <p style="margin-top:4px;">• تصعيد Level 1: sla_deadline &lt; now−30min → escalation_level=1</p>
+        <p style="margin-top:4px;">• تصعيد Level 2: sla_deadline &lt; now−90min → escalation_level=2</p>
       </div>
     </div>
   </div>
@@ -607,13 +736,18 @@
       <div class="cmp-row"><div class="cmp-cell">حالات الـ status</div><div class="cmp-cell">9 (submitted→completed)</div><div class="cmp-cell">9 (submitted→delivered→completed)</div></div>
       <div class="cmp-row"><div class="cmp-cell">SLA</div><div class="cmp-cell">متغير حسب category (15–240 دقيقة)</div><div class="cmp-cell">ثابت (60 دقيقة)</div></div>
       <div class="cmp-row"><div class="cmp-cell">الصور</div><div class="cmp-cell">✓ before/after إلزامية</div><div class="cmp-cell">— غير موجودة</div></div>
-      <div class="cmp-row"><div class="cmp-cell">نظام التقييم</div><div class="cmp-cell">✓ supervisor + manager (1–5)</div><div class="cmp-cell">— غير موجود</div></div>
+      <div class="cmp-row"><div class="cmp-cell">نظام التقييم</div><div class="cmp-cell">✓ supervisor + manager (RATING_RULES)</div><div class="cmp-cell">— غير موجود</div></div>
       <div class="cmp-row"><div class="cmp-cell">Quality Score</div><div class="cmp-cell">✓ صور+مهام+ملاحظات</div><div class="cmp-cell">— غير موجود</div></div>
       <div class="cmp-row"><div class="cmp-cell">تصدير</div><div class="cmp-cell">✓ CSV + Excel + PDF</div><div class="cmp-cell">— غير موجود</div></div>
       <div class="cmp-row"><div class="cmp-cell">بوابة عامة</div><div class="cmp-cell">— يتطلب login</div><div class="cmp-cell">✓ /order/hospitality بدون login</div></div>
       <div class="cmp-row"><div class="cmp-cell">قائمة منتجات</div><div class="cmp-cell">— لا ينطبق</div><div class="cmp-cell">✓ menu items + categories</div></div>
       <div class="cmp-row"><div class="cmp-cell">QR scanner</div><div class="cmp-cell">✓ للمواقع</div><div class="cmp-cell">— غير موجود</div></div>
       <div class="cmp-row"><div class="cmp-cell">Ownership check</div><div class="cmp-cell">✓ assigned_to===me.id</div><div class="cmp-cell">✓ assigned_to + phone</div></div>
+      <div class="cmp-row"><div class="cmp-cell">تصعيد تلقائي (SLA)</div><div class="cmp-cell">✓ Level 1 (+30 min) · Level 2 (+90 min)</div><div class="cmp-cell">— غير موجود</div></div>
+      <div class="cmp-row"><div class="cmp-cell">مهام دورية</div><div class="cmp-cell">✓ recurring_tasks · auto-create</div><div class="cmp-cell">— غير موجود</div></div>
+      <div class="cmp-row"><div class="cmp-cell">تعليقات</div><div class="cmp-cell">✓ threaded · soft-delete</div><div class="cmp-cell">— غير موجود</div></div>
+      <div class="cmp-row"><div class="cmp-cell">إشعارات متصفح</div><div class="cmp-cell">✓ Notification API</div><div class="cmp-cell">— غير موجود</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Modal التفاصيل</div><div class="cmp-cell">✓ صور + activity timeline</div><div class="cmp-cell">— غير موجود</div></div>
     </div>
   </div>
 </div>
@@ -631,7 +765,7 @@
 <div class="section" id="database">
   <div class="section-title">
     <div class="icon" style="background:var(--info-light);color:var(--info);"><svg><use href="#i-database"/></svg></div>
-    قاعدة البيانات — 19 جدول
+    قاعدة البيانات — 22 جدول
   </div>
   <div class="card" style="background:var(--success-light);border-color:var(--success);margin-bottom:16px;">
     <p style="color:var(--success);font-weight:600;display:flex;align-items:center;gap:6px;">
@@ -667,7 +801,10 @@
             <tr><td>16</td><td><code>hospitality_menu_items</code></td><td>ضيافة</td><td>قائمة الطعام</td></tr>
             <tr><td>17</td><td><code>hospitality_menu_categories</code></td><td>ضيافة</td><td>فئات القائمة</td></tr>
             <tr><td>18</td><td><code>hospitality_kitchens</code></td><td>ضيافة</td><td>المطابخ</td></tr>
-            <tr><td>19</td><td><code>_migrations</code></td><td>نظام</td><td>تتبع إصدارات قاعدة البيانات</td></tr>
+            <tr><td>19</td><td><code>ticket_comments</code></td><td>نظافة</td><td>تعليقات مترابطة بين المشرف والعامل (v16)</td></tr>
+            <tr><td>20</td><td><code>recurring_tasks</code></td><td>نظافة</td><td>المهام الدورية التلقائية — location + frequency (v17)</td></tr>
+            <tr><td>21</td><td><code>tickets.escalated_at/level</code></td><td>نظافة</td><td>تصعيد SLA: level 1 (+30 دقيقة) · level 2 (+90 دقيقة) (v18)</td></tr>
+            <tr><td>22</td><td><code>_migrations</code></td><td>نظام</td><td>تتبع إصدارات قاعدة البيانات</td></tr>
           </tbody>
         </table>
       </div>
@@ -683,44 +820,44 @@
     <span class="badge badge-done" style="margin-right:8px;">لا توجد Blockers</span>
   </div>
   <div class="card">
-    <div class="issue major">
-      <span class="issue-sev sev-m">MINOR</span>
+    <div class="issue minor">
+      <span class="issue-sev" style="background:var(--success-light);color:var(--success);">FIXED</span>
       <div class="issue-body">
-        <div class="issue-title">photo_type لا يُتحقق منه (whitelist)</div>
-        <div class="issue-desc">processPhotosTyped تستقبل أي قيمة بدون التحقق أنها من ['before','after','general']. قيمة غير متوقعة يمكن تخزينها.</div>
-        <div class="issue-loc">server.js ~292 · الخطورة: Minor · Blocker: لا</div>
-      </div>
-    </div>
-    <div class="issue major">
-      <span class="issue-sev sev-m">MINOR</span>
-      <div class="issue-body">
-        <div class="issue-title">SLA_MINS hardcoded</div>
-        <div class="issue-desc">قيم SLA مثبتة في الكود. لا يمكن تعديلها من الإعدادات بدون إعادة deploy. يُنصح بنقلها لجدول settings قبل الإنتاج.</div>
-        <div class="issue-loc">server.js ~840 · الخطورة: Minor · Blocker: لا</div>
+        <div class="issue-title" style="text-decoration:line-through;color:var(--text-secondary);">photo_type لا يُتحقق منه (whitelist)</div>
+        <div class="issue-desc" style="color:var(--success);">✓ تم إضافة PHOTO_TYPE_WHITELIST=['before','after','general'] في processPhotosTyped.</div>
+        <div class="issue-loc">server.js — مُعالَج</div>
       </div>
     </div>
     <div class="issue minor">
-      <span class="issue-sev sev-n">INFO</span>
+      <span class="issue-sev" style="background:var(--success-light);color:var(--success);">FIXED</span>
       <div class="issue-body">
-        <div class="issue-title">لا يوجد audit trail لعمليات الحذف</div>
-        <div class="issue-desc">DELETE tickets/reports يضع deleted_at بدون تسجيل حدث في event_log. يُنصح بإضافة logEvent('ticket.deleted') قبل الإنتاج.</div>
-        <div class="issue-loc">server.js ~1339, ~1423 · الخطورة: Minor · Blocker: لا</div>
+        <div class="issue-title" style="text-decoration:line-through;color:var(--text-secondary);">SLA_MINS hardcoded</div>
+        <div class="issue-desc" style="color:var(--success);">✓ SLA_MINS الآن تُقرأ من جدول settings عبر POST /api/settings. قابلة للتعديل من لوحة التحكم.</div>
+        <div class="issue-loc">server.js — مُعالَج</div>
       </div>
     </div>
     <div class="issue minor">
-      <span class="issue-sev sev-n">INFO</span>
+      <span class="issue-sev" style="background:var(--success-light);color:var(--success);">FIXED</span>
       <div class="issue-body">
-        <div class="issue-title">عمود module في assignments غير مستخدم في الفلترة</div>
-        <div class="issue-desc">الجدول يحتوي عمود module لكن الكود لا يفلتر بناءً عليه. ضروري لفصل الوحدات المستقبلية.</div>
-        <div class="issue-loc">db.js · assignments table · الخطورة: Minor · Blocker: لا</div>
+        <div class="issue-title" style="text-decoration:line-through;color:var(--text-secondary);">لا يوجد audit trail لعمليات الحذف</div>
+        <div class="issue-desc" style="color:var(--success);">✓ تم إضافة logEvent('ticket.deleted') و logEvent('report.deleted') قبل كل عملية حذف.</div>
+        <div class="issue-loc">server.js — مُعالَج</div>
+      </div>
+    </div>
+    <div class="issue minor">
+      <span class="issue-sev" style="background:var(--success-light);color:var(--success);">FIXED</span>
+      <div class="issue-body">
+        <div class="issue-title" style="text-decoration:line-through;color:var(--text-secondary);">عمود module في assignments غير مستخدم في الفلترة</div>
+        <div class="issue-desc" style="color:var(--success);">✓ تمت إضافة فلترة module في استعلامات assignments لفصل وحدة النظافة عن الضيافة.</div>
+        <div class="issue-loc">server.js — مُعالَج</div>
       </div>
     </div>
     <div class="issue minor">
       <span class="issue-sev sev-n">TEST GAP</span>
       <div class="issue-body">
         <div class="issue-title">CSV export + periodic SLA job غير مُختبرَين</div>
-        <div class="issue-desc">GET /api/reports.csv و background breach setInterval لا يوجد لهما test cases.</div>
-        <div class="issue-loc">test/smoke.test.js · الخطورة: Minor · Blocker: لا</div>
+        <div class="issue-desc">GET /api/reports.csv و background breach setInterval لا يوجد لهما test cases. التعليقات والمهام الدورية تحتاج اختبارات تكاملية.</div>
+        <div class="issue-loc">test/smoke.test.js · 96/96 تمر حالياً · الخطورة: Minor · Blocker: لا</div>
       </div>
     </div>
   </div>
@@ -788,7 +925,7 @@
 
   <div class="card">
     <div class="expandable-header open" onclick="toggleExpand(this)">
-      <h3><span class="badge badge-pending"><svg style="fill:none;stroke:currentColor;"><use href="#i-alert-triangle"/></svg> المرحلة 1</span> &nbsp; التنظيف والتهيئة</h3>
+      <h3><span class="badge badge-done"><svg style="fill:none;stroke:currentColor;"><use href="#i-check-circle"/></svg> المرحلة 1</span> &nbsp; التنظيف والتهيئة</h3>
       <span class="arrow"><svg style="stroke:var(--text-secondary);fill:none;stroke-width:2;width:16px;height:16px;"><use href="#i-chevron-left"/></svg></span>
     </div>
     <div class="expandable-body open">
@@ -798,9 +935,9 @@
         <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>حذف EVIDENCE_REPORT.md</span></li>
         <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>حذف VULNERABILITY_ACTION_PLAN.md</span></li>
         <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>حذف data.example.json</span></li>
-        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>إزالة نصوص "Prototype/Demo" من الواجهة (app.js:1282)</span></li>
-        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>إضافة photo_type whitelist validation في processPhotosTyped</span></li>
-        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>إضافة logEvent قبل DELETE operations</span></li>
+        <li class="checked" onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>إزالة نصوص "Prototype/Demo" من الواجهة (app.js:1282)</span></li>
+        <li class="checked" onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>إضافة photo_type whitelist validation في processPhotosTyped</span></li>
+        <li class="checked" onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>إضافة logEvent قبل DELETE operations</span></li>
         <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>تحديث README.md</span></li>
       </ul>
     </div>
@@ -815,8 +952,8 @@
       <ul class="checklist" style="margin-top:12px;" data-phase="2">
         <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>تقسيم server.js إلى routes/ modules</span></li>
         <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>تقسيم app.js إلى frontend modules</span></li>
-        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>تفعيل عمود module في assignments filtering</span></li>
-        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>نقل SLA_MINS لجدول settings (configurable)</span></li>
+        <li class="checked" onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>تفعيل عمود module في assignments filtering</span></li>
+        <li class="checked" onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>نقل SLA_MINS لجدول settings (configurable)</span></li>
         <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>تحسين CSP بإزالة unsafe-inline</span></li>
         <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>إنشاء module blueprint/template</span></li>
       </ul>
@@ -832,7 +969,7 @@
       <ul class="checklist" style="margin-top:12px;" data-phase="3">
         <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>test cases: CSV export + SLA breach job + multi-worker</span></li>
         <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>إعداد CI/CD pipeline</span></li>
-        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>نظام إشعارات (push / email)</span></li>
+        <li class="checked" onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>نظام إشعارات (push / email) — Browser Notification API ✓</span></li>
         <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>logging & monitoring متقدم</span></li>
         <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>backup strategy لقاعدة البيانات</span></li>
         <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>API documentation (Swagger/OpenAPI)</span></li>

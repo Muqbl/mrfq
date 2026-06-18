@@ -124,7 +124,7 @@ const T = {
     globalSettings:'الإعدادات العامة',backToConsole:'العودة إلى لوحة النظام',
     cleaningModuleLabel:'وحدة النظافة',hospitalityModuleLabel:'وحدة الضيافة',
     maintenance:'الصيانة',hospitality:'الضيافة',security:'الأمن',
-    safety:'السلامة',customerService:'خدمة العملاء',
+    safety:'السلامة',customerService:'خدمة الزوار',
     moduleStatusActive:'نشط',moduleStatusPlanned:'مخطط',
     systemAdminConsole:'لوحة النظام',
     cleaningTeam:'فريق النظافة',facilityConsole:'لوحة مدير المرافق',
@@ -313,7 +313,7 @@ const T = {
     globalSettings:'Global Settings',backToConsole:'Back to Admin Console',
     cleaningModuleLabel:'Cleaning Module',hospitalityModuleLabel:'Hospitality Module',
     maintenance:'Maintenance',hospitality:'Hospitality',security:'Security',
-    safety:'Safety',customerService:'Customer Service',
+    safety:'Safety',customerService:'Visitor Services',
     moduleStatusActive:'Active',moduleStatusPlanned:'Planned',
     systemAdminConsole:'System Console',
     cleaningTeam:'Cleaning Team',facilityConsole:'Facility Manager Console',
@@ -539,7 +539,7 @@ const MODULES = [
     nameAr:'السلامة', nameEn:'Safety',
     descAr:'إدارة السلامة والطوارئ', descEn:'Safety and emergency management'},
   {key:'customer_service', icon:'send', status:'planned',
-    nameAr:'خدمة العملاء', nameEn:'Customer Service',
+    nameAr:'خدمة الزوار', nameEn:'Visitor Services',
     descAr:'طلبات وملاحظات المستخدمين', descEn:'User requests and feedback'}
 ];
 
