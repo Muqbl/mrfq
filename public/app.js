@@ -3682,6 +3682,7 @@ ${filtered.length===0
       <tr>
         <th>${lang==='ar'?'المستخدم':'User'}</th>
         <th>${lang==='ar'?'رقم الموظف':'Emp No'}</th>
+        <th>${lang==='ar'?'موقع المكتب':'Office'}</th>
         <th>${lang==='ar'?'الحالة':'Status'}</th>
         <th>${lang==='ar'?'الصلاحيات':'Roles'}</th>
         ${canManageUsers()?`<th style="text-align:end">${lang==='ar'?'إجراءات':'Actions'}</th>`:''}
@@ -3693,6 +3694,7 @@ ${filtered.length===0
         const canDel = canManageUsers() && u.id!==me.id;
         const rCls = roleBadgeClass(u.role);
         const extraRoles = (u.roles||[]).filter(r=>r!==u.role);
+        const uLoc = u.defaultLocationId?(data.locations||[]).find(l=>l.id===u.defaultLocationId):null;
         return`<tr>
 	          <td>
 	            <div class="userRow-cell-name">
@@ -3703,6 +3705,7 @@ ${filtered.length===0
             </div>
           </td>
           <td class="mono" style="font-size:11px;color:var(--muted)">${u.employeeNo?esc(u.employeeNo):'—'}</td>
+          <td class="mono" style="font-size:11px;color:var(--muted)">${uLoc?`<span title="${esc(lang==='ar'?uLoc.nameAr:uLoc.nameEn)}">${esc(uLoc.id)}</span>`:'—'}</td>
           <td><span class="badge ${u.active?'ok':'bad'}">${u.active?tr('activeUser'):tr('inactive')}</span></td>
           <td>
             <div class="usersTable-roles">
@@ -4698,7 +4701,7 @@ function employeeHospForm(){
       const qty=empHospCart[item.id]||0;
       const name=lang==='ar'?item.nameAr:(item.nameEn||item.nameAr);
       return`<div class="productCard${qty?'':''}" id="ehc_${item.id}">
-        ${item.imageUrl?`<div class="productCard-img" style="background-image:url('${item.imageUrl}');background-size:cover;background-position:center"></div>`:`<div class="productCard-img">${ic('coffee',28)}</div>`}
+        ${item.imagePath?`<div class="productCard-img"><img src="${esc(item.imagePath)}" alt="${esc(name)}" loading="lazy" style="width:100%;height:100%;object-fit:cover"></div>`:`<div class="productCard-img">${ic('coffee',28)}</div>`}
         <div class="productCard-body">
           <div class="productCard-title">${esc(name)}</div>
           ${item.descriptionAr||item.descriptionEn?`<div class="productCard-desc">${esc(lang==='ar'?item.descriptionAr:item.descriptionEn||item.descriptionAr)}</div>`:''}
