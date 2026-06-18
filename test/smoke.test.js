@@ -285,23 +285,35 @@ test('report review: re-reviewing an already-reviewed report is rejected (400 AL
   assert.equal(r.body.error, 'ALREADY_REVIEWED');
 });
 
-/* ── 12b. Rating governance — cleaning_manager only ────────────── */
-test('cleaning_supervisor cannot rate a report (403)', async () => {
+/* ── 12b. Rating governance ─────────────────────────────────────── */
+test('cleaning_supervisor can rate supervisor type', async () => {
   const supervisor = await login('supervisor1', PASSWORDS.supervisor);
   const r = await supervisor('/api/reports/rate', { method: 'POST', body: JSON.stringify({ id: reportId, ratingType: 'supervisor', value: 5 }) });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+});
+
+test('cleaning_supervisor cannot rate manager type (403)', async () => {
+  const supervisor = await login('supervisor1', PASSWORDS.supervisor);
+  const r = await supervisor('/api/reports/rate', { method: 'POST', body: JSON.stringify({ id: reportId, ratingType: 'manager', value: 5 }) });
   assert.equal(r.status, 403);
 });
 
-test('system_admin cannot rate a report (403)', async () => {
+test('system_admin can rate both types', async () => {
   const admin = await login('admin', PASSWORDS.admin);
   const r = await admin('/api/reports/rate', { method: 'POST', body: JSON.stringify({ id: reportId, ratingType: 'supervisor', value: 5 }) });
-  assert.equal(r.status, 403);
+  assert.equal(r.status, 200, JSON.stringify(r.body));
 });
 
-test('cleaning_manager can rate a report', async () => {
+test('cleaning_manager can rate manager type', async () => {
+  const manager = await login('manager', PASSWORDS.manager);
+  const r = await manager('/api/reports/rate', { method: 'POST', body: JSON.stringify({ id: reportId, ratingType: 'manager', value: 4 }) });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+});
+
+test('cleaning_manager cannot rate supervisor type (403)', async () => {
   const manager = await login('manager', PASSWORDS.manager);
   const r = await manager('/api/reports/rate', { method: 'POST', body: JSON.stringify({ id: reportId, ratingType: 'supervisor', value: 4 }) });
-  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.status, 403);
 });
 
 test('rating value out of range is rejected', async () => {

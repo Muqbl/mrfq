@@ -1526,6 +1526,38 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { ok: true, settings: dbSettings() });
       }
 
+      /* ── TICKET ACTIVITY ───────────────────────────────────── */
+      if (req.method === 'GET' && /^\/api\/tickets\/[^/]+\/activity$/.test(url.pathname)) {
+        const ticketId = sanitize(url.pathname.split('/')[3], 50);
+        const events = db.prepare(`
+          SELECT e.*, u.name AS actor_name
+          FROM event_log e LEFT JOIN users u ON u.id = e.actor_id
+          WHERE e.entity_type='ticket' AND e.entity_id=?
+          ORDER BY e.created_at ASC LIMIT 100
+        `).all(ticketId);
+        return send(res, 200, { events: events.map(e => ({
+          id: e.id, eventType: e.event_type, actorId: e.actor_id,
+          actorName: e.actor_name || '', actorRole: e.actor_role,
+          payload: JSON.parse(e.payload || '{}'), createdAt: e.created_at
+        }))});
+      }
+
+      /* ── REPORT ACTIVITY ────────────────────────────────────── */
+      if (req.method === 'GET' && /^\/api\/reports\/[^/]+\/activity$/.test(url.pathname)) {
+        const reportId = sanitize(url.pathname.split('/')[3], 50);
+        const events = db.prepare(`
+          SELECT e.*, u.name AS actor_name
+          FROM event_log e LEFT JOIN users u ON u.id = e.actor_id
+          WHERE e.entity_type='report' AND e.entity_id=?
+          ORDER BY e.created_at ASC LIMIT 100
+        `).all(reportId);
+        return send(res, 200, { events: events.map(e => ({
+          id: e.id, eventType: e.event_type, actorId: e.actor_id,
+          actorName: e.actor_name || '', actorRole: e.actor_role,
+          payload: JSON.parse(e.payload || '{}'), createdAt: e.created_at
+        }))});
+      }
+
       /* ── TICKET COMMENTS: LIST ─────────────────────────────── */
       if (req.method === 'GET' && /^\/api\/tickets\/[^/]+\/comments$/.test(url.pathname)) {
         const ticketId = sanitize(url.pathname.split('/')[3], 50);
@@ -1778,15 +1810,23 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { metrics, generatedAt: now() });
       }
 
-      /* ── REPORT RATING (cleaning_manager only — same-module rating governance) ── */
+      /* ── REPORT RATING ─────────────────────────────────────── */
       if (req.method === 'POST' && url.pathname === '/api/reports/rate') {
-        if (me.role !== 'cleaning_manager') return send(res, 403, { error: 'FORBIDDEN' });
-        const b    = await bodyJSON(req);
-        const rpt  = db.prepare('SELECT 1 FROM reports WHERE id = ? AND deleted_at IS NULL').get(b.id);
+        const RATING_RULES = {
+          cleaning_manager:    'manager',
+          cleaning_supervisor: 'supervisor',
+          system_admin:        null   // null = may set either
+        };
+        if (!(me.role in RATING_RULES)) return send(res, 403, { error: 'FORBIDDEN' });
+        const b     = await bodyJSON(req);
+        const rpt   = db.prepare('SELECT 1 FROM reports WHERE id = ? AND deleted_at IS NULL').get(b.id);
         if (!rpt) return send(res, 404, { error: 'REPORT_NOT_FOUND' });
         const value = parseFloat(b.value);
         if (isNaN(value) || value < 1 || value > 5) return send(res, 400, { error: 'INVALID_RATING' });
-        const col = b.ratingType === 'manager' ? 'rating_manager' : 'rating_supervisor';
+        const allowed = RATING_RULES[me.role];
+        const requested = b.ratingType === 'manager' ? 'manager' : 'supervisor';
+        if (allowed !== null && allowed !== requested) return send(res, 403, { error: 'RATING_TYPE_NOT_ALLOWED' });
+        const col = requested === 'manager' ? 'rating_manager' : 'rating_supervisor';
         db.prepare(`UPDATE reports SET ${col} = ?, updated_at = ? WHERE id = ?`).run(value, now(), b.id);
         return send(res, 200, { ok: true });
       }

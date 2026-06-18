@@ -50,7 +50,7 @@ const T = {
     employeeNo:'رقم الموظف',save:'حفظ',addUser:'إضافة مستخدم',edit:'تعديل',cancel:'إلغاء',
     activeUser:'نشط',inactive:'معطل',
     system_admin:'مدير النظام',facility_manager:'مدير المرافق',
-    cleaning_manager:'مديرة النظافة',cleaning_supervisor:'مشرف النظافة',cleaner:'عامل نظافة',
+    cleaning_manager:'مدير النظافة',cleaning_supervisor:'مشرف النظافة',cleaner:'عامل نظافة',
     hospitality_manager:'مدير الضيافة',hospitality_supervisor:'مشرف الضيافة',hospitality_worker:'عامل ضيافة',
     worker:'العامل',location:'الموقع',time:'الوقت',status:'الحالة',
     completed:'تم التنظيف',needs_followup:'يحتاج متابعة',pending_approval:'بانتظار الاعتماد',
@@ -2332,61 +2332,46 @@ function reportCard(r,full){
   const imgs = imgList(r);
   const before = (r.beforePhotos||[]);
   const after  = (r.afterPhotos||[]);
-  const hasTyped = before.length||after.length;
   const st = r.approvalStatus||'pending_approval';
   const q = qualityScore(r);
   const rating = reportOverallRating(r);
   const tasks = taskSetFor(r.locationType);
-  const bothGroups = hasTyped && before.length && after.length;
+  const totalPhotos = imgs.length;
   return`<article class="reportCard">
-    <div class="reportCard-media ${bothGroups?'sideBySide':imgs.length<=1?'single':''}">
-      ${hasTyped ? `
-        ${before.length?`<div class="photoGroup"><div class="photoGroup-label">${ic('camera',12)} ${tr('beforePhotos')}</div><div class="photoGroup-imgs">${before.map((src,i)=>`<img class="reportCard-thumb" src="${src}" loading="lazy" onclick='openGallery(${JSON.stringify(before)},${i})' alt="">`).join('')}</div></div>`:''}
-        ${after.length?`<div class="photoGroup"><div class="photoGroup-label ok">${ic('check',12)} ${tr('afterPhotos')}</div><div class="photoGroup-imgs">${after.map((src,i)=>`<img class="reportCard-thumb" src="${src}" loading="lazy" onclick='openGallery(${JSON.stringify(after)},${i})' alt="">`).join('')}</div></div>`:''}
-      ` : imgs.length
-        ? imgs.slice(0,4).map((src,i)=>`<img class="reportCard-thumb" src="${src}" loading="lazy" onclick='openGallery(${JSON.stringify(imgs)},${i})' alt="">`).join('')
-        : `<div style="display:grid;place-items:center;height:120px;background:var(--surface-3);color:var(--muted)">${ic('camera',28)}</div>`}
-    </div>
-    <div class="reportCard-body">
+    <div class="reportCard-body"  style="cursor:pointer" onclick="openReportDetail('${r.id}')" role="button" tabindex="0">
       <div>
         <div class="reportCard-loc">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</div>
         <div class="reportCard-meta">${ic('users',12)} ${esc(r.workerName)} &nbsp;·&nbsp; ${fmt(r.createdAt)} &nbsp;·&nbsp; ${tr(r.locationType||'other')}</div>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <span class="badge brand">${ic('camera',10)} ${num(imgs.length)}</span>
+        <span class="badge brand">${ic('camera',10)} ${num(totalPhotos)}</span>
         <span class="badge gold">${tr('quality')}: ${num(q)}%</span>
         <span class="badge ${st==='approved'?'ok':st==='rejected'||st==='needs_recleaning'?'bad':'warn'}">${tr(st)}</span>
         ${rating!=null?`<span class="badge gold">${ic('star',10)} ${rating.toFixed(1)}</span>`:''}
+        <span class="badge" style="margin-inline-start:auto">${ic('arrow',11)} ${lang==='ar'?'تفاصيل':'Details'}</span>
       </div>
-      ${r.notes?`<div style="font-size:var(--fs-xs);color:var(--muted);line-height:1.6;padding:8px;background:var(--surface-3);border-radius:var(--r-sm)">${esc(r.notes)}</div>`:''}
-      <details>
-        <summary style="font-size:var(--fs-xs);font-weight:700;color:var(--brand-mid);cursor:pointer;list-style:none;padding:4px 0">${tr('taskResults')} (${num(tasks.length)})</summary>
-        <div class="reportCard-tasks" style="margin-top:8px">
-          ${tasks.map(p=>{const ok=taskDone(r.tasks,p);return`<div class="taskResult ${ok?'done':'missing'}"><span>${esc(lang==='ar'?p[0]:p[1])}</span><span class="taskMark">${ok?'✓':'×'}</span></div>`}).join('')}
-        </div>
-      </details>
-      ${full&&canReview()?`
-        <div class="reportCard-actions">
-          <div class="reportCard-actions-primary">
-            <button class="btn ok sm action-btn" onclick="reviewReport('${r.id}','approved')">${ic('check',13)} ${tr('approve')}</button>
-          </div>
-          <div class="reportCard-actions-secondary${canDelete()?'':' reportCard-actions-secondary--full'}">
-            <button class="btn warn sm action-btn" onclick="reviewReport('${r.id}','needs_recleaning')">${ic('flip',13)} ${tr('reclean')}</button>
-            <button class="btn danger sm action-btn" onclick="reviewReport('${r.id}','rejected')">${ic('x',13)} ${tr('reject')}</button>
-          </div>
-          ${canDelete()?`<div class="reportCard-actions-danger"><button class="btn secondary sm action-btn reportDeleteBtn" onclick="deleteReport('${r.id}')" aria-label="${lang==='ar'?'حذف التقرير':'Delete report'}" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button></div>`:''}
-        </div>
-        ${me.role==='cleaning_manager'?`<div class="ratingRow">
-          <div class="ratingGroup">
-            <span class="ratingLabel">${tr('ratingBySupervisor')}</span>
-            ${starRatingWidget(r.id,'supervisor',r.ratingSupervisor)}
-          </div>
-          <div class="ratingGroup">
-            <span class="ratingLabel">${tr('ratingByManager')}</span>
-            ${starRatingWidget(r.id,'manager',r.ratingManager)}
-          </div>
-        </div>`:''}`:''}
     </div>
+    ${full&&canReview()?`
+      <div class="reportCard-actions" onclick="event.stopPropagation()">
+        <div class="reportCard-actions-primary">
+          <button class="btn ok sm action-btn" onclick="reviewReport('${r.id}','approved')">${ic('check',13)} ${tr('approve')}</button>
+        </div>
+        <div class="reportCard-actions-secondary${canDelete()?'':' reportCard-actions-secondary--full'}">
+          <button class="btn warn sm action-btn" onclick="reviewReport('${r.id}','needs_recleaning')">${ic('flip',13)} ${tr('reclean')}</button>
+          <button class="btn danger sm action-btn" onclick="reviewReport('${r.id}','rejected')">${ic('x',13)} ${tr('reject')}</button>
+        </div>
+        ${canDelete()?`<div class="reportCard-actions-danger"><button class="btn secondary sm action-btn reportDeleteBtn" onclick="deleteReport('${r.id}')" aria-label="${lang==='ar'?'حذف التقرير':'Delete report'}" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button></div>`:''}
+      </div>
+      <div onclick="event.stopPropagation()">
+        ${me.role==='cleaning_manager'?`<div class="ratingRow">
+          <div class="ratingGroup"><span class="ratingLabel">${tr('ratingByManager')}</span>${starRatingWidget(r.id,'manager',r.ratingManager)}</div>
+        </div>`:me.role==='cleaning_supervisor'?`<div class="ratingRow">
+          <div class="ratingGroup"><span class="ratingLabel">${tr('ratingBySupervisor')}</span>${starRatingWidget(r.id,'supervisor',r.ratingSupervisor)}</div>
+        </div>`:me.role==='system_admin'?`<div class="ratingRow">
+          <div class="ratingGroup"><span class="ratingLabel">${tr('ratingBySupervisor')}</span>${starRatingWidget(r.id,'supervisor',r.ratingSupervisor)}</div>
+          <div class="ratingGroup"><span class="ratingLabel">${tr('ratingByManager')}</span>${starRatingWidget(r.id,'manager',r.ratingManager)}</div>
+        </div>`:''}
+      </div>`:''}
   </article>`;
 }
 
@@ -2923,6 +2908,175 @@ async function deleteRecurring(id){
   if(res.recurringTasks) data.recurringTasks = res.recurringTasks;
   render();
   toast(lang==='ar'?'تم الحذف':'Deleted','ok');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TICKET / REPORT DETAIL MODAL
+   ═══════════════════════════════════════════════════════════════ */
+function _eventLabel(eventType){
+  const map = {
+    'ticket.created':       lang==='ar'?'تم إنشاء البلاغ':'Ticket created',
+    'ticket.updated':       lang==='ar'?'تم تحديث البلاغ':'Ticket updated',
+    'ticket.deleted':       lang==='ar'?'تم حذف البلاغ':'Ticket deleted',
+    'report.created':       lang==='ar'?'تم إنشاء التقرير':'Report created',
+    'report.approved':      lang==='ar'?'تمت الموافقة':'Approved',
+    'report.rejected':      lang==='ar'?'تم الرفض':'Rejected',
+    'report.reclean_required': lang==='ar'?'طلب إعادة تنظيف':'Reclean requested',
+    'report.deleted':       lang==='ar'?'تم حذف التقرير':'Report deleted',
+    'settings.updated':     lang==='ar'?'تم تحديث الإعدادات':'Settings updated'
+  };
+  return map[eventType] || eventType;
+}
+
+function _activityTimeline(ticket, events){
+  const timeline = [];
+  const pushTs = (ts, label, icon='circle', cls='') => {
+    if(ts) timeline.push({ts, label, icon, cls});
+  };
+  // Synthetic events from ticket timestamps
+  if(ticket.createdAt)               pushTs(ticket.createdAt, lang==='ar'?'تم إنشاء البلاغ':'Ticket created','plus','ok');
+  if(ticket.acceptedAt)              pushTs(ticket.acceptedAt, lang==='ar'?'تم القبول':'Accepted','check','ok');
+  if(ticket.startedAt)               pushTs(ticket.startedAt, lang==='ar'?'بدأ التنفيذ':'Started','arrow','brand');
+  if(ticket.verificationRequestedAt) pushTs(ticket.verificationRequestedAt, lang==='ar'?'طلب التحقق':'Verification requested','eye','warn');
+  if(ticket.completedAt)             pushTs(ticket.completedAt, lang==='ar'?'اكتمل البلاغ':'Completed','check','ok');
+  if(ticket.cancelledAt)             pushTs(ticket.cancelledAt, lang==='ar'?'تم الإلغاء':'Cancelled','x','bad');
+  if(ticket.slaBreached && ticket.slaDeadline) pushTs(ticket.slaDeadline, lang==='ar'?'تجاوز SLA':'SLA Breached','clock','bad');
+  if(ticket.escalatedAt)             pushTs(ticket.escalatedAt, (lang==='ar'?'تصعيد المستوى ':'Escalated L')+ticket.escalationLevel,'alert','bad');
+  // Server events (may include actor names)
+  for(const e of events){
+    timeline.push({ts:e.createdAt, label:`${_eventLabel(e.eventType)}${e.actorName?' — '+e.actorName:''}`, icon:'list', cls:''});
+  }
+  timeline.sort((a,b)=>a.ts.localeCompare(b.ts));
+  if(!timeline.length) return `<div style="color:var(--muted);font-size:var(--fs-xs);padding:8px 0">${lang==='ar'?'لا يوجد نشاط مسجل':'No activity recorded'}</div>`;
+  return timeline.map(e=>`
+    <div class="activityItem">
+      <div class="activityItem-dot ${e.cls}">${ic(e.icon,11)}</div>
+      <div class="activityItem-content">
+        <span class="activityItem-label">${esc(e.label)}</span>
+        <span class="activityItem-time">${fmtFull(e.ts)}</span>
+      </div>
+    </div>`).join('');
+}
+
+function _reportActivityTimeline(report, events){
+  const timeline = [];
+  if(report.createdAt)  timeline.push({ts:report.createdAt, label:(lang==='ar'?'تم رفع التقرير':'Report submitted')+(report.workerName?' — '+report.workerName:''), cls:'ok'});
+  if(report.approvedAt) timeline.push({ts:report.approvedAt, label:`${_eventLabel('report.'+report.approvalStatus)} — ${report.approvedBy||''}`, cls:report.approvalStatus==='approved'?'ok':'bad'});
+  for(const e of events){
+    timeline.push({ts:e.createdAt, label:`${_eventLabel(e.eventType)}${e.actorName?' — '+e.actorName:''}`, cls:''});
+  }
+  timeline.sort((a,b)=>a.ts.localeCompare(b.ts));
+  if(!timeline.length) return `<div style="color:var(--muted);font-size:var(--fs-xs);padding:8px 0">${lang==='ar'?'لا يوجد نشاط':'No activity'}</div>`;
+  return timeline.map(e=>`
+    <div class="activityItem">
+      <div class="activityItem-dot ${e.cls||''}">${ic('circle',11)}</div>
+      <div class="activityItem-content">
+        <span class="activityItem-label">${esc(e.label)}</span>
+        <span class="activityItem-time">${fmtFull(e.ts)}</span>
+      </div>
+    </div>`).join('');
+}
+
+function fmtFull(ts){
+  if(!ts) return '';
+  try{return new Date(ts).toLocaleString(lang==='ar'?'ar-SA':'en-US',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});}catch{return ts;}
+}
+
+async function openTicketDetail(id){
+  const t = (data.tickets||[]).find(x=>x.id===id);
+  if(!t) return;
+  const catLabel = tr('cat_'+(t.category||'general')) || (t.category||'general');
+  const statusCls = t.status==='completed'?'ok':['rejected','cancelled'].includes(t.status)?'bad':t.status==='waiting_verification'?'warn':'brand';
+  const prCls = t.priority==='high'?'bad':t.priority==='low'?'info':'warn';
+  const body = `
+  <div class="detailModal">
+    <div class="detailModal-section">
+      <div class="detailModal-grid2">
+        <div><span class="detailLabel">${lang==='ar'?'الموقع':'Location'}</span><span class="detailVal">${ic('locations',12)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</span></div>
+        <div><span class="detailLabel">${lang==='ar'?'الحالة':'Status'}</span><span class="badge ${statusCls}">${tr(t.status)||t.status}</span></div>
+        <div><span class="detailLabel">${lang==='ar'?'المسند إليه':'Assigned'}</span><span class="detailVal">${ic('users',12)} ${esc(t.assignedToName||tr('unassigned'))}</span></div>
+        <div><span class="detailLabel">${lang==='ar'?'الأولوية':'Priority'}</span><span class="badge ${prCls}">${tr(t.priority||'medium')}</span></div>
+        <div><span class="detailLabel">${lang==='ar'?'الفئة':'Category'}</span><span class="badge">${catLabel}</span></div>
+        <div><span class="detailLabel">${lang==='ar'?'الرقم المرجعي':'Reference'}</span><span class="detailVal ltr">${esc(t.referenceNo||'—')}</span></div>
+        ${t.createdBy?`<div><span class="detailLabel">${tr('requester')}</span><span class="detailVal">${esc(t.createdBy)}</span></div>`:''}
+        ${t.slaDeadline?`<div><span class="detailLabel">SLA</span><span class="detailVal ${t.slaBreached?'bad':''}">${fmtFull(t.slaDeadline)}${t.slaBreached?' ⚠️':''}</span></div>`:''}
+      </div>
+      ${t.description?`<div class="detailModal-notes">${esc(t.description)}</div>`:''}
+    </div>
+    ${t.photos&&t.photos.length?`
+    <div class="detailModal-section">
+      <div class="detailModal-sectionTitle">${ic('camera',14)} ${lang==='ar'?'الصور':'Photos'} <span class="badge brand">${t.photos.length}</span></div>
+      <div class="detailModal-photos">
+        ${t.photos.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(t.photos)},${i})' alt="">`).join('')}
+      </div>
+    </div>`:
+    `<div class="detailModal-section"><div class="detailModal-sectionTitle">${ic('camera',14)} ${lang==='ar'?'الصور':'Photos'}</div><div style="color:var(--muted);font-size:var(--fs-xs);padding:4px 0">${lang==='ar'?'لا توجد صور':'No photos'}</div></div>`}
+    <div class="detailModal-section" id="detail-activity-${id}">
+      <div class="detailModal-sectionTitle">${ic('list',14)} ${lang==='ar'?'النشاط':'Activity'}</div>
+      <div class="activityTimeline" id="activity-list-${id}"><div style="color:var(--muted);font-size:var(--fs-xs)">${lang==='ar'?'جاري التحميل...':'Loading...'}</div></div>
+    </div>
+  </div>`;
+  showModal('ticketDetailModal', `${ic('tickets',16)} ${esc(t.title)}`, body, `
+    <button class="btn secondary sm" onclick="openComments('${t.id}')">${ic('chat',14)} ${lang==='ar'?'تعليقات':'Comments'}</button>
+    <button class="btn secondary" onclick="document.getElementById('ticketDetailModal')?.remove()">${lang==='ar'?'إغلاق':'Close'}</button>`, {wide:true});
+  // Fetch activity in background
+  api('/tickets/'+id+'/activity').then(res=>{
+    const el = document.getElementById('activity-list-'+id);
+    if(el) el.innerHTML = _activityTimeline(t, res.events||[]);
+  }).catch(()=>{});
+}
+
+async function openReportDetail(id){
+  const r = (data.reports||[]).find(x=>x.id===id);
+  if(!r) return;
+  const before = r.beforePhotos||[];
+  const after  = r.afterPhotos||[];
+  const allImgs = imgList(r);
+  const hasTyped = before.length||after.length;
+  const tasks = taskSetFor(r.locationType);
+  const st = r.approvalStatus||'pending';
+  const stCls = st==='approved'?'ok':st==='rejected'||st==='needs_recleaning'?'bad':'warn';
+  const body = `
+  <div class="detailModal">
+    <div class="detailModal-section">
+      <div class="detailModal-grid2">
+        <div><span class="detailLabel">${lang==='ar'?'الموقع':'Location'}</span><span class="detailVal">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</span></div>
+        <div><span class="detailLabel">${lang==='ar'?'العامل':'Worker'}</span><span class="detailVal">${ic('users',12)} ${esc(r.workerName)}</span></div>
+        <div><span class="detailLabel">${lang==='ar'?'الحالة':'Status'}</span><span class="badge ${stCls}">${tr(st)}</span></div>
+        <div><span class="detailLabel">${lang==='ar'?'التاريخ':'Date'}</span><span class="detailVal">${fmtFull(r.createdAt)}</span></div>
+        ${r.approvedBy?`<div><span class="detailLabel">${lang==='ar'?'راجعه':'Reviewed by'}</span><span class="detailVal">${esc(r.approvedBy)}</span></div>`:''}
+        ${r.reviewNote?`<div><span class="detailLabel">${lang==='ar'?'ملاحظة المراجع':'Review note'}</span><span class="detailVal">${esc(r.reviewNote)}</span></div>`:''}
+      </div>
+      ${r.notes?`<div class="detailModal-notes">${esc(r.notes)}</div>`:''}
+    </div>
+    ${tasks.length?`
+    <div class="detailModal-section">
+      <div class="detailModal-sectionTitle">${ic('check',14)} ${lang==='ar'?'المهام':'Tasks'}</div>
+      <div class="reportCard-tasks" style="margin-top:8px">
+        ${tasks.map(p=>{const ok=taskDone(r.tasks,p);return`<div class="taskResult ${ok?'done':'missing'}"><span>${esc(lang==='ar'?p[0]:p[1])}</span><span class="taskMark">${ok?'✓':'×'}</span></div>`}).join('')}
+      </div>
+    </div>`:''}
+    <div class="detailModal-section">
+      <div class="detailModal-sectionTitle">${ic('camera',14)} ${lang==='ar'?'الصور':'Photos'} <span class="badge brand">${allImgs.length}</span></div>
+      ${allImgs.length?`
+      <div class="${hasTyped?'detailModal-photos-split':'detailModal-photos'}">
+        ${hasTyped?`
+          ${before.length?`<div><div class="photoGroup-label" style="margin-bottom:6px">${ic('camera',12)} ${tr('beforePhotos')}</div><div class="detailModal-photos">${before.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(before)},${i})' alt="">`).join('')}</div></div>`:''}
+          ${after.length?`<div><div class="photoGroup-label ok" style="margin-bottom:6px">${ic('check',12)} ${tr('afterPhotos')}</div><div class="detailModal-photos">${after.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(after)},${i})' alt="">`).join('')}</div></div>`:''}
+        `:allImgs.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(allImgs)},${i})' alt="">`).join('')}
+      </div>`:
+      `<div style="color:var(--muted);font-size:var(--fs-xs);padding:4px 0">${lang==='ar'?'لا توجد صور':'No photos'}</div>`}
+    </div>
+    <div class="detailModal-section">
+      <div class="detailModal-sectionTitle">${ic('list',14)} ${lang==='ar'?'النشاط':'Activity'}</div>
+      <div class="activityTimeline" id="report-activity-list-${id}"><div style="color:var(--muted);font-size:var(--fs-xs)">${lang==='ar'?'جاري التحميل...':'Loading...'}</div></div>
+    </div>
+  </div>`;
+  showModal('reportDetailModal', `${ic('reports',16)} ${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)} — ${esc(r.workerName)}`, body, `<button class="btn secondary" onclick="document.getElementById('reportDetailModal')?.remove()">${lang==='ar'?'إغلاق':'Close'}</button>`, {wide:true});
+  api('/reports/'+id+'/activity').then(res=>{
+    const el = document.getElementById('report-activity-list-'+id);
+    if(el) el.innerHTML = _reportActivityTimeline(r, res.events||[]);
+  }).catch(()=>{});
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -5260,32 +5414,29 @@ function supTicketCard(t, mode, workers){
 }
 
 function supReportCard(r){
-  const before = (r.beforePhotos||[]);
-  const after  = (r.afterPhotos||[]);
-  const hasTyped = before.length||after.length;
   const imgs = imgList(r);
-  const bothGroups2 = hasTyped && before.length && after.length;
-  const photosHtml = hasTyped ? `
-    <div class="reportCard-media ${bothGroups2?'sideBySide':''}" style="margin:8px 0">
-      ${before.length?`<div class="photoGroup"><div class="photoGroup-label">${ic('camera',12)} ${tr('beforePhotos')}</div><div class="photoGroup-imgs">${before.map((src,i)=>`<img class="reportCard-thumb" src="${src}" loading="lazy" onclick='openGallery(${JSON.stringify(before)},${i})' alt="">`).join('')}</div></div>`:''}
-      ${after.length?`<div class="photoGroup"><div class="photoGroup-label ok">${ic('check',12)} ${tr('afterPhotos')}</div><div class="photoGroup-imgs">${after.map((src,i)=>`<img class="reportCard-thumb" src="${src}" loading="lazy" onclick='openGallery(${JSON.stringify(after)},${i})' alt="">`).join('')}</div></div>`:''}
-    </div>
-  ` : imgs.length ? `
-    <div class="reportCard-media single" style="margin:8px 0">
-      ${imgs.slice(0,4).map((src,i)=>`<img class="reportCard-thumb" src="${src}" loading="lazy" onclick='openGallery(${JSON.stringify(imgs)},${i})' alt="">`).join('')}
-    </div>
-  ` : '';
   return`<div class="ticketCard supTicketCard">
-    <div class="ticketCard-top">
-      <div class="ticketCard-main">
-        <div class="ticketCard-title">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</div>
-        <div class="ticketCard-meta"><span>${ic('users',12)} ${esc(r.workerName)}</span><span>${fmt(r.createdAt)}</span></div>
+    <div style="cursor:pointer" onclick="openReportDetail('${r.id}')">
+      <div class="ticketCard-top">
+        <div class="ticketCard-main">
+          <div class="ticketCard-title">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</div>
+          <div class="ticketCard-meta"><span>${ic('users',12)} ${esc(r.workerName)}</span><span>${fmt(r.createdAt)}</span></div>
+        </div>
+        <span class="badge ${r.status==='completed'?'ok':'brand'}">${tr(r.status)||r.status}</span>
       </div>
-      <span class="badge ${r.status==='completed'?'ok':'brand'}">${tr(r.status)||r.status}</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+        ${imgs.length?`<span class="badge brand">${ic('camera',10)} ${num(imgs.length)}</span>`:''}
+        ${r.notes?`<span class="badge" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.notes)}</span>`:''}
+        <span class="badge" style="margin-inline-start:auto">${ic('arrow',11)} ${lang==='ar'?'تفاصيل':'Details'}</span>
+      </div>
     </div>
-    ${photosHtml}
-    ${r.notes?`<p class="ticketCard-desc">${esc(r.notes)}</p>`:''}
-    <div class="ticketCard-actions supTicketCard-actions">
+    ${me.role==='cleaning_supervisor'?`<div class="ratingRow" style="padding:6px 0 0" onclick="event.stopPropagation()">
+      <div class="ratingGroup">
+        <span class="ratingLabel">${tr('ratingBySupervisor')}</span>
+        ${starRatingWidget(r.id,'supervisor',r.ratingSupervisor)}
+      </div>
+    </div>`:''}
+    <div class="ticketCard-actions supTicketCard-actions" onclick="event.stopPropagation()">
       <button class="btn sm ok" onclick="supReview('${r.id}','approved','')">${ic('check',14)} ${lang==='ar'?'اعتماد':'Approve'}</button>
       <button class="btn sm warn" onclick="supReviewPrompt('${r.id}','needs_recleaning')">${lang==='ar'?'إعادة تنظيف':'Reclean'}</button>
       <button class="btn sm danger" onclick="supReviewPrompt('${r.id}','rejected')">${lang==='ar'?'رفض':'Reject'}</button>
