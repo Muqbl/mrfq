@@ -4740,7 +4740,9 @@ async function submitEmployeeHospOrder(){
     const item=(empHospMenuItems||[]).find(m=>m.id===id);
     const nameAr=item?.nameAr||id;
     const nameEn=item?.nameEn||item?.nameAr||id;
-    return qty>1?`${lang==='ar'?nameAr:nameEn} × ${qty}`:(lang==='ar'?nameAr:nameEn);
+    const labelAr=qty>1?`${nameAr} × ${qty}`:nameAr;
+    const labelEn=qty>1?`${nameEn} × ${qty}`:nameEn;
+    return `${labelAr}||${labelEn}`;
   });
   const notes=document.getElementById('empHospNotes')?.value.trim()||'';
   const btn=document.querySelector('.submitBtn');
@@ -4798,7 +4800,7 @@ function employeeHistory(orders){
     ${combined.length?combined.map(item=>{
       if(item._type==='hosp'){
         const stCls=hospStatusBadgeClass(item.status);
-        const itemNames=(Array.isArray(item.items)?item.items:JSON.parse(item.items||'[]')).slice(0,3).join(' · ');
+        const itemNames=(Array.isArray(item.items)?item.items:JSON.parse(item.items||'[]')).slice(0,3).map(hospItemLabel).join(' · ');
         return`<div class="ticketCard empOrderCard">
           <div class="ticketCard-top empOrderCard-head">
             <div class="ticketCard-main">
@@ -4928,6 +4930,13 @@ function renderHospitalityWorker(){
   app.innerHTML = fieldShell(me, content);
 }
 
+function hospItemLabel(i){
+  if(typeof i !== 'string') return esc(String(i));
+  const sep = i.indexOf('||');
+  if(sep === -1) return esc(i);
+  return lang==='ar' ? esc(i.slice(0, sep)) : esc(i.slice(sep+2));
+}
+
 function hospWorkerOrderCard(o){
   const stCls = hospStatusBadgeClass(o.status);
   const NEXT = {
@@ -4939,26 +4948,32 @@ function hospWorkerOrderCard(o){
   const next = NEXT[o.status];
   const locName = lang==='ar'?o.locationNameAr:o.locationNameEn;
   const kitchenName = lang==='ar'?o.kitchenNameAr:(o.kitchenNameEn||o.kitchenNameAr);
+  const fullLoc = (data.locations||[]).find(l=>l.id===o.locationId);
   const isOverdue = o.slaBreached;
   const isDelivery = o.status === 'out_for_delivery';
+  const locCode = o.locationId||'';
+  const locFloor = fullLoc?.floor ? (lang==='ar'?`الدور ${fullLoc.floor}`:`Floor ${fullLoc.floor}`) : '';
   return`<div class="ticketCard empOrderCard" style="${isOverdue?'border-right:3px solid var(--bad)':''}">
     <div class="ticketCard-top empOrderCard-head">
       <div class="ticketCard-main">
-        <div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:2px">${esc(o.referenceNo||'')}</div>
-        <div class="ticketCard-title" style="font-size:var(--fs-base)">${fmt(o.createdAt)}</div>
+        <div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:2px">${esc(o.referenceNo||'')} · ${fmt(o.createdAt)}</div>
       </div>
       <span class="badge ${stCls}">${hospStatusLabel(o.status)}</span>
     </div>
 
-    <div style="background:${isDelivery?'var(--brand-bg)':'var(--surface-2, var(--bg))'};border:1px solid ${isDelivery?'var(--brand-mid)':'var(--border)'};border-radius:10px;padding:10px 12px;margin:8px 0">
-      <div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:2px">${ic('locations',11)} ${lang==='ar'?'وجهة التوصيل':'Delivery to'}</div>
-      <div style="font-weight:700;font-size:var(--fs-lg);color:${isDelivery?'var(--brand)':'var(--ink)'}">${esc(locName||'—')}</div>
-      ${o.requesterName?`<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:3px">${ic('user',11)} ${esc(o.requesterName)}</div>`:''}
+    <div style="background:${isDelivery?'var(--brand-bg)':'var(--surface-2,var(--bg))'};border:1px solid ${isDelivery?'var(--brand-mid)':'var(--border)'};border-radius:10px;padding:10px 12px;margin:8px 0">
+      <div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:4px">${ic('locations',11)} ${lang==='ar'?'وجهة التوصيل':'Delivery to'}</div>
+      <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+        <span style="font-family:ui-monospace,monospace;font-size:var(--fs-xl);font-weight:800;color:${isDelivery?'var(--brand)':'var(--ink)'}">${esc(locCode)}</span>
+        ${locFloor?`<span style="font-size:var(--fs-xs);color:var(--muted)">${esc(locFloor)}</span>`:''}
+      </div>
+      <div style="font-size:var(--fs-sm);color:var(--ink-secondary);margin-top:2px">${esc(locName||'')}</div>
+      ${o.requesterName?`<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:4px;border-top:1px solid var(--border);padding-top:4px">${ic('user',11)} ${esc(o.requesterName)}</div>`:''}
     </div>
 
     ${kitchenName?`<div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:6px">${ic('coffee',11)} ${lang==='ar'?'المطبخ:':'Kitchen:'} <span style="color:var(--ink);font-weight:600">${esc(kitchenName)}</span></div>`:''}
 
-    ${o.items&&o.items.length?`<div class="ticketCard-badges" style="margin-bottom:6px">${o.items.map(i=>`<span class="badge">${esc(i)}</span>`).join('')}</div>`:''}
+    ${o.items&&o.items.length?`<div class="ticketCard-badges" style="margin-bottom:6px">${o.items.map(i=>`<span class="badge">${hospItemLabel(i)}</span>`).join('')}</div>`:''}
     ${o.notes?`<div style="font-size:var(--fs-xs);color:var(--muted);background:var(--warn-bg);border-radius:6px;padding:6px 10px;margin-bottom:6px">${ic('alert',11)} ${esc(o.notes)}</div>`:''}
     ${isOverdue?`<div style="font-size:var(--fs-xs);color:var(--bad);font-weight:600;margin-bottom:6px">${ic('alert',11)} ${lang==='ar'?'تجاوز وقت SLA':'SLA exceeded'}</div>`:''}
 
@@ -4991,7 +5006,7 @@ function hospOrderCard(o, mode, workers){
   const items = o.items||[];
   const MAX_ITEMS = 3;
   const itemsHtml = items.length
-    ? `<div class="ticketCard-badges">${items.slice(0,MAX_ITEMS).map(i=>`<span class="badge">${esc(i)}</span>`).join('')}${items.length>MAX_ITEMS?`<span class="badge" style="color:var(--muted)">+${items.length-MAX_ITEMS}</span>`:''}</div>`
+    ? `<div class="ticketCard-badges">${items.slice(0,MAX_ITEMS).map(i=>`<span class="badge">${hospItemLabel(i)}</span>`).join('')}${items.length>MAX_ITEMS?`<span class="badge" style="color:var(--muted)">+${items.length-MAX_ITEMS}</span>`:''}</div>`
     : '';
   const locName = esc(lang==='ar'?o.locationNameAr:o.locationNameEn);
   return`<div class="ticketCard empOrderCard">

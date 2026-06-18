@@ -1337,7 +1337,7 @@ const server = http.createServer(async (req, res) => {
         if (!kitchenInfo) return send(res, 404, { error: 'KITCHEN_NOT_FOUND' });
         const { kitchen, assignedTo, assignedToName } = kitchenInfo;
         const orderType = sanitize(b.orderType || 'general', 50) || 'general';
-        const items = Array.isArray(b.items) ? b.items.slice(0, 20).map(i => sanitize(String(i), 100)) : [];
+        const items = Array.isArray(b.items) ? b.items.slice(0, 20).map(i => sanitize(String(i), 200)) : [];
         const refNo = generateRefNo(db, 'HSP');
         const id    = newId('h');
         const ts    = now();
@@ -2574,7 +2574,7 @@ const server = http.createServer(async (req, res) => {
         if (!kitchenInfo) return send(res, 404, { error: 'KITCHEN_NOT_FOUND' });
         const { kitchen, assignedTo, assignedToName } = kitchenInfo;
         const orderType = sanitize(b.orderType || 'general', 50) || 'general';
-        const items = Array.isArray(b.items) ? b.items.slice(0, 20).map(i => sanitize(String(i), 100)) : [];
+        const items = Array.isArray(b.items) ? b.items.slice(0, 20).map(i => sanitize(String(i), 200)) : [];
         const refNo = generateRefNo(db, 'HSP');
         const id    = newId('h');
         const ts    = now();
