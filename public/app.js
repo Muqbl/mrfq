@@ -6816,7 +6816,7 @@ function renderSupervisor(){
   </div>`;
 
   const supEmptyCompact=(msg)=>`<div style="padding:10px 0;color:var(--muted);font-size:var(--fs-sm);display:flex;align-items:center;gap:6px">${ic('check',14)} ${msg}</div>`;
-  const subCls = submitted.length&&!waitingVerif.length?'wCard wCard--full':!submitted.length&&!waitingVerif.length?'wCard--full':'wCard';
+  const subCls = submitted.length&&!waitingVerif.length?'wCard wCard--full':'wCard';
   const verifCls = waitingVerif.length&&!submitted.length?'wCard wCard--full':'wCard';
   const requestsHtml=`
     <div class="supSectionsGrid">
