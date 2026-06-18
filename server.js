@@ -1252,7 +1252,16 @@ const server = http.createServer(async (req, res) => {
 
     /* ── health ───────────────────────────────────────────────── */
     if (url.pathname === '/health') {
-      return send(res, 200, { status: 'ok', mode: 'prototype', uptime: Math.floor(process.uptime()) });
+      let dbStatus='ok',storageStatus='ok';
+      try { getDb().prepare('SELECT 1 AS ok').get(); } catch { dbStatus='error'; }
+      try { fs.mkdirSync(UPLOADS_DIR,{recursive:true}); fs.accessSync(UPLOADS_DIR,fs.constants.R_OK|fs.constants.W_OK); } catch { storageStatus='error'; }
+      const healthy=dbStatus==='ok'&&storageStatus==='ok';
+      return send(res, healthy?200:503, {
+        status:healthy?'ok':'degraded',version:'2.0.0',mode:'prototype',
+        uptimeSeconds:Math.floor(process.uptime()),timestamp:now(),
+        checks:{database:dbStatus,storage:storageStatus},
+        memory:{rssMb:Math.round(process.memoryUsage().rss/1048576)}
+      });
     }
 
     /* ── API routes ───────────────────────────────────────────── */
@@ -2548,6 +2557,17 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { orders });
       }
 
+      /* ── HOSPITALITY: ORDER ACTIVITY ──────────────────────────── */
+      if (req.method === 'GET' && /^\/api\/hospitality\/orders\/[^/]+\/activity$/.test(url.pathname)) {
+        if (!canHospitalityAccess(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const id=sanitize(url.pathname.split('/')[4],80);
+        const order=dbHospitalityOrders().find(o=>o.id===id);
+        if (!order) return send(res,404,{error:'NOT_FOUND'});
+        if (!hospitalityOrdersForRole(me,[order]).length) return send(res,403,{error:'FORBIDDEN'});
+        const events=db.prepare(`SELECT e.*,u.name AS actor_name FROM event_log e LEFT JOIN users u ON u.id=e.actor_id WHERE e.entity_type='hospitality_order' AND e.entity_id=? ORDER BY e.created_at ASC LIMIT 100`).all(id);
+        return send(res,200,{events:events.map(e=>({id:e.id,eventType:e.event_type,actorId:e.actor_id,actorName:e.actor_name||'',actorRole:e.actor_role,payload:JSON.parse(e.payload||'{}'),createdAt:e.created_at}))});
+      }
+
       /* ── HOSPITALITY: ASSIGN ORDER TO WORKER ──────────────────── */
       if (req.method === 'POST' && /^\/api\/hospitality\/orders\/[^/]+\/assign$/.test(url.pathname)) {
         if (!canHospitalityAssign(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
@@ -2883,13 +2903,6 @@ const server = http.createServer(async (req, res) => {
       setSecurityHeaders(res);
       res.writeHead(200, { 'Content-Type': ct, 'Cache-Control': 'public, max-age=86400' });
       res.end(fs.readFileSync(fp));
-      return;
-    }
-
-    /* ── HEALTH CHECK ──────────────────────────────────────── */
-    if (url.pathname === '/health') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, db: !!process.env.DB_PATH, ts: Date.now() }));
       return;
     }
 

@@ -152,6 +152,15 @@ test('hospitality_supervisor sees all orders', async () => {
   assert.ok(r.body.orders.some(o => o.id === orderId));
 });
 
+test('hospitality order exposes a role-scoped activity timeline', async () => {
+  const supervisor = await login(HOSP_USERS.supervisor.username, HOSP_USERS.supervisor.password);
+  const orders = await supervisor('/api/hospitality/orders');
+  assert.equal(orders.status, 200);
+  const activity = await supervisor(`/api/hospitality/orders/${orders.body.orders[0].id}/activity`);
+  assert.equal(activity.status, 200);
+  assert.ok(activity.body.events.some(e => e.eventType === 'hospitality.submitted'));
+});
+
 test('employee bootstrap only shows own orders', async () => {
   const employee = await login(HOSP_USERS.employee.username, HOSP_USERS.employee.password);
   const r = await employee('/api/bootstrap');

@@ -45,6 +45,7 @@ Thumbs.db
 reports/
 screenshots/
 backup*.zip
+backups/
 old/
 
 # ─── Temp ─────────────────────────────────────────────────────

@@ -105,6 +105,16 @@ test('login: admin succeeds and sets cookie', async () => {
   assert.equal(r.body.user.role, 'system_admin');
 });
 
+test('health endpoint reports database and storage checks', async () => {
+  const res = await fetch(BASE + '/health');
+  assert.equal(res.status, 200);
+  const health = await res.json();
+  assert.equal(health.status, 'ok');
+  assert.equal(health.checks.database, 'ok');
+  assert.equal(health.checks.storage, 'ok');
+  assert.ok(Number.isInteger(health.uptimeSeconds));
+});
+
 test('login: wrong password rejected with 401', async () => {
   const api = client();
   const r = await api('/api/login', { method: 'POST', body: JSON.stringify({ username: 'admin', password: 'wrong' }) });

@@ -2233,6 +2233,35 @@ tbody tr:hover td{background:var(--surface-2)}
 }
 .empCatBtn.active .empCatBtn-icon{background:rgba(10,78,91,.12);color:var(--brand)}
 
+/* ── Cross-module operations performance ───────────────────── */
+.opsModuleGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.opsModuleCard{display:grid;gap:14px;padding:18px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-sm)}
+.opsModuleCard-head{display:flex;align-items:center;gap:10px}
+.opsModuleCard-head>div{display:grid;gap:2px;min-width:0}
+.opsModuleCard-head b{font-family:var(--font-head);font-size:var(--fs-md);color:var(--ink)}
+.opsModuleCard-head small,.opsWorkerRow small,.opsAlertRow small{display:block;font-size:var(--fs-xs);color:var(--muted);margin-top:2px}
+.opsModuleCard-icon{width:42px;height:42px;border-radius:var(--r);display:grid;place-items:center;background:var(--bg-soft);color:var(--brand);flex:0 0 auto}
+.opsModuleMetrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.opsModuleMetrics>div{display:grid;gap:2px;padding:10px 6px;text-align:center;background:var(--surface-2);border-radius:var(--r-sm)}
+.opsModuleMetrics strong{font-family:var(--font-head);font-size:var(--fs-lg);color:var(--ink)}
+.opsModuleMetrics span{font-size:10px;color:var(--muted)}
+.opsOverviewGrid{align-items:start}
+.opsWorkerList,.opsAlertList{display:grid;gap:8px}
+.opsWorkerRow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line-soft)}
+.opsWorkerRow:last-child{border-bottom:0}
+.opsWorkerRow>div:first-child{min-width:0}.opsWorkerRow b{font-size:var(--fs-sm);color:var(--ink)}
+.opsWorkerRow-end{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.opsAlertRow{display:flex;align-items:center;gap:10px;width:100%;border:0;border-bottom:1px solid var(--line-soft);background:transparent;text-align:start;padding:10px 0;cursor:pointer;color:var(--ink)}
+.opsAlertRow:last-child{border-bottom:0}.opsAlertRow:hover b{color:var(--brand)}
+.opsAlertDot{width:9px;height:9px;border-radius:50%;background:var(--bad);box-shadow:0 0 0 4px color-mix(in srgb,var(--bad) 12%,transparent);flex:0 0 auto}
+.workerProfileHero{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.workerProfileAvatar{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:var(--brand);color:white;font-size:var(--fs-lg);font-weight:800}
+.workerProfileHero h3{margin:0;color:var(--ink)}.workerProfileHero p{margin:3px 0 0;color:var(--muted);font-size:var(--fs-xs)}
+.workerProfileMetrics{margin-bottom:14px}
+
+@media(max-width:980px){.opsModuleGrid{grid-template-columns:1fr}.opsModuleCard{padding:15px}.opsOverviewGrid{grid-template-columns:1fr}}
+@media(max-width:560px){.opsModuleMetrics{grid-template-columns:repeat(2,minmax(0,1fr))}.opsWorkerRow{align-items:flex-start;flex-direction:column}.opsWorkerRow-end{width:100%;justify-content:space-between}.workerProfileMetrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
 /* ── public hospitality menu — compact category chips (mirrors .filterChips/.filterChip) ─────── */
 .hospCatChips{
   display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
