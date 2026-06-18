@@ -2317,9 +2317,10 @@ function workerRatingScore(w){
 }
 function workerWeightedScore(w){
   const approval = w.approvalRate ?? 0;
-  const quality = w.avgQuality ?? 0;
+  const supScore = w.avgRatingSupervisor!=null ? w.avgRatingSupervisor/5*100 : 0;
+  const mgrScore = w.avgRatingManager!=null ? w.avgRatingManager/5*100 : 0;
   const workload = Math.max(0,100-(w.workloadScore||0));
-  return Math.round(approval*0.3 + quality*0.25 + workerRatingScore(w)*0.25 + workload*0.2);
+  return Math.round(approval*0.4 + supScore*0.3 + mgrScore*0.2 + workload*0.1);
 }
 
 function dash(){
@@ -6381,7 +6382,6 @@ ${scored.length>=1?`
         <th>${tr('name')}</th>
         <th>${lang==='ar'?'التقارير (30ي)':'Reports (30d)'}</th>
         <th>${tr('approvalRate')}</th>
-        <th>${tr('avgQuality')}</th>
         <th>${tr('ratingBySupervisor')}</th>
         ${canManage()?`<th>${tr('ratingByManager')}</th>`:''}
         <th>${tr('openTasks')}</th>
@@ -6404,7 +6404,6 @@ ${scored.length>=1?`
             </td>
             <td><span class="perfRowLabel">${lang==='ar'?'التقارير (30ي)':'Reports (30d)'}</span><span class="perfMetricStrong">${w.reportsLast30}</span>${w.thisMonth?` <span class="perfMetricHint">(${w.thisMonth} ${lang==='ar'?'هذا الشهر':'this mo.'})</span>`:''}</td>
             <td><span class="perfRowLabel">${tr('approvalRate')}</span>${w.approvalRate!=null?`<span class="badge ${w.approvalRate>=80?'ok':w.approvalRate>=60?'warn':'bad'}">${w.approvalRate}%</span>`:`<span class="badge">${tr('noRating')}</span>`}</td>
-            <td><span class="perfRowLabel">${tr('avgQuality')}</span>${w.avgQuality?`<span class="badge gold">${w.avgQuality}%</span>`:`—`}</td>
             <td><span class="perfRowLabel">${tr('ratingBySupervisor')}</span>${rS!=null?`<div class="perfRating">${ic('star',13)} ${rS.toFixed(1)}</div>`:`<span class="perfEmpty">${tr('noRating')}</span>`}</td>
             ${canManage()?`<td><span class="perfRowLabel">${tr('ratingByManager')}</span>${rM!=null?`<div class="perfRating">${ic('star',13)} ${rM.toFixed(1)}</div>`:`<span class="perfEmpty">${tr('noRating')}</span>`}</td>`:''}
             <td><span class="perfRowLabel">${tr('openTasks')}</span><span class="badge ${w.openTickets>3?'bad':w.openTickets>1?'warn':'ok'}">${w.openTickets}</span></td>
@@ -6458,15 +6457,15 @@ tr:nth-child(even) td{background:#F8FAF9}
 </div>
 <table><thead><tr>
   <th>#</th><th>${tr('name')}</th><th>${lang==='ar'?'التقارير':'Reports'}</th>
-  <th>${tr('approvalRate')}</th><th>${tr('avgQuality')}</th>
-  <th>${tr('ratingBySupervisor')}</th><th>${lang==='ar'?'مهام مفتوحة':'Open Tasks'}</th>
+  <th>${tr('approvalRate')}</th>
+  <th>${tr('ratingBySupervisor')}</th><th>${tr('ratingByManager')}</th><th>${lang==='ar'?'مهام مفتوحة':'Open Tasks'}</th>
   <th>${lang==='ar'?'النقاط':'Score'}</th>
 </tr></thead><tbody>
 ${scored.map((w,i)=>`<tr>
   <td>${i+1}</td><td>${esc(w.name)}</td><td>${w.reportsLast30}</td>
   <td class="${w.approvalRate>=80?'ok':w.approvalRate>=60?'warn':'bad'}">${w.approvalRate!=null?w.approvalRate+'%':'—'}</td>
-  <td>${w.avgQuality?w.avgQuality+'%':'—'}</td>
   <td>${w.avgRatingSupervisor?w.avgRatingSupervisor.toFixed(1):'—'}</td>
+  <td>${w.avgRatingManager?w.avgRatingManager.toFixed(1):'—'}</td>
   <td>${w.openTickets}</td>
   <td><strong>${w.weighted}</strong></td>
 </tr>`).join('')}
