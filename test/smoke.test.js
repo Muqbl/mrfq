@@ -530,6 +530,8 @@ test('maintenance: supervisor verifies completed worker ticket', async () => {
   const verified = await supervisor(`/api/maintenance-tickets/${maintenanceTicketId}`, { method:'PUT', body:JSON.stringify({status:'completed'}) });
   assert.equal(verified.status, 200);
   assert.equal(verified.body.ticket.status, 'completed');
+  const after = await supervisor('/api/bootstrap');
+  assert.ok(after.body.tickets.some(t=>t.id===maintenanceTicketId&&t.status==='completed'), 'closed work order remains in supervisor history');
 });
 
 test('maintenance operations: assets, parts and second technician', async () => {
@@ -541,6 +543,14 @@ test('maintenance operations: assets, parts and second technician', async () => 
   assert.equal(asset.status,200);maintenanceAssetId=asset.body.assets[0].id;
   const part=await manager('/api/maintenance/parts',{method:'POST',body:JSON.stringify({sku:'FLT-001',nameAr:'فلتر هواء',quantity:10,reorderLevel:2,unitCost:25})});
   assert.equal(part.status,200);maintenancePartId=part.body.parts[0].id;
+});
+
+test('maintenance supervisor assigns an employee maintenance request', async () => {
+  const supervisor=await login('maint-supervisor',PASSWORDS.worker);
+  const assigned=await supervisor(`/api/maintenance-tickets/${employeeMaintenanceTicketId}/team`,{method:'POST',body:JSON.stringify({technicianIds:[maintenanceWorkerId,maintenanceWorker2Id],leadTechnicianId:maintenanceWorkerId})});
+  assert.equal(assigned.status,200);assert.equal(assigned.body.assignees.length,2);
+  const after=await supervisor('/api/bootstrap');const order=after.body.tickets.find(t=>t.id===employeeMaintenanceTicketId);
+  assert.equal(order.status,'assigned');assert.equal(order.assignedTo,maintenanceWorkerId);
 });
 
 test('maintenance operations: multi-technician work order with lead', async () => {
@@ -557,10 +567,14 @@ test('maintenance operations: preventive schedule generates work order', async (
   const supervisor=await login('maint-supervisor',PASSWORDS.worker);const boot=await supervisor('/api/bootstrap');
   const schedule=await supervisor('/api/maintenance/schedules',{method:'POST',body:JSON.stringify({titleAr:'صيانة شهرية لوحدة الهواء',locationId:boot.body.locations[0].id,assetIds:[maintenanceAssetId],category:'hvac',checklist:['فحص الفلتر','اختبار التشغيل'],frequencyUnit:'monthly',frequencyValue:1,nextRunAt:new Date(Date.now()+86400000).toISOString(),defaultTechnicianIds:[maintenanceWorkerId,maintenanceWorker2Id],leadTechnicianId:maintenanceWorkerId})});
   assert.equal(schedule.status,200);maintenanceScheduleId=schedule.body.schedules[0].id;
+  const reassigned=await supervisor(`/api/maintenance/schedules/${maintenanceScheduleId}`,{method:'PUT',body:JSON.stringify({defaultTechnicianIds:[maintenanceWorkerId,maintenanceWorker2Id],leadTechnicianId:maintenanceWorker2Id})});
+  assert.equal(reassigned.status,200);assert.equal(reassigned.body.schedules.find(s=>s.id===maintenanceScheduleId).leadTechnicianId,maintenanceWorker2Id);
   const run=await supervisor(`/api/maintenance/schedules/${maintenanceScheduleId}/run`,{method:'POST'});
   assert.equal(run.status,200);assert.ok(run.body.workOrderId);
   const after=await supervisor('/api/bootstrap');const generated=after.body.tickets.find(t=>t.id===run.body.workOrderId);
   assert.equal(generated.maintenanceType,'preventive');
+  const team=after.body.maintenance.assignees.filter(a=>a.workOrderId===run.body.workOrderId);
+  assert.equal(team.length,2);assert.equal(team.find(a=>a.isLead).technicianId,maintenanceWorker2Id);
 });
 
 test('maintenance operations: technician workflow, parts and diagnostic close', async () => {

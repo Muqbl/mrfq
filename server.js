@@ -1007,10 +1007,20 @@ function canReceiveTicketEvent(user, ticket) {
   return ['cleaning_manager','cleaning_supervisor'].includes(user.role) ||
     (user.role === 'cleaner' && ticket.assignedTo === user.id);
 }
+function canReceiveReportEvent(user, report) {
+  if (!report || !user) return false;
+  if (['system_admin','facility_manager'].includes(user.role)) return true;
+  if (report.module === 'maintenance')
+    return ['maintenance_manager','maintenance_supervisor'].includes(user.role) ||
+      (user.role === 'maintenance_worker' && report.workerId === user.id);
+  return ['cleaning_manager','cleaning_supervisor'].includes(user.role) ||
+    (user.role === 'cleaner' && report.workerId === user.id);
+}
 function broadcast(event, payload) {
   const msg = `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
   for (const c of sseClients) {
     if (payload?.ticket && !canReceiveTicketEvent(c.user, payload.ticket)) continue;
+    if (payload?.report && !canReceiveReportEvent(c.user, payload.report)) continue;
     try { c.res.write(msg); } catch { sseClients.delete(c); }
   }
 }
@@ -1086,19 +1096,25 @@ const MAINT_RATING_RULES = {
   system_admin:           null
 };
 
-function setMaintenanceTeam(db, workOrderId, technicianIds, leadTechnicianId = '') {
-  const ids = [...new Set((technicianIds || []).filter(Boolean))].slice(0, 20);
+function normalizeMaintenanceTeam(db, technicianIds, leadTechnicianId = '') {
+  const ids = [...new Set((technicianIds || []).map(id=>sanitize(id,50)).filter(Boolean))].slice(0,20);
   const technicians = ids.map(id => db.prepare(
     "SELECT id,name FROM users WHERE id=? AND role='maintenance_worker' AND active=1 AND deleted_at IS NULL"
   ).get(id)).filter(Boolean);
   if (technicians.length !== ids.length) throw new Error('WORKER_NOT_FOUND');
+  const requestedLead=sanitize(leadTechnicianId,50);
+  const lead=ids.includes(requestedLead)?requestedLead:(ids[0]||'');
+  return { ids, technicians, lead };
+}
+
+function setMaintenanceTeam(db, workOrderId, technicianIds, leadTechnicianId = '') {
+  const { technicians, lead }=normalizeMaintenanceTeam(db,technicianIds,leadTechnicianId);
   db.prepare('DELETE FROM maintenance_work_order_assignees WHERE work_order_id=?').run(workOrderId);
   const insert = db.prepare(`
     INSERT INTO maintenance_work_order_assignees
       (work_order_id,technician_id,technician_name,is_lead,status,assigned_at)
     VALUES (?,?,?,?,?,?)
   `);
-  const lead = technicians.some(t => t.id === leadTechnicianId) ? leadTechnicianId : (technicians[0]?.id || '');
   technicians.forEach(t => insert.run(workOrderId,t.id,t.name,t.id===lead?1:0,'assigned',now()));
   const leadUser = technicians.find(t => t.id === lead);
   db.prepare('UPDATE tickets SET assigned_to=?,assigned_to_name=?,status=?,updated_at=? WHERE id=?').run(
@@ -1975,7 +1991,9 @@ const server = http.createServer(async (req, res) => {
         if (!titleAr || !locationId || !b.nextRunAt) return send(res,400,{error:'MISSING_FIELDS'});
         const id=newId('ms'); const ts=now();
         const assetIds=Array.isArray(b.assetIds)?b.assetIds.map(x=>sanitize(x,50)).filter(Boolean).slice(0,100):[];
-        const techIds=Array.isArray(b.defaultTechnicianIds)?b.defaultTechnicianIds.map(x=>sanitize(x,50)).filter(Boolean).slice(0,20):[];
+        let team;
+        try { team=normalizeMaintenanceTeam(db,Array.isArray(b.defaultTechnicianIds)?b.defaultTechnicianIds:[],b.leadTechnicianId); }
+        catch(e){ return send(res,400,{error:e.message}); }
         const checklist=Array.isArray(b.checklist)?b.checklist.map(x=>sanitize(x,200)).filter(Boolean).slice(0,100):[];
         db.prepare(`INSERT INTO maintenance_schedules
           (id,title_ar,title_en,asset_ids,location_id,category,checklist,frequency_unit,frequency_value,next_run_at,estimated_mins,default_technician_ids,lead_technician_id,active,created_by,created_at,updated_at)
@@ -1984,20 +2002,25 @@ const server = http.createServer(async (req, res) => {
           MAINT_SLA_MINS[b.category]?b.category:'general',JSON.stringify(checklist),
           ['daily','weekly','monthly','quarterly','yearly'].includes(b.frequencyUnit)?b.frequencyUnit:'monthly',
           Math.max(1,parseInt(b.frequencyValue,10)||1),new Date(b.nextRunAt).toISOString(),
-          Math.max(1,parseInt(b.estimatedMins,10)||60),JSON.stringify(techIds),sanitize(b.leadTechnicianId,50),
+          Math.max(1,parseInt(b.estimatedMins,10)||60),JSON.stringify(team.ids),team.lead,
           b.active===false?0:1,me.id,ts,ts);
         return send(res,200,{schedules:dbMaintenanceSchedules()});
       }
       if (req.method === 'PUT' && /^\/api\/maintenance\/schedules\/[^/]+$/.test(url.pathname)) {
         if (!['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role)) return send(res,403,{error:'FORBIDDEN'});
         const id=sanitize(url.pathname.split('/').pop(),50); const b=await bodyJSON(req);
-        if (!db.prepare('SELECT 1 FROM maintenance_schedules WHERE id=? AND deleted_at IS NULL').get(id)) return send(res,404,{error:'SCHEDULE_NOT_FOUND'});
+        const schedule=db.prepare('SELECT * FROM maintenance_schedules WHERE id=? AND deleted_at IS NULL').get(id);
+        if (!schedule) return send(res,404,{error:'SCHEDULE_NOT_FOUND'});
         const sets=[];const vals=[];
-        const scalar={titleAr:'title_ar',titleEn:'title_en',locationId:'location_id',category:'category',frequencyUnit:'frequency_unit',frequencyValue:'frequency_value',nextRunAt:'next_run_at',estimatedMins:'estimated_mins',leadTechnicianId:'lead_technician_id'};
+        const scalar={titleAr:'title_ar',titleEn:'title_en',locationId:'location_id',category:'category',frequencyUnit:'frequency_unit',frequencyValue:'frequency_value',nextRunAt:'next_run_at',estimatedMins:'estimated_mins'};
         for(const [k,c] of Object.entries(scalar)) if(b[k]!==undefined){sets.push(`${c}=?`);vals.push(k==='frequencyValue'||k==='estimatedMins'?Number(b[k]):sanitize(b[k],200));}
         if(Array.isArray(b.assetIds)){sets.push('asset_ids=?');vals.push(JSON.stringify(b.assetIds.slice(0,100)));}
         if(Array.isArray(b.checklist)){sets.push('checklist=?');vals.push(JSON.stringify(b.checklist.slice(0,100)));}
-        if(Array.isArray(b.defaultTechnicianIds)){sets.push('default_technician_ids=?');vals.push(JSON.stringify(b.defaultTechnicianIds.slice(0,20)));}
+        if(Array.isArray(b.defaultTechnicianIds)||b.leadTechnicianId!==undefined){
+          const ids=Array.isArray(b.defaultTechnicianIds)?b.defaultTechnicianIds:safeJson(schedule.default_technician_ids);
+          let team;try{team=normalizeMaintenanceTeam(db,ids,b.leadTechnicianId!==undefined?b.leadTechnicianId:schedule.lead_technician_id);}catch(e){return send(res,400,{error:e.message});}
+          sets.push('default_technician_ids=?','lead_technician_id=?');vals.push(JSON.stringify(team.ids),team.lead);
+        }
         if(typeof b.active==='boolean'){sets.push('active=?');vals.push(b.active?1:0);}
         sets.push('updated_at=?');vals.push(now(),id);db.prepare(`UPDATE maintenance_schedules SET ${sets.join(',')} WHERE id=?`).run(...vals);
         return send(res,200,{schedules:dbMaintenanceSchedules()});
