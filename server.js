@@ -417,8 +417,16 @@ function canCreateTickets(role){ return ['system_admin','facility_manager','clea
 function canReview(role)       { return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(role); }
 function canDelete(role)       { return ['system_admin','facility_manager','cleaning_manager'].includes(role); }
 function allowedRoleEditor(editorRole, targetRole) {
-  return editorRole === 'system_admin'
-    || ['cleaning_supervisor','cleaner','maintenance_supervisor','maintenance_worker'].includes(targetRole);
+  if (editorRole === 'system_admin') return true;
+  if (editorRole === 'cleaning_manager') return ['cleaning_supervisor','cleaner'].includes(targetRole);
+  if (editorRole === 'maintenance_manager') return ['maintenance_supervisor','maintenance_worker'].includes(targetRole);
+  return false;
+}
+
+function moduleForRole(role) {
+  if (String(role || '').startsWith('maintenance_')) return 'maintenance';
+  if (String(role || '').startsWith('hospitality_')) return 'hospitality';
+  return 'cleaning';
 }
 
 /* ── Hospitality permissions ─────────────────────────────────── */
@@ -805,10 +813,11 @@ function buildBootstrap(me) {
     };
   }
   if (me.role === 'maintenance_worker') {
+    const myAssign = assignments.find(a => a.workerId === me.id);
     return {
       ...base,
       users:       [publicUser(me)],
-      assignments: [],
+      assignments: myAssign ? [myAssign] : [],
       tickets:     allTickets.filter(t => t.assignedTo === me.id && t.module === 'maintenance'),
       reports:     allReports.filter(r => r.workerId  === me.id && r.module === 'maintenance'),
       hospitalityOrders: []
@@ -1231,7 +1240,7 @@ const server = http.createServer(async (req, res) => {
                b.active !== false ? 1 : 0, sanitize(b.employeeNo, 50), ts, ts);
         try {
           db.prepare('INSERT OR IGNORE INTO user_roles (user_id,role,module,created_at) VALUES (?,?,?,?)')
-            .run(id, role, 'cleaning', ts);
+            .run(id, role, moduleForRole(role), ts);
         } catch {}
         const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
         return send(res, 200, { user: publicUser(u) });
@@ -1736,7 +1745,7 @@ const server = http.createServer(async (req, res) => {
         let worker = null;
         if (b.assignedTo) {
           worker = db.prepare("SELECT * FROM users WHERE id = ? AND active = 1 AND deleted_at IS NULL").get(b.assignedTo);
-          if (!worker) return send(res, 400, { error: 'WORKER_NOT_FOUND' });
+          if (!worker || worker.role !== 'maintenance_worker') return send(res, 400, { error: 'WORKER_NOT_FOUND' });
         }
         const id            = newId('mt');
         const ts            = now();
@@ -1790,11 +1799,16 @@ const server = http.createServer(async (req, res) => {
 
       /* ── MAINTENANCE TICKETS: UPDATE ──────────────────────── */
       if (req.method === 'PUT' && url.pathname.startsWith('/api/maintenance-tickets/')) {
-        if (!canMaintenanceAssign(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        if (!canMaintenanceAssign(me.role) && me.role !== 'maintenance_worker') return send(res, 403, { error: 'FORBIDDEN' });
         const id = sanitize(url.pathname.split('/').pop(), 50);
         const b  = await bodyJSON(req);
         const t  = db.prepare("SELECT * FROM tickets WHERE id = ? AND module = 'maintenance' AND deleted_at IS NULL").get(id);
         if (!t) return send(res, 404, { error: 'TICKET_NOT_FOUND' });
+        if (me.role === 'maintenance_worker') {
+          const allowedWorkerStatuses = ['accepted','in_progress'];
+          if (t.assigned_to !== me.id || Object.keys(b).some(k => k !== 'status') || !allowedWorkerStatuses.includes(b.status))
+            return send(res, 403, { error: 'FORBIDDEN' });
+        }
         const sets = []; const vals = [];
         if (b.title !== undefined)       { sets.push('title = ?');       vals.push(sanitize(b.title,200)); }
         if (b.description !== undefined) { sets.push('description = ?'); vals.push(sanitize(b.description,1000)); }
@@ -1814,7 +1828,8 @@ const server = http.createServer(async (req, res) => {
         }
         if (b.assignedTo) {
           const w = db.prepare('SELECT * FROM users WHERE id = ? AND active=1 AND deleted_at IS NULL').get(b.assignedTo);
-          if (w) { sets.push('assigned_to = ?'); sets.push('assigned_to_name = ?'); vals.push(w.id, w.name); }
+          if (!w || w.role !== 'maintenance_worker') return send(res, 400, { error: 'WORKER_NOT_FOUND' });
+          sets.push('assigned_to = ?'); sets.push('assigned_to_name = ?'); vals.push(w.id, w.name);
         }
         sets.push('updated_at = ?'); vals.push(now()); vals.push(id);
         if (sets.length > 1) db.prepare(`UPDATE tickets SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
@@ -1843,6 +1858,13 @@ const server = http.createServer(async (req, res) => {
         const b   = await bodyJSON(req);
         const loc = db.prepare('SELECT * FROM locations WHERE id = ? AND active = 1 AND deleted_at IS NULL').get(b.locationId);
         if (!loc) return send(res, 404, { error: 'LOCATION_NOT_FOUND' });
+        const assigned = db.prepare(
+          "SELECT 1 FROM assignments WHERE worker_id=? AND location_id=? AND module='maintenance'"
+        ).get(me.id, loc.id);
+        const hasAssignments = db.prepare(
+          "SELECT 1 FROM assignments WHERE worker_id=? AND module='maintenance'"
+        ).get(me.id);
+        if (hasAssignments && !assigned) return send(res, 403, { error: 'NOT_ASSIGNED' });
         const tasks  = Array.isArray(b.tasks) ? b.tasks.map(t => sanitize(t,200)).slice(0,50) : [];
         const id     = newId('mr');
         const ts     = now();
@@ -1976,7 +1998,7 @@ const server = http.createServer(async (req, res) => {
         if (!role || !ALLOWED_ROLES.includes(role)) return send(res, 400, { error: 'INVALID_ROLE' });
         if (!allowedRoleEditor(me.role, role)) return send(res, 403, { error: 'ROLE_NOT_ALLOWED' });
         db.prepare('INSERT OR IGNORE INTO user_roles (user_id,role,module,created_at) VALUES (?,?,?,?)')
-          .run(userId, role, 'cleaning', now());
+          .run(userId, role, moduleForRole(role), now());
         return send(res, 200, { ok: true });
       }
 

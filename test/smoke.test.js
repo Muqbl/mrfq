@@ -29,6 +29,8 @@ const PASSWORDS = {
 const TINY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
 
 let serverProc;
+let maintenanceWorkerId;
+let maintenanceTicketId;
 
 /* ── cookie-aware fetch helper ─────────────────────────────────── */
 function client() {
@@ -414,4 +416,54 @@ test('maintenance: maintenance-worker cannot call cleaning ticket complete (403)
   const api = await login('worker3', PASSWORDS.worker);
   const r = await api('/api/maintenance-tickets/complete', { method: 'POST', body: JSON.stringify({ id: 'fake-id', notes: '' }) });
   assert.equal(r.status, 403);
+});
+
+test('maintenance: create roles and role-scoped bootstraps work', async () => {
+  const admin = await login('admin', PASSWORDS.admin);
+  for (const [username, name, role] of [
+    ['maint-manager','مدير الصيانة','maintenance_manager'],
+    ['maint-supervisor','مشرف الصيانة','maintenance_supervisor'],
+    ['maint-worker','فني الصيانة','maintenance_worker']
+  ]) {
+    const created = await admin('/api/users', { method:'POST', body:JSON.stringify({ username, name, role, password:PASSWORDS.worker }) });
+    assert.equal(created.status, 200);
+    if (role === 'maintenance_worker') maintenanceWorkerId = created.body.user.id;
+  }
+  const manager = await login('maint-manager', PASSWORDS.worker);
+  const supervisor = await login('maint-supervisor', PASSWORDS.worker);
+  const worker = await login('maint-worker', PASSWORDS.worker);
+  for (const api of [manager, supervisor, worker]) {
+    const boot = await api('/api/bootstrap');
+    assert.equal(boot.status, 200);
+    assert.ok((boot.body.tickets||[]).every(t => t.module === 'maintenance'));
+    assert.ok((boot.body.reports||[]).every(r => r.module === 'maintenance'));
+  }
+});
+
+test('maintenance: worker can progress only own assigned ticket', async () => {
+  const manager = await login('maint-manager', PASSWORDS.worker);
+  const boot = await manager('/api/bootstrap');
+  const created = await manager('/api/maintenance-tickets', { method:'POST', body:JSON.stringify({
+    locationId:boot.body.locations[0].id, category:'hvac', title:'HVAC test', assignedTo:maintenanceWorkerId
+  }) });
+  assert.equal(created.status, 200);
+  maintenanceTicketId = created.body.ticket.id;
+
+  const worker = await login('maint-worker', PASSWORDS.worker);
+  const accepted = await worker(`/api/maintenance-tickets/${maintenanceTicketId}`, { method:'PUT', body:JSON.stringify({status:'accepted'}) });
+  assert.equal(accepted.status, 200);
+  const started = await worker(`/api/maintenance-tickets/${maintenanceTicketId}`, { method:'PUT', body:JSON.stringify({status:'in_progress'}) });
+  assert.equal(started.status, 200);
+  const forbiddenEdit = await worker(`/api/maintenance-tickets/${maintenanceTicketId}`, { method:'PUT', body:JSON.stringify({title:'tampered'}) });
+  assert.equal(forbiddenEdit.status, 403);
+  const completed = await worker('/api/maintenance-tickets/complete', { method:'POST', body:JSON.stringify({id:maintenanceTicketId,notes:'done'}) });
+  assert.equal(completed.status, 200);
+  assert.equal(completed.body.ticket.status, 'waiting_verification');
+});
+
+test('maintenance: supervisor verifies completed worker ticket', async () => {
+  const supervisor = await login('maint-supervisor', PASSWORDS.worker);
+  const verified = await supervisor(`/api/maintenance-tickets/${maintenanceTicketId}`, { method:'PUT', body:JSON.stringify({status:'completed'}) });
+  assert.equal(verified.status, 200);
+  assert.equal(verified.body.ticket.status, 'completed');
 });
