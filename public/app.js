@@ -1162,11 +1162,13 @@ function renderFieldTabs(){
     const active=(data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
     const team=(data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)&&maintenanceAssignees(t.id).length>1).length;
     const upcoming=(maintenanceData().schedules||[]).filter(s=>(s.defaultTechnicianIds||[]).includes(me.id)&&s.active).length;
+    const myReportCount=(data?.reports||[]).filter(r=>r.workerId===me.id&&r.module==='maintenance').length;
     return `<div class="fieldTabs" role="tablist">
       ${mk(maintWorkerView==='tasks','tickets',tr('maintMyTasks'),"maintWorkerView='tasks';renderMaintenanceWorker()",active)}
       ${mk(maintWorkerView==='team','users',tr('maintTeamTasks'),"maintWorkerView='team';renderMaintenanceWorker()",team)}
       ${mk(maintWorkerView==='upcoming','clock',tr('maintUpcoming'),"maintWorkerView='upcoming';renderMaintenanceWorker()",upcoming)}
       ${mk(maintWorkerView==='history','reports',tr('maintHistory'),"maintWorkerView='history';renderMaintenanceWorker()")}
+      ${mk(maintWorkerView==='myreports','reports',lang==='ar'?'تقاريري':'My Reports',"maintWorkerView='myreports';renderMaintenanceWorker()",myReportCount)}
     </div>`;
   }
   if(me.role==='cleaner'){
@@ -5131,6 +5133,7 @@ function maintShell(me, content, opts={}){
           ${item('assets',tr('maintAssets'),'building')}
           ${item('team',tr('maintTeam'),'users')}
           ${item('parts',tr('maintParts'),'tool')}
+          ${item('performance',tr('performance'),'bar-chart')}
         </div>
       </div></aside>
       <main class="platform-main"><div class="pageAnim">${content}</div></main>
@@ -5273,9 +5276,127 @@ function renderMaintenanceWorker(){
   const orderBlock=maintWorkerView==='team'?maintenanceWorkerOrders(team)
     :maintWorkerView==='upcoming'?maintenanceWorkerSchedules(upcoming)
     :maintWorkerView==='history'?maintenanceWorkerOrders(history,true)
+    :maintWorkerView==='myreports'?maintenanceWorkerMyReports()
     :maintenanceWorkerOrders(active);
   const content=orderBlock+'<div id="maintWorkerForm"></div>';
   maintShell(me,content,{renderFn:'renderMaintenanceWorker'});
+}
+
+function maintenancePerformancePage(){
+  const now30=new Date(Date.now()-30*24*3600*1000).toISOString();
+  const monthStart=new Date();monthStart.setDate(1);monthStart.setHours(0,0,0,0);
+  const workers=(data.users||[]).filter(u=>(u.roles||[u.role]).includes('maintenance_worker'));
+  const allReports=(data.reports||[]).filter(r=>r.module==='maintenance');
+  const assignees=maintenanceData().assignees||[];
+  const tickets=data.tickets||[];
+  const scored=workers.map(w=>{
+    const rpts=allReports.filter(r=>r.workerId===w.id);
+    const rpts30=rpts.filter(r=>r.createdAt>=now30);
+    const thisMonth=rpts.filter(r=>r.createdAt>=monthStart.toISOString()).length;
+    const reviewed=rpts30.filter(r=>r.approvalStatus&&r.approvalStatus!=='pending');
+    const approved=reviewed.filter(r=>r.approvalStatus==='approved').length;
+    const approvalRate=reviewed.length?Math.round(approved/reviewed.length*100):null;
+    const ratedSup=rpts30.filter(r=>r.ratingSupervisor!=null);
+    const avgRatingSupervisor=ratedSup.length?Math.round(ratedSup.reduce((s,r)=>s+r.ratingSupervisor,0)/ratedSup.length*10)/10:null;
+    const ratedMgr=rpts30.filter(r=>r.ratingManager!=null);
+    const avgRatingManager=ratedMgr.length?Math.round(ratedMgr.reduce((s,r)=>s+r.ratingManager,0)/ratedMgr.length*10)/10:null;
+    const workerAssignees=assignees.filter(a=>a.technicianId===w.id);
+    const openTickets=workerAssignees.filter(a=>!['completed','rejected','cancelled'].includes(a.status)).length;
+    const completedCount=workerAssignees.filter(a=>a.status==='completed').length;
+    const workloadScore=Math.round(openTickets/Math.max(1,workerAssignees.length)*100);
+    const weighted=Math.round(
+      (approvalRate!=null?approvalRate*0.4:0)+
+      (avgRatingSupervisor!=null?avgRatingSupervisor/5*100*0.3:0)+
+      (avgRatingManager!=null?avgRatingManager/5*100*0.2:0)+
+      (Math.max(0,100-workloadScore)*0.1)
+    );
+    return {id:w.id,name:w.name,username:w.username,reportsLast30:rpts30.length,thisMonth,approvalRate,avgRatingSupervisor,avgRatingManager,openTickets,completedCount,workloadScore,weighted};
+  }).sort((a,b)=>b.weighted-a.weighted);
+  return `
+<div class="pageHeader">
+  <div class="pageHeader-left">
+    <div class="pageTitle">${tr('performance')}</div>
+    <div class="pageSub">${scored.length} ${lang==='ar'?'فني — آخر 30 يوم':'technicians — last 30 days'}</div>
+  </div>
+</div>
+${scored.length>=1?`
+<div class="card" style="margin-bottom:20px">
+  <div class="card-head">
+    <span class="card-title">${ic('award',16)} ${tr('monthlyRecognition')}</span>
+    <span class="badge gold">${currentMonthLabel(lang)}</span>
+  </div>
+  <div class="recognitionPodium">
+    ${scored.slice(0,3).map((w,i)=>`
+      <div class="podiumCard ${i===0?'gold':i===1?'silver':'bronze'}">
+        <div class="podiumCard-rank">${num(i+1)}</div>
+        <div class="podiumCard-name">${esc(w.name)}</div>
+        <div class="podiumCard-score">${w.weighted}${lang==='ar'?'%':''}</div>
+        <div class="podiumCard-stats">
+          ${w.approvalRate!=null?`<span>${tr('approvalRate')}: ${w.approvalRate}%</span>`:''}
+          ${w.avgRatingSupervisor?`<span>${ic('star',10)} ${w.avgRatingSupervisor.toFixed(1)}</span>`:''}
+        </div>
+      </div>`).join('')}
+  </div>
+</div>`:''}
+<div class="card">
+  <div class="card-head">
+    <span class="card-title">${ic('users',16)} ${tr('teamOverview')}</span>
+    <span class="badge brand">${scored.length} ${lang==='ar'?'فني':'technicians'}</span>
+  </div>
+  <div class="perfTableWrap">
+    <table class="perfTable">
+      <thead><tr>
+        <th>${tr('name')}</th>
+        <th>${lang==='ar'?'التقارير (30ي)':'Reports (30d)'}</th>
+        <th>${tr('approvalRate')}</th>
+        <th>${tr('ratingBySupervisor')}</th>
+        <th>${tr('ratingByManager')}</th>
+        <th>${lang==='ar'?'أوامر مفتوحة':'Open Orders'}</th>
+        <th>${lang==='ar'?'النقاط':'Score'}</th>
+      </tr></thead>
+      <tbody>
+        ${scored.map((w,rank)=>`<tr>
+          <td>
+            <div class="perfWorkerCell"><div>
+              <div class="perfWorkerName">${esc(w.name)}</div>
+              <div class="perfWorkerUser">${esc(w.username)}</div>
+              <button class="linkBtn" onclick="showOperationsWorkerProfile('${w.id}','maintenance')">${lang==='ar'?'ملف الأداء':'Performance profile'}</button>
+            </div></div>
+          </td>
+          <td><span class="perfRowLabel">${lang==='ar'?'التقارير (30ي)':'Reports (30d)'}</span><span class="perfMetricStrong">${w.reportsLast30}</span>${w.thisMonth?` <span class="perfMetricHint">(${w.thisMonth} ${lang==='ar'?'هذا الشهر':'this mo.'})</span>`:''}</td>
+          <td><span class="perfRowLabel">${tr('approvalRate')}</span>${w.approvalRate!=null?`<span class="badge ${w.approvalRate>=80?'ok':w.approvalRate>=60?'warn':'bad'}">${w.approvalRate}%</span>`:`<span class="badge">${tr('noRating')}</span>`}</td>
+          <td><span class="perfRowLabel">${tr('ratingBySupervisor')}</span>${w.avgRatingSupervisor!=null?`<div class="perfRating">${ic('star',13)} ${w.avgRatingSupervisor.toFixed(1)}</div>`:`<span class="perfEmpty">${tr('noRating')}</span>`}</td>
+          <td><span class="perfRowLabel">${tr('ratingByManager')}</span>${w.avgRatingManager!=null?`<div class="perfRating">${ic('star',13)} ${w.avgRatingManager.toFixed(1)}</div>`:`<span class="perfEmpty">${tr('noRating')}</span>`}</td>
+          <td><span class="perfRowLabel">${lang==='ar'?'أوامر مفتوحة':'Open Orders'}</span><span class="badge ${w.openTickets>3?'bad':w.openTickets>1?'warn':'ok'}">${w.openTickets}</span></td>
+          <td><span class="perfRowLabel">${lang==='ar'?'النقاط':'Score'}</span><span class="perfScore ${rank===0?'top':rank<3?'high':''}">${w.weighted}</span></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>
+</div>`;
+}
+
+function maintenanceWorkerMyReports(){
+  const myReports=(data.reports||[]).filter(r=>r.workerId===me.id&&r.module==='maintenance').sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  return `<div class="wCard">
+    <div class="wCard-title">${ic('reports',16)} ${lang==='ar'?'حالة تقاريري':'My Reports Status'} ${countBubble(myReports.length)}</div>
+    ${myReports.length?`<div class="wCard-list">${myReports.map(r=>{
+      const st=r.approvalStatus||'pending';
+      const stLabel={pending:lang==='ar'?'معلق':'Pending',approved:lang==='ar'?'معتمد':'Approved',rejected:lang==='ar'?'مرفوض':'Rejected',needs_recleaning:lang==='ar'?'إعادة تنفيذ':'Redo'}[st]||st;
+      const stColor=st==='approved'?'ok':st==='rejected'?'bad':st==='needs_recleaning'?'warn':'brand';
+      const actionable=st==='rejected'||st==='needs_recleaning';
+      const ticket=(data.tickets||[]).find(t=>t.id===r.ticketId);
+      return `<div class="workerReportItem ${actionable?'actionable':''}" style="background:var(--${stColor}-bg)">
+        <div class="workerReportItem-icon" style="background:var(--${stColor}-bg)">${ic(st==='approved'?'check':st==='rejected'?'x':'flip',16)}</div>
+        <div class="workerReportItem-body">
+          <div class="workerReportItem-name">${ticket?esc(ticket.title):esc(r.ticketId||'—')}</div>
+          <div class="workerReportItem-meta">${fmt(r.approvedAt||r.createdAt)}${r.reviewNote?' · '+esc(r.reviewNote):''}</div>
+          <span class="badge ${stColor}" style="margin-top:6px">${stLabel}</span>
+        </div>
+        ${actionable?`<div class="workerReportItem-action" style="color:var(--${stColor})">${lang==='ar'?'إعادة':'Redo'} ${ic('arrow',14)}</div>`:''}
+      </div>`;
+    }).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('reports',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد تقارير':'No reports yet'}</div></div>`}
+  </div>`;
 }
 
 /* ── renderMaintenanceSupervisor ──────────────────────────────── */
@@ -5398,6 +5519,7 @@ function maintenancePageContent(){
     :maintView==='team'?maintenanceTeamPage()
     :maintView==='parts'?maintenancePartsPage()
     :maintView==='reports'?maintenanceReportsPage()
+    :maintView==='performance'?maintenancePerformancePage()
     :maintenanceOperationsDashboard();
 }
 
@@ -5433,15 +5555,39 @@ function maintenanceOrderCard(t){
   const team=maintenanceAssignees(t.id), parts=maintenanceOrderParts(t.id), asset=(maintenanceData().assets||[]).find(a=>a.id===t.assetId);
   const terminal=['completed','rejected','cancelled'].includes(t.status);
   const renderFn=me.role==='maintenance_supervisor'?'renderMaintenanceSupervisor':['system_admin','facility_manager'].includes(me.role)?'renderAdminMaintenance':'renderMaintenanceManager';
-  return `<div class="ticketCard"><div class="ticketCard-top"><div class="ticketCard-main"><div class="ticketCard-title">${esc(t.title)}</div><div class="ticketCard-ref">${esc(t.referenceNo)}</div></div>${maintStatusBadge(t.status)}</div>
-    <div class="ticketCard-meta"><span>${ic('locations',12)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</span>${asset?`<span>${ic('building',12)} ${esc(lang==='ar'?asset.nameAr:asset.nameEn||asset.nameAr)}</span>`:''}</div>
-    <div class="ticketCard-badges"><span class="badge brand">${maintTypeLabel(t.maintenanceType)}</span><span class="badge">${maintCatLabel(t.category)}</span>${slaBadge(t)}${team.length?`<span class="badge ok">${ic('users',11)} ${team.length} ${lang==='ar'?'فني':'techs'}</span>`:`<span class="badge warn">${tr('unassigned')}</span>`}${parts.length?`<span class="badge gold">${ic('tool',11)} ${parts.length}</span>`:''}</div>
-    ${team.length?`<div class="ticketCard-requester">${team.map(a=>`${a.isLead?'★ ':''}${esc(a.technicianName)}`).join(' · ')}</div>`:''}
-    <div class="ticketCard-actions"><button class="btn secondary sm" onclick="openTicketDetail('${t.id}')">${lang==='ar'?'التفاصيل':'Details'}</button>
-      ${!terminal&&['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role)?`<button class="btn secondary sm" onclick="showMaintenanceTeamForm('${t.id}')">${ic('users',13)} ${lang==='ar'?'إسناد فريق':'Assign Team'}</button>`:''}
-      ${!terminal&&['system_admin','facility_manager','maintenance_manager','maintenance_supervisor','maintenance_worker'].includes(me.role)?`<button class="btn secondary sm" onclick="showMaintenanceUsePart('${t.id}')">${ic('tool',13)} ${lang==='ar'?'صرف قطعة':'Use Part'}</button>`:''}
-      ${t.status==='waiting_verification'&&['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role)?`<button class="btn ok sm" onclick="maintUpdateTicket('${t.id}',{status:'completed'},'${renderFn}')">${lang==='ar'?'اعتماد الإغلاق':'Approve Closure'}</button><button class="btn warn sm" onclick="maintUpdateTicket('${t.id}',{status:'reclean_required'},'${renderFn}')">${lang==='ar'?'إعادة للعمل':'Return for Rework'}</button><button class="btn danger sm" onclick="maintUpdateTicket('${t.id}',{status:'rejected'},'${renderFn}')">${tr('reject')}</button>`:''}
-    </div></div>`;
+  const canManageOrder=['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role);
+  const canDel=['system_admin','facility_manager','maintenance_manager'].includes(me.role);
+  return `<div class="ticketCard">
+    <div class="ticketCard-top">
+      <div class="ticketCard-main"><div class="ticketCard-title">${esc(t.title)}</div><div class="ticketCard-ref">${esc(t.referenceNo)} · ${ic('locations',11)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</div></div>
+      ${maintStatusBadge(t.status)}
+    </div>
+    <div class="ticketCard-badges">
+      <span class="badge brand">${maintTypeLabel(t.maintenanceType)}</span>
+      <span class="badge">${maintCatLabel(t.category)}</span>
+      ${slaBadge(t)}
+      ${asset?`<span class="badge">${ic('building',11)} ${esc(lang==='ar'?asset.nameAr:asset.nameEn||asset.nameAr)}</span>`:''}
+      ${team.length?`<span class="badge ok">${ic('users',11)} ${team.map(a=>`${a.isLead?'★ ':''}${esc(a.technicianName)}`).join(' · ')}</span>`:`<span class="badge warn">${tr('unassigned')}</span>`}
+      ${parts.length?`<span class="badge gold">${ic('tool',11)} ${parts.length}</span>`:''}
+    </div>
+    <div class="ticketCard-actions">
+      <button class="btn secondary sm" onclick="openTicketDetail('${t.id}')">${lang==='ar'?'التفاصيل':'Details'}</button>
+      ${!terminal&&canManageOrder?`<button class="btn secondary sm" onclick="showMaintenanceTeamForm('${t.id}')">${ic('users',13)} ${lang==='ar'?'إسناد':'Assign'}</button>`:''}
+      ${!terminal?`<button class="btn secondary sm" onclick="showMaintenanceUsePart('${t.id}')">${ic('tool',13)} ${lang==='ar'?'قطعة':'Part'}</button>`:''}
+      ${t.status==='waiting_verification'&&canManageOrder?`
+        <button class="btn ok sm" onclick="maintUpdateTicket('${t.id}',{status:'completed'},'${renderFn}')">${ic('check',13)} ${lang==='ar'?'اعتماد':'Approve'}</button>
+        <button class="btn warn sm" onclick="maintUpdateTicket('${t.id}',{status:'reclean_required'},'${renderFn}')">${lang==='ar'?'إعادة':'Rework'}</button>
+        <button class="btn danger sm" onclick="maintUpdateTicket('${t.id}',{status:'rejected'},'${renderFn}')">${ic('x',13)}</button>`:''}
+      ${canDel?`<button class="btn danger sm iconOnlyBtn" onclick="deleteMaintTicketConfirm('${t.id}')" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button>`:''}
+    </div>
+  </div>`;
+}
+async function deleteMaintTicketConfirm(id){
+  const t=(data.tickets||[]).find(x=>x.id===id);if(!t)return;
+  if(!confirm(lang==='ar'?`حذف أمر العمل "${t.title}"؟`:`Delete work order "${t.title}"?`))return;
+  await api('/maintenance-tickets/'+id,{method:'DELETE'});
+  toast(lang==='ar'?'تم الحذف':'Deleted','ok');
+  await load();
 }
 
 function maintenanceSchedulesPage(){
@@ -5461,7 +5607,7 @@ function maintenanceAssetsPage(){
 function assetStatusLabel(s){return ({operational:lang==='ar'?'يعمل':'Operational',down:lang==='ar'?'متوقف':'Down',maintenance:lang==='ar'?'تحت الصيانة':'Under Maintenance',retired:lang==='ar'?'مستبعد':'Retired'}[s]||s)}
 
 function maintenanceTeamPage(){
-  const workers=(data.users||[]).filter(u=>u.role==='maintenance_worker'), tickets=data.tickets||[];
+  const workers=(data.users||[]).filter(u=>(u.roles||[u.role]).includes('maintenance_worker')), tickets=data.tickets||[];
   return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintTeam')}</div><div class="pageSub">${workers.length} ${lang==='ar'?'فني':'technicians'}</div></div></div><div class="supTeamGrid">${workers.map(w=>{const assigned=(maintenanceData().assignees||[]).filter(a=>a.technicianId===w.id&&!['completed'].includes(a.status));const lead=assigned.filter(a=>a.isLead).length;const supervisorRating=maintenanceWorkerRating(w.id,'ratingSupervisor'),managerRating=maintenanceWorkerRating(w.id,'ratingManager');return `<div class="supTeamCard"><div class="supTeamCard-info"><div class="supTeamCard-name">${esc(w.name)}</div><div class="supTeamCard-meta">${assigned.length} ${tr('openTasks')} · ${lead} ${tr('leadTechnician')}</div><div class="supTeamCard-meta">${ic('star',12)} ${tr('ratingBySupervisor')}: ${supervisorRating!=null?supervisorRating.toFixed(1):tr('noRating')} · ${tr('ratingByManager')}: ${managerRating!=null?managerRating.toFixed(1):tr('noRating')}</div></div><span class="badge ${assigned.length?'warn':'ok'}">${assigned.length?assigned.length:(lang==='ar'?'متاح':'Free')}</span><button class="btn secondary sm" onclick="showOperationsWorkerProfile('${w.id}','maintenance')">${lang==='ar'?'ملف الأداء':'Profile'}</button></div>`}).join('')}</div>`;
 }
 
