@@ -6931,6 +6931,20 @@ function renderWorkspaceSelector(){
   </div>`;
 }
 
+function renderWorkspaceSwitcher(){
+  const roles = (me.roles||[me.role]);
+  if(roles.length<=1) return;
+  if(document.getElementById('wsModal')){document.getElementById('wsModal').remove();return;}
+  const wsIcon = r => r==='system_admin'?'shield':r.includes('manager')||r==='facility_manager'?'building':r==='cleaner'?'check':'assignments';
+  const body = `<div class="wsGrid">
+    ${roles.map(r=>`<button class="wsBtn${r===me.role?' active':''}" onclick="document.getElementById('wsModal').remove();switchWorkspace('${r}')">
+      <div class="wsBtn-icon">${ic(wsIcon(r),20)}</div>
+      <div class="wsBtn-label">${roleLabel(r)}</div>
+    </button>`).join('')}
+  </div>`;
+  showModal('wsModal', tr('switchWorkspace'), body, null, {narrow:true});
+}
+
 /* ─── INIT ────────────────────────────────────────────────────── */
 (function(){
   try{
