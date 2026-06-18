@@ -4890,19 +4890,39 @@ async function submitEmployeeOrder(){
    ═══════════════════════════════════════════════════════════════ */
 function renderHospitalityWorker(){
   setDoc();
-  const orders = (data.hospitalityOrders||[]).slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+  const allOrders = (data.hospitalityOrders||[]).slice().sort((a,b)=>new Date(a.createdAt||0)-new Date(b.createdAt||0));
+  const active = allOrders.filter(o=>!['delivered','completed','cancelled','rejected'].includes(o.status));
+  const done   = allOrders.filter(o=> ['delivered','completed'].includes(o.status));
+  const overdue = active.filter(o=>o.slaBreached);
   const content=`
 <div class="empPage">
   <div class="empPanel">
-    <div class="wCard wCard--compact">
-      <div class="wCard-title">${ic('coffee',16)} ${tr('hospitalityWorkerTitle')}</div>
-      <p style="font-size:var(--fs-sm);color:var(--muted)">${tr('hospitalityWorkerDesc')}</p>
+    <div class="wCard wCard--compact" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div>
+        <div class="wCard-title">${ic('coffee',16)} ${lang==='ar'?'طلباتي':'My Orders'}</div>
+        <div style="font-size:var(--fs-sm);color:var(--muted)">${active.length} ${lang==='ar'?'طلب نشط':'active'}</div>
+      </div>
+      ${overdue.length?`<span class="badge bad" style="font-size:var(--fs-sm)">${ic('alert',13)} ${overdue.length} ${lang==='ar'?'متأخر':'overdue'}</span>`:''}
     </div>
-    ${orders.length?`<div class="wCard-list" style="gap:10px">${orders.map(o=>hospWorkerOrderCard(o)).join('')}</div>`
+
+    ${active.length?`<div style="display:flex;flex-direction:column;gap:10px">${active.map(o=>hospWorkerOrderCard(o)).join('')}</div>`
       :`<div class="wCard"><div class="empty-state">
-          <div class="empty-icon">${ic('coffee',28)}</div>
-          <div class="empty-title">${tr('noAssignedHospOrders')}</div>
+          <div class="empty-icon">${ic('check',28)}</div>
+          <div class="empty-title">${lang==='ar'?'لا توجد طلبات مسندة إليك':'No assigned orders'}</div>
         </div></div>`}
+
+    ${done.length?`
+    <div class="wCard wCard--compact" style="margin-top:6px">
+      <div class="wCard-title" style="font-size:var(--fs-sm);color:var(--muted)">${ic('check',14)} ${lang==='ar'?'المُسلَّمة اليوم':'Delivered today'} (${done.length})</div>
+      ${done.slice(0,5).map(o=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+          <div>
+            <div style="font-weight:600;font-size:var(--fs-sm)">${esc(o.referenceNo||'—')}</div>
+            <div style="font-size:var(--fs-xs);color:var(--muted)">${esc(lang==='ar'?o.locationNameAr:o.locationNameEn)}</div>
+          </div>
+          <span class="badge ok">${hospStatusLabel(o.status)}</span>
+        </div>`).join('')}
+    </div>`:''}
   </div>
 </div>`;
   app.innerHTML = fieldShell(me, content);
@@ -4911,27 +4931,38 @@ function renderHospitalityWorker(){
 function hospWorkerOrderCard(o){
   const stCls = hospStatusBadgeClass(o.status);
   const NEXT = {
-    accepted:         {to:'preparing',        label:tr('startPreparing')},
-    preparing:        {to:'ready',            label:tr('markReady')},
-    ready:            {to:'out_for_delivery', label:tr('outForDelivery')},
-    out_for_delivery: {to:'delivered',        label:tr('markDelivered')}
+    accepted:         {to:'preparing',        label:lang==='ar'?'ابدأ التحضير':tr('startPreparing'),   icon:'tool'},
+    preparing:        {to:'ready',            label:lang==='ar'?'جاهز للتسليم':tr('markReady'),        icon:'check'},
+    ready:            {to:'out_for_delivery', label:lang==='ar'?'خرج للتوصيل':tr('outForDelivery'),   icon:'send'},
+    out_for_delivery: {to:'delivered',        label:lang==='ar'?'تم التسليم':tr('markDelivered'),      icon:'check'}
   };
   const next = NEXT[o.status];
-  return`<div class="ticketCard empOrderCard">
+  const locName = lang==='ar'?o.locationNameAr:o.locationNameEn;
+  const kitchenName = lang==='ar'?o.kitchenNameAr:(o.kitchenNameEn||o.kitchenNameAr);
+  const isOverdue = o.slaBreached;
+  const isDelivery = o.status === 'out_for_delivery';
+  return`<div class="ticketCard empOrderCard" style="${isOverdue?'border-right:3px solid var(--bad)':''}">
     <div class="ticketCard-top empOrderCard-head">
       <div class="ticketCard-main">
-        <div class="ticketCard-title empOrderCard-title">${esc(tr('ot_'+o.orderType)||o.orderType)}</div>
-        ${o.referenceNo?`<div class="ticketCard-ref empOrderCard-ref">${esc(o.referenceNo)}</div>`:''}
+        <div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:2px">${esc(o.referenceNo||'')}</div>
+        <div class="ticketCard-title" style="font-size:var(--fs-base)">${fmt(o.createdAt)}</div>
       </div>
       <span class="badge ${stCls}">${hospStatusLabel(o.status)}</span>
     </div>
-    <div class="ticketCard-meta empOrderCard-meta">
-      <span>${ic('locations',12)} ${esc(lang==='ar'?o.locationNameAr:o.locationNameEn)}</span>
-      <span>${fmt(o.createdAt)}</span>
+
+    <div style="background:${isDelivery?'var(--brand-bg)':'var(--surface-2, var(--bg))'};border:1px solid ${isDelivery?'var(--brand-mid)':'var(--border)'};border-radius:10px;padding:10px 12px;margin:8px 0">
+      <div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:2px">${ic('locations',11)} ${lang==='ar'?'وجهة التوصيل':'Delivery to'}</div>
+      <div style="font-weight:700;font-size:var(--fs-lg);color:${isDelivery?'var(--brand)':'var(--ink)'}">${esc(locName||'—')}</div>
+      ${o.requesterName?`<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:3px">${ic('user',11)} ${esc(o.requesterName)}</div>`:''}
     </div>
-    ${o.items&&o.items.length?`<div class="ticketCard-badges">${o.items.map(i=>`<span class="badge">${esc(i)}</span>`).join('')}</div>`:''}
-    ${o.notes?`<div class="empOrderCard-queue">${esc(o.notes)}</div>`:''}
-    ${next?`<button class="btn wide" style="margin-top:10px" onclick="updateHospitalityOrderStatus('${o.id}','${next.to}')">${next.label}</button>`:''}
+
+    ${kitchenName?`<div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:6px">${ic('coffee',11)} ${lang==='ar'?'المطبخ:':'Kitchen:'} <span style="color:var(--ink);font-weight:600">${esc(kitchenName)}</span></div>`:''}
+
+    ${o.items&&o.items.length?`<div class="ticketCard-badges" style="margin-bottom:6px">${o.items.map(i=>`<span class="badge">${esc(i)}</span>`).join('')}</div>`:''}
+    ${o.notes?`<div style="font-size:var(--fs-xs);color:var(--muted);background:var(--warn-bg);border-radius:6px;padding:6px 10px;margin-bottom:6px">${ic('alert',11)} ${esc(o.notes)}</div>`:''}
+    ${isOverdue?`<div style="font-size:var(--fs-xs);color:var(--bad);font-weight:600;margin-bottom:6px">${ic('alert',11)} ${lang==='ar'?'تجاوز وقت SLA':'SLA exceeded'}</div>`:''}
+
+    ${next?`<button class="btn wide" style="margin-top:4px;background:${o.status==='out_for_delivery'?'var(--ok)':'var(--brand)'}" onclick="updateHospitalityOrderStatus('${o.id}','${next.to}')">${ic(next.icon,15)} ${next.label}</button>`:''}
   </div>`;
 }
 
