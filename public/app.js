@@ -4,7 +4,7 @@
    ══════════════════════════════════════════════════════════════ */
 
 /* ─── CONSTANTS ──────────────────────────────────────────────── */
-const ROLES = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','cleaner','employee','hospitality_manager','hospitality_supervisor','hospitality_worker'];
+const ROLES = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','cleaner','employee','hospitality_manager','hospitality_supervisor','hospitality_worker','maintenance_manager','maintenance_supervisor','maintenance_worker'];
 const TYPES = ['restroom','lobby','office','meeting_room','pantry','corridor','prayer_room','elevator','entrance','parking','outdoor','other'];
 
 // ===== Facility Constants =====
@@ -35,6 +35,14 @@ const TASKS = {
   ]
 };
 
+const MAINT_TASKS = [
+  ['فحص موقع العطل وتأمين منطقة العمل','Inspect the fault and secure the work area'],
+  ['تشخيص السبب الجذري','Diagnose the root cause'],
+  ['تنفيذ الإصلاح المطلوب','Complete the required repair'],
+  ['اختبار التشغيل بعد الإصلاح','Test operation after repair'],
+  ['تنظيف الموقع وتوثيق النتيجة','Clean the site and document the result']
+];
+
 /* ─── TRANSLATIONS ────────────────────────────────────────────── */
 const T = {
   ar:{
@@ -52,6 +60,7 @@ const T = {
     system_admin:'مدير النظام',facility_manager:'مدير المرافق',
     cleaning_manager:'مدير النظافة',cleaning_supervisor:'مشرف النظافة',cleaner:'عامل نظافة',
     hospitality_manager:'مدير الضيافة',hospitality_supervisor:'مشرف الضيافة',hospitality_worker:'عامل ضيافة',
+    maintenance_manager:'مدير الصيانة',maintenance_supervisor:'مشرف الصيانة',maintenance_worker:'فني صيانة',
     worker:'العامل',location:'الموقع',time:'الوقت',status:'الحالة',
     completed:'تم التنظيف',needs_followup:'يحتاج متابعة',pending_approval:'بانتظار الاعتماد',
     approved:'معتمد',rejected:'مرفوض',needs_recleaning:'إعادة تنظيف',
@@ -125,6 +134,13 @@ const T = {
     cleaningModuleLabel:'وحدة النظافة',hospitalityModuleLabel:'وحدة الضيافة',
     maintenance:'الصيانة',hospitality:'الضيافة',security:'الأمن',
     safety:'السلامة',customerService:'خدمة الزوار',
+    maintenanceModuleLabel:'وحدة الصيانة',
+    electrical:'كهرباء',plumbing:'سباكة',hvac:'تكييف',civil:'أعمال مدنية',general:'عام',
+    maintTicketCreate:'إنشاء طلب صيانة',maintTicketList:'الطلبات',
+    maintReportCreate:'إنشاء تقرير صيانة',maintReportList:'التقارير',
+    maintTeam:'فريق الصيانة',maintSettings:'إعدادات SLA الصيانة',
+    maintWorker:'فني',maintSupervisor:'مشرف الصيانة',maintManager:'مدير الصيانة',
+    redo_required:'إعادة العمل',
     moduleStatusActive:'نشط',moduleStatusPlanned:'مخطط',
     systemAdminConsole:'لوحة النظام',
     cleaningTeam:'فريق النظافة',facilityConsole:'لوحة مدير المرافق',
@@ -314,6 +330,13 @@ const T = {
     cleaningModuleLabel:'Cleaning Module',hospitalityModuleLabel:'Hospitality Module',
     maintenance:'Maintenance',hospitality:'Hospitality',security:'Security',
     safety:'Safety',customerService:'Visitor Services',
+    maintenanceModuleLabel:'Maintenance Module',
+    electrical:'Electrical',plumbing:'Plumbing',hvac:'HVAC',civil:'Civil Works',general:'General',
+    maintTicketCreate:'New Maintenance Ticket',maintTicketList:'Tickets',
+    maintReportCreate:'New Maintenance Report',maintReportList:'Reports',
+    maintTeam:'Maintenance Team',maintSettings:'Maintenance SLA',
+    maintWorker:'Technician',maintSupervisor:'Maintenance Supervisor',maintManager:'Maintenance Manager',
+    redo_required:'Redo Required',
     moduleStatusActive:'Active',moduleStatusPlanned:'Planned',
     systemAdminConsole:'System Console',
     cleaningTeam:'Cleaning Team',facilityConsole:'Facility Manager Console',
@@ -525,7 +548,7 @@ const MODULES = [
     nameAr:'النظافة', nameEn:'Cleaning',
     descAr:'إدارة بلاغات النظافة والعمال والتقارير ومؤشرات الأداء',
     descEn:'Manage cleaning tickets, workers, reports and performance'},
-  {key:'maintenance', icon:'tool', status:'planned',
+  {key:'maintenance', icon:'tool', status:'active',
     nameAr:'الصيانة', nameEn:'Maintenance',
     descAr:'صيانة المرافق والأجهزة', descEn:'Facilities and equipment maintenance'},
   {key:'hospitality', icon:'coffee', status:'active',
@@ -691,7 +714,7 @@ async function flushOfflineQueue(){
   if(!q.length){toast(lang==='ar'?'لا توجد تقارير معلقة':'No pending reports');return}
   const remain = [];
   for(const item of q){
-    try{await api('/reports',{method:'POST',body:JSON.stringify(item)})}
+    try{await api(isMaintenanceRole()?'/maintenance-reports':'/reports',{method:'POST',body:JSON.stringify(item)})}
     catch(e){remain.push(item)}
   }
   setQ(remain);
@@ -798,8 +821,8 @@ function goBack(){
 }
 function appHasBackTarget(){
   if(!me) return false;
-  if(me.role==='cleaning_supervisor') return supervisorView!=='dashboard';
-  if(me.role==='cleaner'){
+  if(['cleaning_supervisor','maintenance_supervisor'].includes(me.role)) return supervisorView!=='dashboard';
+  if(['cleaner','maintenance_worker'].includes(me.role)){
     const form=document.getElementById('workerForm');
     return !!(form&&form.innerHTML.trim()) || workerView!=='task';
   }
@@ -808,14 +831,14 @@ function appHasBackTarget(){
 }
 function appBack(){
   if(!me) return history.back();
-  if(me.role==='cleaning_supervisor'){
+  if(['cleaning_supervisor','maintenance_supervisor'].includes(me.role)){
     if(supervisorView!=='dashboard'){
       supervisorView='dashboard';
       mobileNavActive='supervisor-dashboard';
-      renderSupervisor();
+      isMaintenanceRole()?renderMaintenanceSupervisor():renderSupervisor();
       return;
     }
-  }else if(me.role==='cleaner'){
+  }else if(['cleaner','maintenance_worker'].includes(me.role)){
     const form=document.getElementById('workerForm');
     if(form&&form.innerHTML.trim()){
       workerGoBack();
@@ -824,7 +847,7 @@ function appBack(){
     if(workerView!=='task'){
       workerView='task';
       mobileNavActive='worker-task';
-      renderWorker();
+      isMaintenanceRole()?renderMaintenanceWorker():renderWorker();
       return;
     }
   }else if(me.role==='employee'){
@@ -893,11 +916,15 @@ function togglePwd(){
 }
 function roleLabel(r){return tr(r)}
 function initials(n=''){return n.trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()||'?'}
-function canUsers(){return ['system_admin','cleaning_manager'].includes(me.role)}
-function canManageUsers(){return ['system_admin','cleaning_manager'].includes(me.role)}
-function canManage(){return ['system_admin','facility_manager','cleaning_manager'].includes(me.role)}
-function canTicket(){return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(me.role)}
-function canReview(){return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(me.role)}
+function isMaintenanceRole(role=me?.role){return String(role||'').startsWith('maintenance_') || adminModuleContext==='maintenance'}
+function maintenanceTicketApi(suffix=''){return `${isMaintenanceRole()?'/maintenance-tickets':'/tickets'}${suffix}`}
+function maintenanceReportApi(suffix=''){return `${isMaintenanceRole()?'/maintenance-reports':'/reports'}${suffix}`}
+function operationalWorkerRole(){return isMaintenanceRole()?'maintenance_worker':'cleaner'}
+function canUsers(){return ['system_admin','cleaning_manager','maintenance_manager'].includes(me.role)}
+function canManageUsers(){return ['system_admin','cleaning_manager','maintenance_manager'].includes(me.role)}
+function canManage(){return ['system_admin','facility_manager','cleaning_manager','maintenance_manager'].includes(me.role)}
+function canTicket(){return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','maintenance_manager','maintenance_supervisor'].includes(me.role)}
+function canReview(){return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','maintenance_manager','maintenance_supervisor'].includes(me.role)}
 function canAccessPlatformConsole(){return ['system_admin','facility_manager'].includes(me.role)}
 function canAccessGlobalSettings(){return me.role==='system_admin'}
 function canAccessRolesPermissions(){return me.role==='system_admin'}
@@ -908,7 +935,7 @@ function canHospitalityAssign(){return ['system_admin','facility_manager','hospi
 function locName(l){return lang==='ar'?(l.nameAr||l.nameEn):(l.nameEn||l.nameAr)}
 
 function roleBadgeClass(role){
-  return {system_admin:'role-admin',facility_manager:'role-fm',cleaning_manager:'role-cleaning-manager',cleaning_supervisor:'role-cs',cleaner:'role-cleaner',hospitality_manager:'role-cleaning-manager',hospitality_supervisor:'role-cs',hospitality_worker:'role-cleaner'}[role]||'';
+  return {system_admin:'role-admin',facility_manager:'role-fm',cleaning_manager:'role-cleaning-manager',cleaning_supervisor:'role-cs',cleaner:'role-cleaner',hospitality_manager:'role-cleaning-manager',hospitality_supervisor:'role-cs',hospitality_worker:'role-cleaner',maintenance_manager:'role-cleaning-manager',maintenance_supervisor:'role-cs',maintenance_worker:'role-cleaner'}[role]||'';
 }
 
 
@@ -1057,24 +1084,25 @@ function renderFieldTabs(){
       </span>
       ${count?`<span class="countBubble fieldTab-count">${num(count)}</span>`:''}
     </button>`;
-  if(me.role==='cleaning_supervisor'){
+  if(['cleaning_supervisor','maintenance_supervisor'].includes(me.role)){
     const openTickets = (data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
     const pendingReports = (data?.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
-    const workers = (data?.users||[]).filter(u=>(u.roles||[u.role]).includes('cleaner')).length;
+    const workers = (data?.users||[]).filter(u=>(u.roles||[u.role]).includes(operationalWorkerRole())).length;
+    const renderFn = isMaintenanceRole()?'renderMaintenanceSupervisor':'renderSupervisor';
     return `<div class="fieldTabs" role="tablist">
-      ${mk(supervisorView==='dashboard','dashboard',tr('dashboard'),"supervisorView='dashboard';mobileNavActive='supervisor-dashboard';renderSupervisor()")}
-      ${mk(supervisorView==='requests','tickets',lang==='ar'?'الطلبات':'Requests',"supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()",openTickets)}
-      ${mk(supervisorView==='team','users',lang==='ar'?'الفريق':'Team',"supervisorView='team';mobileNavActive='supervisor-team';renderSupervisor()",workers)}
-      ${mk(supervisorView==='reports','reports',tr('reports'),"supervisorView='reports';mobileNavActive='supervisor-reports';renderSupervisor()",pendingReports)}
+      ${mk(supervisorView==='dashboard','dashboard',tr('dashboard'),`supervisorView='dashboard';mobileNavActive='supervisor-dashboard';${renderFn}()`)}
+      ${mk(supervisorView==='requests','tickets',lang==='ar'?'الطلبات':'Requests',`supervisorView='requests';mobileNavActive='supervisor-requests';${renderFn}()`,openTickets)}
+      ${mk(supervisorView==='team','users',lang==='ar'?'الفريق':'Team',`supervisorView='team';mobileNavActive='supervisor-team';${renderFn}()`,workers)}
+      ${mk(supervisorView==='reports','reports',tr('reports'),`supervisorView='reports';mobileNavActive='supervisor-reports';${renderFn}()`,pendingReports)}
     </div>`;
   }
-  if(me.role==='cleaner'){
+  if(['cleaner','maintenance_worker'].includes(me.role)){
     const assignedCount = ((data?.assignments||[]).find(a=>a.workerId===me?.id)?.locationIds||[]).length;
     const reportCount = (data?.reports||[]).filter(r=>r.workerId===me.id).length;
     return `<div class="fieldTabs" role="tablist">
-      ${mk(workerView==='task','check',lang==='ar'?'المهمة':'Task',"workerView='task';mobileNavActive='worker-task';renderWorker()")}
-      ${mk(workerView==='assigned','locations',lang==='ar'?'المسندة':'Assigned',"workerView='assigned';mobileNavActive='worker-assigned';renderWorker()",assignedCount)}
-      ${mk(workerView==='reports','reports',lang==='ar'?'تقاريري':'Reports',"workerView='reports';mobileNavActive='worker-reports';renderWorker()",reportCount)}
+      ${mk(workerView==='task','check',lang==='ar'?'المهمة':'Task',`workerView='task';mobileNavActive='worker-task';${isMaintenanceRole()?'renderMaintenanceWorker':'renderWorker'}()`)}
+      ${mk(workerView==='assigned','locations',lang==='ar'?'المسندة':'Assigned',`workerView='assigned';mobileNavActive='worker-assigned';${isMaintenanceRole()?'renderMaintenanceWorker':'renderWorker'}()`,assignedCount)}
+      ${mk(workerView==='reports','reports',lang==='ar'?'تقاريري':'Reports',`workerView='reports';mobileNavActive='worker-reports';${isMaintenanceRole()?'renderMaintenanceWorker':'renderWorker'}()`,reportCount)}
     </div>`;
   }
   if(me.role==='employee'){
@@ -1219,6 +1247,10 @@ function render(){
   if(me.role==='hospitality_worker') return renderHospitalityWorker();
   if(me.role==='hospitality_supervisor') return renderHospitalitySupervisor();
   if(me.role==='hospitality_manager') return renderHospitalityManager();
+  if(me.role==='maintenance_worker') return renderMaintenanceWorker();
+  if(me.role==='maintenance_supervisor') return renderMaintenanceSupervisor();
+  if(me.role==='maintenance_manager') return renderMaintenanceManager();
+  if(['system_admin','facility_manager'].includes(me.role) && adminModuleContext==='maintenance') return renderAdminMaintenance();
   if(me.role==='system_admin' && !adminModuleContext) return renderSystemAdmin();
   if(me.role==='facility_manager' && !adminModuleContext) return renderFacilityConsole();
   if(['system_admin','facility_manager'].includes(me.role) && adminModuleContext==='hospitality') return renderAdminHospitality();
@@ -1433,21 +1465,29 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
       {v:'employee-history', label:tr('myRequests'), icon:'clipboardList', count:activeCount, action:"employeeView='history';mobileNavActive='employee-history';renderEmployee()", active:employeeView==='history'},
       {v:'employee-more', label:lang==='ar'?'المزيد':'More', icon:'menu', count:0, action:"employeeView='more';mobileNavActive='employee-more';renderEmployee()", active:employeeView==='more'}
     ];
-  }else if(role==='cleaner'){
+  }else if(['cleaner','maintenance_worker'].includes(role)){
     const assignedCount = ((data?.assignments||[]).find(a=>a.workerId===me?.id)?.locationIds||[]).length;
     showMore = false;
     primary = [
-      {v:'worker-task', label:lang==='ar'?'المهمة':'Task', icon:'check', count:openTickets, action:"workerView='task';mobileNavActive='worker-task';renderWorker()", active:workerView==='task'},
-      {v:'worker-assigned', label:lang==='ar'?'المسندة':'Assigned', icon:'locations', count:assignedCount, action:"workerView='assigned';mobileNavActive='worker-assigned';renderWorker()", active:workerView==='assigned'},
-      {v:'worker-reports', label:lang==='ar'?'تقاريري':'Reports', icon:'reports', count:pendingReports, action:"workerView='reports';mobileNavActive='worker-reports';renderWorker()", active:workerView==='reports'}
+      {v:'worker-task', label:lang==='ar'?'المهمة':'Task', icon:'check', count:openTickets, action:`workerView='task';mobileNavActive='worker-task';${isMaintenanceRole(role)?'renderMaintenanceWorker':'renderWorker'}()`, active:workerView==='task'},
+      {v:'worker-assigned', label:lang==='ar'?'المسندة':'Assigned', icon:'locations', count:assignedCount, action:`workerView='assigned';mobileNavActive='worker-assigned';${isMaintenanceRole(role)?'renderMaintenanceWorker':'renderWorker'}()`, active:workerView==='assigned'},
+      {v:'worker-reports', label:lang==='ar'?'تقاريري':'Reports', icon:'reports', count:pendingReports, action:`workerView='reports';mobileNavActive='worker-reports';${isMaintenanceRole(role)?'renderMaintenanceWorker':'renderWorker'}()`, active:workerView==='reports'}
     ];
-  }else if(role==='cleaning_supervisor'){
+  }else if(['cleaning_supervisor','maintenance_supervisor'].includes(role)){
     showMore = false;
     primary = [
-      {v:'supervisor-dashboard', label:tr('dashboard'), icon:'dashboard', count:0, action:"supervisorView='dashboard';mobileNavActive='supervisor-dashboard';renderSupervisor()", active:supervisorView==='dashboard'},
-      {v:'supervisor-requests', label:lang==='ar'?'الطلبات':'Requests', icon:'tickets', count:openTickets, action:"supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()", active:supervisorView==='requests'},
-      {v:'supervisor-team', label:lang==='ar'?'الفريق':'Team', icon:'users', count:0, action:"supervisorView='team';mobileNavActive='supervisor-team';renderSupervisor()", active:supervisorView==='team'},
-      {v:'supervisor-reports', label:tr('reports'), icon:'reports', count:pendingReports, action:"supervisorView='reports';mobileNavActive='supervisor-reports';renderSupervisor()", active:supervisorView==='reports'}
+      {v:'supervisor-dashboard', label:tr('dashboard'), icon:'dashboard', count:0, action:`supervisorView='dashboard';mobileNavActive='supervisor-dashboard';${isMaintenanceRole(role)?'renderMaintenanceSupervisor':'renderSupervisor'}()`, active:supervisorView==='dashboard'},
+      {v:'supervisor-requests', label:lang==='ar'?'الطلبات':'Requests', icon:'tickets', count:openTickets, action:`supervisorView='requests';mobileNavActive='supervisor-requests';${isMaintenanceRole(role)?'renderMaintenanceSupervisor':'renderSupervisor'}()`, active:supervisorView==='requests'},
+      {v:'supervisor-team', label:lang==='ar'?'الفريق':'Team', icon:'users', count:0, action:`supervisorView='team';mobileNavActive='supervisor-team';${isMaintenanceRole(role)?'renderMaintenanceSupervisor':'renderSupervisor'}()`, active:supervisorView==='team'},
+      {v:'supervisor-reports', label:tr('reports'), icon:'reports', count:pendingReports, action:`supervisorView='reports';mobileNavActive='supervisor-reports';${isMaintenanceRole(role)?'renderMaintenanceSupervisor':'renderSupervisor'}()`, active:supervisorView==='reports'}
+    ];
+  }else if(role==='maintenance_manager'){
+    showMore = false;
+    primary = [
+      {v:'dashboard', label:tr('dashboard'), icon:'dashboard', count:0},
+      {v:'tickets', label:tr('tickets'), icon:'tickets', count:openTickets},
+      {v:'reports', label:tr('reports'), icon:'reports', count:pendingReports},
+      {v:'users', label:tr('maintTeam'), icon:'users', count:0}
     ];
   }else if(role==='hospitality_worker'){
     showMore = false;
@@ -1765,6 +1805,13 @@ function enterModule(key){
     adminModuleContext = 'hospitality';
     hospManagerView = 'dashboard';
     mobileNavActive = 'hospmgr-dashboard';
+    render();
+    return;
+  }
+  if(key==='maintenance'){
+    adminModuleContext = 'maintenance';
+    view = 'dashboard';
+    mobileNavActive = 'dashboard';
     render();
     return;
   }
@@ -2276,7 +2323,7 @@ function miniReportList(items){
    REPORTS PAGE
    ═══════════════════════════════════════════════════════════════ */
 function imgList(r){return (r.photos&&r.photos.length?r.photos:(r.photo?[r.photo]:[])).filter(Boolean)}
-function taskSetFor(type){return type==='restroom'?TASKS.restroom:TASKS.default}
+function taskSetFor(type){return isMaintenanceRole()?MAINT_TASKS:(type==='restroom'?TASKS.restroom:TASKS.default)}
 function taskDone(tasks,pair){return (tasks||[]).includes(pair[0])||(tasks||[]).includes(pair[1])}
 
 function reports(){
@@ -2333,7 +2380,7 @@ function starRatingWidget(reportId, ratingType, current, readOnly){
 
 async function submitRating(reportId, ratingType, value){
   try{
-    await api('/reports/rate',{method:'POST',body:JSON.stringify({id:reportId,ratingType,value})});
+    await api(maintenanceReportApi('/rate'),{method:'POST',body:JSON.stringify({id:reportId,ratingType,value})});
     toast(lang==='ar'?'تم حفظ التقييم':'Rating saved','ok');
     await load();
   }catch(e){ toast(lang==='ar'?'خطأ في التقييم':'Rating error','bad'); }
@@ -2374,9 +2421,9 @@ function reportCard(r,full){
         ${canDelete()?`<div class="reportCard-actions-danger"><button class="btn secondary sm action-btn reportDeleteBtn" onclick="deleteReport('${r.id}')" aria-label="${lang==='ar'?'حذف التقرير':'Delete report'}" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button></div>`:''}
       </div>
       <div onclick="event.stopPropagation()">
-        ${me.role==='cleaning_manager'?`<div class="ratingRow">
+        ${['cleaning_manager','maintenance_manager'].includes(me.role)?`<div class="ratingRow">
           <div class="ratingGroup"><span class="ratingLabel">${tr('ratingByManager')}</span>${starRatingWidget(r.id,'manager',r.ratingManager)}</div>
-        </div>`:me.role==='cleaning_supervisor'?`<div class="ratingRow">
+        </div>`:['cleaning_supervisor','maintenance_supervisor'].includes(me.role)?`<div class="ratingRow">
           <div class="ratingGroup"><span class="ratingLabel">${tr('ratingBySupervisor')}</span>${starRatingWidget(r.id,'supervisor',r.ratingSupervisor)}</div>
         </div>`:me.role==='system_admin'?`<div class="ratingRow">
           <div class="ratingGroup"><span class="ratingLabel">${tr('ratingBySupervisor')}</span>${starRatingWidget(r.id,'supervisor',r.ratingSupervisor)}</div>
@@ -2387,12 +2434,12 @@ function reportCard(r,full){
 }
 
 async function reviewReport(id,status){
-  await api('/reports/review',{method:'POST',body:JSON.stringify({id,status})});
+  await api(maintenanceReportApi('/review'),{method:'POST',body:JSON.stringify({id,status})});
   toast(tr('saved'),'ok');
   await load();
 }
 
-function canDelete(){return['system_admin','facility_manager','cleaning_manager'].includes(me.role)}
+function canDelete(){return['system_admin','facility_manager','cleaning_manager','maintenance_manager'].includes(me.role)}
 
 /* ─── NOTIFICATION PANEL ─────────────────────────────────── */
 function toggleNotif(e){
@@ -2466,7 +2513,7 @@ function goView(v){navigateTo(v);}
 async function deleteReport(id){
   const msg=lang==='ar'?'هل أنت متأكد من حذف هذا التقرير؟ لا يمكن التراجع.':'Delete this report? This cannot be undone.';
   if(!confirm(msg))return;
-  await api('/reports/'+id,{method:'DELETE'});
+  await api(maintenanceReportApi('/'+id),{method:'DELETE'});
   toast(lang==='ar'?'تم الحذف':'Deleted','ok');
   await load();
 }
@@ -2589,42 +2636,46 @@ function galleryMove(btn,dir){
    TICKETS PAGE
    ═══════════════════════════════════════════════════════════════ */
 function tickets(){
-  const workers = (data.users||[]).filter(u=>u.role==='cleaner');
+  const workers = (data.users||[]).filter(u=>u.role===operationalWorkerRole());
+  const createLabel = isMaintenanceRole()?tr('maintTicketCreate'):tr('createTicket');
+  const categories = isMaintenanceRole()
+    ? MAINT_CATS.map(c=>({v:c,l:maintCatLabel(c)}))
+    : [
+      {v:'general',l:tr('cat_general')},{v:'spill',l:tr('cat_spill')},
+      {v:'restroom',l:tr('cat_restroom')},{v:'meeting_room',l:tr('cat_meeting_room')},
+      {v:'emergency',l:tr('cat_emergency')}
+    ];
   return`
 <div class="pageHeader">
   <div class="pageHeader-left">
     <div class="pageTitle">${tr('tickets')}</div>
     <div class="pageSub">${num((data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length)} ${lang==='ar'?'بلاغ نشط':'active tickets'}</div>
   </div>
-  ${canTicket()?`<button class="btn sm" onclick="showTicketCreate=!showTicketCreate;render()">${ic('plus',14)} ${tr('createTicket')}</button>`:''}
+  ${canTicket()?`<button class="btn sm" onclick="showTicketCreate=!showTicketCreate;render()">${ic('plus',14)} ${createLabel}</button>`:''}
 </div>
 ${canTicket()&&showTicketCreate?`
 <div class="card" style="margin-bottom:20px">
   <div class="card-head">
-    <span class="card-title">${ic('plus',16)} ${tr('createTicket')}</span>
+    <span class="card-title">${ic('plus',16)} ${createLabel}</span>
     <button class="icon-btn" onclick="showTicketCreate=false;render()" title="${tr('cancel')}">${ic('x',18)}</button>
   </div>
   <div class="formGrid">
-    ${fc(tr('title'), inp('tt',{value:lang==='ar'?'بلاغ نظافة':'Cleaning Ticket'}))}
-    ${fc(tr('reqCategory'), sel('tc',[
-      {v:'general',l:tr('cat_general')},{v:'spill',l:tr('cat_spill')},
-      {v:'restroom',l:tr('cat_restroom')},{v:'meeting_room',l:tr('cat_meeting_room')},
-      {v:'emergency',l:tr('cat_emergency')}
-    ]))}
+    ${fc(tr('title'), inp('tt',{value:isMaintenanceRole()?(lang==='ar'?'طلب صيانة':'Maintenance Ticket'):(lang==='ar'?'بلاغ نظافة':'Cleaning Ticket')}))}
+    ${fc(tr('reqCategory'), sel('tc',categories))}
     ${fc(tr('location'), sel('tl',(data.locations||[]).map(l=>({v:l.id,l:locName(l)}))))}
-    ${fc(`${tr('assignedTo')} (${lang==='ar'?'اختياري':'optional'})`, sel('tw',[{v:'',l:lang==='ar'?'— تعيين تلقائي —':'— Auto-Assign —'},...workers.map(w=>({v:w.id,l:w.name}))]))}
+    ${fc(`${tr('assignedTo')} (${lang==='ar'?'اختياري':'optional'})`, sel('tw',[{v:'',l:isMaintenanceRole()?(lang==='ar'?'— تعيين لاحقاً —':'— Assign later —'):(lang==='ar'?'— تعيين تلقائي —':'— Auto-Assign —')},...workers.map(w=>({v:w.id,l:w.name}))]))}
     ${fc(tr('priority'), sel('tp',[{v:'high',l:tr('high')},{v:'medium',l:tr('medium'),sel:true},{v:'low',l:tr('low')}]))}
   </div>
   ${fc(tr('description'), ta('td','',{rows:2, placeholder:lang==='ar'?'وصف البلاغ...':'Describe the issue...'}))}
 
-  <button class="btn" onclick="createTicket()">${ic('plus',16)} ${tr('createTicket')}</button>
+  <button class="btn" onclick="createTicket()">${ic('plus',16)} ${createLabel}</button>
 </div>`:''}
 ${ticketCards(data.tickets||[])}`;
 }
 
 async function createTicket(){
   const assignedTo = document.getElementById('tw').value;
-  await api('/tickets',{method:'POST',body:JSON.stringify({
+  await api(maintenanceTicketApi(),{method:'POST',body:JSON.stringify({
     title:document.getElementById('tt').value,
     description:document.getElementById('td').value,
     locationId:document.getElementById('tl').value,
@@ -2646,8 +2697,8 @@ function ticketCards(items){
   return`<div class="ticketGrid">${items.map(t=>{
     const prCls = t.priority==='high'?'bad':t.priority==='low'?'info':'warn';
     const canEdit = canTicket();
-    const canDel = ['system_admin','cleaning_manager'].includes(me.role);
-    const catLabel = tr('cat_'+(t.category||'general')) || (t.category||'general');
+    const canDel = ['system_admin','cleaning_manager','maintenance_manager'].includes(me.role);
+    const catLabel = isMaintenanceRole() ? maintCatLabel(t.category||'general') : (tr('cat_'+(t.category||'general')) || (t.category||'general'));
     const catClr = t.category==='emergency'?'bad':t.category==='spill'?'warn':t.category==='meeting_room'?'brand':'';
     const statusCls = t.status==='completed'?'ok':['reclean_required','rejected','cancelled'].includes(t.status)?'bad':t.status==='waiting_verification'?'warn':'brand';
     const requesterUser = (data.users||[]).find(u=>u.id===t.createdById);
@@ -2693,7 +2744,7 @@ function ticketCards(items){
 function editTicketModal(id){
   const t=(data.tickets||[]).find(x=>x.id===id);
   if(!t) return;
-  const workers=(data.users||[]).filter(u=>u.role==='cleaner');
+  const workers=(data.users||[]).filter(u=>u.role===operationalWorkerRole());
   const statuses=['submitted','assigned','accepted','in_progress','waiting_verification','completed','reclean_required','rejected','cancelled'];
   const body=`
   <div class="formGrid">
@@ -2720,7 +2771,7 @@ async function saveEditTicket(id){
     status:document.getElementById('et-status').value,
     assignedTo:document.getElementById('et-worker').value
   };
-  await api('/tickets/'+id,{method:'PUT',body:JSON.stringify(payload)});
+  await api(maintenanceTicketApi('/'+id),{method:'PUT',body:JSON.stringify(payload)});
   document.getElementById('editTicketModal')?.remove();
   toast(tr('saved'),'ok');
   showTicketCreate = false;
@@ -2732,7 +2783,7 @@ async function deleteTicketConfirm(id){
   if(!t) return;
   const msg=lang==='ar'?`هل تريد حذف البلاغ "${t.title}"؟`:`Delete ticket "${t.title}"?`;
   if(!confirm(msg)) return;
-  await api('/tickets/'+id,{method:'DELETE'});
+  await api(maintenanceTicketApi('/'+id),{method:'DELETE'});
   toast(lang==='ar'?'تم حذف البلاغ':'Ticket deleted','ok');
   await load();
 }
@@ -3311,9 +3362,12 @@ async function saveAssign(){
    ═══════════════════════════════════════════════════════════════ */
 function users(){
   const cleaningTeamRoles = ['cleaning_manager','cleaning_supervisor','cleaner'];
+  const maintenanceTeamRoles = ['maintenance_manager','maintenance_supervisor','maintenance_worker'];
   const isCleaningTeam = canViewCleaningTeam();
-  const allUsers = isCleaningTeam ? (data.users||[]).filter(u=>cleaningTeamRoles.includes(u.role)) : (data.users||[]);
-  const roleOptions = isCleaningTeam ? cleaningTeamRoles : ROLES;
+  const isMaintenanceTeam = me.role==='maintenance_manager';
+  const teamRoles = isMaintenanceTeam ? maintenanceTeamRoles : cleaningTeamRoles;
+  const allUsers = (isCleaningTeam||isMaintenanceTeam) ? (data.users||[]).filter(u=>teamRoles.includes(u.role)) : (data.users||[]);
+  const roleOptions = (isCleaningTeam||isMaintenanceTeam) ? teamRoles : ROLES;
   const filtered = allUsers.filter(u=>{
     const matchSearch = !usersSearch
       || u.name.toLowerCase().includes(usersSearch.toLowerCase())
@@ -3332,7 +3386,7 @@ function users(){
   return`
 <div class="pageHeader">
   <div class="pageHeader-left">
-    <div class="pageTitle">${isCleaningTeam?tr('cleaningTeam'):tr('users')}</div>
+    <div class="pageTitle">${isMaintenanceTeam?tr('maintTeam'):isCleaningTeam?tr('cleaningTeam'):tr('users')}</div>
     <div class="pageSub">${num(filtered.length)}${filtered.length!==allUsers.length?' / '+num(allUsers.length):''} ${lang==='ar'?'مستخدم':'users'}</div>
   </div>
   <div class="pageHeader-actions">
@@ -3437,10 +3491,10 @@ ${filtered.length===0
 }
 
 function showUserFormModal(id){
-  const editableRoles = me.role==='system_admin'?ROLES:['cleaning_supervisor','cleaner'];
+  const editableRoles = me.role==='system_admin'?ROLES:me.role==='maintenance_manager'?['maintenance_supervisor','maintenance_worker']:['cleaning_supervisor','cleaner'];
   const u = id?(data.users||[]).find(x=>x.id===id):null;
   editUserId = id||null;
-  const titleHtml = `<div>${u?`${ic('edit',16)} ${tr('edit')}`:ic('plus',16)+' '+tr('addUser')}${me.role==='cleaning_manager'?`<div class="modal-subtitle">${lang==='ar'?'تدير العمال والمشرفين':'Manages workers & supervisors'}</div>`:''}</div>`;
+  const titleHtml = `<div>${u?`${ic('edit',16)} ${tr('edit')}`:ic('plus',16)+' '+tr('addUser')}${['cleaning_manager','maintenance_manager'].includes(me.role)?`<div class="modal-subtitle">${lang==='ar'?'تدير العمال والمشرفين':'Manages workers & supervisors'}</div>`:''}</div>`;
   const body=`
   <div class="formGrid">
     ${fc(tr('name'),    inp('un',{value:u?.name||''}))}
@@ -4137,12 +4191,12 @@ async function submitReport(locationId){
       : { photos: currentPhotos })
   };
   if(currentTicketId){
-    try{await api('/tickets/complete',{method:'POST',body:JSON.stringify({id:currentTicketId,photos:currentPhotos,notes:payload.notes})})}
+    try{await api(maintenanceTicketApi('/complete'),{method:'POST',body:JSON.stringify({id:currentTicketId,photos:currentPhotos,notes:payload.notes})})}
     catch(e){}
     currentTicketId = null;
   }
   try{
-    await api('/reports',{method:'POST',body:JSON.stringify(payload)});
+    await api(maintenanceReportApi(),{method:'POST',body:JSON.stringify(payload)});
     toast(tr('reportSent'),'ok');
     currentPhotos = []; currentBeforePhotos = []; currentAfterPhotos = [];
     document.getElementById('workerForm').innerHTML = `
@@ -4774,6 +4828,332 @@ async function renderAdminHospitality(){
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   MAINTENANCE MODULE
+   ═══════════════════════════════════════════════════════════════ */
+
+const MAINT_CATS = ['electrical','plumbing','hvac','civil','general'];
+
+function maintCatLabel(cat){ return tr(cat) || cat; }
+
+const MAINT_CAT_ICONS = { electrical:'alert', plumbing:'locations', hvac:'sync', civil:'building', general:'list' };
+
+let maintView = 'dashboard';
+let maintTicketModal = false;
+let maintReportModal = false;
+
+/* ── shared maintenance shell ────────────────────────────────── */
+function maintShell(me, content, opts={}){
+  const isWorker  = me.role==='maintenance_worker';
+  const isSup     = me.role==='maintenance_supervisor';
+  if(isWorker || isSup){
+    app.innerHTML = fieldShell(me, content, {sync:true, noSticky:isSup});
+    return;
+  }
+  const openTickets=(data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
+  const pendingReports=(data.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
+  const item=(v,label,icon,count=0)=>`<button class="navBtn${view===v?' active':''}" onclick="navigateTo('${v}')">
+    <span class="navBtn-icon">${ic(icon,18)}</span><span class="navBtn-label">${label}</span>
+    ${count?`<span class="countBubble navBtn-badge">${num(count)}</span>`:''}</button>`;
+  app.innerHTML=`<div class="platform-shell platform-shell--admin">
+    ${renderPlatformTopbar(me,{search:false,notif:true,sync:true,adminMode:true})}
+    <div class="platform-body">
+      <aside class="platform-sidebar"><div class="sidebarInner">
+        <div class="nav-section"><span class="nav-section-label">${tr('operations')}</span>
+          ${item('dashboard',tr('dashboard'),'dashboard')}
+          ${item('reports',tr('reports'),'reports',pendingReports)}
+          ${item('tickets',tr('tickets'),'tickets',openTickets)}
+        </div>
+        <div class="nav-section"><span class="nav-section-label">${tr('management')}</span>
+          ${item('users',tr('maintTeam'),'users')}
+        </div>
+      </div></aside>
+      <main class="platform-main"><div class="pageAnim">${content}</div></main>
+    </div>
+    ${renderMobileBottomNav(openTickets,pendingReports)}
+  </div>`;
+}
+
+/* ── status badge helper for maintenance ─────────────────────── */
+function maintStatusBadge(status){
+  const map = {submitted:'badge-warn',assigned:'badge-info',accepted:'badge-info',
+    in_progress:'badge-brand',waiting_verification:'badge-warn',completed:'badge-done',
+    rejected:'badge-bad',cancelled:'badge-bad',reclean_required:'badge-warn'};
+  const labels = {submitted:lang==='ar'?'جديد':'New',assigned:lang==='ar'?'مُعيَّن':'Assigned',
+    accepted:lang==='ar'?'مقبول':'Accepted',in_progress:lang==='ar'?'جارٍ':'In Progress',
+    waiting_verification:lang==='ar'?'بانتظار تحقق':'Pending Verification',
+    completed:lang==='ar'?'مكتمل':'Completed',rejected:lang==='ar'?'مرفوض':'Rejected',
+    cancelled:lang==='ar'?'ملغى':'Cancelled',reclean_required:lang==='ar'?'إعادة العمل':'Redo'};
+  return `<span class="badge ${map[status]||'badge-info'}">${labels[status]||status}</span>`;
+}
+
+/* ── maintenance tickets list ────────────────────────────────── */
+function maintTicketsList(tickets, opts={}){
+  const {renderFn='renderMaintenanceManager', canAssign=false, canCreate=false, isWorker=false} = opts;
+  const open  = tickets.filter(t=>!['completed','rejected','cancelled'].includes(t.status));
+  const done  = tickets.filter(t=> ['completed','rejected','cancelled'].includes(t.status));
+  const card  = t => {
+    const slaOver = t.slaBreached && !['completed','rejected','cancelled'].includes(t.status);
+    const escBadge = t.escalationLevel>=2
+      ? `<span class="badge bad">🔴 ${lang==='ar'?'تصعيد':'Escalated'}</span>`
+      : t.escalationLevel===1
+        ? `<span class="badge warn">⚠️ ${lang==='ar'?'تصعيد':'Escalated'}</span>` : '';
+    return `<div class="card ticketCard${t.escalationLevel>0?' ticketCard--escalated':''}" onclick="openTicketDetail('${t.id}')">
+      <div class="ticketCard-header">
+        <span class="badge badge-info">${ic(MAINT_CAT_ICONS[t.category]||'tool',12)} ${maintCatLabel(t.category)}</span>
+        ${maintStatusBadge(t.status)} ${escBadge}
+        ${slaOver?`<span class="badge bad">SLA</span>`:''}
+        <span style="margin-right:auto;font-size:11px;color:var(--ink-2)">#${esc(t.referenceNo)}</span>
+      </div>
+      <div class="ticketCard-title">${esc(t.title)}</div>
+      <div class="ticketCard-meta">
+        ${ic('locations',13)} ${esc(t.locationNameAr)}
+        ${t.assignedToName?`· ${ic('user',13)} ${esc(t.assignedToName)}`:''}
+        · ${ic('clock',13)} ${fmtDate(t.createdAt)}
+      </div>
+      ${isWorker && t.status==='assigned'?`
+        <div class="ticketCard-actions" onclick="event.stopPropagation()">
+          <button class="btn btn-sm btn-primary" onclick="maintAcceptTicket('${t.id}','${renderFn}')">${lang==='ar'?'قبول':'Accept'}</button>
+          <button class="btn btn-sm btn-ghost" onclick="maintCompleteTicket('${t.id}','${renderFn}')">${lang==='ar'?'إغلاق':'Close'}</button>
+        </div>` : isWorker && t.status==='accepted'?`
+        <div class="ticketCard-actions" onclick="event.stopPropagation()">
+          <button class="btn btn-sm btn-primary" onclick="maintStartTicket('${t.id}','${renderFn}')">${lang==='ar'?'بدء العمل':'Start'}</button>
+          <button class="btn btn-sm btn-ghost" onclick="maintCompleteTicket('${t.id}','${renderFn}')">${lang==='ar'?'إغلاق':'Close'}</button>
+        </div>` : isWorker && t.status==='in_progress'?`
+        <div class="ticketCard-actions" onclick="event.stopPropagation()">
+          <button class="btn btn-sm btn-primary" onclick="maintCompleteTicket('${t.id}','${renderFn}')">${lang==='ar'?'إغلاق البلاغ':'Close Ticket'}</button>
+        </div>` : canAssign && t.status==='waiting_verification'?`
+        <div class="ticketCard-actions" onclick="event.stopPropagation()">
+          <button class="btn btn-sm btn-success" onclick="maintVerifyTicket('${t.id}','completed','${renderFn}')">${lang==='ar'?'اعتماد':'Approve'}</button>
+          <button class="btn btn-sm btn-warn" onclick="maintVerifyTicket('${t.id}','reclean_required','${renderFn}')">${lang==='ar'?'إعادة':'Redo'}</button>
+          <button class="btn btn-sm btn-danger-ghost" onclick="maintVerifyTicket('${t.id}','rejected','${renderFn}')">${lang==='ar'?'رفض':'Reject'}</button>
+        </div>` : canAssign && t.status==='submitted'?`
+        <div class="ticketCard-actions" onclick="event.stopPropagation()">
+          <button class="btn btn-sm btn-primary" onclick="maintAssignTicket('${t.id}','${renderFn}')">${lang==='ar'?'تعيين فني':'Assign'}</button>
+        </div>` : ''}
+    </div>`;
+  };
+  return `
+    ${canCreate?`<div style="margin-bottom:16px"><button class="btn btn-primary" onclick="maintOpenTicketCreate('${renderFn}')">${ic('plus',16)} ${tr('maintTicketCreate')}</button></div>`:''}
+    ${open.length===0&&done.length===0?`<p class="empty-state">${tr('noData')}</p>`:''}
+    ${open.length?`<h4 style="font-size:13px;font-weight:700;margin-bottom:8px">${lang==='ar'?'مفتوحة':'Open'} (${open.length})</h4>${open.map(card).join('')}`:''}
+    ${done.length?`<details style="margin-top:16px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--ink-2)">${lang==='ar'?'مغلقة':'Closed'} (${done.length})</summary><div style="margin-top:8px">${done.map(card).join('')}</div></details>`:''}
+  `;
+}
+
+/* ── maintenance reports list ────────────────────────────────── */
+function maintReportsList(reports, opts={}){
+  const {renderFn='renderMaintenanceManager', canReview=false, canRate=false} = opts;
+  if(!reports.length) return `<p class="empty-state">${tr('noData')}</p>`;
+  return reports.map(r=>{
+    const statusMap = {pending:lang==='ar'?'بانتظار الاعتماد':'Pending',approved:lang==='ar'?'معتمد':'Approved',rejected:lang==='ar'?'مرفوض':'Rejected',needs_recleaning:lang==='ar'?'إعادة العمل':'Redo'};
+    const statusCls = {pending:'badge-warn',approved:'badge-done',rejected:'badge-bad',needs_recleaning:'badge-warn'};
+    return `<div class="card reportCard" onclick="openReportDetail('${r.id}')">
+      <div class="reportCard-header" onclick="event.stopPropagation()">
+        <span class="badge ${statusCls[r.approvalStatus]||'badge-info'}">${statusMap[r.approvalStatus]||r.approvalStatus}</span>
+        <span style="margin-right:auto;font-size:11px;color:var(--ink-2)">${ic('clock',12)} ${fmtDate(r.createdAt)}</span>
+        ${r.photos.length?`<span class="badge badge-info">${ic('camera',12)} ${r.photos.length}</span>`:''}
+      </div>
+      <div class="reportCard-worker">${ic('user',13)} ${esc(r.workerName)} — ${esc(r.locationNameAr)}</div>
+      ${r.tasks.length?`<div class="reportCard-tasks">${ic('check',12)} ${r.tasks.length} ${lang==='ar'?'مهمة':'tasks'}</div>`:''}
+      ${canReview && r.approvalStatus==='pending'?`
+        <div class="reportCard-actions" onclick="event.stopPropagation()">
+          <button class="btn btn-sm btn-success" onclick="maintReviewReport('${r.id}','approved','${renderFn}')">${lang==='ar'?'اعتماد':'Approve'}</button>
+          <button class="btn btn-sm btn-warn" onclick="maintReviewReport('${r.id}','needs_recleaning','${renderFn}')">${lang==='ar'?'إعادة':'Redo'}</button>
+          <button class="btn btn-sm btn-danger-ghost" onclick="maintReviewReport('${r.id}','rejected','${renderFn}')">${lang==='ar'?'رفض':'Reject'}</button>
+        </div>` : ''}
+      ${canRate && r.approvalStatus==='approved'?`
+        <div class="ratingRow" onclick="event.stopPropagation()">
+          <div class="ratingGroup"><span class="ratingLabel">${lang==='ar'?'تقييم المدير':'Mgr Rating'}</span>${maintStarWidget(r.id,'manager',r.ratingManager)}</div>
+          <div class="ratingGroup"><span class="ratingLabel">${lang==='ar'?'تقييم المشرف':'Sup Rating'}</span>${maintStarWidget(r.id,'supervisor',r.ratingSupervisor)}</div>
+        </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+/* ── maintenance dashboard KPIs ───────────────────────────────── */
+function maintDashboard(tickets, reports, opts={}){
+  const open     = tickets.filter(t=>!['completed','rejected','cancelled'].includes(t.status));
+  const breached = open.filter(t=>t.slaBreached);
+  const completed= tickets.filter(t=>t.status==='completed');
+  const pending  = reports.filter(r=>r.approvalStatus==='pending');
+  return `
+    <div class="stats-grid" style="margin-bottom:20px">
+      <div class="stat-card"><div class="value">${open.length}</div><div class="label">${lang==='ar'?'طلبات مفتوحة':'Open Tickets'}</div></div>
+      <div class="stat-card"><div class="value ${breached.length?'text-danger':''}">${breached.length}</div><div class="label">SLA ${lang==='ar'?'متجاوز':'Breached'}</div></div>
+      <div class="stat-card"><div class="value">${completed.length}</div><div class="label">${lang==='ar'?'مكتملة':'Completed'}</div></div>
+      <div class="stat-card"><div class="value">${pending.length}</div><div class="label">${lang==='ar'?'تقارير معلقة':'Pending Reports'}</div></div>
+    </div>
+    <div style="margin-bottom:16px">
+      <h4 style="font-size:13px;font-weight:700;margin-bottom:8px">${lang==='ar'?'حسب التصنيف':'By Category'}</h4>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${MAINT_CATS.map(c=>{
+          const cnt = open.filter(t=>t.category===c).length;
+          return `<div class="card" style="flex:1;min-width:80px;text-align:center;padding:10px 8px">
+            ${ic(MAINT_CAT_ICONS[c]||'tool',20)}<br>
+            <span style="font-size:11px">${maintCatLabel(c)}</span><br>
+            <strong style="font-size:18px">${cnt}</strong>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+/* ── renderMaintenanceWorker ──────────────────────────────────── */
+function renderMaintenanceWorker(){
+  return renderWorker();
+}
+
+/* ── renderMaintenanceSupervisor ──────────────────────────────── */
+function renderMaintenanceSupervisor(){
+  return renderSupervisor();
+}
+
+/* ── renderMaintenanceManager ─────────────────────────────────── */
+function renderMaintenanceManager(){
+  setDoc();
+  const fn={dashboard:dash,tickets,reports,users}[view]||dash;
+  maintShell(me,fn(),{renderFn:'renderMaintenanceManager'});
+}
+
+function renderAdminMaintenance(){
+  setDoc();
+  const fullData = data;
+  data = {
+    ...fullData,
+    tickets:(fullData.tickets||[]).filter(t=>t.module==='maintenance'),
+    reports:(fullData.reports||[]).filter(r=>r.module==='maintenance'),
+    users:(fullData.users||[]).filter(u=>(u.roles||[u.role]).some(r=>String(r).startsWith('maintenance_')))
+  };
+  const fn={dashboard:dash,tickets,reports,users}[view]||dash;
+  maintShell(me,`${moduleContextBar('maintenanceModuleLabel')}${fn()}`,{renderFn:'renderAdminMaintenance'});
+  data = fullData;
+}
+
+/* ── maintenance actions ──────────────────────────────────────── */
+async function maintUpdateTicket(id, update, renderFn){
+  const res = await fetch(`/api/maintenance-tickets/${id}`, {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(update)});
+  const j   = await res.json();
+  if(!res.ok){ toast(j.error||'Error','error'); return; }
+  const idx = (data.tickets||[]).findIndex(t=>t.id===id);
+  if(idx>=0) data.tickets[idx]=j.ticket; else (data.tickets=data.tickets||[]).unshift(j.ticket);
+  window[renderFn]();
+}
+
+function maintAcceptTicket(id,renderFn){ maintUpdateTicket(id,{status:'accepted'},renderFn); }
+function maintStartTicket(id,renderFn){ maintUpdateTicket(id,{status:'in_progress'},renderFn); }
+function maintVerifyTicket(id,status,renderFn){ maintUpdateTicket(id,{status},renderFn); }
+
+function maintAssignTicket(id, renderFn){
+  const workers = (data.users||[]).filter(u=>u.role==='maintenance_worker');
+  const opts = workers.map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('');
+  showModal('maintAssign', lang==='ar'?'تعيين فني':'Assign Technician',
+    `<select id="maintWorkerSel" class="form-control">${opts}</select>`,
+    async ()=>{
+      const wId = document.getElementById('maintWorkerSel')?.value;
+      if(!wId) return;
+      await maintUpdateTicket(id,{assignedTo:wId,status:'assigned'},renderFn);
+    });
+}
+
+function maintCompleteTicket(id, renderFn){
+  showModal('maintComplete', lang==='ar'?'إغلاق البلاغ':'Close Ticket',
+    `<textarea id="maintNotes" class="form-control" rows="3" placeholder="${lang==='ar'?'ملاحظات الإغلاق':'Closing notes'}"></textarea>`,
+    async ()=>{
+      const notes = document.getElementById('maintNotes')?.value||'';
+      const res = await fetch('/api/maintenance-tickets/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,notes})});
+      const j   = await res.json();
+      if(!res.ok){ toast(j.error||'Error','error'); return; }
+      const idx = (data.tickets||[]).findIndex(t=>t.id===id);
+      if(idx>=0) data.tickets[idx]=j.ticket; else (data.tickets=data.tickets||[]).unshift(j.ticket);
+      window[renderFn]();
+    });
+}
+
+async function maintReviewReport(id, status, renderFn){
+  const res = await fetch('/api/maintenance-reports/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,status})});
+  const j   = await res.json();
+  if(!res.ok){ toast(j.error||'Error','error'); return; }
+  const idx = (data.reports||[]).findIndex(r=>r.id===id);
+  if(idx>=0) data.reports[idx]=j.report; else (data.reports=data.reports||[]).unshift(j.report);
+  window[renderFn]();
+}
+
+function maintOpenTicketCreate(renderFn){
+  const locOpts = (data.locations||[]).map(l=>`<option value="${l.id}">${esc(l.nameAr)}</option>`).join('');
+  const catOpts = MAINT_CATS.map(c=>`<option value="${c}">${maintCatLabel(c)}</option>`).join('');
+  const workers = (data.users||[]).filter(u=>u.role==='maintenance_worker');
+  const workerOpts = `<option value="">${lang==='ar'?'— تعيين لاحقاً —':'— Assign later —'}</option>`+workers.map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('');
+  showModal('maintCreate', tr('maintTicketCreate'),
+    `<div class="form-group"><label>${lang==='ar'?'الموقع':'Location'}</label><select id="mcLoc" class="form-control">${locOpts}</select></div>
+     <div class="form-group"><label>${lang==='ar'?'التصنيف':'Category'}</label><select id="mcCat" class="form-control">${catOpts}</select></div>
+     <div class="form-group"><label>${lang==='ar'?'العنوان':'Title'}</label><input id="mcTitle" class="form-control" placeholder="${lang==='ar'?'وصف المشكلة':'Describe the issue'}"></div>
+     <div class="form-group"><label>${lang==='ar'?'الفني':'Technician'}</label><select id="mcWorker" class="form-control">${workerOpts}</select></div>`,
+    async ()=>{
+      const body = {
+        locationId: document.getElementById('mcLoc')?.value,
+        category:   document.getElementById('mcCat')?.value,
+        title:      document.getElementById('mcTitle')?.value,
+        assignedTo: document.getElementById('mcWorker')?.value||undefined
+      };
+      const res = await fetch('/api/maintenance-tickets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const j   = await res.json();
+      if(!res.ok){ toast(j.error||'Error','error'); return; }
+      (data.tickets=data.tickets||[]).unshift(j.ticket);
+      toast(lang==='ar'?'تم إنشاء الطلب':'Ticket created','ok');
+      window[renderFn]();
+    });
+}
+
+function maintOpenReportCreate(renderFn){
+  const myTickets = (data.tickets||[]).filter(t=>t.module==='maintenance'&&t.assignedTo===me.id&&!['completed','rejected','cancelled'].includes(t.status));
+  const locOpts = (data.locations||[]).map(l=>`<option value="${l.id}">${esc(l.nameAr)}</option>`).join('');
+  showModal('maintReport', tr('maintReportCreate'),
+    `<div class="form-group"><label>${lang==='ar'?'الموقع':'Location'}</label><select id="mrLoc" class="form-control">${locOpts}</select></div>
+     <div class="form-group"><label>${lang==='ar'?'المهام المنجزة':'Completed Tasks'}</label>
+       <div id="mrTasks"></div>
+       <button class="btn btn-ghost btn-sm" type="button" onclick="addMaintTask()">${ic('plus',14)} ${lang==='ar'?'إضافة مهمة':'Add Task'}</button>
+     </div>
+     <div class="form-group"><label>${lang==='ar'?'ملاحظات':'Notes'}</label><textarea id="mrNotes" class="form-control" rows="2"></textarea></div>`,
+    async ()=>{
+      const tasks = [...document.querySelectorAll('.mr-task-input')].map(i=>i.value).filter(Boolean);
+      const body  = { locationId: document.getElementById('mrLoc')?.value, tasks, notes: document.getElementById('mrNotes')?.value||'' };
+      const res   = await fetch('/api/maintenance-reports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const j     = await res.json();
+      if(!res.ok){ toast(j.error||'Error','error'); return; }
+      (data.reports=data.reports||[]).unshift(j.report);
+      toast(lang==='ar'?'تم إرسال التقرير':'Report submitted','ok');
+      window[renderFn]();
+    });
+}
+
+function addMaintTask(){
+  const el = document.getElementById('mrTasks');
+  if(!el) return;
+  const row = document.createElement('div');
+  row.style.cssText='display:flex;gap:6px;margin-bottom:6px';
+  row.innerHTML=`<input class="form-control mr-task-input" placeholder="${lang==='ar'?'المهمة':'Task'}"><button class="btn btn-ghost btn-sm" type="button" onclick="this.parentNode.remove()">${ic('trash',14)}</button>`;
+  el.appendChild(row);
+}
+
+/* ── star rating widget for maintenance ───────────────────────── */
+function maintStarWidget(reportId, ratingType, currentVal){
+  return [1,2,3,4,5].map(i=>`
+    <button class="star-btn${currentVal>=i?' active':''}" onclick="event.stopPropagation();setMaintRating('${reportId}','${ratingType}',${i})">★</button>
+  `).join('');
+}
+
+async function setMaintRating(reportId, ratingType, value){
+  const res = await fetch('/api/maintenance-reports/rate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:reportId,ratingType,value})});
+  const j   = await res.json();
+  if(!res.ok){ toast(j.error||'Error','error'); return; }
+  const idx = (data.reports||[]).findIndex(r=>r.id===reportId);
+  if(idx>=0) data.reports[idx]=j.report;
+  const renderFn = me.role==='maintenance_manager'?'renderMaintenanceManager':me.role==='maintenance_supervisor'?'renderMaintenanceSupervisor':null;
+  if(renderFn) window[renderFn]();
+}
+
+/* ═══════════════════════════════════════════════════════════════
    HOSPITALITY PRODUCTS / MENU MANAGEMENT — system_admin & hospitality_manager
    ═══════════════════════════════════════════════════════════════ */
 const MENU_CATEGORIES = ['hot_drinks','cold_drinks','snacks','other'];
@@ -5293,7 +5673,7 @@ function renderSupervisor(){
   const inProgress  = allTickets.filter(t=>['assigned','accepted','in_progress'].includes(t.status));
   const breached    = allTickets.filter(t=>t.slaBreached&&!['completed','rejected','cancelled'].includes(t.status));
   const pendingRpts = (data.reports||[]).filter(r=>r.approvalStatus==='pending');
-  const workers     = (data.users||[]).filter(u=>(u.roles||[u.role]).includes('cleaner'));
+  const workers     = (data.users||[]).filter(u=>(u.roles||[u.role]).includes(operationalWorkerRole()));
   const statsHtml=`
     <div class="supStats">
       ${supStat(submitted.length,    lang==='ar'?'طلبات مفتوحة':'Open Requests',    'tickets', 'bad')}
@@ -5441,7 +5821,7 @@ function supReportCard(r){
         <span class="badge" style="margin-inline-start:auto">${ic('arrow',11)} ${lang==='ar'?'تفاصيل':'Details'}</span>
       </div>
     </div>
-    ${me.role==='cleaning_supervisor'?`<div class="ratingRow" style="padding:6px 0 0" onclick="event.stopPropagation()">
+    ${['cleaning_supervisor','maintenance_supervisor'].includes(me.role)?`<div class="ratingRow" style="padding:6px 0 0" onclick="event.stopPropagation()">
       <div class="ratingGroup">
         <span class="ratingLabel">${tr('ratingBySupervisor')}</span>
         ${starRatingWidget(r.id,'supervisor',r.ratingSupervisor)}
@@ -5458,7 +5838,7 @@ function supReportCard(r){
 async function supAssign(ticketId, workerId){
   if(!workerId) return toast(lang==='ar'?'اختر عامل':'Select a worker','warn');
   try{
-    await api(`/tickets/${ticketId}`,{method:'PUT',body:JSON.stringify({assignedTo:workerId,status:'assigned'})});
+    await api(maintenanceTicketApi(`/${ticketId}`),{method:'PUT',body:JSON.stringify({assignedTo:workerId,status:'assigned'})});
     await load(); renderSupervisor();
     toast(lang==='ar'?'تم التعيين':'Assigned','ok');
   }catch(e){ toast(e.message,'bad'); }
@@ -5466,7 +5846,7 @@ async function supAssign(ticketId, workerId){
 
 async function supVerify(ticketId, status){
   try{
-    await api(`/tickets/${ticketId}`,{method:'PUT',body:JSON.stringify({status})});
+    await api(maintenanceTicketApi(`/${ticketId}`),{method:'PUT',body:JSON.stringify({status})});
     await load(); renderSupervisor();
     const msg = status==='completed'?(lang==='ar'?'تم التحقق':'Verified'):(lang==='ar'?'طلب إعادة تنظيف':'Reclean requested');
     toast(msg,'ok');
@@ -5475,7 +5855,7 @@ async function supVerify(ticketId, status){
 
 async function supReview(reportId, status, note){
   try{
-    await api('/reports/review',{method:'POST',body:JSON.stringify({id:reportId,status,note})});
+    await api(maintenanceReportApi('/review'),{method:'POST',body:JSON.stringify({id:reportId,status,note})});
     await load(); renderSupervisor();
     toast(lang==='ar'?'تمت المراجعة':'Reviewed','ok');
   }catch(e){ toast(e.message,'bad'); }

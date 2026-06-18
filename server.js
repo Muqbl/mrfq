@@ -19,7 +19,7 @@ const MAX_PHOTO_BYTES    = 5_242_880;  // 5 MB per photo
 const MAX_PHOTOS         = 10;
 const PUBLIC             = path.join(__dirname, 'public');
 const UPLOADS_DIR        = process.env.UPLOADS_PATH || path.join(__dirname, 'uploads');
-const ALLOWED_ROLES      = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','cleaner','employee','hospitality_manager','hospitality_supervisor','hospitality_worker'];
+const ALLOWED_ROLES      = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','cleaner','employee','hospitality_manager','hospitality_supervisor','hospitality_worker','maintenance_manager','maintenance_supervisor','maintenance_worker'];
 
 /* ═══════════════════════════════════════════════════════════════
    TICKET STATUS STATE MACHINE
@@ -411,13 +411,22 @@ const mapLocation = l => l ? {
   space:      l.space || ''
 } : null;
 
-function canManageUsers(role) { return ['system_admin','cleaning_manager'].includes(role); }
+function canManageUsers(role) { return ['system_admin','cleaning_manager','maintenance_manager'].includes(role); }
 function canManageSystem(role){ return ['system_admin','facility_manager','cleaning_manager'].includes(role); }
 function canCreateTickets(role){ return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(role); }
 function canReview(role)       { return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(role); }
 function canDelete(role)       { return ['system_admin','facility_manager','cleaning_manager'].includes(role); }
 function allowedRoleEditor(editorRole, targetRole) {
-  return editorRole === 'system_admin' || ['cleaning_supervisor','cleaner'].includes(targetRole);
+  if (editorRole === 'system_admin') return true;
+  if (editorRole === 'cleaning_manager') return ['cleaning_supervisor','cleaner'].includes(targetRole);
+  if (editorRole === 'maintenance_manager') return ['maintenance_supervisor','maintenance_worker'].includes(targetRole);
+  return false;
+}
+
+function moduleForRole(role) {
+  if (String(role || '').startsWith('maintenance_')) return 'maintenance';
+  if (String(role || '').startsWith('hospitality_')) return 'hospitality';
+  return 'cleaning';
 }
 
 /* ── Hospitality permissions ─────────────────────────────────── */
@@ -428,6 +437,13 @@ function canHospitalityCreate(role)   { return ['employee','system_admin','facil
 function canHospitalityAccess(role)   { return ['system_admin','facility_manager','hospitality_manager','hospitality_supervisor','hospitality_worker','employee'].includes(role); }
 function canManageHospitalityMenu(role) { return ['system_admin','hospitality_manager'].includes(role); }
 function canManageHospitalityKitchens(role) { return ['system_admin','hospitality_manager'].includes(role); }
+
+/* ── Maintenance permissions ─────────────────────────────────── */
+function canMaintenanceAccess(role)  { return ['system_admin','facility_manager','maintenance_manager','maintenance_supervisor','maintenance_worker','employee'].includes(role); }
+function canMaintenanceCreate(role)  { return ['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(role); }
+function canMaintenanceAssign(role)  { return ['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(role); }
+function canMaintenanceReview(role)  { return ['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(role); }
+function canMaintenanceDelete(role)  { return ['system_admin','facility_manager','maintenance_manager'].includes(role); }
 
 /* ═══════════════════════════════════════════════════════════════
    DATA HELPERS  (all DB queries → camelCase output)
@@ -646,6 +662,7 @@ function ticketRow(r) {
     escalationLevel:             r.escalation_level || 0,
     responseTimeMins:            r.response_time_mins  ?? null,
     completionTimeMins:          r.completion_time_mins ?? null,
+    module:                      r.module || 'cleaning',
     photos
   };
 }
@@ -680,6 +697,7 @@ function reportRow(r) {
     reviewNote:       r.review_note,
     ratingSupervisor: r.rating_supervisor ?? null,
     ratingManager:    r.rating_manager    ?? null,
+    module:           r.module || 'cleaning',
     photos,
     beforePhotos,
     afterPhotos
@@ -779,8 +797,8 @@ function buildBootstrap(me) {
       ...base,
       users:       [publicUser(me)],
       assignments: myAssign ? [myAssign] : [],
-      tickets:     allTickets.filter(t => t.assignedTo === me.id),
-      reports:     allReports.filter(r => r.workerId  === me.id),
+      tickets:     allTickets.filter(t => t.assignedTo === me.id && t.module === 'cleaning'),
+      reports:     allReports.filter(r => r.workerId  === me.id && r.module === 'cleaning'),
       hospitalityOrders
     };
   }
@@ -789,9 +807,40 @@ function buildBootstrap(me) {
       ...base,
       users:       users.filter(u => ['cleaner','cleaning_supervisor'].includes(u.role)).map(publicUser),
       assignments,
-      tickets:     allTickets,
-      reports:     allReports,
+      tickets:     allTickets.filter(t => t.module === 'cleaning'),
+      reports:     allReports.filter(r => r.module === 'cleaning'),
       hospitalityOrders
+    };
+  }
+  if (me.role === 'maintenance_worker') {
+    const myAssign = assignments.find(a => a.workerId === me.id);
+    return {
+      ...base,
+      users:       [publicUser(me)],
+      assignments: myAssign ? [myAssign] : [],
+      tickets:     allTickets.filter(t => t.assignedTo === me.id && t.module === 'maintenance'),
+      reports:     allReports.filter(r => r.workerId  === me.id && r.module === 'maintenance'),
+      hospitalityOrders: []
+    };
+  }
+  if (me.role === 'maintenance_supervisor') {
+    return {
+      ...base,
+      users:       users.filter(u => ['maintenance_worker','maintenance_supervisor'].includes(u.role)).map(publicUser),
+      assignments,
+      tickets:     allTickets.filter(t => t.module === 'maintenance'),
+      reports:     allReports.filter(r => r.module === 'maintenance'),
+      hospitalityOrders: []
+    };
+  }
+  if (me.role === 'maintenance_manager') {
+    return {
+      ...base,
+      users:       users.filter(u => ['maintenance_worker','maintenance_supervisor','maintenance_manager'].includes(u.role)).map(publicUser),
+      assignments,
+      tickets:     allTickets.filter(t => t.module === 'maintenance'),
+      reports:     allReports.filter(r => r.module === 'maintenance'),
+      hospitalityOrders: []
     };
   }
   if (me.role === 'hospitality_worker') {
@@ -814,7 +863,17 @@ function buildBootstrap(me) {
       hospitalityOrders
     };
   }
-  // admin / facility_manager / cleaning_manager — full view
+  if (me.role === 'cleaning_manager') {
+    return {
+      ...base,
+      users:       users.map(publicUser),
+      assignments,
+      tickets:     allTickets.filter(t => t.module === 'cleaning'),
+      reports:     allReports.filter(r => r.module === 'cleaning'),
+      hospitalityOrders
+    };
+  }
+  // system_admin / facility_manager — full view across all modules
   return {
     ...base,
     users:       users.map(publicUser),
@@ -883,6 +942,27 @@ function slaMins(category) {
 function computeSlaDeadline(category) {
   return new Date(Date.now() + slaMins(category) * 60_000).toISOString();
 }
+
+/* ── Maintenance SLA ──────────────────────────────────────────── */
+const MAINT_SLA_MINS = { electrical: 60, plumbing: 60, hvac: 240, civil: 480, general: 240 };
+
+function maintSlaMins(category) {
+  try {
+    const row = getDb().prepare('SELECT value FROM settings WHERE key = ?').get(`maint_sla_mins_${category}`);
+    if (row && Number.isFinite(Number(row.value)) && Number(row.value) > 0) return Number(row.value);
+  } catch {}
+  return MAINT_SLA_MINS[category] || MAINT_SLA_MINS.general;
+}
+
+function computeMaintSlaDeadline(category) {
+  return new Date(Date.now() + maintSlaMins(category) * 60_000).toISOString();
+}
+
+const MAINT_RATING_RULES = {
+  maintenance_manager:    'manager',
+  maintenance_supervisor: 'supervisor',
+  system_admin:           null
+};
 
 // Periodic SLA breach check, escalation, and recurring tasks — every 5 minutes
 setInterval(() => {
@@ -1160,7 +1240,7 @@ const server = http.createServer(async (req, res) => {
                b.active !== false ? 1 : 0, sanitize(b.employeeNo, 50), ts, ts);
         try {
           db.prepare('INSERT OR IGNORE INTO user_roles (user_id,role,module,created_at) VALUES (?,?,?,?)')
-            .run(id, role, 'cleaning', ts);
+            .run(id, role, moduleForRole(role), ts);
         } catch {}
         const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
         return send(res, 200, { user: publicUser(u) });
@@ -1518,7 +1598,7 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'POST' && url.pathname === '/api/settings') {
         if (!['system_admin', 'facility_manager'].includes(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const b = await bodyJSON(req);
-        const ALLOWED_KEYS = ['sla_mins_emergency','sla_mins_spill','sla_mins_restroom','sla_mins_meeting_room','sla_mins_general','frequency_minutes','require_photo'];
+        const ALLOWED_KEYS = ['sla_mins_emergency','sla_mins_spill','sla_mins_restroom','sla_mins_meeting_room','sla_mins_general','maint_sla_mins_electrical','maint_sla_mins_plumbing','maint_sla_mins_hvac','maint_sla_mins_civil','maint_sla_mins_general','frequency_minutes','require_photo'];
         Object.entries(b).filter(([k]) => ALLOWED_KEYS.includes(k)).forEach(([k, v]) => {
           db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(k, String(v));
         });
@@ -1652,6 +1732,249 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { recurringTasks: dbRecurringTasks() });
       }
 
+      /* ═══════════════════════════════════════════════════════
+         MAINTENANCE MODULE API
+         ═══════════════════════════════════════════════════════ */
+
+      /* ── MAINTENANCE TICKETS: CREATE ──────────────────────── */
+      if (req.method === 'POST' && url.pathname === '/api/maintenance-tickets') {
+        if (!canMaintenanceCreate(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const b   = await bodyJSON(req);
+        const loc = db.prepare('SELECT * FROM locations WHERE id = ? AND deleted_at IS NULL').get(b.locationId);
+        if (!loc) return send(res, 400, { error: 'MISSING_LOCATION' });
+        let worker = null;
+        if (b.assignedTo) {
+          worker = db.prepare("SELECT * FROM users WHERE id = ? AND active = 1 AND deleted_at IS NULL").get(b.assignedTo);
+          if (!worker || worker.role !== 'maintenance_worker') return send(res, 400, { error: 'WORKER_NOT_FOUND' });
+        }
+        const id            = newId('mt');
+        const ts            = now();
+        const priority      = ['high','medium','low'].includes(b.priority) ? b.priority : 'medium';
+        const category      = ['electrical','plumbing','hvac','civil','general'].includes(b.category) ? b.category : 'general';
+        const slaDeadline   = computeMaintSlaDeadline(category);
+        const initialStatus = worker ? 'assigned' : 'submitted';
+        const refNo         = generateRefNo(db, 'MNT');
+        db.prepare(`
+          INSERT INTO tickets (id,title,description,location_id,location_name_ar,location_name_en,
+            assigned_to,assigned_to_name,created_by,created_by_id,status,priority,
+            category,reference_no,notes,sla_deadline,module,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `).run(id, sanitize(b.title,200)||'طلب صيانة',
+               sanitize(b.description,1000), loc.id, loc.name_ar, loc.name_en,
+               worker?.id||null, worker?.name||'',
+               me.name, me.id, initialStatus, priority, category, refNo, '', slaDeadline, 'maintenance', ts, ts);
+        const ticket = ticketRow(db.prepare(`
+          SELECT t.*, NULL AS photo_files FROM tickets t WHERE t.id = ?
+        `).get(id));
+        broadcast('ticket_created', { ticket });
+        logEvent(db, 'ticket.submitted', 'ticket', id, me, { category, status: initialStatus, locationId: loc.id }, 'maintenance');
+        return send(res, 200, { ticket });
+      }
+
+      /* ── MAINTENANCE TICKETS: COMPLETE (worker) ───────────── */
+      if (req.method === 'POST' && url.pathname === '/api/maintenance-tickets/complete') {
+        if (me.role !== 'maintenance_worker') return send(res, 403, { error: 'FORBIDDEN' });
+        const b = await bodyJSON(req);
+        const t = db.prepare("SELECT * FROM tickets WHERE id = ? AND module = 'maintenance' AND deleted_at IS NULL").get(b.id);
+        if (!t) return send(res, 404, { error: 'TICKET_NOT_FOUND' });
+        if (t.assigned_to !== me.id) return send(res, 403, { error: 'FORBIDDEN' });
+        if (!(TICKET_TRANSITIONS[t.status]||[]).includes('waiting_verification'))
+          return send(res, 400, { error: 'INVALID_TRANSITION' });
+        processPhotos(b.photos, me.id, null, t.id);
+        const completionMins = Math.round((Date.now() - new Date(t.created_at).getTime()) / 60_000);
+        const slaBreached    = t.sla_deadline && new Date(t.sla_deadline) < new Date() ? 1 : (t.sla_breached||0);
+        db.prepare(`
+          UPDATE tickets SET status='waiting_verification', notes=?, updated_at=?,
+            completion_time_mins=?, sla_breached=? WHERE id=?
+        `).run(sanitize(b.notes,1000), now(), completionMins, slaBreached, t.id);
+        const ticket = ticketRow(db.prepare(`
+          SELECT t.*, GROUP_CONCAT(p.filename) AS photo_files
+          FROM tickets t LEFT JOIN photos p ON p.ticket_id=t.id AND p.deleted_at IS NULL
+          WHERE t.id=? GROUP BY t.id
+        `).get(t.id));
+        broadcast('ticket_waiting_verification', { ticket });
+        logEvent(db, 'ticket.waiting_verification', 'ticket', t.id, me, { completionMins }, 'maintenance');
+        return send(res, 200, { ticket });
+      }
+
+      /* ── MAINTENANCE TICKETS: UPDATE ──────────────────────── */
+      if (req.method === 'PUT' && url.pathname.startsWith('/api/maintenance-tickets/')) {
+        if (!canMaintenanceAssign(me.role) && me.role !== 'maintenance_worker') return send(res, 403, { error: 'FORBIDDEN' });
+        const id = sanitize(url.pathname.split('/').pop(), 50);
+        const b  = await bodyJSON(req);
+        const t  = db.prepare("SELECT * FROM tickets WHERE id = ? AND module = 'maintenance' AND deleted_at IS NULL").get(id);
+        if (!t) return send(res, 404, { error: 'TICKET_NOT_FOUND' });
+        if (me.role === 'maintenance_worker') {
+          const allowedWorkerStatuses = ['accepted','in_progress'];
+          if (t.assigned_to !== me.id || Object.keys(b).some(k => k !== 'status') || !allowedWorkerStatuses.includes(b.status))
+            return send(res, 403, { error: 'FORBIDDEN' });
+        }
+        const sets = []; const vals = [];
+        if (b.title !== undefined)       { sets.push('title = ?');       vals.push(sanitize(b.title,200)); }
+        if (b.description !== undefined) { sets.push('description = ?'); vals.push(sanitize(b.description,1000)); }
+        if (['high','medium','low'].includes(b.priority)) { sets.push('priority = ?'); vals.push(b.priority); }
+        if (b.status !== undefined) {
+          if (!TICKET_STATUSES.includes(b.status)) return send(res, 400, { error: 'INVALID_STATUS' });
+          if (b.status !== t.status) {
+            if (!(TICKET_TRANSITIONS[t.status]||[]).includes(b.status))
+              return send(res, 400, { error: 'INVALID_TRANSITION' });
+            sets.push('status = ?'); vals.push(b.status);
+            const ts = now();
+            if (b.status === 'completed')  { sets.push('completed_at = ?'); vals.push(ts); }
+            if (b.status === 'accepted')   { sets.push('accepted_at = ?');  vals.push(ts); }
+            if (b.status === 'in_progress'){ sets.push('started_at = ?');   vals.push(ts); }
+            if (b.status === 'cancelled')  { sets.push('cancelled_at = ?'); vals.push(ts); }
+          }
+        }
+        if (b.assignedTo) {
+          const w = db.prepare('SELECT * FROM users WHERE id = ? AND active=1 AND deleted_at IS NULL').get(b.assignedTo);
+          if (!w || w.role !== 'maintenance_worker') return send(res, 400, { error: 'WORKER_NOT_FOUND' });
+          sets.push('assigned_to = ?'); sets.push('assigned_to_name = ?'); vals.push(w.id, w.name);
+        }
+        sets.push('updated_at = ?'); vals.push(now()); vals.push(id);
+        if (sets.length > 1) db.prepare(`UPDATE tickets SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
+        const ticket = ticketRow(db.prepare(`
+          SELECT t.*, GROUP_CONCAT(p.filename) AS photo_files
+          FROM tickets t LEFT JOIN photos p ON p.ticket_id=t.id AND p.deleted_at IS NULL
+          WHERE t.id=? GROUP BY t.id
+        `).get(id));
+        return send(res, 200, { ticket });
+      }
+
+      /* ── MAINTENANCE TICKETS: DELETE ──────────────────────── */
+      if (req.method === 'DELETE' && url.pathname.startsWith('/api/maintenance-tickets/')) {
+        if (!canMaintenanceDelete(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const id = sanitize(url.pathname.split('/').pop(), 50);
+        const t  = db.prepare("SELECT 1 FROM tickets WHERE id = ? AND module = 'maintenance' AND deleted_at IS NULL").get(id);
+        if (!t) return send(res, 404, { error: 'TICKET_NOT_FOUND' });
+        db.prepare('UPDATE tickets SET deleted_at=?, updated_at=? WHERE id=?').run(now(), now(), id);
+        logEvent(db, 'ticket.deleted', 'ticket', id, me, { id }, 'maintenance');
+        return send(res, 200, { ok: true });
+      }
+
+      /* ── MAINTENANCE REPORTS: CREATE ──────────────────────── */
+      if (req.method === 'POST' && url.pathname === '/api/maintenance-reports') {
+        if (me.role !== 'maintenance_worker') return send(res, 403, { error: 'FORBIDDEN' });
+        const b   = await bodyJSON(req);
+        const loc = db.prepare('SELECT * FROM locations WHERE id = ? AND active = 1 AND deleted_at IS NULL').get(b.locationId);
+        if (!loc) return send(res, 404, { error: 'LOCATION_NOT_FOUND' });
+        const assigned = db.prepare(
+          "SELECT 1 FROM assignments WHERE worker_id=? AND location_id=? AND module='maintenance'"
+        ).get(me.id, loc.id);
+        const hasAssignments = db.prepare(
+          "SELECT 1 FROM assignments WHERE worker_id=? AND module='maintenance'"
+        ).get(me.id);
+        if (hasAssignments && !assigned) return send(res, 403, { error: 'NOT_ASSIGNED' });
+        const tasks  = Array.isArray(b.tasks) ? b.tasks.map(t => sanitize(t,200)).slice(0,50) : [];
+        const id     = newId('mr');
+        const ts     = now();
+        db.prepare(`
+          INSERT INTO reports (id,worker_id,worker_name,location_id,location_name_ar,location_name_en,
+            location_type,status,tasks,notes,approval_status,module,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,'pending','maintenance',?,?)
+        `).run(id, me.id, me.name, loc.id, loc.name_ar, loc.name_en,
+               loc.type, 'completed', JSON.stringify(tasks), sanitize(b.notes,1000), ts, ts);
+        if (Array.isArray(b.beforePhotos) && b.beforePhotos.length)
+          processPhotosTyped(b.beforePhotos, me.id, id, null, 'before');
+        if (Array.isArray(b.afterPhotos) && b.afterPhotos.length)
+          processPhotosTyped(b.afterPhotos, me.id, id, null, 'after');
+        if (!b.beforePhotos && !b.afterPhotos)
+          processPhotos(b.photos, me.id, id, null);
+        const report = reportRow(db.prepare(`
+          SELECT r.*, GROUP_CONCAT(p.filename) AS photo_files, GROUP_CONCAT(p.photo_type) AS photo_types
+          FROM reports r LEFT JOIN photos p ON p.report_id=r.id AND p.deleted_at IS NULL
+          WHERE r.id=? GROUP BY r.id
+        `).get(id));
+        broadcast('report_created', { report });
+        logEvent(db, 'report.created', 'report', id, me, { locationId: loc.id, photoCount: report.photos.length }, 'maintenance');
+        return send(res, 200, { report });
+      }
+
+      /* ── MAINTENANCE REPORTS: REVIEW ──────────────────────── */
+      if (req.method === 'POST' && url.pathname === '/api/maintenance-reports/review') {
+        if (!canMaintenanceReview(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const b = await bodyJSON(req);
+        const r = db.prepare("SELECT * FROM reports WHERE id = ? AND module = 'maintenance' AND deleted_at IS NULL").get(b.id);
+        if (!r) return send(res, 404, { error: 'REPORT_NOT_FOUND' });
+        const validStatuses = ['approved','rejected','needs_recleaning'];
+        if (!validStatuses.includes(b.status)) return send(res, 400, { error: 'INVALID_STATUS' });
+        if (r.approval_status !== 'pending') return send(res, 400, { error: 'ALREADY_REVIEWED' });
+        const reviewTs = now();
+        db.prepare(`
+          UPDATE reports SET approval_status=?, approved_by=?, approved_at=?, review_note=?, updated_at=? WHERE id=?
+        `).run(b.status, me.name, reviewTs, sanitize(b.note,500), reviewTs, b.id);
+        db.prepare(`
+          INSERT INTO approval_history (entity_type,entity_id,level,approver_id,approver_role,action,notes,created_at)
+          VALUES ('report',?,1,?,?,?,?,?)
+        `).run(b.id, me.id, me.role, b.status, sanitize(b.note||'',500), reviewTs);
+        const report = reportRow(db.prepare(`
+          SELECT r.*, GROUP_CONCAT(p.filename) AS photo_files, GROUP_CONCAT(p.photo_type) AS photo_types
+          FROM reports r LEFT JOIN photos p ON p.report_id=r.id AND p.deleted_at IS NULL
+          WHERE r.id=? GROUP BY r.id
+        `).get(b.id));
+        broadcast('report_reviewed', { report, reviewedBy: me.name });
+        const evtMap = { approved:'report.approved', rejected:'report.rejected', needs_recleaning:'report.reclean_required' };
+        logEvent(db, evtMap[b.status]||'report.reviewed', 'report', b.id, me, { status: b.status }, 'maintenance');
+        return send(res, 200, { report });
+      }
+
+      /* ── MAINTENANCE REPORTS: RATE ────────────────────────── */
+      if (req.method === 'POST' && url.pathname === '/api/maintenance-reports/rate') {
+        if (!(me.role in MAINT_RATING_RULES)) return send(res, 403, { error: 'FORBIDDEN' });
+        const b         = await bodyJSON(req);
+        const allowed   = MAINT_RATING_RULES[me.role];
+        const requested = b.ratingType === 'manager' ? 'manager' : 'supervisor';
+        if (allowed !== null && allowed !== requested) return send(res, 403, { error: 'RATING_TYPE_NOT_ALLOWED' });
+        const value = parseInt(b.value, 10);
+        if (!value || value < 1 || value > 5) return send(res, 400, { error: 'INVALID_RATING' });
+        const r = db.prepare("SELECT * FROM reports WHERE id = ? AND module = 'maintenance' AND deleted_at IS NULL").get(b.id);
+        if (!r) return send(res, 404, { error: 'REPORT_NOT_FOUND' });
+        const col = requested === 'manager' ? 'rating_manager' : 'rating_supervisor';
+        db.prepare(`UPDATE reports SET ${col}=?, updated_at=? WHERE id=?`).run(value, now(), b.id);
+        const report = reportRow(db.prepare(`
+          SELECT r.*, GROUP_CONCAT(p.filename) AS photo_files, GROUP_CONCAT(p.photo_type) AS photo_types
+          FROM reports r LEFT JOIN photos p ON p.report_id=r.id AND p.deleted_at IS NULL
+          WHERE r.id=? GROUP BY r.id
+        `).get(b.id));
+        return send(res, 200, { report });
+      }
+
+      /* ── MAINTENANCE REPORTS: DELETE ──────────────────────── */
+      if (req.method === 'DELETE' && url.pathname.startsWith('/api/maintenance-reports/')) {
+        if (!canMaintenanceDelete(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const id = sanitize(url.pathname.split('/').pop(), 50);
+        const r  = db.prepare("SELECT 1 FROM reports WHERE id = ? AND module = 'maintenance' AND deleted_at IS NULL").get(id);
+        if (!r) return send(res, 404, { error: 'REPORT_NOT_FOUND' });
+        db.prepare('UPDATE reports SET deleted_at=?, updated_at=? WHERE id=?').run(now(), now(), id);
+        logEvent(db, 'report.deleted', 'report', id, me, { id }, 'maintenance');
+        return send(res, 200, { ok: true });
+      }
+
+      /* ── MAINTENANCE ORDER (employee request) ─────────────── */
+      if (req.method === 'POST' && url.pathname === '/api/maintenance-order') {
+        if (!['employee','system_admin','facility_manager'].includes(me.role))
+          return send(res, 403, { error: 'FORBIDDEN' });
+        const b   = await bodyJSON(req);
+        const loc = db.prepare('SELECT * FROM locations WHERE id = ? AND deleted_at IS NULL').get(b.locationId);
+        if (!loc) return send(res, 400, { error: 'MISSING_LOCATION' });
+        const id          = newId('mt');
+        const ts          = now();
+        const category    = ['electrical','plumbing','hvac','civil','general'].includes(b.category) ? b.category : 'general';
+        const slaDeadline = computeMaintSlaDeadline(category);
+        const refNo       = generateRefNo(db, 'MNT');
+        db.prepare(`
+          INSERT INTO tickets (id,title,description,location_id,location_name_ar,location_name_en,
+            created_by,created_by_id,status,priority,category,reference_no,notes,sla_deadline,module,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `).run(id, sanitize(b.title,200)||'طلب صيانة', sanitize(b.description,1000)||'',
+               loc.id, loc.name_ar, loc.name_en,
+               me.name, me.id, 'submitted', 'medium', category, refNo, '', slaDeadline, 'maintenance', ts, ts);
+        const ticket = ticketRow(db.prepare('SELECT t.*, NULL AS photo_files FROM tickets t WHERE t.id=?').get(id));
+        broadcast('ticket_created', { ticket });
+        logEvent(db, 'ticket.submitted', 'ticket', id, me, { category, locationId: loc.id, requester: me.id }, 'maintenance');
+        return send(res, 200, { ticket });
+      }
+
       /* ── WORKSPACE SWITCH ───────────────────────────────────── */
       if (req.method === 'POST' && url.pathname === '/api/workspace') {
         const b = await bodyJSON(req);
@@ -1675,7 +1998,7 @@ const server = http.createServer(async (req, res) => {
         if (!role || !ALLOWED_ROLES.includes(role)) return send(res, 400, { error: 'INVALID_ROLE' });
         if (!allowedRoleEditor(me.role, role)) return send(res, 403, { error: 'ROLE_NOT_ALLOWED' });
         db.prepare('INSERT OR IGNORE INTO user_roles (user_id,role,module,created_at) VALUES (?,?,?,?)')
-          .run(userId, role, 'cleaning', now());
+          .run(userId, role, moduleForRole(role), now());
         return send(res, 200, { ok: true });
       }
 
