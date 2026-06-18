@@ -5468,7 +5468,7 @@ function maintenancePartsPage(){
 }
 function maintenanceReportsPage(){const parts=maintenanceData().orderParts||[];const partsCost=parts.reduce((s,p)=>s+p.totalCost,0);const labor=(data.tickets||[]).reduce((s,t)=>s+(Number(t.laborCost)||0),0);return `<div class="kpiGrid">${kpiCard(partsCost.toFixed(2),lang==='ar'?'تكلفة القطع':'Parts Cost','tool','gold')}${kpiCard(labor.toFixed(2),lang==='ar'?'تكلفة العمل':'Labor Cost','users','brand')}${kpiCard((data.reports||[]).length,lang==='ar'?'تقارير الفنيين':'Technician Reports','reports','ok')}${kpiCard((data.tickets||[]).filter(t=>t.status==='completed').length,lang==='ar'?'أوامر مكتملة':'Completed Orders','check','ok')}</div>${reports()}`}
 
-function maintenanceWorkerOrders(items,history=false){return `<div class="pageHeader"><div><div class="pageTitle">${history?tr('maintHistory'):tr('maintMyTasks')}</div><div class="pageSub">${items.length} ${tr('maintOrders')}</div></div>${!history?`<button class="btn sm" onclick="maintOpenReportCreate('renderMaintenanceWorker')">${ic('plus',14)} ${tr('maintReportCreate')}</button>`:''}</div>${items.length?items.map(t=>maintenanceWorkerOrderCard(t,history)).join(''):`<div class="wCard"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}`}
+function maintenanceWorkerOrders(items,history=false){return `<div class="pageHeader"><div><div class="pageTitle">${history?tr('maintHistory'):tr('maintMyTasks')}</div><div class="pageSub">${items.length} ${tr('maintOrders')}</div></div></div>${items.length?items.map(t=>maintenanceWorkerOrderCard(t,history)).join(''):`<div class="wCard"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}`}
 function maintenanceWorkerOrderCard(t,history){const team=maintenanceAssignees(t.id);return `<div class="wCard"><div class="ticketCard-top"><div><div class="ticketCard-title">${esc(t.title)}</div><div class="ticketCard-ref">${esc(t.referenceNo)}</div></div>${maintStatusBadge(t.status)}</div><div class="ticketCard-meta"><span>${esc(t.locationNameAr)}</span><span>${maintTypeLabel(t.maintenanceType)}</span></div>${team.length>1?`<div class="ticketCard-requester">${ic('users',12)} ${team.map(a=>`${a.isLead?'★ ':''}${esc(a.technicianName)}`).join(' · ')}</div>`:''}${!history?maintenanceWorkerActions(t):''}</div>`}
 function maintenanceWorkerActions(t){
   const action=(status,label,cls='secondary')=>`<button class="btn ${cls} sm" onclick="maintWorkerStatus('${t.id}','${status}')">${label}</button>`;
@@ -5553,7 +5553,37 @@ function showMaintenanceCloseForm(id){
     </div>`;
   showModal('maintenanceCloseModal',lang==='ar'?'طلب إغلاق أمر العمل':'Request Work Order Closure',body,`<button class="btn ok" onclick="submitMaintenanceClose('${id}')">${tr('submit')}</button><button class="btn secondary" onclick="document.getElementById('maintenanceCloseModal').remove();currentBeforePhotos=[];currentAfterPhotos=[]">${tr('cancel')}</button>`,{wide:true});
 }
-async function submitMaintenanceClose(id){try{await api('/maintenance-tickets/complete',{method:'POST',body:JSON.stringify({id,diagnosis:document.getElementById('mclose-diagnosis').value,rootCause:document.getElementById('mclose-root').value,downtimeMins:Number(document.getElementById('mclose-down').value),laborCost:Number(document.getElementById('mclose-cost').value),vendorName:document.getElementById('mclose-vendor').value,notes:document.getElementById('mclose-notes').value,beforePhotos:currentBeforePhotos,afterPhotos:currentAfterPhotos})});document.getElementById('maintenanceCloseModal')?.remove();currentBeforePhotos=[];currentAfterPhotos=[];toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}}
+async function submitMaintenanceClose(id){
+  try{
+    const diagnosis=document.getElementById('mclose-diagnosis').value;
+    const notes=document.getElementById('mclose-notes').value;
+    const beforeSnap=[...currentBeforePhotos];
+    const afterSnap=[...currentAfterPhotos];
+    const j=await api('/maintenance-tickets/complete',{method:'POST',body:JSON.stringify({
+      id,diagnosis,rootCause:document.getElementById('mclose-root').value,
+      downtimeMins:Number(document.getElementById('mclose-down').value),
+      laborCost:Number(document.getElementById('mclose-cost').value),
+      vendorName:document.getElementById('mclose-vendor').value,
+      notes,beforePhotos:beforeSnap,afterPhotos:afterSnap
+    })});
+    // Auto-create maintenance report on close — mirrors cleaning worker submit flow
+    const locationId=j.ticket?.locationId;
+    if(locationId){
+      try{
+        const rj=await api('/maintenance-reports',{method:'POST',body:JSON.stringify({
+          locationId,tasks:[],
+          notes:[diagnosis,notes].filter(Boolean).join('\n'),
+          beforePhotos:beforeSnap,afterPhotos:afterSnap
+        })});
+        if(rj.report)(data.reports=data.reports||[]).unshift(rj.report);
+      }catch(e){/* report creation is non-fatal */}
+    }
+    document.getElementById('maintenanceCloseModal')?.remove();
+    currentBeforePhotos=[];currentAfterPhotos=[];
+    toast(tr('saved'),'ok');
+    await load();
+  }catch(e){toast(e.message,'bad')}
+}
 
 /* ── maintenance actions ──────────────────────────────────────── */
 async function maintUpdateTicket(id, update, renderFn){
