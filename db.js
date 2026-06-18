@@ -485,6 +485,104 @@ const MIGRATIONS = {
     CREATE INDEX IF NOT EXISTS idx_reports_module ON reports(module);
   `,
 
+  /* ── v20: maintenance operations — assets, teams, schedules, parts ── */
+  20: `
+    ALTER TABLE tickets ADD COLUMN maintenance_type TEXT NOT NULL DEFAULT 'corrective';
+    ALTER TABLE tickets ADD COLUMN asset_id TEXT NOT NULL DEFAULT '';
+    ALTER TABLE tickets ADD COLUMN diagnosis TEXT NOT NULL DEFAULT '';
+    ALTER TABLE tickets ADD COLUMN root_cause TEXT NOT NULL DEFAULT '';
+    ALTER TABLE tickets ADD COLUMN downtime_mins INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE tickets ADD COLUMN labor_cost REAL NOT NULL DEFAULT 0;
+    ALTER TABLE tickets ADD COLUMN vendor_name TEXT NOT NULL DEFAULT '';
+    ALTER TABLE tickets ADD COLUMN permit_notes TEXT NOT NULL DEFAULT '';
+
+    CREATE TABLE maintenance_assets (
+      id TEXT PRIMARY KEY,
+      code TEXT NOT NULL UNIQUE,
+      name_ar TEXT NOT NULL DEFAULT '',
+      name_en TEXT NOT NULL DEFAULT '',
+      category TEXT NOT NULL DEFAULT 'general',
+      location_id TEXT NOT NULL DEFAULT '',
+      serial_no TEXT NOT NULL DEFAULT '',
+      manufacturer TEXT NOT NULL DEFAULT '',
+      model TEXT NOT NULL DEFAULT '',
+      warranty_until TEXT,
+      criticality TEXT NOT NULL DEFAULT 'medium',
+      status TEXT NOT NULL DEFAULT 'operational',
+      installed_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT
+    );
+    CREATE INDEX idx_maint_assets_location ON maintenance_assets(location_id);
+    CREATE INDEX idx_maint_assets_status ON maintenance_assets(status);
+
+    CREATE TABLE maintenance_work_order_assignees (
+      work_order_id TEXT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+      technician_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      technician_name TEXT NOT NULL DEFAULT '',
+      is_lead INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'assigned',
+      assigned_at TEXT NOT NULL,
+      accepted_at TEXT,
+      completed_at TEXT,
+      PRIMARY KEY (work_order_id, technician_id)
+    );
+    CREATE INDEX idx_maint_assignees_tech ON maintenance_work_order_assignees(technician_id);
+
+    CREATE TABLE maintenance_schedules (
+      id TEXT PRIMARY KEY,
+      title_ar TEXT NOT NULL DEFAULT '',
+      title_en TEXT NOT NULL DEFAULT '',
+      asset_ids TEXT NOT NULL DEFAULT '[]',
+      location_id TEXT NOT NULL DEFAULT '',
+      category TEXT NOT NULL DEFAULT 'general',
+      checklist TEXT NOT NULL DEFAULT '[]',
+      frequency_unit TEXT NOT NULL DEFAULT 'monthly',
+      frequency_value INTEGER NOT NULL DEFAULT 1,
+      next_run_at TEXT NOT NULL,
+      estimated_mins INTEGER NOT NULL DEFAULT 60,
+      default_technician_ids TEXT NOT NULL DEFAULT '[]',
+      lead_technician_id TEXT NOT NULL DEFAULT '',
+      active INTEGER NOT NULL DEFAULT 1,
+      created_by TEXT NOT NULL DEFAULT '',
+      last_run_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT
+    );
+    CREATE INDEX idx_maint_schedules_next ON maintenance_schedules(next_run_at);
+    CREATE INDEX idx_maint_schedules_active ON maintenance_schedules(active);
+
+    CREATE TABLE maintenance_parts (
+      id TEXT PRIMARY KEY,
+      sku TEXT NOT NULL UNIQUE,
+      name_ar TEXT NOT NULL DEFAULT '',
+      name_en TEXT NOT NULL DEFAULT '',
+      unit TEXT NOT NULL DEFAULT 'piece',
+      quantity REAL NOT NULL DEFAULT 0,
+      reorder_level REAL NOT NULL DEFAULT 0,
+      unit_cost REAL NOT NULL DEFAULT 0,
+      location TEXT NOT NULL DEFAULT '',
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT
+    );
+
+    CREATE TABLE maintenance_work_order_parts (
+      id TEXT PRIMARY KEY,
+      work_order_id TEXT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+      part_id TEXT NOT NULL REFERENCES maintenance_parts(id),
+      part_name TEXT NOT NULL DEFAULT '',
+      quantity REAL NOT NULL DEFAULT 1,
+      unit_cost REAL NOT NULL DEFAULT 0,
+      created_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX idx_maint_parts_order ON maintenance_work_order_parts(work_order_id);
+  `,
+
   /* ── v15: hospitality — menu categories ───────────────────── */
   15: `
     CREATE TABLE IF NOT EXISTS hospitality_menu_categories (

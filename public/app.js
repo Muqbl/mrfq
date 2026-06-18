@@ -141,6 +141,11 @@ const T = {
     maintTeam:'فريق الصيانة',maintSettings:'إعدادات SLA الصيانة',
     maintWorker:'فني',maintSupervisor:'مشرف الصيانة',maintManager:'مدير الصيانة',
     redo_required:'إعادة العمل',
+    maintOrders:'أوامر العمل',maintSchedules:'الصيانة الدورية',maintAssets:'الأصول والمعدات',
+    maintParts:'قطع الغيار',maintMyTasks:'مهامي',maintTeamTasks:'مهام الفريق',maintUpcoming:'القادمة',maintHistory:'السجل',
+    corrective:'تصحيحية',preventive:'وقائية دورية',emergency_maintenance:'طارئة',
+    diagnosing:'قيد التشخيص',awaiting_parts:'بانتظار قطع غيار',awaiting_vendor:'بانتظار مورد',
+    awaiting_permit:'بانتظار تصريح',on_hold:'متوقف مؤقتاً',leadTechnician:'قائد الفريق',
     moduleStatusActive:'نشط',moduleStatusPlanned:'مخطط',
     systemAdminConsole:'لوحة النظام',
     cleaningTeam:'فريق النظافة',facilityConsole:'لوحة مدير المرافق',
@@ -337,6 +342,11 @@ const T = {
     maintTeam:'Maintenance Team',maintSettings:'Maintenance SLA',
     maintWorker:'Technician',maintSupervisor:'Maintenance Supervisor',maintManager:'Maintenance Manager',
     redo_required:'Redo Required',
+    maintOrders:'Work Orders',maintSchedules:'Preventive Maintenance',maintAssets:'Assets & Equipment',
+    maintParts:'Spare Parts',maintMyTasks:'My Tasks',maintTeamTasks:'Team Tasks',maintUpcoming:'Upcoming',maintHistory:'History',
+    corrective:'Corrective',preventive:'Preventive',emergency_maintenance:'Emergency',
+    diagnosing:'Diagnosing',awaiting_parts:'Awaiting Parts',awaiting_vendor:'Awaiting Vendor',
+    awaiting_permit:'Awaiting Permit',on_hold:'On Hold',leadTechnician:'Team Lead',
     moduleStatusActive:'Active',moduleStatusPlanned:'Planned',
     systemAdminConsole:'System Console',
     cleaningTeam:'Cleaning Team',facilityConsole:'Facility Manager Console',
@@ -822,7 +832,8 @@ function goBack(){
 function appHasBackTarget(){
   if(!me) return false;
   if(['cleaning_supervisor','maintenance_supervisor'].includes(me.role)) return supervisorView!=='dashboard';
-  if(['cleaner','maintenance_worker'].includes(me.role)){
+  if(me.role==='maintenance_worker') return maintWorkerView!=='tasks';
+  if(me.role==='cleaner'){
     const form=document.getElementById('workerForm');
     return !!(form&&form.innerHTML.trim()) || workerView!=='task';
   }
@@ -838,7 +849,14 @@ function appBack(){
       isMaintenanceRole()?renderMaintenanceSupervisor():renderSupervisor();
       return;
     }
-  }else if(['cleaner','maintenance_worker'].includes(me.role)){
+  }else if(me.role==='maintenance_worker'){
+    if(maintWorkerView!=='tasks'){
+      maintWorkerView='tasks';
+      mobileNavActive='maint-worker-tasks';
+      renderMaintenanceWorker();
+      return;
+    }
+  }else if(me.role==='cleaner'){
     const form=document.getElementById('workerForm');
     if(form&&form.innerHTML.trim()){
       workerGoBack();
@@ -1096,7 +1114,18 @@ function renderFieldTabs(){
       ${mk(supervisorView==='reports','reports',tr('reports'),`supervisorView='reports';mobileNavActive='supervisor-reports';${renderFn}()`,pendingReports)}
     </div>`;
   }
-  if(['cleaner','maintenance_worker'].includes(me.role)){
+  if(me.role==='maintenance_worker'){
+    const active=(data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
+    const team=(data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)&&maintenanceAssignees(t.id).length>1).length;
+    const upcoming=(maintenanceData().schedules||[]).filter(s=>(s.defaultTechnicianIds||[]).includes(me.id)&&s.active).length;
+    return `<div class="fieldTabs" role="tablist">
+      ${mk(maintWorkerView==='tasks','tickets',tr('maintMyTasks'),"maintWorkerView='tasks';renderMaintenanceWorker()",active)}
+      ${mk(maintWorkerView==='team','users',tr('maintTeamTasks'),"maintWorkerView='team';renderMaintenanceWorker()",team)}
+      ${mk(maintWorkerView==='upcoming','clock',tr('maintUpcoming'),"maintWorkerView='upcoming';renderMaintenanceWorker()",upcoming)}
+      ${mk(maintWorkerView==='history','reports',tr('maintHistory'),"maintWorkerView='history';renderMaintenanceWorker()")}
+    </div>`;
+  }
+  if(me.role==='cleaner'){
     const assignedCount = ((data?.assignments||[]).find(a=>a.workerId===me?.id)?.locationIds||[]).length;
     const reportCount = (data?.reports||[]).filter(r=>r.workerId===me.id).length;
     return `<div class="fieldTabs" role="tablist">
@@ -1465,7 +1494,18 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
       {v:'employee-history', label:tr('myRequests'), icon:'clipboardList', count:activeCount, action:"employeeView='history';mobileNavActive='employee-history';renderEmployee()", active:employeeView==='history'},
       {v:'employee-more', label:lang==='ar'?'المزيد':'More', icon:'menu', count:0, action:"employeeView='more';mobileNavActive='employee-more';renderEmployee()", active:employeeView==='more'}
     ];
-  }else if(['cleaner','maintenance_worker'].includes(role)){
+  }else if(role==='maintenance_worker'){
+    showMore=false;
+    const active=(data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
+    const team=(data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)&&maintenanceAssignees(t.id).length>1).length;
+    const upcoming=(maintenanceData().schedules||[]).filter(s=>(s.defaultTechnicianIds||[]).includes(me.id)&&s.active).length;
+    primary=[
+      {v:'maint-worker-tasks',label:tr('maintMyTasks'),icon:'tickets',count:active,action:"maintWorkerView='tasks';renderMaintenanceWorker()",active:maintWorkerView==='tasks'},
+      {v:'maint-worker-team',label:tr('maintTeamTasks'),icon:'users',count:team,action:"maintWorkerView='team';renderMaintenanceWorker()",active:maintWorkerView==='team'},
+      {v:'maint-worker-upcoming',label:tr('maintUpcoming'),icon:'clock',count:upcoming,action:"maintWorkerView='upcoming';renderMaintenanceWorker()",active:maintWorkerView==='upcoming'},
+      {v:'maint-worker-history',label:tr('maintHistory'),icon:'reports',count:0,action:"maintWorkerView='history';renderMaintenanceWorker()",active:maintWorkerView==='history'}
+    ];
+  }else if(role==='cleaner'){
     const assignedCount = ((data?.assignments||[]).find(a=>a.workerId===me?.id)?.locationIds||[]).length;
     showMore = false;
     primary = [
@@ -4838,20 +4878,21 @@ function maintCatLabel(cat){ return tr(cat) || cat; }
 const MAINT_CAT_ICONS = { electrical:'alert', plumbing:'locations', hvac:'sync', civil:'building', general:'list' };
 
 let maintView = 'dashboard';
+let maintWorkerView = 'tasks';
 let maintTicketModal = false;
 let maintReportModal = false;
 
 /* ── shared maintenance shell ────────────────────────────────── */
 function maintShell(me, content, opts={}){
   const isWorker  = me.role==='maintenance_worker';
-  const isSup     = me.role==='maintenance_supervisor';
-  if(isWorker || isSup){
-    app.innerHTML = fieldShell(me, content, {sync:true, noSticky:isSup});
+  if(isWorker){
+    app.innerHTML = fieldShell(me, content, {sync:true});
     return;
   }
   const openTickets=(data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
   const pendingReports=(data.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
-  const item=(v,label,icon,count=0)=>`<button class="navBtn${view===v?' active':''}" onclick="navigateTo('${v}')">
+  const renderFn=opts.renderFn||'renderMaintenanceManager';
+  const item=(v,label,icon,count=0)=>`<button class="navBtn${maintView===v?' active':''}" onclick="maintView='${v}';mobileNavActive='maint-${v}';${renderFn}()">
     <span class="navBtn-icon">${ic(icon,18)}</span><span class="navBtn-label">${label}</span>
     ${count?`<span class="countBubble navBtn-badge">${num(count)}</span>`:''}</button>`;
   app.innerHTML=`<div class="platform-shell platform-shell--admin">
@@ -4860,16 +4901,21 @@ function maintShell(me, content, opts={}){
       <aside class="platform-sidebar"><div class="sidebarInner">
         <div class="nav-section"><span class="nav-section-label">${tr('operations')}</span>
           ${item('dashboard',tr('dashboard'),'dashboard')}
+          ${item('orders',tr('maintOrders'),'tickets',openTickets)}
+          ${item('schedules',tr('maintSchedules'),'clock')}
           ${item('reports',tr('reports'),'reports',pendingReports)}
-          ${item('tickets',tr('tickets'),'tickets',openTickets)}
         </div>
         <div class="nav-section"><span class="nav-section-label">${tr('management')}</span>
-          ${item('users',tr('maintTeam'),'users')}
+          ${item('assets',tr('maintAssets'),'building')}
+          ${item('team',tr('maintTeam'),'users')}
+          ${item('parts',tr('maintParts'),'tool')}
         </div>
       </div></aside>
       <main class="platform-main"><div class="pageAnim">${content}</div></main>
     </div>
-    ${renderMobileBottomNav(openTickets,pendingReports)}
+    <nav class="mobileBottomNav" style="--mobile-nav-count:5" aria-label="${lang==='ar'?'تنقل الصيانة':'Maintenance navigation'}">
+      ${[['dashboard',tr('dashboard'),'dashboard'],['orders',tr('maintOrders'),'tickets'],['schedules',tr('maintSchedules'),'clock'],['assets',tr('maintAssets'),'building'],['team',tr('maintTeam'),'users']].map(([v,l,i])=>`<button class="mobileBottomNav-item${maintView===v?' active':''}" onclick="maintView='${v}';${renderFn}()"><span class="mobileBottomNav-icon">${ic(i,18)}</span><span class="mobileBottomNav-label">${l}</span></button>`).join('')}
+    </nav>
   </div>`;
 }
 
@@ -5001,19 +5047,29 @@ function maintDashboard(tickets, reports, opts={}){
 
 /* ── renderMaintenanceWorker ──────────────────────────────────── */
 function renderMaintenanceWorker(){
-  return renderWorker();
+  setDoc();
+  const md=maintenanceData();
+  const active=(data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status));
+  const team=active.filter(t=>maintenanceAssignees(t.id).length>1);
+  const history=(data.tickets||[]).filter(t=>['completed','rejected','cancelled'].includes(t.status));
+  const upcoming=(md.schedules||[]).filter(s=>s.active&&(s.defaultTechnicianIds||[]).includes(me.id));
+  const content=maintWorkerView==='team'?maintenanceWorkerOrders(team)
+    :maintWorkerView==='upcoming'?maintenanceWorkerSchedules(upcoming)
+    :maintWorkerView==='history'?maintenanceWorkerOrders(history,true)
+    :maintenanceWorkerOrders(active);
+  maintShell(me,content,{renderFn:'renderMaintenanceWorker'});
 }
 
 /* ── renderMaintenanceSupervisor ──────────────────────────────── */
 function renderMaintenanceSupervisor(){
-  return renderSupervisor();
+  setDoc();
+  maintShell(me,maintenancePageContent(),{renderFn:'renderMaintenanceSupervisor'});
 }
 
 /* ── renderMaintenanceManager ─────────────────────────────────── */
 function renderMaintenanceManager(){
   setDoc();
-  const fn={dashboard:dash,tickets,reports,users}[view]||dash;
-  maintShell(me,fn(),{renderFn:'renderMaintenanceManager'});
+  maintShell(me,maintenancePageContent(),{renderFn:'renderMaintenanceManager'});
 }
 
 function renderAdminMaintenance(){
@@ -5025,10 +5081,143 @@ function renderAdminMaintenance(){
     reports:(fullData.reports||[]).filter(r=>r.module==='maintenance'),
     users:(fullData.users||[]).filter(u=>(u.roles||[u.role]).some(r=>String(r).startsWith('maintenance_')))
   };
-  const fn={dashboard:dash,tickets,reports,users}[view]||dash;
-  maintShell(me,`${moduleContextBar('maintenanceModuleLabel')}${fn()}`,{renderFn:'renderAdminMaintenance'});
+  maintShell(me,`${moduleContextBar('maintenanceModuleLabel')}${maintenancePageContent()}`,{renderFn:'renderAdminMaintenance'});
   data = fullData;
 }
+
+function maintenanceData(){return data.maintenance||{assets:[],schedules:[],parts:[],assignees:[],orderParts:[]}}
+function maintenanceAssignees(orderId){return (maintenanceData().assignees||[]).filter(a=>a.workOrderId===orderId)}
+function maintenanceOrderParts(orderId){return (maintenanceData().orderParts||[]).filter(p=>p.workOrderId===orderId)}
+function maintTypeLabel(v){return tr(v==='emergency'?'emergency_maintenance':v||'corrective')}
+
+function maintenancePageContent(){
+  return maintView==='orders'?maintenanceOrdersPage()
+    :maintView==='schedules'?maintenanceSchedulesPage()
+    :maintView==='assets'?maintenanceAssetsPage()
+    :maintView==='team'?maintenanceTeamPage()
+    :maintView==='parts'?maintenancePartsPage()
+    :maintView==='reports'?maintenanceReportsPage()
+    :maintenanceOperationsDashboard();
+}
+
+function maintenanceOperationsDashboard(){
+  const md=maintenanceData(), tickets=data.tickets||[], active=tickets.filter(t=>!['completed','rejected','cancelled'].includes(t.status));
+  const breached=active.filter(t=>t.slaBreached), down=(md.assets||[]).filter(a=>a.status==='down'), low=(md.parts||[]).filter(p=>p.lowStock);
+  const done=tickets.filter(t=>t.status==='completed'&&t.completionTimeMins!=null);
+  const mttr=done.length?Math.round(done.reduce((s,t)=>s+t.completionTimeMins,0)/done.length):0;
+  const upcoming=(md.schedules||[]).filter(s=>s.active&&new Date(s.nextRunAt)-Date.now()<7*86400000).length;
+  const greeting=lang==='ar'?(new Date().getHours()<12?'صباح الخير':'مساء الخير'):(new Date().getHours()<12?'Good morning':'Good afternoon');
+  return `<div class="dashHero"><div class="dashHero-left"><span class="dashHero-greeting">${tr(me.role)} · ${tr('maintenanceModuleLabel')}</span>
+    <div class="dashHero-title">${greeting}، ${esc(me.name.split(' ')[0])}</div><p class="dashHero-sub">${active.length} ${tr('maintOrders')} · ${upcoming} ${tr('maintUpcoming')} · ${fmtDate(new Date())}</p>
+    <div class="dashHero-actions"><button class="dashHero-action" onclick="maintView='orders';render()">${ic('tickets',14)} ${tr('maintOrders')}</button><button class="dashHero-action" onclick="maintView='schedules';render()">${ic('clock',14)} ${tr('maintSchedules')}</button></div></div>
+    <div class="dashHero-right"><div class="dashHero-stat"><div class="dashHero-stat-val">${active.length}</div><div class="dashHero-stat-lbl">${tr('openTickets')}</div></div><div class="dashHero-stat"><div class="dashHero-stat-val">${upcoming}</div><div class="dashHero-stat-lbl">${tr('maintUpcoming')}</div></div><div class="dashHero-stat"><div class="dashHero-stat-val">${mttr||'—'}</div><div class="dashHero-stat-lbl">MTTR ${tr('mins')}</div></div></div></div>
+    <div class="kpiGrid">${kpiCard(active.length,tr('maintOrders'),'tickets','brand')}${kpiCard(breached.length,tr('slaBreached'),'bell',breached.length?'bad':'ok')}${kpiCard(down.length,lang==='ar'?'أصول متوقفة':'Assets Down','building',down.length?'bad':'ok')}${kpiCard(low.length,lang==='ar'?'مخزون منخفض':'Low Stock','tool',low.length?'warn':'ok')}</div>
+    <div class="contentGrid"><div class="card"><div class="card-head"><span class="card-title">${tr('maintUpcoming')}</span><button class="btn secondary sm" onclick="maintView='schedules';render()">${tr('maintSchedules')}</button></div>${maintenanceScheduleMini((md.schedules||[]).filter(s=>s.active).slice(0,5))}</div>
+    <div class="card"><div class="card-head"><span class="card-title">${lang==='ar'?'أوامر تحتاج متابعة':'Orders needing attention'}</span></div>${maintenanceOrderMini(active.slice(0,5))}</div></div>`;
+}
+
+function maintenanceOrderMini(items){return items.length?items.map(t=>`<div class="list-row"><div class="list-icon">${ic('tool',17)}</div><div class="list-body"><div class="list-title">${esc(t.title)}</div><div class="list-sub">${esc(t.referenceNo)} · ${esc(t.locationNameAr)}</div></div>${maintStatusBadge(t.status)}</div>`).join(''):`<div class="empty-state"><div class="empty-title">${tr('noData')}</div></div>`}
+function maintenanceScheduleMini(items){return items.length?items.map(s=>`<div class="list-row"><div class="list-icon">${ic('clock',17)}</div><div class="list-body"><div class="list-title">${esc(lang==='ar'?s.titleAr:s.titleEn||s.titleAr)}</div><div class="list-sub">${fmt(s.nextRunAt)} · ${scheduleFrequencyLabel(s)}</div></div><span class="badge ${new Date(s.nextRunAt)<new Date()?'bad':'brand'}">${s.active?tr('activeUser'):tr('inactive')}</span></div>`).join(''):`<div class="empty-state"><div class="empty-title">${tr('noData')}</div></div>`}
+
+function maintenanceOrdersPage(){
+  const tickets=data.tickets||[]; const canCreate=['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role);
+  return `<div class="pageHeader"><div class="pageHeader-left"><div class="pageTitle">${tr('maintOrders')}</div><div class="pageSub">${tickets.length} ${lang==='ar'?'أمر عمل':'work orders'}</div></div>${canCreate?`<button class="btn" onclick="showMaintenanceOrderForm()">${ic('plus',15)} ${tr('maintTicketCreate')}</button>`:''}</div>
+    <div class="ticketGrid">${tickets.length?tickets.map(maintenanceOrderCard).join(''):`<div class="card"><div class="empty-state"><div class="empty-title">${tr('noTickets')}</div></div></div>`}</div>`;
+}
+
+function maintenanceOrderCard(t){
+  const team=maintenanceAssignees(t.id), parts=maintenanceOrderParts(t.id), asset=(maintenanceData().assets||[]).find(a=>a.id===t.assetId);
+  return `<div class="ticketCard"><div class="ticketCard-top"><div class="ticketCard-main"><div class="ticketCard-title">${esc(t.title)}</div><div class="ticketCard-ref">${esc(t.referenceNo)}</div></div>${maintStatusBadge(t.status)}</div>
+    <div class="ticketCard-meta"><span>${ic('locations',12)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</span>${asset?`<span>${ic('building',12)} ${esc(lang==='ar'?asset.nameAr:asset.nameEn||asset.nameAr)}</span>`:''}</div>
+    <div class="ticketCard-badges"><span class="badge brand">${maintTypeLabel(t.maintenanceType)}</span><span class="badge">${maintCatLabel(t.category)}</span>${slaBadge(t)}${team.length?`<span class="badge ok">${ic('users',11)} ${team.length} ${lang==='ar'?'فني':'techs'}</span>`:`<span class="badge warn">${tr('unassigned')}</span>`}${parts.length?`<span class="badge gold">${ic('tool',11)} ${parts.length}</span>`:''}</div>
+    ${team.length?`<div class="ticketCard-requester">${team.map(a=>`${a.isLead?'★ ':''}${esc(a.technicianName)}`).join(' · ')}</div>`:''}
+    <div class="ticketCard-actions"><button class="btn secondary sm" onclick="openTicketDetail('${t.id}')">${lang==='ar'?'التفاصيل':'Details'}</button>
+      ${['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role)?`<button class="btn secondary sm" onclick="showMaintenanceTeamForm('${t.id}')">${ic('users',13)} ${lang==='ar'?'إسناد فريق':'Assign Team'}</button>`:''}
+      ${['system_admin','facility_manager','maintenance_manager','maintenance_supervisor','maintenance_worker'].includes(me.role)?`<button class="btn secondary sm" onclick="showMaintenanceUsePart('${t.id}')">${ic('tool',13)} ${lang==='ar'?'صرف قطعة':'Use Part'}</button>`:''}
+      ${t.status==='waiting_verification'&&['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role)?`<button class="btn ok sm" onclick="maintUpdateTicket('${t.id}',{status:'completed'},'${me.role==='maintenance_supervisor'?'renderMaintenanceSupervisor':'renderMaintenanceManager'}')">${tr('approve')}</button>`:''}
+    </div></div>`;
+}
+
+function maintenanceSchedulesPage(){
+  const items=maintenanceData().schedules||[]; const canEdit=['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role);
+  return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintSchedules')}</div><div class="pageSub">${items.length} ${lang==='ar'?'خطة':'plans'}</div></div>${canEdit?`<button class="btn" onclick="showMaintenanceScheduleForm()">${ic('plus',15)} ${lang==='ar'?'خطة دورية':'New Plan'}</button>`:''}</div>
+    <div class="contentGrid">${items.length?items.map(s=>`<div class="card"><div class="card-head"><span class="card-title">${ic('clock',16)} ${esc(lang==='ar'?s.titleAr:s.titleEn||s.titleAr)}</span><span class="badge ${s.active?'ok':'bad'}">${s.active?tr('activeUser'):tr('inactive')}</span></div>
+    <div class="perfStatGrid"><div class="perfStatRow"><span>${lang==='ar'?'التكرار':'Frequency'}</span><b>${scheduleFrequencyLabel(s)}</b></div><div class="perfStatRow"><span>${lang==='ar'?'التنفيذ القادم':'Next run'}</span><b>${fmt(s.nextRunAt)}</b></div><div class="perfStatRow"><span>${tr('maintAssets')}</span><b>${(s.assetIds||[]).length}</b></div><div class="perfStatRow"><span>${tr('maintTeam')}</span><b>${(s.defaultTechnicianIds||[]).length}</b></div></div>
+    ${canEdit?`<div class="ticketCard-actions"><button class="btn secondary sm" onclick="runMaintenanceSchedule('${s.id}')">${lang==='ar'?'إنشاء أمر الآن':'Run now'}</button></div>`:''}</div>`).join(''):`<div class="card"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}</div>`;
+}
+function scheduleFrequencyLabel(s){const unit={daily:lang==='ar'?'يوم':'day',weekly:lang==='ar'?'أسبوع':'week',monthly:lang==='ar'?'شهر':'month',quarterly:lang==='ar'?'ربع سنة':'quarter',yearly:lang==='ar'?'سنة':'year'}[s.frequencyUnit]||s.frequencyUnit;return `${lang==='ar'?'كل':'Every'} ${s.frequencyValue} ${unit}`}
+
+function maintenanceAssetsPage(){
+  const items=maintenanceData().assets||[]; const canEdit=['system_admin','facility_manager','maintenance_manager'].includes(me.role);
+  return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintAssets')}</div><div class="pageSub">${items.length} ${lang==='ar'?'أصل':'assets'}</div></div>${canEdit?`<button class="btn" onclick="showMaintenanceAssetForm()">${ic('plus',15)} ${lang==='ar'?'إضافة أصل':'Add Asset'}</button>`:''}</div>
+    <div class="productGrid">${items.length?items.map(a=>`<div class="productCard productCard--admin"><div class="productCard-img">${ic('building',28)}</div><div class="productCard-body"><div class="productCard-title">${esc(lang==='ar'?a.nameAr:a.nameEn||a.nameAr)}</div><div class="productCard-desc">${esc(a.code)} · ${esc(a.serialNo||'—')}</div><div class="productCard-badges"><span class="badge ${a.status==='operational'?'ok':a.status==='down'?'bad':'warn'}">${assetStatusLabel(a.status)}</span><span class="badge">${maintCatLabel(a.category)}</span><span class="badge ${a.criticality==='critical'?'bad':''}">${a.criticality}</span></div></div></div>`).join(''):`<div class="card"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}</div>`;
+}
+function assetStatusLabel(s){return ({operational:lang==='ar'?'يعمل':'Operational',down:lang==='ar'?'متوقف':'Down',maintenance:lang==='ar'?'تحت الصيانة':'Under Maintenance',retired:lang==='ar'?'مستبعد':'Retired'}[s]||s)}
+
+function maintenanceTeamPage(){
+  const workers=(data.users||[]).filter(u=>u.role==='maintenance_worker'), tickets=data.tickets||[];
+  return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintTeam')}</div><div class="pageSub">${workers.length} ${lang==='ar'?'فني':'technicians'}</div></div></div><div class="supTeamGrid">${workers.map(w=>{const assigned=(maintenanceData().assignees||[]).filter(a=>a.technicianId===w.id&&!['completed'].includes(a.status));const lead=assigned.filter(a=>a.isLead).length;return `<div class="supTeamCard"><div class="supTeamCard-info"><div class="supTeamCard-name">${esc(w.name)}</div><div class="supTeamCard-meta">${assigned.length} ${tr('openTasks')} · ${lead} ${tr('leadTechnician')}</div></div><span class="badge ${assigned.length?'warn':'ok'}">${assigned.length?assigned.length:(lang==='ar'?'متاح':'Free')}</span></div>`}).join('')}</div>`;
+}
+
+function maintenancePartsPage(){
+  const items=maintenanceData().parts||[];const canEdit=['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role);
+  return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintParts')}</div><div class="pageSub">${items.length} ${lang==='ar'?'صنف':'items'}</div></div>${canEdit?`<button class="btn" onclick="showMaintenancePartForm()">${ic('plus',15)} ${lang==='ar'?'إضافة قطعة':'Add Part'}</button>`:''}</div><div class="contentGrid">${items.map(p=>`<div class="card"><div class="card-head"><span class="card-title">${esc(lang==='ar'?p.nameAr:p.nameEn||p.nameAr)}</span><span class="badge ${p.lowStock?'bad':'ok'}">${p.quantity} ${esc(p.unit)}</span></div><div class="pageSub">${esc(p.sku)} · ${lang==='ar'?'حد الطلب':'Reorder'}: ${p.reorderLevel} · ${p.unitCost}</div></div>`).join('')||`<div class="card"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}</div>`;
+}
+function maintenanceReportsPage(){const parts=maintenanceData().orderParts||[];const partsCost=parts.reduce((s,p)=>s+p.totalCost,0);const labor=(data.tickets||[]).reduce((s,t)=>s+(Number(t.laborCost)||0),0);return `<div class="kpiGrid">${kpiCard(partsCost.toFixed(2),lang==='ar'?'تكلفة القطع':'Parts Cost','tool','gold')}${kpiCard(labor.toFixed(2),lang==='ar'?'تكلفة العمل':'Labor Cost','users','brand')}${kpiCard((data.reports||[]).length,tr('reports'),'reports','ok')}${kpiCard((data.tickets||[]).filter(t=>t.status==='completed').length,tr('completed'),'check','ok')}</div>${reports()}`}
+
+function maintenanceWorkerOrders(items,history=false){return `<div class="pageHeader"><div><div class="pageTitle">${history?tr('maintHistory'):tr('maintMyTasks')}</div><div class="pageSub">${items.length} ${tr('maintOrders')}</div></div></div>${items.length?items.map(t=>maintenanceWorkerOrderCard(t,history)).join(''):`<div class="wCard"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}`}
+function maintenanceWorkerOrderCard(t,history){const team=maintenanceAssignees(t.id);return `<div class="wCard"><div class="ticketCard-top"><div><div class="ticketCard-title">${esc(t.title)}</div><div class="ticketCard-ref">${esc(t.referenceNo)}</div></div>${maintStatusBadge(t.status)}</div><div class="ticketCard-meta"><span>${esc(t.locationNameAr)}</span><span>${maintTypeLabel(t.maintenanceType)}</span></div>${team.length>1?`<div class="ticketCard-requester">${ic('users',12)} ${team.map(a=>`${a.isLead?'★ ':''}${esc(a.technicianName)}`).join(' · ')}</div>`:''}${!history?maintenanceWorkerActions(t):''}</div>`}
+function maintenanceWorkerActions(t){const action=(status,label,cls='secondary')=>`<button class="btn ${cls} sm" onclick="maintWorkerStatus('${t.id}','${status}')">${label}</button>`;return `<div class="ticketCard-actions">${t.status==='assigned'?action('accepted',lang==='ar'?'قبول':'Accept','ok'):''}${['accepted','on_hold'].includes(t.status)?action('diagnosing',tr('diagnosing')):''}${t.status==='diagnosing'?action('in_progress',lang==='ar'?'بدء الإصلاح':'Start Repair','ok'):''}${['diagnosing','in_progress'].includes(t.status)?`${action('awaiting_parts',tr('awaiting_parts'),'warn')}${action('awaiting_vendor',tr('awaiting_vendor'),'warn')}${action('awaiting_permit',tr('awaiting_permit'),'warn')}`:''}<button class="btn secondary sm" onclick="showMaintenanceUsePart('${t.id}')">${ic('tool',12)} ${lang==='ar'?'صرف قطعة':'Use Part'}</button>${['in_progress','diagnosing'].includes(t.status)?`<button class="btn ok sm" onclick="showMaintenanceCloseForm('${t.id}')">${lang==='ar'?'طلب الإغلاق':'Request Close'}</button>`:''}</div>`}
+function maintenanceWorkerSchedules(items){return `<div class="pageHeader"><div class="pageTitle">${tr('maintUpcoming')}</div></div><div>${maintenanceScheduleMini(items)}</div>`}
+
+function maintenanceWorkerChecks(selected=[]){
+  const workers=(data.users||[]).filter(u=>u.role==='maintenance_worker');
+  return workers.map(w=>`<label class="taskItem"><input type="checkbox" class="maint-tech-check" value="${w.id}" ${selected.includes(w.id)?'checked':''}><span class="taskItem-label">${esc(w.name)}</span></label>`).join('');
+}
+function selectedMaintenanceTechnicians(){return [...document.querySelectorAll('.maint-tech-check:checked')].map(x=>x.value)}
+
+function showMaintenanceOrderForm(){
+  const md=maintenanceData(), workers=(data.users||[]).filter(u=>u.role==='maintenance_worker');
+  const body=`<div class="formGrid">${fc(tr('title'),inp('mwo-title',{value:lang==='ar'?'أمر صيانة جديد':'New maintenance order'}))}${fc(tr('location'),sel('mwo-location',(data.locations||[]).map(l=>({v:l.id,l:locName(l)}))))}${fc(lang==='ar'?'نوع الصيانة':'Maintenance Type',sel('mwo-type',[{v:'corrective',l:tr('corrective')},{v:'emergency',l:tr('emergency_maintenance')},{v:'preventive',l:tr('preventive')}]))}${fc(tr('reqCategory'),sel('mwo-category',MAINT_CATS.map(c=>({v:c,l:maintCatLabel(c)}))))}${fc(tr('maintAssets'),sel('mwo-asset',[{v:'',l:'—'},...(md.assets||[]).map(a=>({v:a.id,l:lang==='ar'?a.nameAr:a.nameEn||a.nameAr}))]))}${fc(tr('priority'),sel('mwo-priority',[{v:'high',l:tr('high')},{v:'medium',l:tr('medium'),sel:true},{v:'low',l:tr('low')}]))}</div>${fc(tr('description'),ta('mwo-desc','',{rows:3}))}<div class="field"><label>${tr('maintTeam')}</label><div class="taskChecklist">${maintenanceWorkerChecks()}</div></div>${fc(tr('leadTechnician'),sel('mwo-lead',[{v:'',l:'—'},...workers.map(w=>({v:w.id,l:w.name}))]))}`;
+  const foot=`<button class="btn" onclick="saveMaintenanceOrder()">${ic('check',15)} ${tr('save')}</button><button class="btn secondary" onclick="document.getElementById('maintenanceOrderModal').remove()">${tr('cancel')}</button>`;
+  showModal('maintenanceOrderModal',tr('maintTicketCreate'),body,foot,{wide:true});
+}
+async function saveMaintenanceOrder(){
+  const techs=selectedMaintenanceTechnicians();
+  try{await api('/maintenance-tickets',{method:'POST',body:JSON.stringify({title:document.getElementById('mwo-title').value,description:document.getElementById('mwo-desc').value,locationId:document.getElementById('mwo-location').value,maintenanceType:document.getElementById('mwo-type').value,category:document.getElementById('mwo-category').value,assetId:document.getElementById('mwo-asset').value,priority:document.getElementById('mwo-priority').value,technicianIds:techs,leadTechnicianId:document.getElementById('mwo-lead').value})});document.getElementById('maintenanceOrderModal')?.remove();toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}
+}
+function showMaintenanceTeamForm(orderId){
+  const current=maintenanceAssignees(orderId), selected=current.map(a=>a.technicianId), workers=(data.users||[]).filter(u=>u.role==='maintenance_worker');
+  const body=`<div class="taskChecklist">${maintenanceWorkerChecks(selected)}</div>${fc(tr('leadTechnician'),sel('maint-team-lead',[{v:'',l:'—'},...workers.map(w=>({v:w.id,l:w.name,sel:current.some(a=>a.isLead&&a.technicianId===w.id)}))]))}`;
+  const foot=`<button class="btn" onclick="saveMaintenanceTeam('${orderId}')">${tr('save')}</button><button class="btn secondary" onclick="document.getElementById('maintenanceTeamModal').remove()">${tr('cancel')}</button>`;
+  showModal('maintenanceTeamModal',lang==='ar'?'إسناد فريق الصيانة':'Assign Maintenance Team',body,foot);
+}
+async function saveMaintenanceTeam(orderId){try{await api(`/maintenance-tickets/${orderId}/team`,{method:'POST',body:JSON.stringify({technicianIds:selectedMaintenanceTechnicians(),leadTechnicianId:document.getElementById('maint-team-lead').value})});document.getElementById('maintenanceTeamModal')?.remove();toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}}
+
+function showMaintenanceScheduleForm(){
+  const md=maintenanceData(), workers=(data.users||[]).filter(u=>u.role==='maintenance_worker');const tomorrow=new Date(Date.now()+86400000).toISOString().slice(0,16);
+  const body=`<div class="formGrid">${fc(lang==='ar'?'اسم الخطة':'Plan Name',inp('mps-title',{value:lang==='ar'?'صيانة دورية':'Preventive maintenance'}))}${fc(tr('location'),sel('mps-location',(data.locations||[]).map(l=>({v:l.id,l:locName(l)}))))}${fc(tr('maintAssets'),sel('mps-asset',[{v:'',l:'—'},...(md.assets||[]).map(a=>({v:a.id,l:lang==='ar'?a.nameAr:a.nameEn||a.nameAr}))]))}${fc(tr('reqCategory'),sel('mps-category',MAINT_CATS.map(c=>({v:c,l:maintCatLabel(c)}))))}${fc(lang==='ar'?'التكرار':'Frequency',sel('mps-frequency',[{v:'daily',l:lang==='ar'?'يومي':'Daily'},{v:'weekly',l:lang==='ar'?'أسبوعي':'Weekly'},{v:'monthly',l:lang==='ar'?'شهري':'Monthly'},{v:'quarterly',l:lang==='ar'?'ربع سنوي':'Quarterly'},{v:'yearly',l:lang==='ar'?'سنوي':'Yearly'}]))}${fc(lang==='ar'?'التنفيذ القادم':'Next Run',inp('mps-next',{type:'datetime-local',value:tomorrow}))}${fc(lang==='ar'?'المدة المتوقعة بالدقائق':'Estimated Minutes',inp('mps-mins',{type:'number',value:60}))}</div>${fc(lang==='ar'?'قائمة الفحص — بند في كل سطر':'Checklist — one item per line',ta('mps-checklist',MAINT_TASKS.map(x=>lang==='ar'?x[0]:x[1]).join('\n'),{rows:5}))}<div class="field"><label>${tr('maintTeam')}</label><div class="taskChecklist">${maintenanceWorkerChecks()}</div></div>${fc(tr('leadTechnician'),sel('mps-lead',[{v:'',l:'—'},...workers.map(w=>({v:w.id,l:w.name}))]))}`;
+  const foot=`<button class="btn" onclick="saveMaintenanceSchedule()">${tr('save')}</button><button class="btn secondary" onclick="document.getElementById('maintenanceScheduleModal').remove()">${tr('cancel')}</button>`;showModal('maintenanceScheduleModal',tr('maintSchedules'),body,foot,{wide:true});
+}
+async function saveMaintenanceSchedule(){try{await api('/maintenance/schedules',{method:'POST',body:JSON.stringify({titleAr:document.getElementById('mps-title').value,locationId:document.getElementById('mps-location').value,assetIds:[document.getElementById('mps-asset').value].filter(Boolean),category:document.getElementById('mps-category').value,frequencyUnit:document.getElementById('mps-frequency').value,frequencyValue:1,nextRunAt:new Date(document.getElementById('mps-next').value).toISOString(),estimatedMins:Number(document.getElementById('mps-mins').value),checklist:document.getElementById('mps-checklist').value.split('\n').map(x=>x.trim()).filter(Boolean),defaultTechnicianIds:selectedMaintenanceTechnicians(),leadTechnicianId:document.getElementById('mps-lead').value})});document.getElementById('maintenanceScheduleModal')?.remove();toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}}
+async function runMaintenanceSchedule(id){try{await api(`/maintenance/schedules/${id}/run`,{method:'POST'});toast(lang==='ar'?'تم إنشاء أمر العمل':'Work order created','ok');await load();}catch(e){toast(e.message,'bad')}}
+
+function showMaintenanceAssetForm(){const body=`<div class="formGrid">${fc(lang==='ar'?'رمز الأصل':'Asset Code',inp('mas-code'))}${fc(lang==='ar'?'اسم الأصل':'Asset Name',inp('mas-name'))}${fc(tr('reqCategory'),sel('mas-category',MAINT_CATS.map(c=>({v:c,l:maintCatLabel(c)}))))}${fc(tr('location'),sel('mas-location',(data.locations||[]).map(l=>({v:l.id,l:locName(l)}))))}${fc(lang==='ar'?'الرقم التسلسلي':'Serial Number',inp('mas-serial'))}${fc(lang==='ar'?'الشركة المصنعة':'Manufacturer',inp('mas-maker'))}${fc(lang==='ar'?'الموديل':'Model',inp('mas-model'))}${fc(lang==='ar'?'الأهمية':'Criticality',sel('mas-critical',[{v:'low',l:'Low'},{v:'medium',l:'Medium'},{v:'high',l:'High'},{v:'critical',l:'Critical'}]))}${fc(lang==='ar'?'الضمان حتى':'Warranty Until',inp('mas-warranty',{type:'date'}))}</div>`;showModal('maintenanceAssetModal',tr('maintAssets'),body,`<button class="btn" onclick="saveMaintenanceAsset()">${tr('save')}</button><button class="btn secondary" onclick="document.getElementById('maintenanceAssetModal').remove()">${tr('cancel')}</button>`)}
+async function saveMaintenanceAsset(){try{await api('/maintenance/assets',{method:'POST',body:JSON.stringify({code:document.getElementById('mas-code').value,nameAr:document.getElementById('mas-name').value,category:document.getElementById('mas-category').value,locationId:document.getElementById('mas-location').value,serialNo:document.getElementById('mas-serial').value,manufacturer:document.getElementById('mas-maker').value,model:document.getElementById('mas-model').value,criticality:document.getElementById('mas-critical').value,warrantyUntil:document.getElementById('mas-warranty').value})});document.getElementById('maintenanceAssetModal')?.remove();toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}}
+
+function showMaintenancePartForm(){const body=`<div class="formGrid">${fc('SKU',inp('mpt-sku'))}${fc(lang==='ar'?'اسم القطعة':'Part Name',inp('mpt-name'))}${fc(lang==='ar'?'الوحدة':'Unit',inp('mpt-unit',{value:lang==='ar'?'قطعة':'piece'}))}${fc(lang==='ar'?'الكمية':'Quantity',inp('mpt-qty',{type:'number',value:0}))}${fc(lang==='ar'?'حد إعادة الطلب':'Reorder Level',inp('mpt-reorder',{type:'number',value:0}))}${fc(lang==='ar'?'تكلفة الوحدة':'Unit Cost',inp('mpt-cost',{type:'number',value:0}))}${fc(tr('location'),inp('mpt-location'))}</div>`;showModal('maintenancePartModal',tr('maintParts'),body,`<button class="btn" onclick="saveMaintenancePart()">${tr('save')}</button><button class="btn secondary" onclick="document.getElementById('maintenancePartModal').remove()">${tr('cancel')}</button>`)}
+async function saveMaintenancePart(){try{await api('/maintenance/parts',{method:'POST',body:JSON.stringify({sku:document.getElementById('mpt-sku').value,nameAr:document.getElementById('mpt-name').value,unit:document.getElementById('mpt-unit').value,quantity:Number(document.getElementById('mpt-qty').value),reorderLevel:Number(document.getElementById('mpt-reorder').value),unitCost:Number(document.getElementById('mpt-cost').value),location:document.getElementById('mpt-location').value})});document.getElementById('maintenancePartModal')?.remove();toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}}
+function showMaintenanceUsePart(orderId){
+  const parts=(maintenanceData().parts||[]).filter(p=>p.active&&p.quantity>0);
+  const options=parts.map(p=>({v:p.id,l:`${lang==='ar'?p.nameAr:p.nameEn||p.nameAr} (${p.quantity})`}));
+  const body=`${fc(tr('maintParts'),sel('muse-part',options))}${fc(lang==='ar'?'الكمية':'Quantity',inp('muse-qty',{type:'number',value:1}))}`;
+  showModal('maintenanceUsePartModal',lang==='ar'?'صرف قطعة غيار':'Use Spare Part',body,`<button class="btn" onclick="saveMaintenanceUsePart('${orderId}')">${tr('save')}</button><button class="btn secondary" onclick="document.getElementById('maintenanceUsePartModal').remove()">${tr('cancel')}</button>`);
+}
+async function saveMaintenanceUsePart(orderId){try{await api(`/maintenance-tickets/${orderId}/parts`,{method:'POST',body:JSON.stringify({partId:document.getElementById('muse-part').value,quantity:Number(document.getElementById('muse-qty').value)})});document.getElementById('maintenanceUsePartModal')?.remove();toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}}
+
+async function maintWorkerStatus(id,status){try{await api(`/maintenance-tickets/${id}`,{method:'PUT',body:JSON.stringify({status})});toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}}
+function showMaintenanceCloseForm(id){const body=`${fc(lang==='ar'?'التشخيص':'Diagnosis',ta('mclose-diagnosis','',{rows:3}))}${fc(lang==='ar'?'السبب الجذري':'Root Cause',ta('mclose-root','',{rows:3}))}<div class="formGrid">${fc(lang==='ar'?'وقت التوقف بالدقائق':'Downtime Minutes',inp('mclose-down',{type:'number',value:0}))}${fc(lang==='ar'?'تكلفة العمل':'Labor Cost',inp('mclose-cost',{type:'number',value:0}))}${fc(lang==='ar'?'المورد':'Vendor',inp('mclose-vendor'))}</div>${fc(tr('notes'),ta('mclose-notes','',{rows:2}))}`;showModal('maintenanceCloseModal',lang==='ar'?'طلب إغلاق أمر العمل':'Request Work Order Closure',body,`<button class="btn ok" onclick="submitMaintenanceClose('${id}')">${tr('submit')}</button><button class="btn secondary" onclick="document.getElementById('maintenanceCloseModal').remove()">${tr('cancel')}</button>`,{wide:true})}
+async function submitMaintenanceClose(id){try{await api('/maintenance-tickets/complete',{method:'POST',body:JSON.stringify({id,diagnosis:document.getElementById('mclose-diagnosis').value,rootCause:document.getElementById('mclose-root').value,downtimeMins:Number(document.getElementById('mclose-down').value),laborCost:Number(document.getElementById('mclose-cost').value),vendorName:document.getElementById('mclose-vendor').value,notes:document.getElementById('mclose-notes').value})});document.getElementById('maintenanceCloseModal')?.remove();toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}}
 
 /* ── maintenance actions ──────────────────────────────────────── */
 async function maintUpdateTicket(id, update, renderFn){
