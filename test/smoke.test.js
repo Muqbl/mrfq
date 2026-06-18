@@ -31,6 +31,11 @@ const TINY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1
 let serverProc;
 let maintenanceWorkerId;
 let maintenanceTicketId;
+let maintenanceWorker2Id;
+let maintenanceAssetId;
+let maintenancePartId;
+let maintenanceScheduleId;
+let maintenanceTeamOrderId;
 
 /* ── cookie-aware fetch helper ─────────────────────────────────── */
 function client() {
@@ -466,4 +471,46 @@ test('maintenance: supervisor verifies completed worker ticket', async () => {
   const verified = await supervisor(`/api/maintenance-tickets/${maintenanceTicketId}`, { method:'PUT', body:JSON.stringify({status:'completed'}) });
   assert.equal(verified.status, 200);
   assert.equal(verified.body.ticket.status, 'completed');
+});
+
+test('maintenance operations: assets, parts and second technician', async () => {
+  const admin=await login('admin',PASSWORDS.admin);
+  const second=await admin('/api/users',{method:'POST',body:JSON.stringify({username:'maint-worker-2',name:'فني صيانة 2',role:'maintenance_worker',password:PASSWORDS.worker})});
+  assert.equal(second.status,200);maintenanceWorker2Id=second.body.user.id;
+  const manager=await login('maint-manager',PASSWORDS.worker);const boot=await manager('/api/bootstrap');
+  const asset=await manager('/api/maintenance/assets',{method:'POST',body:JSON.stringify({code:'AHU-001',nameAr:'وحدة مناولة الهواء',category:'hvac',locationId:boot.body.locations[0].id,serialNo:'SN-001',criticality:'critical'})});
+  assert.equal(asset.status,200);maintenanceAssetId=asset.body.assets[0].id;
+  const part=await manager('/api/maintenance/parts',{method:'POST',body:JSON.stringify({sku:'FLT-001',nameAr:'فلتر هواء',quantity:10,reorderLevel:2,unitCost:25})});
+  assert.equal(part.status,200);maintenancePartId=part.body.parts[0].id;
+});
+
+test('maintenance operations: multi-technician work order with lead', async () => {
+  const manager=await login('maint-manager',PASSWORDS.worker);const boot=await manager('/api/bootstrap');
+  const created=await manager('/api/maintenance-tickets',{method:'POST',body:JSON.stringify({title:'صيانة فريق',locationId:boot.body.locations[0].id,category:'hvac',maintenanceType:'corrective',assetId:maintenanceAssetId,technicianIds:[maintenanceWorkerId,maintenanceWorker2Id],leadTechnicianId:maintenanceWorkerId})});
+  assert.equal(created.status,200);maintenanceTeamOrderId=created.body.ticket.id;
+  const after=await manager('/api/bootstrap');const team=after.body.maintenance.assignees.filter(a=>a.workOrderId===maintenanceTeamOrderId);
+  assert.equal(team.length,2);assert.equal(team.filter(a=>a.isLead).length,1);
+  const worker2=await login('maint-worker-2',PASSWORDS.worker);const workerBoot=await worker2('/api/bootstrap');
+  assert.ok(workerBoot.body.tickets.some(t=>t.id===maintenanceTeamOrderId));
+});
+
+test('maintenance operations: preventive schedule generates work order', async () => {
+  const supervisor=await login('maint-supervisor',PASSWORDS.worker);const boot=await supervisor('/api/bootstrap');
+  const schedule=await supervisor('/api/maintenance/schedules',{method:'POST',body:JSON.stringify({titleAr:'صيانة شهرية لوحدة الهواء',locationId:boot.body.locations[0].id,assetIds:[maintenanceAssetId],category:'hvac',checklist:['فحص الفلتر','اختبار التشغيل'],frequencyUnit:'monthly',frequencyValue:1,nextRunAt:new Date(Date.now()+86400000).toISOString(),defaultTechnicianIds:[maintenanceWorkerId,maintenanceWorker2Id],leadTechnicianId:maintenanceWorkerId})});
+  assert.equal(schedule.status,200);maintenanceScheduleId=schedule.body.schedules[0].id;
+  const run=await supervisor(`/api/maintenance/schedules/${maintenanceScheduleId}/run`,{method:'POST'});
+  assert.equal(run.status,200);assert.ok(run.body.workOrderId);
+  const after=await supervisor('/api/bootstrap');const generated=after.body.tickets.find(t=>t.id===run.body.workOrderId);
+  assert.equal(generated.maintenanceType,'preventive');
+});
+
+test('maintenance operations: technician workflow, parts and diagnostic close', async () => {
+  const worker=await login('maint-worker',PASSWORDS.worker);
+  for(const status of ['accepted','diagnosing','in_progress']){
+    const r=await worker(`/api/maintenance-tickets/${maintenanceTeamOrderId}`,{method:'PUT',body:JSON.stringify({status})});assert.equal(r.status,200);
+  }
+  const used=await worker(`/api/maintenance-tickets/${maintenanceTeamOrderId}/parts`,{method:'POST',body:JSON.stringify({partId:maintenancePartId,quantity:2})});
+  assert.equal(used.status,200);assert.equal(used.body.parts.find(p=>p.id===maintenancePartId).quantity,8);
+  const close=await worker('/api/maintenance-tickets/complete',{method:'POST',body:JSON.stringify({id:maintenanceTeamOrderId,diagnosis:'انسداد الفلتر',rootCause:'تراكم الغبار',downtimeMins:45,laborCost:120,vendorName:'مورد تجريبي',notes:'تم الإصلاح'})});
+  assert.equal(close.status,200);assert.equal(close.body.ticket.status,'waiting_verification');assert.equal(close.body.ticket.diagnosis,'انسداد الفلتر');
 });

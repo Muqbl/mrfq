@@ -24,13 +24,18 @@ const ALLOWED_ROLES      = ['system_admin','facility_manager','cleaning_manager'
 /* ═══════════════════════════════════════════════════════════════
    TICKET STATUS STATE MACHINE
    ═══════════════════════════════════════════════════════════════ */
-const TICKET_STATUSES  = ['submitted','assigned','accepted','in_progress','waiting_verification','completed','reclean_required','rejected','cancelled'];
+const TICKET_STATUSES  = ['submitted','assigned','accepted','diagnosing','in_progress','awaiting_parts','awaiting_vendor','awaiting_permit','on_hold','waiting_verification','completed','reclean_required','rejected','cancelled'];
 const TICKET_TERMINAL  = ['completed','rejected','cancelled'];
 const TICKET_TRANSITIONS = {
   submitted:            ['assigned','cancelled','rejected'],
-  assigned:             ['accepted','in_progress','waiting_verification','reclean_required','submitted','cancelled','rejected'],
-  accepted:             ['in_progress','waiting_verification','cancelled','rejected'],
-  in_progress:          ['waiting_verification','cancelled','rejected'],
+  assigned:             ['accepted','diagnosing','in_progress','waiting_verification','reclean_required','submitted','cancelled','rejected'],
+  accepted:             ['diagnosing','in_progress','waiting_verification','cancelled','rejected'],
+  diagnosing:           ['in_progress','awaiting_parts','awaiting_vendor','awaiting_permit','on_hold','waiting_verification','cancelled','rejected'],
+  in_progress:          ['awaiting_parts','awaiting_vendor','awaiting_permit','on_hold','waiting_verification','cancelled','rejected'],
+  awaiting_parts:       ['in_progress','on_hold','cancelled'],
+  awaiting_vendor:      ['in_progress','on_hold','cancelled'],
+  awaiting_permit:      ['in_progress','on_hold','cancelled'],
+  on_hold:              ['diagnosing','in_progress','awaiting_parts','awaiting_vendor','awaiting_permit','cancelled'],
   waiting_verification: ['completed','reclean_required','rejected'],
   reclean_required:     ['assigned','accepted','in_progress','waiting_verification','cancelled'],
   completed:            [],
@@ -539,6 +544,79 @@ function dbRecurringTasks() {
   }));
 }
 
+function safeJson(value, fallback = []) {
+  try { return JSON.parse(value || JSON.stringify(fallback)); } catch { return fallback; }
+}
+
+function dbMaintenanceAssets() {
+  return getDb().prepare(`
+    SELECT a.*, l.name_ar AS location_name_ar, l.name_en AS location_name_en
+    FROM maintenance_assets a
+    LEFT JOIN locations l ON l.id=a.location_id
+    WHERE a.deleted_at IS NULL ORDER BY a.created_at DESC
+  `).all().map(a => ({
+    id:a.id, code:a.code, nameAr:a.name_ar, nameEn:a.name_en, category:a.category,
+    locationId:a.location_id, locationNameAr:a.location_name_ar||'', locationNameEn:a.location_name_en||'',
+    serialNo:a.serial_no, manufacturer:a.manufacturer, model:a.model,
+    warrantyUntil:a.warranty_until||'', criticality:a.criticality, status:a.status,
+    installedAt:a.installed_at||'', createdAt:a.created_at, updatedAt:a.updated_at
+  }));
+}
+
+function dbMaintenanceAssignees(workOrderIds = null) {
+  const db = getDb();
+  const rows = db.prepare(`SELECT * FROM maintenance_work_order_assignees ORDER BY is_lead DESC, assigned_at`).all();
+  const allowed = workOrderIds ? new Set(workOrderIds) : null;
+  return rows.filter(r => !allowed || allowed.has(r.work_order_id)).map(r => ({
+    workOrderId:r.work_order_id, technicianId:r.technician_id, technicianName:r.technician_name,
+    isLead:r.is_lead===1, status:r.status, assignedAt:r.assigned_at,
+    acceptedAt:r.accepted_at||'', completedAt:r.completed_at||''
+  }));
+}
+
+function dbMaintenanceSchedules() {
+  return getDb().prepare(`
+    SELECT * FROM maintenance_schedules WHERE deleted_at IS NULL ORDER BY next_run_at
+  `).all().map(s => ({
+    id:s.id, titleAr:s.title_ar, titleEn:s.title_en, assetIds:safeJson(s.asset_ids),
+    locationId:s.location_id, category:s.category, checklist:safeJson(s.checklist),
+    frequencyUnit:s.frequency_unit, frequencyValue:s.frequency_value, nextRunAt:s.next_run_at,
+    estimatedMins:s.estimated_mins, defaultTechnicianIds:safeJson(s.default_technician_ids),
+    leadTechnicianId:s.lead_technician_id, active:s.active===1, createdBy:s.created_by,
+    lastRunAt:s.last_run_at||'', createdAt:s.created_at, updatedAt:s.updated_at
+  }));
+}
+
+function dbMaintenanceParts() {
+  return getDb().prepare(`SELECT * FROM maintenance_parts WHERE deleted_at IS NULL ORDER BY name_ar`).all().map(p => ({
+    id:p.id, sku:p.sku, nameAr:p.name_ar, nameEn:p.name_en, unit:p.unit,
+    quantity:p.quantity, reorderLevel:p.reorder_level, unitCost:p.unit_cost,
+    location:p.location, active:p.active===1, lowStock:p.quantity<=p.reorder_level,
+    createdAt:p.created_at, updatedAt:p.updated_at
+  }));
+}
+
+function dbMaintenanceOrderParts(workOrderIds = null) {
+  const rows = getDb().prepare(`SELECT * FROM maintenance_work_order_parts ORDER BY created_at`).all();
+  const allowed = workOrderIds ? new Set(workOrderIds) : null;
+  return rows.filter(r => !allowed || allowed.has(r.work_order_id)).map(r => ({
+    id:r.id, workOrderId:r.work_order_id, partId:r.part_id, partName:r.part_name,
+    quantity:r.quantity, unitCost:r.unit_cost, totalCost:r.quantity*r.unit_cost,
+    createdBy:r.created_by, createdAt:r.created_at
+  }));
+}
+
+function maintenancePayload(me, tickets) {
+  const ids = tickets.map(t => t.id);
+  return {
+    assets: dbMaintenanceAssets(),
+    schedules: dbMaintenanceSchedules(),
+    parts: dbMaintenanceParts(),
+    assignees: dbMaintenanceAssignees(ids),
+    orderParts: dbMaintenanceOrderParts(ids)
+  };
+}
+
 /** Map DB hospitality_menu_items row → frontend camelCase */
 function menuItemRow(r) {
   if (!r) return null;
@@ -648,6 +726,14 @@ function ticketRow(r) {
     status:         r.status,
     priority:       r.priority,
     category:       r.category || 'general',
+    maintenanceType:r.maintenance_type || 'corrective',
+    assetId:        r.asset_id || '',
+    diagnosis:      r.diagnosis || '',
+    rootCause:      r.root_cause || '',
+    downtimeMins:   r.downtime_mins || 0,
+    laborCost:      r.labor_cost || 0,
+    vendorName:     r.vendor_name || '',
+    permitNotes:    r.permit_notes || '',
     referenceNo:    r.reference_no || '',
     notes:          r.notes,
     createdAt:          r.created_at,
@@ -766,6 +852,15 @@ function hospitalityOrdersForRole(me, allOrders) {
   return [];
 }
 
+function maintenanceTicketsForRole(me, allTickets) {
+  const maintenanceTickets = allTickets.filter(t => t.module === 'maintenance');
+  if (me.role !== 'maintenance_worker') return maintenanceTickets;
+  const assignedIds = new Set(getDb().prepare(
+    'SELECT work_order_id FROM maintenance_work_order_assignees WHERE technician_id=?'
+  ).all(me.id).map(r => r.work_order_id));
+  return maintenanceTickets.filter(t => t.assignedTo === me.id || assignedIds.has(t.id));
+}
+
 function buildBootstrap(me) {
   const users       = dbUsers();
   const locations   = dbLocs();
@@ -774,11 +869,14 @@ function buildBootstrap(me) {
   const settings    = dbSettings();
   const allTickets  = dbTickets();
   const allReports  = dbReports();
+  const visibleMaintenanceTickets = maintenanceTicketsForRole(me, allTickets);
   const allHospitalityOrders = dbHospitalityOrders();
   const allRecurringTasks    = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(me.role)
     ? dbRecurringTasks() : [];
 
-  const base = { user: publicUser(me), locations, zones, settings, recurringTasks: allRecurringTasks };
+  const maintenance = ['system_admin','facility_manager','maintenance_manager','maintenance_supervisor','maintenance_worker'].includes(me.role)
+    ? maintenancePayload(me, visibleMaintenanceTickets) : {};
+  const base = { user: publicUser(me), locations, zones, settings, recurringTasks: allRecurringTasks, maintenance };
   const hospitalityOrders = hospitalityOrdersForRole(me, allHospitalityOrders);
 
   if (me.role === 'employee') {
@@ -818,7 +916,7 @@ function buildBootstrap(me) {
       ...base,
       users:       [publicUser(me)],
       assignments: myAssign ? [myAssign] : [],
-      tickets:     allTickets.filter(t => t.assignedTo === me.id && t.module === 'maintenance'),
+      tickets:     visibleMaintenanceTickets,
       reports:     allReports.filter(r => r.workerId  === me.id && r.module === 'maintenance'),
       hospitalityOrders: []
     };
@@ -964,6 +1062,61 @@ const MAINT_RATING_RULES = {
   system_admin:           null
 };
 
+function setMaintenanceTeam(db, workOrderId, technicianIds, leadTechnicianId = '') {
+  const ids = [...new Set((technicianIds || []).filter(Boolean))].slice(0, 20);
+  const technicians = ids.map(id => db.prepare(
+    "SELECT id,name FROM users WHERE id=? AND role='maintenance_worker' AND active=1 AND deleted_at IS NULL"
+  ).get(id)).filter(Boolean);
+  if (technicians.length !== ids.length) throw new Error('WORKER_NOT_FOUND');
+  db.prepare('DELETE FROM maintenance_work_order_assignees WHERE work_order_id=?').run(workOrderId);
+  const insert = db.prepare(`
+    INSERT INTO maintenance_work_order_assignees
+      (work_order_id,technician_id,technician_name,is_lead,status,assigned_at)
+    VALUES (?,?,?,?,?,?)
+  `);
+  const lead = technicians.some(t => t.id === leadTechnicianId) ? leadTechnicianId : (technicians[0]?.id || '');
+  technicians.forEach(t => insert.run(workOrderId,t.id,t.name,t.id===lead?1:0,'assigned',now()));
+  const leadUser = technicians.find(t => t.id === lead);
+  db.prepare('UPDATE tickets SET assigned_to=?,assigned_to_name=?,status=?,updated_at=? WHERE id=?').run(
+    leadUser?.id||null, leadUser?.name||'', technicians.length?'assigned':'submitted', now(), workOrderId
+  );
+  return dbMaintenanceAssignees([workOrderId]);
+}
+
+function nextScheduleAt(fromIso, unit, value) {
+  const d = new Date(fromIso || Date.now());
+  const n = Math.max(1, parseInt(value,10)||1);
+  if (unit === 'daily') d.setUTCDate(d.getUTCDate()+n);
+  else if (unit === 'weekly') d.setUTCDate(d.getUTCDate()+7*n);
+  else if (unit === 'quarterly') d.setUTCMonth(d.getUTCMonth()+3*n);
+  else if (unit === 'yearly') d.setUTCFullYear(d.getUTCFullYear()+n);
+  else d.setUTCMonth(d.getUTCMonth()+n);
+  return d.toISOString();
+}
+
+function generateScheduledMaintenance(db, schedule, actor = null) {
+  const assets = safeJson(schedule.asset_ids);
+  const assetId = assets[0] || '';
+  const asset = assetId ? db.prepare('SELECT * FROM maintenance_assets WHERE id=? AND deleted_at IS NULL').get(assetId) : null;
+  const loc = db.prepare('SELECT * FROM locations WHERE id=? AND deleted_at IS NULL').get(schedule.location_id || asset?.location_id);
+  if (!loc) throw new Error('MISSING_LOCATION');
+  const id = newId('mt'); const ts = now(); const refNo = generateRefNo(db,'MNT');
+  const title = schedule.title_ar || schedule.title_en || 'صيانة دورية';
+  db.prepare(`
+    INSERT INTO tickets (id,title,description,location_id,location_name_ar,location_name_en,
+      created_by,created_by_id,status,priority,category,reference_no,notes,sla_deadline,module,
+      maintenance_type,asset_id,created_at,updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+  `).run(id,title,'',loc.id,loc.name_ar,loc.name_en,actor?.name||'النظام',actor?.id||'',
+    'submitted','medium',schedule.category,refNo,'',computeMaintSlaDeadline(schedule.category),
+    'maintenance','preventive',assetId,ts,ts);
+  const techIds = safeJson(schedule.default_technician_ids);
+  if (techIds.length) setMaintenanceTeam(db,id,techIds,schedule.lead_technician_id);
+  const next = nextScheduleAt(schedule.next_run_at,schedule.frequency_unit,schedule.frequency_value);
+  db.prepare('UPDATE maintenance_schedules SET last_run_at=?,next_run_at=?,updated_at=? WHERE id=?').run(ts,next,ts,schedule.id);
+  return id;
+}
+
 // Periodic SLA breach check, escalation, and recurring tasks — every 5 minutes
 setInterval(() => {
   try {
@@ -1012,6 +1165,17 @@ setInterval(() => {
           .run(ts, nextRun, ts, task.id);
         console.log(`[recurring] ticket ${id} (${refNo}) from task ${task.id}`);
       } catch (e) { console.error('[recurring]', e.message); }
+    }
+
+    // 5. Generate preventive work orders from due maintenance schedules
+    const dueMaintenance = db.prepare(
+      "SELECT * FROM maintenance_schedules WHERE active=1 AND deleted_at IS NULL AND next_run_at <= ?"
+    ).all(ts);
+    for (const schedule of dueMaintenance) {
+      try {
+        const id = generateScheduledMaintenance(db, schedule);
+        console.log(`[maintenance-schedule] work order ${id} from schedule ${schedule.id}`);
+      } catch (e) { console.error('[maintenance-schedule]', e.message); }
     }
   } catch (e) { console.error('[sla-check]', e.message); }
 }, 300_000);
@@ -1488,6 +1652,16 @@ const server = http.createServer(async (req, res) => {
         }
         sets.push('updated_at = ?'); vals.push(now()); vals.push(id);
         if (sets.length > 1) db.prepare(`UPDATE tickets SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
+        if (me.role === 'maintenance_worker' && b.status) {
+          db.prepare(`UPDATE maintenance_work_order_assignees SET status=?,accepted_at=CASE WHEN ?='accepted' THEN ? ELSE accepted_at END
+            WHERE work_order_id=? AND technician_id=?`).run(b.status,b.status,now(),id,me.id);
+        }
+        if (b.status === 'completed') {
+          db.prepare("UPDATE maintenance_work_order_assignees SET status='completed',completed_at=? WHERE work_order_id=?").run(now(),id);
+          if (t.asset_id) db.prepare("UPDATE maintenance_assets SET status='operational',updated_at=? WHERE id=?").run(now(),t.asset_id);
+        } else if (b.status && ['diagnosing','in_progress','awaiting_parts','awaiting_vendor','awaiting_permit','on_hold'].includes(b.status) && t.asset_id) {
+          db.prepare("UPDATE maintenance_assets SET status='maintenance',updated_at=? WHERE id=?").run(now(),t.asset_id);
+        }
         const ticket = ticketRow(db.prepare(`
           SELECT t.*, GROUP_CONCAT(p.filename) AS photo_files
           FROM tickets t LEFT JOIN photos p ON p.ticket_id=t.id AND p.deleted_at IS NULL
@@ -1736,33 +1910,143 @@ const server = http.createServer(async (req, res) => {
          MAINTENANCE MODULE API
          ═══════════════════════════════════════════════════════ */
 
+      /* ── MAINTENANCE ASSETS ──────────────────────────────── */
+      if (req.method === 'POST' && url.pathname === '/api/maintenance/assets') {
+        if (!['system_admin','facility_manager','maintenance_manager'].includes(me.role))
+          return send(res, 403, { error:'FORBIDDEN' });
+        const b=await bodyJSON(req); const code=sanitize(b.code,80); const nameAr=sanitize(b.nameAr,160);
+        if (!code || !nameAr) return send(res,400,{error:'MISSING_FIELDS'});
+        if (db.prepare('SELECT 1 FROM maintenance_assets WHERE code=?').get(code)) return send(res,409,{error:'ASSET_CODE_EXISTS'});
+        const id=newId('ma'); const ts=now();
+        db.prepare(`INSERT INTO maintenance_assets
+          (id,code,name_ar,name_en,category,location_id,serial_no,manufacturer,model,warranty_until,criticality,status,installed_at,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+          id,code,nameAr,sanitize(b.nameEn,160),sanitize(b.category,50)||'general',sanitize(b.locationId,80),
+          sanitize(b.serialNo,100),sanitize(b.manufacturer,100),sanitize(b.model,100),sanitize(b.warrantyUntil,30)||null,
+          ['low','medium','high','critical'].includes(b.criticality)?b.criticality:'medium',
+          ['operational','down','maintenance','retired'].includes(b.status)?b.status:'operational',
+          sanitize(b.installedAt,30)||null,ts,ts);
+        return send(res,200,{assets:dbMaintenanceAssets()});
+      }
+      if (req.method === 'PUT' && /^\/api\/maintenance\/assets\/[^/]+$/.test(url.pathname)) {
+        if (!['system_admin','facility_manager','maintenance_manager'].includes(me.role)) return send(res,403,{error:'FORBIDDEN'});
+        const id=sanitize(url.pathname.split('/').pop(),50); const b=await bodyJSON(req);
+        const asset=db.prepare('SELECT 1 FROM maintenance_assets WHERE id=? AND deleted_at IS NULL').get(id);
+        if (!asset) return send(res,404,{error:'ASSET_NOT_FOUND'});
+        const fields={nameAr:'name_ar',nameEn:'name_en',category:'category',locationId:'location_id',serialNo:'serial_no',manufacturer:'manufacturer',model:'model',warrantyUntil:'warranty_until',criticality:'criticality',status:'status',installedAt:'installed_at'};
+        const sets=[]; const vals=[];
+        for (const [key,col] of Object.entries(fields)) if (b[key]!==undefined){sets.push(`${col}=?`);vals.push(sanitize(b[key],200));}
+        sets.push('updated_at=?');vals.push(now(),id); db.prepare(`UPDATE maintenance_assets SET ${sets.join(',')} WHERE id=?`).run(...vals);
+        return send(res,200,{assets:dbMaintenanceAssets()});
+      }
+
+      /* ── PREVENTIVE MAINTENANCE SCHEDULES ────────────────── */
+      if (req.method === 'POST' && url.pathname === '/api/maintenance/schedules') {
+        if (!['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role)) return send(res,403,{error:'FORBIDDEN'});
+        const b=await bodyJSON(req); const titleAr=sanitize(b.titleAr,200); const locationId=sanitize(b.locationId,80);
+        if (!titleAr || !locationId || !b.nextRunAt) return send(res,400,{error:'MISSING_FIELDS'});
+        const id=newId('ms'); const ts=now();
+        const assetIds=Array.isArray(b.assetIds)?b.assetIds.map(x=>sanitize(x,50)).filter(Boolean).slice(0,100):[];
+        const techIds=Array.isArray(b.defaultTechnicianIds)?b.defaultTechnicianIds.map(x=>sanitize(x,50)).filter(Boolean).slice(0,20):[];
+        const checklist=Array.isArray(b.checklist)?b.checklist.map(x=>sanitize(x,200)).filter(Boolean).slice(0,100):[];
+        db.prepare(`INSERT INTO maintenance_schedules
+          (id,title_ar,title_en,asset_ids,location_id,category,checklist,frequency_unit,frequency_value,next_run_at,estimated_mins,default_technician_ids,lead_technician_id,active,created_by,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+          id,titleAr,sanitize(b.titleEn,200),JSON.stringify(assetIds),locationId,
+          MAINT_SLA_MINS[b.category]?b.category:'general',JSON.stringify(checklist),
+          ['daily','weekly','monthly','quarterly','yearly'].includes(b.frequencyUnit)?b.frequencyUnit:'monthly',
+          Math.max(1,parseInt(b.frequencyValue,10)||1),new Date(b.nextRunAt).toISOString(),
+          Math.max(1,parseInt(b.estimatedMins,10)||60),JSON.stringify(techIds),sanitize(b.leadTechnicianId,50),
+          b.active===false?0:1,me.id,ts,ts);
+        return send(res,200,{schedules:dbMaintenanceSchedules()});
+      }
+      if (req.method === 'PUT' && /^\/api\/maintenance\/schedules\/[^/]+$/.test(url.pathname)) {
+        if (!['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role)) return send(res,403,{error:'FORBIDDEN'});
+        const id=sanitize(url.pathname.split('/').pop(),50); const b=await bodyJSON(req);
+        if (!db.prepare('SELECT 1 FROM maintenance_schedules WHERE id=? AND deleted_at IS NULL').get(id)) return send(res,404,{error:'SCHEDULE_NOT_FOUND'});
+        const sets=[];const vals=[];
+        const scalar={titleAr:'title_ar',titleEn:'title_en',locationId:'location_id',category:'category',frequencyUnit:'frequency_unit',frequencyValue:'frequency_value',nextRunAt:'next_run_at',estimatedMins:'estimated_mins',leadTechnicianId:'lead_technician_id'};
+        for(const [k,c] of Object.entries(scalar)) if(b[k]!==undefined){sets.push(`${c}=?`);vals.push(k==='frequencyValue'||k==='estimatedMins'?Number(b[k]):sanitize(b[k],200));}
+        if(Array.isArray(b.assetIds)){sets.push('asset_ids=?');vals.push(JSON.stringify(b.assetIds.slice(0,100)));}
+        if(Array.isArray(b.checklist)){sets.push('checklist=?');vals.push(JSON.stringify(b.checklist.slice(0,100)));}
+        if(Array.isArray(b.defaultTechnicianIds)){sets.push('default_technician_ids=?');vals.push(JSON.stringify(b.defaultTechnicianIds.slice(0,20)));}
+        if(typeof b.active==='boolean'){sets.push('active=?');vals.push(b.active?1:0);}
+        sets.push('updated_at=?');vals.push(now(),id);db.prepare(`UPDATE maintenance_schedules SET ${sets.join(',')} WHERE id=?`).run(...vals);
+        return send(res,200,{schedules:dbMaintenanceSchedules()});
+      }
+      if (req.method === 'POST' && /^\/api\/maintenance\/schedules\/[^/]+\/run$/.test(url.pathname)) {
+        if (!['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role)) return send(res,403,{error:'FORBIDDEN'});
+        const id=sanitize(url.pathname.split('/')[4],50); const schedule=db.prepare('SELECT * FROM maintenance_schedules WHERE id=? AND deleted_at IS NULL').get(id);
+        if(!schedule) return send(res,404,{error:'SCHEDULE_NOT_FOUND'});
+        const workOrderId=generateScheduledMaintenance(db,schedule,me);
+        return send(res,200,{workOrderId,schedules:dbMaintenanceSchedules()});
+      }
+
+      /* ── PARTS INVENTORY AND USAGE ────────────────────────── */
+      if (req.method === 'POST' && url.pathname === '/api/maintenance/parts') {
+        if (!['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role)) return send(res,403,{error:'FORBIDDEN'});
+        const b=await bodyJSON(req);const sku=sanitize(b.sku,80);const nameAr=sanitize(b.nameAr,160);
+        if(!sku||!nameAr)return send(res,400,{error:'MISSING_FIELDS'});
+        if(db.prepare('SELECT 1 FROM maintenance_parts WHERE sku=?').get(sku))return send(res,409,{error:'PART_SKU_EXISTS'});
+        const id=newId('mp');const ts=now();db.prepare(`INSERT INTO maintenance_parts
+          (id,sku,name_ar,name_en,unit,quantity,reorder_level,unit_cost,location,active,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).run(id,sku,nameAr,sanitize(b.nameEn,160),sanitize(b.unit,30)||'piece',
+          Math.max(0,Number(b.quantity)||0),Math.max(0,Number(b.reorderLevel)||0),Math.max(0,Number(b.unitCost)||0),sanitize(b.location,120),1,ts,ts);
+        return send(res,200,{parts:dbMaintenanceParts()});
+      }
+      if (req.method === 'POST' && /^\/api\/maintenance-tickets\/[^/]+\/parts$/.test(url.pathname)) {
+        if (!['system_admin','facility_manager','maintenance_manager','maintenance_supervisor','maintenance_worker'].includes(me.role)) return send(res,403,{error:'FORBIDDEN'});
+        const orderId=sanitize(url.pathname.split('/')[3],50);const b=await bodyJSON(req);
+        const order=db.prepare("SELECT 1 FROM tickets WHERE id=? AND module='maintenance' AND deleted_at IS NULL").get(orderId);
+        const part=db.prepare('SELECT * FROM maintenance_parts WHERE id=? AND active=1 AND deleted_at IS NULL').get(sanitize(b.partId,50));
+        const qty=Math.max(.01,Number(b.quantity)||1);if(!order||!part)return send(res,404,{error:'NOT_FOUND'});
+        if(me.role==='maintenance_worker'&&!db.prepare('SELECT 1 FROM maintenance_work_order_assignees WHERE work_order_id=? AND technician_id=?').get(orderId,me.id))return send(res,403,{error:'FORBIDDEN'});
+        if(part.quantity<qty)return send(res,400,{error:'INSUFFICIENT_STOCK'});
+        db.transaction(()=>{db.prepare(`INSERT INTO maintenance_work_order_parts
+          (id,work_order_id,part_id,part_name,quantity,unit_cost,created_by,created_at) VALUES (?,?,?,?,?,?,?,?)`)
+          .run(newId('mwp'),orderId,part.id,part.name_ar,qty,part.unit_cost,me.id,now());
+          db.prepare('UPDATE maintenance_parts SET quantity=quantity-?,updated_at=? WHERE id=?').run(qty,now(),part.id);})();
+        return send(res,200,{parts:dbMaintenanceParts(),orderParts:dbMaintenanceOrderParts([orderId])});
+      }
+
+      /* ── MULTI-TECHNICIAN TEAM ASSIGNMENT ────────────────── */
+      if (req.method === 'POST' && /^\/api\/maintenance-tickets\/[^/]+\/team$/.test(url.pathname)) {
+        if (!canMaintenanceAssign(me.role)) return send(res,403,{error:'FORBIDDEN'});
+        const orderId=sanitize(url.pathname.split('/')[3],50);const b=await bodyJSON(req);
+        if(!db.prepare("SELECT 1 FROM tickets WHERE id=? AND module='maintenance' AND deleted_at IS NULL").get(orderId))return send(res,404,{error:'TICKET_NOT_FOUND'});
+        try { const assignees=setMaintenanceTeam(db,orderId,b.technicianIds,sanitize(b.leadTechnicianId,50)); return send(res,200,{assignees}); }
+        catch(e){return send(res,400,{error:e.message});}
+      }
+
       /* ── MAINTENANCE TICKETS: CREATE ──────────────────────── */
       if (req.method === 'POST' && url.pathname === '/api/maintenance-tickets') {
         if (!canMaintenanceCreate(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const b   = await bodyJSON(req);
         const loc = db.prepare('SELECT * FROM locations WHERE id = ? AND deleted_at IS NULL').get(b.locationId);
         if (!loc) return send(res, 400, { error: 'MISSING_LOCATION' });
-        let worker = null;
-        if (b.assignedTo) {
-          worker = db.prepare("SELECT * FROM users WHERE id = ? AND active = 1 AND deleted_at IS NULL").get(b.assignedTo);
-          if (!worker || worker.role !== 'maintenance_worker') return send(res, 400, { error: 'WORKER_NOT_FOUND' });
-        }
+        const technicianIds = Array.isArray(b.technicianIds) ? b.technicianIds.map(x=>sanitize(x,50)).filter(Boolean) : (b.assignedTo?[sanitize(b.assignedTo,50)]:[]);
         const id            = newId('mt');
         const ts            = now();
         const priority      = ['high','medium','low'].includes(b.priority) ? b.priority : 'medium';
         const category      = ['electrical','plumbing','hvac','civil','general'].includes(b.category) ? b.category : 'general';
+        const maintenanceType = ['corrective','preventive','emergency'].includes(b.maintenanceType) ? b.maintenanceType : 'corrective';
+        const assetId       = sanitize(b.assetId,50);
         const slaDeadline   = computeMaintSlaDeadline(category);
-        const initialStatus = worker ? 'assigned' : 'submitted';
+        const initialStatus = technicianIds.length ? 'assigned' : 'submitted';
         const refNo         = generateRefNo(db, 'MNT');
         db.prepare(`
           INSERT INTO tickets (id,title,description,location_id,location_name_ar,location_name_en,
             assigned_to,assigned_to_name,created_by,created_by_id,status,priority,
-            category,reference_no,notes,sla_deadline,module,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            category,reference_no,notes,sla_deadline,module,maintenance_type,asset_id,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `).run(id, sanitize(b.title,200)||'طلب صيانة',
                sanitize(b.description,1000), loc.id, loc.name_ar, loc.name_en,
-               worker?.id||null, worker?.name||'',
-               me.name, me.id, initialStatus, priority, category, refNo, '', slaDeadline, 'maintenance', ts, ts);
+               null, '',
+               me.name, me.id, initialStatus, priority, category, refNo, '', slaDeadline, 'maintenance', maintenanceType, assetId, ts, ts);
+        if (technicianIds.length) {
+          try { setMaintenanceTeam(db,id,technicianIds,sanitize(b.leadTechnicianId,50)); }
+          catch(e){ db.prepare('DELETE FROM tickets WHERE id=?').run(id); return send(res,400,{error:e.message}); }
+        }
         const ticket = ticketRow(db.prepare(`
           SELECT t.*, NULL AS photo_files FROM tickets t WHERE t.id = ?
         `).get(id));
@@ -1777,16 +2061,19 @@ const server = http.createServer(async (req, res) => {
         const b = await bodyJSON(req);
         const t = db.prepare("SELECT * FROM tickets WHERE id = ? AND module = 'maintenance' AND deleted_at IS NULL").get(b.id);
         if (!t) return send(res, 404, { error: 'TICKET_NOT_FOUND' });
-        if (t.assigned_to !== me.id) return send(res, 403, { error: 'FORBIDDEN' });
+        const isTeamMember = db.prepare('SELECT 1 FROM maintenance_work_order_assignees WHERE work_order_id=? AND technician_id=?').get(t.id,me.id);
+        if (t.assigned_to !== me.id && !isTeamMember) return send(res, 403, { error: 'FORBIDDEN' });
         if (!(TICKET_TRANSITIONS[t.status]||[]).includes('waiting_verification'))
           return send(res, 400, { error: 'INVALID_TRANSITION' });
         processPhotos(b.photos, me.id, null, t.id);
         const completionMins = Math.round((Date.now() - new Date(t.created_at).getTime()) / 60_000);
         const slaBreached    = t.sla_deadline && new Date(t.sla_deadline) < new Date() ? 1 : (t.sla_breached||0);
         db.prepare(`
-          UPDATE tickets SET status='waiting_verification', notes=?, updated_at=?,
+          UPDATE tickets SET status='waiting_verification', notes=?, diagnosis=?,root_cause=?,downtime_mins=?,labor_cost=?,vendor_name=?,permit_notes=?,updated_at=?,
             completion_time_mins=?, sla_breached=? WHERE id=?
-        `).run(sanitize(b.notes,1000), now(), completionMins, slaBreached, t.id);
+        `).run(sanitize(b.notes,1000),sanitize(b.diagnosis,1000),sanitize(b.rootCause,1000),Math.max(0,Number(b.downtimeMins)||0),
+          Math.max(0,Number(b.laborCost)||0),sanitize(b.vendorName,160),sanitize(b.permitNotes,500),now(),completionMins,slaBreached,t.id);
+        db.prepare("UPDATE maintenance_work_order_assignees SET status='completed',completed_at=? WHERE work_order_id=? AND technician_id=?").run(now(),t.id,me.id);
         const ticket = ticketRow(db.prepare(`
           SELECT t.*, GROUP_CONCAT(p.filename) AS photo_files
           FROM tickets t LEFT JOIN photos p ON p.ticket_id=t.id AND p.deleted_at IS NULL
@@ -1805,8 +2092,9 @@ const server = http.createServer(async (req, res) => {
         const t  = db.prepare("SELECT * FROM tickets WHERE id = ? AND module = 'maintenance' AND deleted_at IS NULL").get(id);
         if (!t) return send(res, 404, { error: 'TICKET_NOT_FOUND' });
         if (me.role === 'maintenance_worker') {
-          const allowedWorkerStatuses = ['accepted','in_progress'];
-          if (t.assigned_to !== me.id || Object.keys(b).some(k => k !== 'status') || !allowedWorkerStatuses.includes(b.status))
+          const isTeamMember = db.prepare('SELECT 1 FROM maintenance_work_order_assignees WHERE work_order_id=? AND technician_id=?').get(t.id,me.id);
+          const allowedWorkerStatuses = ['accepted','diagnosing','in_progress','awaiting_parts','awaiting_vendor','awaiting_permit','on_hold'];
+          if ((t.assigned_to !== me.id && !isTeamMember) || Object.keys(b).some(k => k !== 'status') || !allowedWorkerStatuses.includes(b.status))
             return send(res, 403, { error: 'FORBIDDEN' });
         }
         const sets = []; const vals = [];
@@ -1826,6 +2114,8 @@ const server = http.createServer(async (req, res) => {
             if (b.status === 'cancelled')  { sets.push('cancelled_at = ?'); vals.push(ts); }
           }
         }
+        const maintFields={diagnosis:'diagnosis',rootCause:'root_cause',downtimeMins:'downtime_mins',laborCost:'labor_cost',vendorName:'vendor_name',permitNotes:'permit_notes',assetId:'asset_id',maintenanceType:'maintenance_type'};
+        for(const [key,col] of Object.entries(maintFields)) if(b[key]!==undefined){sets.push(`${col}=?`);vals.push(['downtimeMins','laborCost'].includes(key)?Math.max(0,Number(b[key])||0):sanitize(b[key],1000));}
         if (b.assignedTo) {
           const w = db.prepare('SELECT * FROM users WHERE id = ? AND active=1 AND deleted_at IS NULL').get(b.assignedTo);
           if (!w || w.role !== 'maintenance_worker') return send(res, 400, { error: 'WORKER_NOT_FOUND' });
