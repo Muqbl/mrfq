@@ -848,9 +848,10 @@ async function load(){
   try{
     const b = await api('/bootstrap');
     data=b; me=b.user;
-    // If server already has a workspace active (returning session), skip selector
     if(me.roles && me.roles.length > 1 && sessionStorage.getItem('wsSelected')) workspaceSelected=true;
     render(); connectSSE();
+    requestBrowserNotif();
+    checkNewBreaches();
   }catch(e){logout()}
 }
 async function login(){
@@ -1227,7 +1228,7 @@ function render(){
     });
     return;
   }
-  const fn = {dashboard:dash,reports:reports,tickets:tickets,locations:locations,assignments:assignments,users:users}[view]||dash;
+  const fn = {dashboard:dash,reports:reports,tickets:tickets,locations:locations,assignments:assignments,users:users,recurringTasks:recurringTasksPage}[view]||dash;
   shell(fn());
   if(view==='assignments') setTimeout(fillAssign, 0);
 }
@@ -1374,6 +1375,7 @@ function shell(content){
           ${navItem('assignments',tr('assignments'),'assignments',0)}
           ${canUsers()?navItem('users',canViewCleaningTeam()?tr('cleaningTeam'):tr('users'),'users',0):''}
           ${canReview()?navItem('performance',tr('performance'),'bar-chart',0):''}
+          ${['cleaning_manager','cleaning_supervisor'].includes(me.role)?navItem('recurringTasks',lang==='ar'?'مهام متكررة':'Recurring','refresh',0):''}
         </div>
       </div>
     </aside>
@@ -1570,7 +1572,8 @@ function renderSystemAdmin(){
     maps: adminMaps,
     reports: reports,
     audit: adminAuditLog,
-    settings: adminSettings
+    settings: adminSettings,
+    recurringTasks: recurringTasksPage
   }[adminView] || adminDashboard;
   adminShell(fn());
 }
@@ -1595,6 +1598,7 @@ function adminShell(content){
           ${adminNavItem('kitchens',tr('kitchensTitle'),'building')}
           ${adminNavItem('reports',tr('generalReports'),'reports')}
           ${adminNavItem('audit',tr('auditLog'),'list')}
+          ${adminNavItem('recurringTasks',lang==='ar'?'مهام متكررة':'Recurring Tasks','refresh')}
           ${canAccessGlobalSettings()?adminNavItem('settings',tr('globalSettings'),'settings'):''}
         </div>
       </div>
@@ -1671,7 +1675,8 @@ function renderFacilityConsole(){
     locations: locations,
     reports: reports,
     assets: adminAssets,
-    maps: adminMaps
+    maps: adminMaps,
+    recurringTasks: recurringTasksPage
   }[adminView] || adminDashboard;
   fmShell(fn());
 }
@@ -1691,6 +1696,7 @@ function fmShell(content){
           ${adminNavItem('reports',tr('generalReports'),'reports')}
           ${adminNavItem('assets',tr('assets'),'building')}
           ${adminNavItem('maps',tr('maps'),'map-pin')}
+          ${adminNavItem('recurringTasks',lang==='ar'?'مهام متكررة':'Recurring Tasks','refresh')}
         </div>
       </div>
     </aside>
@@ -2651,7 +2657,12 @@ function ticketCards(items){
     const requesterUser = (data.users||[]).find(u=>u.id===t.createdById);
     const requesterUsername = requesterUser?.username || '';
     const requesterEmpNo = requesterUser?.employeeNo || '';
-    return`<div class="ticketCard">
+    const escalationBadge = t.escalationLevel>=2
+      ? `<span class="badge bad" title="${lang==='ar'?'تصعيد المستوى 2':'Escalation Level 2'}">🔴 ${lang==='ar'?'تصعيد':'Escalated'}</span>`
+      : t.escalationLevel===1
+        ? `<span class="badge warn" title="${lang==='ar'?'تصعيد المستوى 1':'Escalation Level 1'}">⚠️ ${lang==='ar'?'تصعيد':'Escalated'}</span>`
+        : '';
+    return`<div class="ticketCard${t.escalationLevel>0?' ticketCard--escalated':''}">
       <div class="ticketCard-top">
         <div class="ticketCard-main">
           <div class="ticketCard-title">${esc(t.title)}</div>
@@ -2670,13 +2681,15 @@ function ticketCards(items){
         <span class="badge ${prCls}">${tr(t.priority||'medium')}</span>
         <span class="badge">${fmt(t.createdAt)}</span>
         ${slaBadge(t)}
+        ${escalationBadge}
         ${!t.assignedToName?`<span class="badge warn">${tr('supervisorQueue')}</span>`:''}
         ${t.completionTimeMins!=null?`<span class="badge ok">${ic('check',11)} ${t.completionTimeMins<60?t.completionTimeMins+tr('mins'):Math.round(t.completionTimeMins/60)+tr('hours')}</span>`:''}
       </div>
-      ${(canEdit||canDel)?`<div class="ticketCard-actions">
+      <div class="ticketCard-actions">
+        <button class="btn secondary sm" onclick="openComments('${t.id}')">${ic('chat',13)} ${lang==='ar'?'تعليقات':'Comments'}</button>
         ${canEdit?`<button class="btn secondary sm" onclick="editTicketModal('${t.id}')">${ic('edit',13)} ${lang==='ar'?'تعديل':'Edit'}</button>`:''}
         ${canDel?`<button class="btn danger sm" onclick="deleteTicketConfirm('${t.id}')">${ic('trash',13)} ${lang==='ar'?'حذف':'Delete'}</button>`:''}
-      </div>`:''}
+      </div>
     </div>`;
   }).join('')}</div>`;
 }
@@ -2726,6 +2739,190 @@ async function deleteTicketConfirm(id){
   await api('/tickets/'+id,{method:'DELETE'});
   toast(lang==='ar'?'تم حذف البلاغ':'Ticket deleted','ok');
   await load();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TICKET COMMENTS
+   ═══════════════════════════════════════════════════════════════ */
+let _commentsTicketId = null;
+
+async function openComments(ticketId){
+  _commentsTicketId = ticketId;
+  const t = (data.tickets||[]).find(x=>x.id===ticketId);
+  const title = t ? esc(t.title) : ticketId;
+  showModal('commentsModal',
+    `${ic('chat',16)} ${lang==='ar'?'تعليقات البلاغ':'Ticket Comments'} — ${title}`,
+    `<div id="commentsList" style="min-height:60px">${lang==='ar'?'جاري التحميل...':'Loading...'}</div>
+     <div style="display:flex;gap:8px;margin-top:12px">
+       <input id="commentInput" class="inp" style="flex:1" placeholder="${lang==='ar'?'اكتب تعليق...':'Write a comment...'}" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitComment()}">
+       <button class="btn sm" onclick="submitComment()">${ic('arrow',14)} ${lang==='ar'?'إرسال':'Send'}</button>
+     </div>`,
+    `<button class="btn secondary" onclick="document.getElementById('commentsModal')?.remove()">${lang==='ar'?'إغلاق':'Close'}</button>`
+  );
+  await refreshComments();
+}
+
+async function refreshComments(){
+  if(!_commentsTicketId) return;
+  const res = await api('/tickets/'+_commentsTicketId+'/comments');
+  const list = document.getElementById('commentsList');
+  if(!list) return;
+  const comments = res.comments||[];
+  if(!comments.length){
+    list.innerHTML=`<div class="empty-state" style="padding:16px 0"><div class="empty-icon">${ic('chat',24)}</div><div class="empty-title" style="font-size:var(--fs-sm)">${lang==='ar'?'لا توجد تعليقات بعد':'No comments yet'}</div></div>`;
+    return;
+  }
+  const roleLabel = r => ({system_admin:lang==='ar'?'مدير النظام':'Admin',facility_manager:lang==='ar'?'مدير المرافق':'FM',cleaning_manager:lang==='ar'?'مدير النظافة':'Manager',cleaning_supervisor:lang==='ar'?'مشرف':'Supervisor',cleaner:lang==='ar'?'عامل':'Worker'}[r]||r);
+  list.innerHTML = comments.map(c=>`
+    <div class="commentItem${c.userId===me.id?' commentItem--mine':''}">
+      <div class="commentItem-header">
+        <span class="commentItem-name">${esc(c.userName)}</span>
+        <span class="commentItem-role">${roleLabel(c.userRole)}</span>
+        <span class="commentItem-time">${fmt(c.createdAt)}</span>
+        ${(c.userId===me.id||['system_admin','facility_manager','cleaning_manager'].includes(me.role))
+          ?`<button class="commentItem-del" onclick="deleteComment('${c.id}')" title="${lang==='ar'?'حذف':'Delete'}">×</button>`:''}
+      </div>
+      <div class="commentItem-body">${esc(c.body)}</div>
+    </div>`).join('');
+}
+
+async function submitComment(){
+  const input = document.getElementById('commentInput');
+  if(!input||!input.value.trim()) return;
+  const body = input.value.trim();
+  input.value='';
+  await api('/tickets/'+_commentsTicketId+'/comments',{method:'POST',body:JSON.stringify({body})});
+  await refreshComments();
+}
+
+async function deleteComment(cid){
+  if(!confirm(lang==='ar'?'حذف التعليق؟':'Delete comment?')) return;
+  await api('/comments/'+cid,{method:'DELETE'});
+  await refreshComments();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BROWSER NOTIFICATIONS (in-tab SLA breach alerts)
+   ═══════════════════════════════════════════════════════════════ */
+const _seenBreaches = new Set();
+
+function requestBrowserNotif(){
+  if('Notification' in window && Notification.permission==='default'){
+    Notification.requestPermission();
+  }
+}
+
+function checkNewBreaches(){
+  if(!('Notification' in window) || Notification.permission!=='granted') return;
+  (data.tickets||[]).filter(t=>t.slaBreached&&!['completed','rejected','cancelled'].includes(t.status))
+    .forEach(t=>{
+      if(_seenBreaches.has(t.id)) return;
+      _seenBreaches.add(t.id);
+      const locName = lang==='ar'?t.locationNameAr:t.locationNameEn;
+      const lvl = t.escalationLevel||0;
+      const prefix = lvl>=2?'🔴 ':lvl===1?'⚠️ ':'🕐 ';
+      new Notification(`${prefix}${lang==='ar'?'تجاوز SLA':'SLA Breach'}`, {
+        body: `${esc(t.title)} — ${esc(locName)}`,
+        tag: t.id
+      });
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RECURRING TASKS MANAGEMENT
+   ═══════════════════════════════════════════════════════════════ */
+let showRecurringCreate = false;
+
+function recurringTasksPage(){
+  const tasks = data.recurringTasks||[];
+  const locs  = data.locations||[];
+  const catLabels = {emergency:lang==='ar'?'طوارئ':'Emergency',spill:lang==='ar'?'انسكاب':'Spill',restroom:lang==='ar'?'دورة مياه':'Restroom',meeting_room:lang==='ar'?'قاعة':'Meeting Room',general:lang==='ar'?'عام':'General'};
+  const freqLabel = m => m<60?m+(lang==='ar'?' دق':' min'):Math.round(m/60)+(lang==='ar'?' ساعة':' hr');
+  return`
+<div class="pageHeader">
+  <div class="pageHeader-left">
+    <div class="pageTitle">${ic('refresh',16)} ${lang==='ar'?'المهام المتكررة':'Recurring Tasks'}</div>
+    <div class="pageSub">${tasks.length} ${lang==='ar'?'مهمة':'tasks'}</div>
+  </div>
+  <div class="pageActions">
+    <button class="btn sm" onclick="showRecurringCreate=!showRecurringCreate;render()">${ic('plus',14)} ${lang==='ar'?'إضافة':'Add'}</button>
+  </div>
+</div>
+${showRecurringCreate?`
+<div class="card" style="margin-bottom:16px">
+  <div class="card-head"><span class="card-title">${ic('plus',14)} ${lang==='ar'?'مهمة متكررة جديدة':'New Recurring Task'}</span></div>
+  <div class="formGrid">
+    ${fc(lang==='ar'?'الموقع':'Location', sel('rt-loc',[{v:'',l:lang==='ar'?'اختر موقع':'Select location',sel:true},...locs.map(l=>({v:l.id,l:locName(l),sel:false}))]))}
+    ${fc(lang==='ar'?'الفئة':'Category', sel('rt-cat',[...Object.entries(catLabels).map(([v,l])=>({v,l,sel:v==='general'}))]))}
+    ${fc(lang==='ar'?'عنوان المهمة':'Task Title', inp('rt-title',{placeholder:lang==='ar'?'مثال: تنظيف دوري دورة المياه':'e.g. Periodic restroom cleaning'}))}
+    ${fc(lang==='ar'?'التكرار (دقيقة)':'Frequency (minutes)', inp('rt-freq',{type:'number',value:'120',min:'30',max:'10080'}))}
+  </div>
+  <div style="display:flex;gap:8px;margin-top:12px">
+    <button class="btn sm" onclick="createRecurringTask()">${ic('check',14)} ${lang==='ar'?'إنشاء':'Create'}</button>
+    <button class="btn secondary sm" onclick="showRecurringCreate=false;render()">${lang==='ar'?'إلغاء':'Cancel'}</button>
+  </div>
+</div>`:''}
+${tasks.length?`
+<div class="card">
+  <div style="overflow-x:auto">
+    <table class="dataTable">
+      <thead><tr>
+        <th>${lang==='ar'?'المهمة':'Task'}</th>
+        <th>${lang==='ar'?'الموقع':'Location'}</th>
+        <th>${lang==='ar'?'الفئة':'Category'}</th>
+        <th>${lang==='ar'?'التكرار':'Frequency'}</th>
+        <th>${lang==='ar'?'التشغيل القادم':'Next Run'}</th>
+        <th>${lang==='ar'?'الحالة':'Status'}</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        ${tasks.map(t=>`<tr class="${t.active?'':'text-muted'}">
+          <td>${esc(t.titleAr)}</td>
+          <td>${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</td>
+          <td><span class="badge">${catLabels[t.category]||t.category}</span></td>
+          <td>${freqLabel(t.frequencyMins)}</td>
+          <td style="font-size:var(--fs-xs)">${fmt(t.nextRunAt)}</td>
+          <td><span class="badge ${t.active?'ok':''}">${t.active?(lang==='ar'?'نشط':'Active'):(lang==='ar'?'متوقف':'Paused')}</span></td>
+          <td style="display:flex;gap:6px;justify-content:flex-end">
+            <button class="btn secondary sm" onclick="toggleRecurring('${t.id}',${!t.active})">${t.active?(lang==='ar'?'إيقاف':'Pause'):(lang==='ar'?'تفعيل':'Resume')}</button>
+            <button class="btn danger sm" onclick="deleteRecurring('${t.id}')">${ic('trash',13)}</button>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>
+</div>`:`<div class="card"><div class="empty-state">
+  <div class="empty-icon">${ic('refresh',28)}</div>
+  <div class="empty-title">${lang==='ar'?'لا توجد مهام متكررة':'No recurring tasks'}</div>
+  <p class="empty-sub">${lang==='ar'?'أنشئ مهاماً متكررة لتشغيل بلاغات تنظيف دورية تلقائياً.':'Create recurring tasks to auto-generate periodic cleaning tickets.'}</p>
+</div></div>`}`;
+}
+
+async function createRecurringTask(){
+  const locationId   = document.getElementById('rt-loc')?.value;
+  const category     = document.getElementById('rt-cat')?.value;
+  const titleAr      = document.getElementById('rt-title')?.value.trim();
+  const frequencyMins= parseInt(document.getElementById('rt-freq')?.value,10)||120;
+  if(!locationId||!titleAr) return toast(lang==='ar'?'يرجى ملء الحقول المطلوبة':'Please fill required fields','warn');
+  const res = await api('/recurring-tasks',{method:'POST',body:JSON.stringify({locationId,category,titleAr,frequencyMins})});
+  if(res.recurringTasks) data.recurringTasks = res.recurringTasks;
+  showRecurringCreate = false;
+  render();
+  toast(lang==='ar'?'تم إنشاء المهمة المتكررة ✓':'Recurring task created ✓','ok');
+}
+
+async function toggleRecurring(id, active){
+  const res = await api('/recurring-tasks/'+id,{method:'PATCH',body:JSON.stringify({active})});
+  if(res.recurringTasks) data.recurringTasks = res.recurringTasks;
+  render();
+}
+
+async function deleteRecurring(id){
+  if(!confirm(lang==='ar'?'حذف المهمة المتكررة؟':'Delete recurring task?')) return;
+  const res = await api('/recurring-tasks/'+id,{method:'DELETE'});
+  if(res.recurringTasks) data.recurringTasks = res.recurringTasks;
+  render();
+  toast(lang==='ar'?'تم الحذف':'Deleted','ok');
 }
 
 /* ═══════════════════════════════════════════════════════════════

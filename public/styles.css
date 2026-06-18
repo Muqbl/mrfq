@@ -1268,6 +1268,17 @@ tbody tr:hover td{background:var(--surface-2)}
 }
 .ticketCard-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end;border-top:1px solid var(--line-soft);padding-top:10px}
 .ticketCard-actions .btn{min-height:34px}
+.ticketCard--escalated{border-inline-start:3px solid var(--bad)}
+/* ── comments ── */
+.commentItem{padding:10px 12px;border-radius:var(--r-sm);background:var(--surface-2);margin-bottom:8px}
+.commentItem--mine{background:color-mix(in srgb,var(--brand) 8%,transparent)}
+.commentItem-header{display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap}
+.commentItem-name{font-weight:700;font-size:var(--fs-xs);color:var(--ink)}
+.commentItem-role{font-size:10px;color:var(--muted);background:var(--surface-3);padding:1px 6px;border-radius:var(--r-full)}
+.commentItem-time{font-size:10px;color:var(--muted);margin-inline-start:auto}
+.commentItem-del{background:none;border:0;color:var(--muted);cursor:pointer;font-size:16px;padding:0 4px;line-height:1}
+.commentItem-del:hover{color:var(--bad)}
+.commentItem-body{font-size:var(--fs-sm);color:var(--ink);white-space:pre-wrap;word-break:break-word}
 /* ═══════════════════════════════════════════════════════════════
    LOCATIONS
    ═══════════════════════════════════════════════════════════════ */

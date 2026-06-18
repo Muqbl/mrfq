@@ -431,6 +431,52 @@ const MIGRATIONS = {
     CREATE INDEX IF NOT EXISTS idx_hosp_orders_kitchen ON hospitality_orders(kitchen_id);
   `,
 
+  /* ── v16: ticket comments ────────────────────────────────── */
+  16: `
+    CREATE TABLE IF NOT EXISTS ticket_comments (
+      id         TEXT PRIMARY KEY,
+      ticket_id  TEXT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+      user_id    TEXT NOT NULL DEFAULT '',
+      user_name  TEXT NOT NULL DEFAULT '',
+      user_role  TEXT NOT NULL DEFAULT '',
+      body       TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      deleted_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_comments_ticket ON ticket_comments(ticket_id);
+    CREATE INDEX IF NOT EXISTS idx_comments_user   ON ticket_comments(user_id);
+  `,
+
+  /* ── v17: recurring cleaning tasks ───────────────────────── */
+  17: `
+    CREATE TABLE IF NOT EXISTS recurring_tasks (
+      id               TEXT PRIMARY KEY,
+      location_id      TEXT NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+      location_name_ar TEXT NOT NULL DEFAULT '',
+      location_name_en TEXT NOT NULL DEFAULT '',
+      category         TEXT NOT NULL DEFAULT 'general',
+      title_ar         TEXT NOT NULL DEFAULT '',
+      frequency_mins   INTEGER NOT NULL DEFAULT 120,
+      next_run_at      TEXT NOT NULL,
+      last_run_at      TEXT,
+      created_by       TEXT NOT NULL DEFAULT '',
+      active           INTEGER NOT NULL DEFAULT 1,
+      created_at       TEXT NOT NULL,
+      updated_at       TEXT NOT NULL,
+      deleted_at       TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_recurring_location ON recurring_tasks(location_id);
+    CREATE INDEX IF NOT EXISTS idx_recurring_next     ON recurring_tasks(next_run_at);
+    CREATE INDEX IF NOT EXISTS idx_recurring_active   ON recurring_tasks(active);
+  `,
+
+  /* ── v18: escalation tracking on tickets ─────────────────── */
+  18: `
+    ALTER TABLE tickets ADD COLUMN escalated_at     TEXT;
+    ALTER TABLE tickets ADD COLUMN escalation_level INTEGER NOT NULL DEFAULT 0;
+    CREATE INDEX IF NOT EXISTS idx_tickets_escalated ON tickets(escalation_level);
+  `,
+
   /* ── v15: hospitality — menu categories ───────────────────── */
   15: `
     CREATE TABLE IF NOT EXISTS hospitality_menu_categories (

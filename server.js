@@ -503,6 +503,25 @@ function dbHospitalityOrders() {
     SELECT * FROM hospitality_orders WHERE deleted_at IS NULL ORDER BY created_at DESC
   `).all().map(hospitalityOrderRow);
 }
+function dbRecurringTasks() {
+  return getDb().prepare(
+    'SELECT * FROM recurring_tasks WHERE deleted_at IS NULL ORDER BY created_at DESC'
+  ).all().map(r => ({
+    id:             r.id,
+    locationId:     r.location_id,
+    locationNameAr: r.location_name_ar,
+    locationNameEn: r.location_name_en,
+    category:       r.category,
+    titleAr:        r.title_ar,
+    frequencyMins:  r.frequency_mins,
+    nextRunAt:      r.next_run_at,
+    lastRunAt:      r.last_run_at || '',
+    createdBy:      r.created_by,
+    active:         r.active === 1,
+    createdAt:      r.created_at,
+    updatedAt:      r.updated_at
+  }));
+}
 
 /** Map DB hospitality_menu_items row → frontend camelCase */
 function menuItemRow(r) {
@@ -623,6 +642,8 @@ function ticketRow(r) {
     cancelledAt:                 r.cancelled_at || '',
     slaDeadline:                 r.sla_deadline || '',
     slaBreached:                 r.sla_breached === 1,
+    escalatedAt:                 r.escalated_at || '',
+    escalationLevel:             r.escalation_level || 0,
     responseTimeMins:            r.response_time_mins  ?? null,
     completionTimeMins:          r.completion_time_mins ?? null,
     photos
@@ -729,15 +750,17 @@ function hospitalityOrdersForRole(me, allOrders) {
 
 function buildBootstrap(me) {
   const users       = dbUsers();
-  const locations   = dbLocs();          // already mapped to camelCase
+  const locations   = dbLocs();
   const zones       = dbZones();
   const assignments = dbAssignments();
   const settings    = dbSettings();
   const allTickets  = dbTickets();
   const allReports  = dbReports();
   const allHospitalityOrders = dbHospitalityOrders();
+  const allRecurringTasks    = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(me.role)
+    ? dbRecurringTasks() : [];
 
-  const base = { user: publicUser(me), locations, zones, settings };
+  const base = { user: publicUser(me), locations, zones, settings, recurringTasks: allRecurringTasks };
   const hospitalityOrders = hospitalityOrdersForRole(me, allHospitalityOrders);
 
   if (me.role === 'employee') {
@@ -861,13 +884,56 @@ function computeSlaDeadline(category) {
   return new Date(Date.now() + slaMins(category) * 60_000).toISOString();
 }
 
-// Periodic SLA breach check every 5 minutes
+// Periodic SLA breach check, escalation, and recurring tasks — every 5 minutes
 setInterval(() => {
   try {
-    getDb().prepare(
+    const db = getDb();
+    const ts = now();
+
+    // 1. Mark newly breached tickets
+    db.prepare(
       "UPDATE tickets SET sla_breached=1,updated_at=? WHERE sla_deadline < ? AND status NOT IN ('completed','rejected','cancelled') AND sla_breached=0 AND deleted_at IS NULL"
-    ).run(now(), now());
-  } catch {}
+    ).run(ts, ts);
+
+    // 2. First escalation: breach overdue > 30 min
+    const esc1 = new Date(Date.now() - 30 * 60_000).toISOString();
+    db.prepare(
+      "UPDATE tickets SET escalation_level=1,escalated_at=?,updated_at=? WHERE sla_breached=1 AND escalation_level=0 AND sla_deadline < ? AND status NOT IN ('completed','rejected','cancelled') AND deleted_at IS NULL"
+    ).run(ts, ts, esc1);
+
+    // 3. Second escalation: breach overdue > 90 min
+    const esc2 = new Date(Date.now() - 90 * 60_000).toISOString();
+    db.prepare(
+      "UPDATE tickets SET escalation_level=2,escalated_at=?,updated_at=? WHERE sla_breached=1 AND escalation_level=1 AND sla_deadline < ? AND status NOT IN ('completed','rejected','cancelled') AND deleted_at IS NULL"
+    ).run(ts, ts, esc2);
+
+    // 4. Run due recurring tasks
+    const dueTasks = db.prepare(
+      "SELECT * FROM recurring_tasks WHERE active=1 AND deleted_at IS NULL AND next_run_at <= ?"
+    ).all(ts);
+    for (const task of dueTasks) {
+      try {
+        const id        = newId('t');
+        const refNo     = generateRefNo(db);
+        const slaDeadline = new Date(Date.now() + slaMins(task.category) * 60_000).toISOString();
+        db.prepare(`
+          INSERT INTO tickets
+            (id,title,description,location_id,location_name_ar,location_name_en,
+             created_by,created_by_id,status,priority,category,reference_no,sla_deadline,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `).run(
+          id, task.title_ar, 'مهمة دورية تلقائية',
+          task.location_id, task.location_name_ar, task.location_name_en,
+          'system', '', 'submitted', 'medium', task.category,
+          refNo, slaDeadline, ts, ts
+        );
+        const nextRun = new Date(Date.now() + task.frequency_mins * 60_000).toISOString();
+        db.prepare('UPDATE recurring_tasks SET last_run_at=?,next_run_at=?,updated_at=? WHERE id=?')
+          .run(ts, nextRun, ts, task.id);
+        console.log(`[recurring] ticket ${id} (${refNo}) from task ${task.id}`);
+      } catch (e) { console.error('[recurring]', e.message); }
+    }
+  } catch (e) { console.error('[sla-check]', e.message); }
 }, 300_000);
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1458,6 +1524,100 @@ const server = http.createServer(async (req, res) => {
         });
         logEvent(db, 'settings.updated', 'settings', 'global', me, {});
         return send(res, 200, { ok: true, settings: dbSettings() });
+      }
+
+      /* ── TICKET COMMENTS: LIST ─────────────────────────────── */
+      if (req.method === 'GET' && /^\/api\/tickets\/[^/]+\/comments$/.test(url.pathname)) {
+        const ticketId = sanitize(url.pathname.split('/')[3], 50);
+        const rows = db.prepare(
+          'SELECT * FROM ticket_comments WHERE ticket_id=? AND deleted_at IS NULL ORDER BY created_at ASC'
+        ).all(ticketId);
+        return send(res, 200, { comments: rows.map(r => ({
+          id: r.id, ticketId: r.ticket_id, userId: r.user_id,
+          userName: r.user_name, userRole: r.user_role,
+          body: r.body, createdAt: r.created_at
+        }))});
+      }
+
+      /* ── TICKET COMMENTS: ADD ───────────────────────────────── */
+      if (req.method === 'POST' && /^\/api\/tickets\/[^/]+\/comments$/.test(url.pathname)) {
+        const ticketId = sanitize(url.pathname.split('/')[3], 50);
+        const t = db.prepare('SELECT 1 FROM tickets WHERE id=? AND deleted_at IS NULL').get(ticketId);
+        if (!t) return send(res, 404, { error: 'TICKET_NOT_FOUND' });
+        const b    = await bodyJSON(req);
+        const body = sanitize(b.body || '', 1000).trim();
+        if (!body) return send(res, 400, { error: 'EMPTY_BODY' });
+        const id   = newId('c');
+        const ts2  = now();
+        db.prepare(
+          'INSERT INTO ticket_comments (id,ticket_id,user_id,user_name,user_role,body,created_at) VALUES (?,?,?,?,?,?,?)'
+        ).run(id, ticketId, me.id, me.name, me.role, body, ts2);
+        return send(res, 200, { comment: { id, ticketId, userId: me.id, userName: me.name, userRole: me.role, body, createdAt: ts2 } });
+      }
+
+      /* ── TICKET COMMENTS: DELETE ────────────────────────────── */
+      if (req.method === 'DELETE' && /^\/api\/comments\/[^/]+$/.test(url.pathname)) {
+        const cid = sanitize(url.pathname.split('/').pop(), 50);
+        const c   = db.prepare('SELECT * FROM ticket_comments WHERE id=? AND deleted_at IS NULL').get(cid);
+        if (!c) return send(res, 404, { error: 'NOT_FOUND' });
+        const canDel = c.user_id === me.id || ['system_admin','facility_manager','cleaning_manager'].includes(me.role);
+        if (!canDel) return send(res, 403, { error: 'FORBIDDEN' });
+        db.prepare('UPDATE ticket_comments SET deleted_at=? WHERE id=?').run(now(), cid);
+        return send(res, 200, { ok: true });
+      }
+
+      /* ── RECURRING TASKS: LIST ──────────────────────────────── */
+      if (req.method === 'GET' && url.pathname === '/api/recurring-tasks') {
+        if (!['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(me.role))
+          return send(res, 403, { error: 'FORBIDDEN' });
+        return send(res, 200, { recurringTasks: dbRecurringTasks() });
+      }
+
+      /* ── RECURRING TASKS: CREATE ────────────────────────────── */
+      if (req.method === 'POST' && url.pathname === '/api/recurring-tasks') {
+        if (!['system_admin','facility_manager','cleaning_manager'].includes(me.role))
+          return send(res, 403, { error: 'FORBIDDEN' });
+        const b = await bodyJSON(req);
+        const loc = db.prepare('SELECT * FROM locations WHERE id=? AND active=1 AND deleted_at IS NULL').get(b.locationId);
+        if (!loc) return send(res, 404, { error: 'LOCATION_NOT_FOUND' });
+        const titleAr = sanitize(b.titleAr || '', 200).trim();
+        if (!titleAr) return send(res, 400, { error: 'TITLE_REQUIRED' });
+        const freqMins = Math.max(30, Math.min(10080, parseInt(b.frequencyMins, 10) || 120));
+        const id  = newId('rt');
+        const ts2 = now();
+        const nextRun = new Date(Date.now() + freqMins * 60_000).toISOString();
+        db.prepare(`
+          INSERT INTO recurring_tasks
+            (id,location_id,location_name_ar,location_name_en,category,title_ar,frequency_mins,next_run_at,created_by,active,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,1,?,?)
+        `).run(id, loc.id, loc.name_ar, loc.name_en,
+               ['emergency','spill','restroom','meeting_room','general'].includes(b.category) ? b.category : 'general',
+               titleAr, freqMins, nextRun, me.name, ts2, ts2);
+        logEvent(db, 'recurring_task.created', 'recurring_task', id, me, { locationId: loc.id, freqMins });
+        return send(res, 200, { recurringTasks: dbRecurringTasks() });
+      }
+
+      /* ── RECURRING TASKS: PATCH (toggle/update) ─────────────── */
+      if (req.method === 'PATCH' && /^\/api\/recurring-tasks\/[^/]+$/.test(url.pathname)) {
+        if (!['system_admin','facility_manager','cleaning_manager'].includes(me.role))
+          return send(res, 403, { error: 'FORBIDDEN' });
+        const rtId = sanitize(url.pathname.split('/').pop(), 50);
+        const rt   = db.prepare('SELECT 1 FROM recurring_tasks WHERE id=? AND deleted_at IS NULL').get(rtId);
+        if (!rt) return send(res, 404, { error: 'NOT_FOUND' });
+        const b = await bodyJSON(req);
+        if (typeof b.active === 'boolean') {
+          db.prepare('UPDATE recurring_tasks SET active=?,updated_at=? WHERE id=?').run(b.active ? 1 : 0, now(), rtId);
+        }
+        return send(res, 200, { recurringTasks: dbRecurringTasks() });
+      }
+
+      /* ── RECURRING TASKS: DELETE ────────────────────────────── */
+      if (req.method === 'DELETE' && /^\/api\/recurring-tasks\/[^/]+$/.test(url.pathname)) {
+        if (!['system_admin','facility_manager','cleaning_manager'].includes(me.role))
+          return send(res, 403, { error: 'FORBIDDEN' });
+        const rtId = sanitize(url.pathname.split('/').pop(), 50);
+        db.prepare('UPDATE recurring_tasks SET deleted_at=?,updated_at=? WHERE id=?').run(now(), now(), rtId);
+        return send(res, 200, { recurringTasks: dbRecurringTasks() });
       }
 
       /* ── WORKSPACE SWITCH ───────────────────────────────────── */
