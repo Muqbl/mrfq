@@ -1183,6 +1183,10 @@ tbody tr:hover td{background:var(--surface-2)}
   background:var(--surface-2);overflow:hidden;border-bottom:1px solid var(--line-soft);
 }
 .reportCard-media.single{grid-template-columns:1fr}
+.reportCard-media.sideBySide{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.reportCard-media.sideBySide .photoGroup:first-child{border-left:2px solid var(--bg)}
+.reportCard-media.sideBySide .photoGroup-label{font-size:10px;padding:4px 8px}
+.reportCard-media.sideBySide .reportCard-thumb{height:140px}
 .reportCard-thumb{
   width:100%;height:118px;object-fit:cover;cursor:zoom-in;
   background:var(--surface-3);display:block;
@@ -2174,18 +2178,6 @@ tbody tr:hover td{background:var(--surface-2)}
   .topbar,.platform-sidebar,.stickySubmit,.cameraFull,.toast,.btn.secondary,.btn.ghost{display:none!important}
   .platform-main{padding:0}
   .card,.reportCard{break-inside:avoid;box-shadow:none}
-}
-
-.prototype-notice-login{
-  margin-top:14px;
-  padding:10px 14px;
-  background:rgba(166,98,0,.12);
-  border:1.5px solid rgba(166,98,0,.3);
-  border-radius:8px;
-  font-size:12px;font-weight:600;
-  color:#7B3A00;
-  text-align:center;
-  line-height:1.5;
 }
 
 /* ─── SLA indicator ──────────────────────────────────────────── */

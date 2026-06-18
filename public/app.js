@@ -1276,11 +1276,6 @@ function loginPage(){
       ${fc(tr('user'), `<div class="input-wrap login-input-wrap"><span class="input-icon input-icon-static">${ic('user',16)}</span>${inp('lu',{type:'text', autocomplete:'username', placeholder:tr('user'), cls:'login-input'})}</div>`)}
       ${fc(tr('pass'),`<div class="input-wrap login-input-wrap"><span class="input-icon input-icon-static">${ic('lock',16)}</span>${inp('lp',{type:'password', autocomplete:'current-password', placeholder:tr('pass'), cls:'login-input login-input--with-action'})}<button class="input-icon input-icon-btn" id="pwdToggle" onclick="togglePwd()" type="button" tabindex="-1" aria-label="${lang==='ar'?'إظهار/إخفاء كلمة المرور':'Toggle password visibility'}">${ic('eye-off',16)}</button></div>`)}
       <button class="btn wide" onclick="login()">${tr('login')}</button>
-      <div class="prototype-notice-login">
-        ${lang==='ar'
-          ? 'نسخة تجريبية — بيانات غير حقيقية. للمحاكاة البصرية فقط.'
-          : 'Prototype — Demo data only. Visual simulation purposes only.'}
-      </div>
       <p class="loginPanel-foot">${lang==='ar'?'الدخول متاح فقط للمستخدمين المصرح لهم داخل المنصة.':'Access is restricted to authorized platform users only.'}</p>
     </div>
   </div>
@@ -1976,8 +1971,28 @@ function adminAuditLog(){
 }
 
 /* ── global settings (read-only) ───────────────────────────── */
+async function saveSlaSettings(){
+  const vals = {};
+  ['emergency','spill','restroom','meeting_room','general'].forEach(cat=>{
+    const el = document.getElementById(`sla-${cat}`);
+    if(el && el.value && Number(el.value)>0) vals[`sla_mins_${cat}`] = Number(el.value);
+  });
+  const res = await api('/settings',{method:'POST',body:JSON.stringify(vals)});
+  if(res.settings) data.settings = res.settings;
+  render();
+  toast(lang==='ar'?'تم حفظ إعدادات SLA ✓':'SLA settings saved ✓');
+}
+
 function adminSettings(){
   const s = data.settings||{};
+  const sla = s.slaMins||{emergency:15,spill:30,restroom:30,meeting_room:60,general:240};
+  const slaLabels = {
+    emergency: lang==='ar'?'طوارئ 🚨':'Emergency 🚨',
+    spill:     lang==='ar'?'انسكاب 💧':'Spill 💧',
+    restroom:  lang==='ar'?'دورات المياه 🚻':'Restroom 🚻',
+    meeting_room: lang==='ar'?'قاعة اجتماعات 🏢':'Meeting Room 🏢',
+    general:   lang==='ar'?'عام 📋':'General 📋'
+  };
   return `
 <div class="pageHeader">
   <div class="pageHeader-left">
@@ -1993,6 +2008,19 @@ function adminSettings(){
       <div class="perfStatRow"><span class="perfStatLabel">${lang==='ar'?'يتطلب صورة':'Photo Required'}</span><span class="badge ${s.requirePhoto?'ok':''}">${s.requirePhoto?ic('check',12):'-'}</span></div>
       <div class="perfStatRow"><span class="perfStatLabel">${lang==='ar'?'اللغة':'Language'}</span><span class="perfStatValue">${lang==='ar'?'العربية':'English'}</span></div>
     </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="card-title">${ic('clock',16)} ${lang==='ar'?'إعدادات SLA (بالدقائق)':'SLA Settings (minutes)'}</span></div>
+    <p style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:12px">${lang==='ar'?'الحد الأقصى للوقت المسموح به لكل نوع بلاغ قبل اعتباره متأخراً.':'Maximum response time allowed per ticket category before SLA breach.'}</p>
+    <div class="formGrid-4" style="margin-bottom:14px">
+      ${Object.entries(slaLabels).map(([cat,label])=>`
+        <div>
+          <label style="font-size:var(--fs-xs);font-weight:700;display:block;margin-bottom:4px">${label}</label>
+          <input id="sla-${cat}" type="number" min="1" max="1440" value="${sla[cat]||''}" class="inp" style="width:100%">
+        </div>
+      `).join('')}
+    </div>
+    <button class="btn sm" onclick="saveSlaSettings()">${ic('check',14)} ${lang==='ar'?'حفظ إعدادات SLA':'Save SLA Settings'}</button>
   </div>
   <div class="card">
     <div class="card-head"><span class="card-title">${ic('layers',16)} ${tr('modules')}</span></div>
@@ -2303,8 +2331,9 @@ function reportCard(r,full){
   const q = qualityScore(r);
   const rating = reportOverallRating(r);
   const tasks = taskSetFor(r.locationType);
+  const bothGroups = hasTyped && before.length && after.length;
   return`<article class="reportCard">
-    <div class="reportCard-media ${imgs.length<=1?'single':''}">
+    <div class="reportCard-media ${bothGroups?'sideBySide':imgs.length<=1?'single':''}">
       ${hasTyped ? `
         ${before.length?`<div class="photoGroup"><div class="photoGroup-label">${ic('camera',12)} ${tr('beforePhotos')}</div><div class="photoGroup-imgs">${before.map((src,i)=>`<img class="reportCard-thumb" src="${src}" loading="lazy" onclick='openGallery(${JSON.stringify(before)},${i})' alt="">`).join('')}</div></div>`:''}
         ${after.length?`<div class="photoGroup"><div class="photoGroup-label ok">${ic('check',12)} ${tr('afterPhotos')}</div><div class="photoGroup-imgs">${after.map((src,i)=>`<img class="reportCard-thumb" src="${src}" loading="lazy" onclick='openGallery(${JSON.stringify(after)},${i})' alt="">`).join('')}</div></div>`:''}
@@ -2789,7 +2818,10 @@ ${showLocCreate?`
         ${canManage()?`<button class="btn danger sm" onclick="deleteLocConfirm('${esc(l.id)}')">${ic('trash',13)} ${lang==='ar'?'حذف':'Delete'}</button>`:''}
         <details style="flex:1">
           <summary style="cursor:pointer;font-size:var(--fs-xs);font-weight:700;color:var(--brand-mid);list-style:none;padding:4px 0">${ic('qr',13)} ${lang==='ar'?'عرض QR':'Show QR'}</summary>
-          <div class="locCard-qr" style="margin-top:8px"><img width="120" height="120" src="${qrUrl}" alt="QR ${esc(l.id)}" loading="lazy"></div>
+          <div class="locCard-qr" style="margin-top:8px;display:flex;flex-direction:column;align-items:flex-start;gap:8px">
+            <img width="120" height="120" src="${qrUrl}" alt="QR ${esc(l.id)}" loading="lazy">
+            <a class="btn secondary sm" href="${qrUrl}&format=png" download="QR-${esc(l.id)}.png" style="text-decoration:none">${ic('download',13)} ${lang==='ar'?'تحميل QR':'Download QR'}</a>
+          </div>
         </details>
       </div>
     </div>`;
@@ -5035,8 +5067,9 @@ function supReportCard(r){
   const after  = (r.afterPhotos||[]);
   const hasTyped = before.length||after.length;
   const imgs = imgList(r);
+  const bothGroups2 = hasTyped && before.length && after.length;
   const photosHtml = hasTyped ? `
-    <div class="reportCard-media" style="margin:8px 0">
+    <div class="reportCard-media ${bothGroups2?'sideBySide':''}" style="margin:8px 0">
       ${before.length?`<div class="photoGroup"><div class="photoGroup-label">${ic('camera',12)} ${tr('beforePhotos')}</div><div class="photoGroup-imgs">${before.map((src,i)=>`<img class="reportCard-thumb" src="${src}" loading="lazy" onclick='openGallery(${JSON.stringify(before)},${i})' alt="">`).join('')}</div></div>`:''}
       ${after.length?`<div class="photoGroup"><div class="photoGroup-label ok">${ic('check',12)} ${tr('afterPhotos')}</div><div class="photoGroup-imgs">${after.map((src,i)=>`<img class="reportCard-thumb" src="${src}" loading="lazy" onclick='openGallery(${JSON.stringify(after)},${i})' alt="">`).join('')}</div></div>`:''}
     </div>

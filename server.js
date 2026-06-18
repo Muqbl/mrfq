@@ -288,15 +288,18 @@ function deleteMenuImage(filename) {
   try { if (fp.startsWith(MENU_IMAGES_DIR) && fs.existsSync(fp)) fs.unlinkSync(fp); } catch {}
 }
 
+const PHOTO_TYPE_WHITELIST = ['before', 'after', 'general'];
+
 /** Like processPhotos but sets photo_type after storing. */
 function processPhotosTyped(raw, uploadedBy, reportId = null, ticketId = null, photoType = 'general') {
+  const safeType = PHOTO_TYPE_WHITELIST.includes(photoType) ? photoType : 'general';
   if (!Array.isArray(raw)) return [];
   const db = getDb();
   return raw.slice(0, MAX_PHOTOS)
     .map(d => {
       const p = storePhoto(d, uploadedBy, reportId, ticketId);
       if (p) {
-        db.prepare('UPDATE photos SET photo_type = ? WHERE id = ?').run(photoType, p.id);
+        db.prepare('UPDATE photos SET photo_type = ? WHERE id = ?').run(safeType, p.id);
       }
       return p;
     })
@@ -456,7 +459,14 @@ function dbSettings() {
     appVersion:       s.app_version       || '2.0.0',
     frequencyMinutes: parseInt(s.frequency_minutes, 10) || 120,
     requirePhoto:     s.require_photo     === '1',
-    prototypeMode:    s.prototype_mode    === '1'
+    prototypeMode:    s.prototype_mode    === '1',
+    slaMins: {
+      emergency:    parseInt(s.sla_mins_emergency,   10) || SLA_MINS.emergency,
+      spill:        parseInt(s.sla_mins_spill,        10) || SLA_MINS.spill,
+      restroom:     parseInt(s.sla_mins_restroom,     10) || SLA_MINS.restroom,
+      meeting_room: parseInt(s.sla_mins_meeting_room, 10) || SLA_MINS.meeting_room,
+      general:      parseInt(s.sla_mins_general,      10) || SLA_MINS.general
+    }
   };
 }
 function dbAssignments() {
@@ -839,7 +849,13 @@ function logEvent(db, eventType, entityType, entityId, actor, payload = {}, modu
    ═══════════════════════════════════════════════════════════════ */
 const SLA_MINS = { emergency: 15, spill: 30, restroom: 30, meeting_room: 60, general: 240 };
 
-function slaMins(category) { return SLA_MINS[category] || SLA_MINS.general; }
+function slaMins(category) {
+  try {
+    const row = getDb().prepare('SELECT value FROM settings WHERE key = ?').get(`sla_mins_${category}`);
+    if (row && Number.isFinite(Number(row.value)) && Number(row.value) > 0) return Number(row.value);
+  } catch {}
+  return SLA_MINS[category] || SLA_MINS.general;
+}
 
 function computeSlaDeadline(category) {
   return new Date(Date.now() + slaMins(category) * 60_000).toISOString();
@@ -1341,6 +1357,7 @@ const server = http.createServer(async (req, res) => {
         const t  = db.prepare('SELECT 1 FROM tickets WHERE id = ? AND deleted_at IS NULL').get(id);
         if (!t) return send(res, 404, { error: 'TICKET_NOT_FOUND' });
         db.prepare('UPDATE tickets SET deleted_at = ?, updated_at = ? WHERE id = ?').run(now(), now(), id);
+        logEvent(db, 'ticket.deleted', 'ticket', id, me, { id });
         return send(res, 200, { ok: true });
       }
 
@@ -1353,9 +1370,11 @@ const server = http.createServer(async (req, res) => {
         ).get(b.locationId);
         if (!loc) return send(res, 404, { error: 'LOCATION_NOT_FOUND' });
         const asgRow = db.prepare(
-          'SELECT location_id FROM assignments WHERE worker_id = ? AND location_id = ?'
-        ).get(me.id, loc.id);
-        const hasAny = db.prepare('SELECT 1 FROM assignments WHERE worker_id = ?').get(me.id);
+          'SELECT location_id FROM assignments WHERE worker_id = ? AND location_id = ? AND (module IS NULL OR module = ?)'
+        ).get(me.id, loc.id, 'cleaning');
+        const hasAny = db.prepare(
+          'SELECT 1 FROM assignments WHERE worker_id = ? AND (module IS NULL OR module = ?)'
+        ).get(me.id, 'cleaning');
         if (hasAny && !asgRow) return send(res, 403, { error: 'NOT_ASSIGNED' });
         const tasks  = Array.isArray(b.tasks) ? b.tasks.map(t => sanitize(t, 200)).slice(0, 50) : [];
         const id     = newId('r');
@@ -1425,7 +1444,20 @@ const server = http.createServer(async (req, res) => {
         const r  = db.prepare('SELECT 1 FROM reports WHERE id = ? AND deleted_at IS NULL').get(id);
         if (!r) return send(res, 404, { error: 'REPORT_NOT_FOUND' });
         db.prepare('UPDATE reports SET deleted_at = ?, updated_at = ? WHERE id = ?').run(now(), now(), id);
+        logEvent(db, 'report.deleted', 'report', id, me, { id });
         return send(res, 200, { ok: true });
+      }
+
+      /* ── SETTINGS UPDATE ────────────────────────────────────── */
+      if (req.method === 'POST' && url.pathname === '/api/settings') {
+        if (!['system_admin', 'facility_manager'].includes(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const b = await bodyJSON(req);
+        const ALLOWED_KEYS = ['sla_mins_emergency','sla_mins_spill','sla_mins_restroom','sla_mins_meeting_room','sla_mins_general','frequency_minutes','require_photo'];
+        Object.entries(b).filter(([k]) => ALLOWED_KEYS.includes(k)).forEach(([k, v]) => {
+          db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(k, String(v));
+        });
+        logEvent(db, 'settings.updated', 'settings', 'global', me, {});
+        return send(res, 200, { ok: true, settings: dbSettings() });
       }
 
       /* ── WORKSPACE SWITCH ───────────────────────────────────── */
