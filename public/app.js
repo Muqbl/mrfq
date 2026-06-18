@@ -4585,16 +4585,15 @@ function employeeSubmitForm(){
     <label>${lang==='ar'?'كود الموقع':'Location Code'}</label>
     <div class="locInput-row">
       <button class="locInput-scan" onclick="openQRScanner()" title="${tr('scanQR')}" aria-label="${tr('scanQR')}">${ic('qr',18)}</button>
-      <div class="locInput-field">${inp('empLocCode',{cls:'ltr', placeholder:'wc-gf-a', value:localStorage.getItem('mrfq_emp_loc')||''})}</div>
+      <div class="locInput-field">${inp('empLocCode',{cls:'ltr', placeholder:'wc-gf-a'})}</div>
     </div>
   </div>
-  <div id="empLocName" style="font-size:var(--fs-xs);color:var(--brand-mid);min-height:18px;margin-top:4px">${(()=>{const saved=localStorage.getItem('mrfq_emp_loc');const loc=saved&&(data.locations||[]).find(l=>l.id===saved);return loc?(lang==='ar'?loc.nameAr:loc.nameEn):'';})()}</div>
+  <div id="empLocName" style="font-size:var(--fs-xs);color:var(--brand-mid);min-height:18px;margin-top:4px"></div>
   <script>document.getElementById('empLocCode')?.addEventListener('input',function(){
     const id=parseLoc(this.value);
     const loc=(data&&data.locations||[]).find(l=>l.id===id);
     const el=document.getElementById('empLocName');
     if(el)el.textContent=loc?(lang==='ar'?loc.nameAr:loc.nameEn):'';
-    if(id)localStorage.setItem('mrfq_emp_loc',id);
   });<\/script>
 </div>
 
@@ -4656,7 +4655,7 @@ function employeeHospForm(){
   const kitchens=empHospKitchens||[];
   const menuItems=empHospCatFilter?allItems.filter(i=>i.categoryId===empHospCatFilter):allItems;
   const cartTotal=Object.values(empHospCart).reduce((s,v)=>s+v,0);
-  if(!empHospLocId) empHospLocId=localStorage.getItem('mrfq_emp_loc')||'';
+  if(!empHospLocId) empHospLocId=localStorage.getItem('mrfq_hosp_loc')||'';
   const locName=(data.locations||[]).find(l=>l.id===empHospLocId);
 
   return`
@@ -4671,7 +4670,7 @@ function employeeHospForm(){
     <label>${lang==='ar'?'كود الموقع':'Location Code'}</label>
     <div class="locInput-row">
       <button class="locInput-scan" onclick="openQRScanner()" title="${tr('scanQR')}">${ic('qr',18)}</button>
-      <div class="locInput-field">${inp('empHospLocInput',{cls:'ltr',placeholder:'wc-gf-a',value:empHospLocId||localStorage.getItem('mrfq_emp_loc')||''})}</div>
+      <div class="locInput-field">${inp('empHospLocInput',{cls:'ltr',placeholder:'wc-gf-a',value:empHospLocId||localStorage.getItem('mrfq_hosp_loc')||''})}</div>
     </div>
   </div>
   <div id="empHospLocName" style="font-size:var(--fs-xs);color:var(--brand-mid);min-height:18px;margin-top:4px">${locName?(lang==='ar'?locName.nameAr:locName.nameEn):''}</div>
@@ -4679,7 +4678,7 @@ function employeeHospForm(){
     empHospLocId=parseLoc(this.value);
     const l=(data.locations||[]).find(x=>x.id===empHospLocId);
     document.getElementById('empHospLocName').textContent=l?(lang==='ar'?l.nameAr:l.nameEn):'';
-    if(empHospLocId)localStorage.setItem('mrfq_emp_loc',empHospLocId);
+    if(empHospLocId)localStorage.setItem('mrfq_hosp_loc',empHospLocId);
   });<\/script>
 </div>
 
@@ -4863,7 +4862,6 @@ async function submitEmployeeOrder(){
   if(locInput) locInput.value = locId;
   const loc = (data.locations||[]).find(l=>l.id===locId);
   if(!loc) return toast(lang==='ar'?`الموقع "${locId}" غير موجود`:`Location "${locId}" not found`,'bad');
-  localStorage.setItem('mrfq_emp_loc', locId);
   const btn = document.querySelector('.submitBtn');
   if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner" style="width:22px;height:22px;border-width:2.5px"></div>`}
   const photo = currentPhotos[0] || null;
