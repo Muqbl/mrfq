@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MRFQ — تقرير النظام الشامل</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap');
+  :root {
+    --bg:#f8fafc;--card:#ffffff;--primary:#0d9488;--primary-light:#ccfbf1;--primary-dark:#065f5b;
+    --success:#059669;--success-light:#d1fae5;--warning:#d97706;--warning-light:#fef3c7;
+    --danger:#dc2626;--danger-light:#fee2e2;--info:#2563eb;--info-light:#dbeafe;
+    --text:#1e293b;--text-secondary:#64748b;--border:#e2e8f0;
+    --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
+    --shadow-md:0 4px 6px rgba(0,0,0,.07),0 2px 4px rgba(0,0,0,.06);--radius:12px;
+  }
+  [data-theme="dark"]{--bg:#0f172a;--card:#1e293b;--primary-light:#134e4a;--success-light:#064e3b;--warning-light:#78350f;--danger-light:#7f1d1d;--info-light:#1e3a5f;--text:#f1f5f9;--text-secondary:#94a3b8;--border:#334155;--shadow:0 1px 3px rgba(0,0,0,.3);--shadow-md:0 4px 6px rgba(0,0,0,.3);}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7;transition:background .3s,color .3s;}
+  .header{background:linear-gradient(135deg,#0d9488,#065f5b);color:#fff;padding:40px 24px 32px;text-align:center;position:relative;}
+  .header h1{font-size:28px;font-weight:700;margin-bottom:6px;}
+  .header p{opacity:.85;font-size:15px;}
+  .header .meta{display:flex;gap:16px;justify-content:center;margin-top:16px;flex-wrap:wrap;}
+  .header .meta span{background:rgba(255,255,255,.15);padding:4px 14px;border-radius:20px;font-size:13px;}
+  .btn-icon{background:rgba(255,255,255,.2);border:none;color:#fff;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;transition:background .2s;display:inline-flex;align-items:center;justify-content:center;}
+  .btn-icon:hover{background:rgba(255,255,255,.3);}
+  .btn-icon svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .theme-toggle{position:absolute;top:16px;left:16px;}
+  .print-btn{position:absolute;top:16px;left:60px;}
+  .nav-bar{background:var(--card);border-bottom:1px solid var(--border);padding:0 16px;position:sticky;top:0;z-index:100;box-shadow:var(--shadow);overflow-x:auto;white-space:nowrap;}
+  .nav-bar::-webkit-scrollbar{height:0;}
+  .nav-bar a{display:inline-block;padding:14px 16px;color:var(--text-secondary);text-decoration:none;font-size:12px;font-weight:500;border-bottom:3px solid transparent;transition:all .2s;}
+  .nav-bar a:hover,.nav-bar a.active{color:var(--primary);border-bottom-color:var(--primary);}
+  .container{max-width:1100px;margin:0 auto;padding:24px 16px 60px;}
+  .section{margin-bottom:32px;scroll-margin-top:70px;}
+  .section-title{font-size:20px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:10px;}
+  .section-title .icon{width:36px;height:36px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .section-title .icon svg{width:20px;height:20px;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;fill:none;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:16px;transition:box-shadow .2s;}
+  .card:hover{box-shadow:var(--shadow-md);}
+  .card h3{font-size:16px;font-weight:600;margin-bottom:8px;}
+  .card p{color:var(--text-secondary);font-size:14px;}
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px;}
+  .stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);text-align:center;}
+  .stat-card .value{font-size:30px;font-weight:700;color:var(--primary);}
+  .stat-card .label{font-size:12px;color:var(--text-secondary);margin-top:4px;}
+  .table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{background:var(--primary);color:#fff;padding:10px 12px;text-align:right;font-weight:600;white-space:nowrap;}
+  td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:var(--primary-light);}
+  .badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;}
+  .badge svg{width:11px;height:11px;stroke-width:2.5;}
+  .badge-done{background:var(--success-light);color:var(--success);}
+  .badge-pending{background:var(--warning-light);color:var(--warning);}
+  .badge-danger{background:var(--danger-light);color:var(--danger);}
+  .badge-info{background:var(--info-light);color:var(--info);}
+  .arch-layer{border:2px solid var(--primary);border-radius:var(--radius);padding:16px;margin-bottom:12px;position:relative;background:var(--primary-light);}
+  .arch-layer .layer-label{position:absolute;top:-12px;right:16px;background:var(--primary);color:#fff;padding:2px 14px;border-radius:12px;font-size:12px;font-weight:600;}
+  .arch-items{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;}
+  .arch-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px;font-weight:500;flex:1;min-width:110px;text-align:center;}
+  .arch-item small{display:block;color:var(--text-secondary);font-size:10px;font-weight:400;margin-top:2px;}
+  .arch-arrow{text-align:center;color:var(--primary);margin:4px 0;}
+  .modules-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;}
+  .module-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s;cursor:pointer;}
+  .module-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
+  .module-header{display:flex;align-items:center;gap:12px;margin-bottom:8px;}
+  .module-num-circle{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;}
+  .module-num-circle.done{background:var(--success);}
+  .module-num-circle.pending{background:var(--warning);}
+  .module-header-text{flex:1;min-width:0;}
+  .module-header-text h3{font-size:14px;font-weight:700;margin:0;line-height:1.3;}
+  .module-header-text .module-desc{font-size:11px;color:var(--text-secondary);margin:0;}
+  .module-status-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .module-status-dot.done{background:var(--success);box-shadow:0 0 0 3px var(--success-light);}
+  .module-status-dot.pending{background:var(--warning);box-shadow:0 0 0 3px var(--warning-light);}
+  .module-card .features{list-style:none;margin-top:10px;}
+  .module-card .features li{font-size:12px;color:var(--text-secondary);padding:2px 0;padding-right:18px;position:relative;}
+  .module-card .features li .feat-check{position:absolute;right:0;top:4px;width:13px;height:13px;}
+  .module-card .features li .feat-check svg{width:13px;height:13px;stroke:var(--success);fill:none;stroke-width:2.5;}
+  .module-card .details{max-height:0;overflow:hidden;transition:max-height .4s ease;}
+  .module-card.expanded .details{max-height:500px;}
+  .roles-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;}
+  .role-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;}
+  .role-card .role-icon{margin-bottom:6px;display:flex;justify-content:center;}
+  .role-card .role-icon svg{width:28px;height:28px;stroke:var(--primary);fill:none;stroke-width:1.5;}
+  .role-card .role-name{font-size:13px;font-weight:600;}
+  .role-card .role-en{font-size:10px;color:var(--text-secondary);}
+  .tree{font-family:'Courier New',monospace;direction:ltr;text-align:left;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;font-size:12px;line-height:1.6;overflow-x:auto;white-space:pre;}
+  .tree .folder{color:var(--primary);font-weight:700;}
+  .tree .file{color:var(--text-secondary);}
+  .tree .highlight{color:var(--warning);font-weight:600;}
+  .checklist{list-style:none;}
+  .checklist li{padding:9px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer;transition:background .15s;}
+  .checklist li:hover{background:var(--primary-light);}
+  .checklist li:last-child{border-bottom:none;}
+  .checklist .check{width:22px;height:22px;border:2px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;}
+  .checklist .check svg{width:13px;height:13px;stroke:transparent;fill:none;stroke-width:3;}
+  .checklist li.checked .check{background:var(--success);border-color:var(--success);}
+  .checklist li.checked .check svg{stroke:#fff;}
+  .checklist li.checked>span:last-child{text-decoration:line-through;color:var(--text-secondary);}
+  .progress-bar{background:var(--border);border-radius:10px;height:10px;overflow:hidden;margin:8px 0;}
+  .progress-fill{height:100%;border-radius:10px;transition:width .8s ease;background:linear-gradient(90deg,var(--primary),var(--success));}
+  .progress-text{font-size:13px;color:var(--text-secondary);text-align:left;direction:ltr;}
+  .expandable-header{display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;}
+  .expandable-header .arrow{transition:transform .3s;color:var(--text-secondary);}
+  .expandable-header .arrow svg{width:16px;height:16px;}
+  .expandable-header.open .arrow{transform:rotate(90deg);}
+  .expandable-body{max-height:0;overflow:hidden;transition:max-height .4s ease;}
+  .expandable-body.open{max-height:4000px;}
+  .security-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);}
+  .security-item:last-child{border-bottom:none;}
+  .security-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .security-icon svg{width:18px;height:18px;stroke-width:2;fill:none;}
+  .security-icon.good{background:var(--success-light);}
+  .security-icon.good svg{stroke:var(--success);}
+  .security-icon.warn{background:var(--warning-light);}
+  .security-icon.warn svg{stroke:var(--warning);}
+  .stat-icon{display:flex;justify-content:center;margin-bottom:4px;}
+  .stat-icon svg{width:26px;height:26px;stroke-width:1.5;fill:none;}
+  /* Flow */
+  .flow{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 0;}
+  .fs{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;}
+  .fa{color:#999;font-size:12px;}
+  .s-blue{background:#dbeafe;color:#1e40af;}
+  .s-teal{background:#ccfbf1;color:#065f46;}
+  .s-yellow{background:#fef3c7;color:#92400e;}
+  .s-orange{background:#ffedd5;color:#c2410c;}
+  .s-green{background:#d1fae5;color:#065f46;}
+  .s-red{background:#fee2e2;color:#991b1b;}
+  .s-gray{background:#f3f4f6;color:#374151;}
+  /* Method badges */
+  .method{font-family:monospace;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700;white-space:nowrap;}
+  .mg{background:#dbeafe;color:#1d4ed8;}
+  .mp{background:#d1fae5;color:#065f46;}
+  .mpu{background:#fef3c7;color:#92400e;}
+  .md{background:#fee2e2;color:#991b1b;}
+  /* Issue rows */
+  .issue{display:flex;gap:10px;padding:10px;border-radius:8px;margin-bottom:8px;}
+  .issue.major{background:#fffbeb;border-right:3px solid #f59e0b;}
+  .issue.minor{background:#f0fdf4;border-right:3px solid #10b981;}
+  .issue-sev{font-size:10px;font-weight:700;white-space:nowrap;flex-shrink:0;padding:2px 7px;border-radius:4px;height:fit-content;}
+  .sev-m{background:#fef3c7;color:#92400e;}
+  .sev-n{background:#d1fae5;color:#065f46;}
+  .issue-body{flex:1;}
+  .issue-title{font-weight:700;font-size:12px;margin-bottom:2px;}
+  .issue-desc{font-size:11px;color:#555;line-height:1.5;}
+  .issue-loc{font-family:monospace;font-size:10px;color:var(--primary);margin-top:3px;}
+  code{font-family:monospace;font-size:11px;background:var(--bg);padding:1px 4px;border-radius:3px;border:1px solid var(--border);}
+  /* g2 / g3 */
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+  /* sla grid */
+  .sla-g{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
+  .sla-c{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;}
+  .sla-n{font-size:10px;font-weight:600;color:var(--primary);margin-bottom:4px;}
+  .sla-v{font-size:20px;font-weight:800;color:var(--primary);}
+  .sla-u{font-size:9px;color:var(--text-secondary);}
+  /* compare */
+  .cmp-row{display:grid;grid-template-columns:160px 1fr 1fr;border-bottom:1px solid var(--border);}
+  .cmp-row:first-child{background:var(--primary-light);font-weight:700;font-size:11px;border-radius:8px 8px 0 0;}
+  .cmp-cell{padding:7px 10px;font-size:12px;}
+  .cmp-row:last-child{border-bottom:none;}
+  .footer{text-align:center;padding:24px;color:var(--text-secondary);font-size:13px;border-top:1px solid var(--border);margin-top:40px;}
+  @media print{.nav-bar,.theme-toggle,.print-btn{display:none!important;}.card,.module-card,.stat-card{break-inside:avoid;}body{font-size:11px;}.expandable-body{max-height:none!important;}}
+  @media(max-width:640px){.header h1{font-size:20px;}.nav-bar a{font-size:11px;padding:11px 10px;}.container{padding:14px 10px 40px;}.g2,.g3{grid-template-columns:1fr;}.sla-g{grid-template-columns:repeat(3,1fr);}.cmp-row{grid-template-columns:110px 1fr 1fr;}}
+</style>
+</head>
+<body>
+
+<!-- SVG Sprite -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none;">
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
+  <symbol id="i-printer" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></symbol>
+  <symbol id="i-bar-chart" viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></symbol>
+  <symbol id="i-package" viewBox="0 0 24 24"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-folder-tree" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+  <symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+  <symbol id="i-map" viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></symbol>
+  <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+  <symbol id="i-check-circle" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></symbol>
+  <symbol id="i-alert-triangle" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+  <symbol id="i-chevron-left" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></symbol>
+  <symbol id="i-arrow-down" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></symbol>
+  <symbol id="i-crown" viewBox="0 0 24 24"><path d="M2 4l3 12h14l3-12-5 4-5-6-5 6z"/><line x1="2" y1="20" x2="22" y2="20"/></symbol>
+  <symbol id="i-building" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="9" y1="22" x2="9" y2="18"/><line x1="15" y1="22" x2="15" y2="18"/><line x1="9" y1="6" x2="9.01" y2="6"/><line x1="15" y1="6" x2="15.01" y2="6"/><line x1="9" y1="10" x2="9.01" y2="10"/><line x1="15" y1="10" x2="15.01" y2="10"/><line x1="9" y1="14" x2="9.01" y2="14"/><line x1="15" y1="14" x2="15.01" y2="14"/></symbol>
+  <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5L12 3z"/><path d="M19 15l.88 3.12L23 19l-3.12.88L19 23l-.88-3.12L15 19l3.12-.88L19 15z"/></symbol>
+  <symbol id="i-clipboard" viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></symbol>
+  <symbol id="i-spray" viewBox="0 0 24 24"><path d="M5 15a7 7 0 0 1 7-7"/><path d="M12 8V2"/><circle cx="12" cy="12" r="3"/><path d="M15 2h-6"/><path d="M7 22h10"/><path d="M9 22v-4"/><path d="M15 22v-4"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+  <symbol id="i-coffee" viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></symbol>
+  <symbol id="i-utensils" viewBox="0 0 24 24"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></symbol>
+  <symbol id="i-chef-hat" viewBox="0 0 24 24"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/><line x1="6" y1="17" x2="18" y2="17"/></symbol>
+  <symbol id="i-git-branch" viewBox="0 0 24 24"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></symbol>
+  <symbol id="i-activity" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></symbol>
+  <symbol id="i-compare" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></symbol>
+</svg>
+
+<!-- Header -->
+<div class="header">
+  <button class="btn-icon theme-toggle" onclick="toggleTheme()" id="themeBtn"><svg><use href="#i-moon"/></svg></button>
+  <button class="btn-icon print-btn" onclick="window.print()" title="طباعة"><svg><use href="#i-printer"/></svg></button>
+  <h1>MRFQ Facility Care</h1>
+  <p>تقرير النظام الشامل — معمارية · مودلات · تدقيق تقني · خطة التطوير</p>
+  <div class="meta">
+    <span>الإصدار 2.0.0</span>
+    <span>يونيو 2026</span>
+    <span>6 مودلات منجزة</span>
+    <span>94/94 Tests ✓</span>
+    <span>0 Vulnerabilities ✓</span>
+  </div>
+</div>
+
+<!-- Navigation -->
+<div class="nav-bar" id="nav">
+  <a href="#overview" class="active">نظرة عامة</a>
+  <a href="#tech">التقنيات</a>
+  <a href="#architecture">البنية</a>
+  <a href="#modules">الأقسام</a>
+  <a href="#roles">الأدوار</a>
+  <a href="#tree">شجرة الملفات</a>
+  <a href="#cleaning">مودل النظافة ★</a>
+  <a href="#api">واجهة API</a>
+  <a href="#photos">الصور والـ SLA</a>
+  <a href="#compare">نظافة vs ضيافة</a>
+  <a href="#security">الأمان</a>
+  <a href="#database">قاعدة البيانات</a>
+  <a href="#issues">الفجوات</a>
+  <a href="#cleanup">التنظيف</a>
+  <a href="#plan">خطة التطوير</a>
+  <a href="#scalability">التوسع</a>
+</div>
+
+<div class="container">
+
+<!-- ══ OVERVIEW ══ -->
+<div class="section" id="overview">
+  <div class="section-title">
+    <div class="icon" style="background:var(--primary-light);color:var(--primary);"><svg><use href="#i-bar-chart"/></svg></div>
+    نظرة عامة على النظام
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="value">6</div><div class="label">مودلات منجزة</div></div>
+    <div class="stat-card"><div class="value">9</div><div class="label">أدوار مستخدمين</div></div>
+    <div class="stat-card"><div class="value">94</div><div class="label">اختبار ناجح</div></div>
+    <div class="stat-card"><div class="value">19</div><div class="label">جدول في DB</div></div>
+    <div class="stat-card"><div class="value">0</div><div class="label">ثغرات أمنية</div></div>
+    <div class="stat-card"><div class="value">1</div><div class="label">تبعية خارجية</div></div>
+  </div>
+  <div class="card">
+    <h3>ما هو MRFQ؟</h3>
+    <p>نظام <strong>مِرفق</strong> (MRFQ Facility Care) منصة إدارة المرافق والخدمات التشغيلية. يغطي النظام حالياً إدارة النظافة والضيافة مع بنية قابلة للتوسع لمودلات أخرى. مبني كـ <strong>Modular Monolith</strong> — تطبيق واحد مع فصل منطقي بين الأقسام. يعمل كـ PWA ثنائي اللغة (عربي/إنجليزي) مع أحداث حية عبر SSE.</p>
+  </div>
+</div>
+
+<!-- ══ TECH ══ -->
+<div class="section" id="tech">
+  <div class="section-title">
+    <div class="icon" style="background:var(--info-light);color:var(--info);"><svg><use href="#i-zap"/></svg></div>
+    التقنيات ولغة البرمجة
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>العنصر</th><th>التقنية</th><th>التفاصيل</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Backend</strong></td><td>Node.js HTTP (vanilla)</td><td>ES2022+ · بدون Express · Node ≥ 20</td></tr>
+        <tr><td><strong>Frontend</strong></td><td>Vanilla JS SPA</td><td>app.js = ~5,500 سطر · بدون React/Vue</td></tr>
+        <tr><td><strong>قاعدة البيانات</strong></td><td>SQLite — better-sqlite3</td><td>WAL mode · synchronous · 15 migrations</td></tr>
+        <tr><td><strong>المصادقة</strong></td><td>scrypt + HttpOnly cookies</td><td>sessions في DB · تنتهي بعد ساعتين</td></tr>
+        <tr><td><strong>الأحداث الحية</strong></td><td>Server-Sent Events (SSE)</td><td>broadcast لكل المتصلين</td></tr>
+        <tr><td><strong>PWA</strong></td><td>Service Worker + manifest.json</td><td>يعمل كتطبيق على الجوال</td></tr>
+        <tr><td><strong>QR</strong></td><td>html5-qrcode</td><td>مسح رموز المواقع</td></tr>
+        <tr><td><strong>التبعيات</strong></td><td>better-sqlite3 فقط</td><td>تبعية واحدة — صفر bloat</td></tr>
+        <tr><td><strong>النشر</strong></td><td>Railway</td><td>railway.toml جاهز</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══ ARCHITECTURE ══ -->
+<div class="section" id="architecture">
+  <div class="section-title">
+    <div class="icon" style="background:var(--success-light);color:var(--success);"><svg><use href="#i-layers"/></svg></div>
+    بنية النظام — 3 طبقات
+  </div>
+  <div class="arch-layer">
+    <div class="layer-label">الطبقة 1 — Client</div>
+    <div class="arch-items">
+      <div class="arch-item">SPA<small>index.html + app.js</small></div>
+      <div class="arch-item">PWA<small>sw.js + manifest</small></div>
+      <div class="arch-item">SSE<small>أحداث حية</small></div>
+      <div class="arch-item">QR Scanner<small>html5-qrcode</small></div>
+      <div class="arch-item">AR / EN<small>ثنائي اللغة</small></div>
+    </div>
+  </div>
+  <div class="arch-arrow"><svg style="stroke:var(--primary);fill:none;stroke-width:2;width:24px;height:24px;"><use href="#i-arrow-down"/></svg></div>
+  <div class="arch-layer">
+    <div class="layer-label">الطبقة 2 — Server</div>
+    <div class="arch-items">
+      <div class="arch-item">HTTP Server<small>Node.js vanilla</small></div>
+      <div class="arch-item">Auth<small>scrypt + sessions</small></div>
+      <div class="arch-item">RBAC<small>9 أدوار</small></div>
+      <div class="arch-item">SLA Engine<small>مراقبة آلية</small></div>
+      <div class="arch-item">Photos<small>upload + validate</small></div>
+      <div class="arch-item">SSE<small>broadcast</small></div>
+    </div>
+  </div>
+  <div class="arch-arrow"><svg style="stroke:var(--primary);fill:none;stroke-width:2;width:24px;height:24px;"><use href="#i-arrow-down"/></svg></div>
+  <div class="arch-layer">
+    <div class="layer-label">الطبقة 3 — Database</div>
+    <div class="arch-items">
+      <div class="arch-item" style="flex:3;">SQLite (better-sqlite3)<small>WAL · 15 migrations · 19 جدول</small></div>
+      <div class="arch-item">File Storage<small>uploads/ + menu/</small></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODULES ══ -->
+<div class="section" id="modules">
+  <div class="section-title">
+    <div class="icon" style="background:var(--warning-light);color:var(--warning);"><svg><use href="#i-package"/></svg></div>
+    الأقسام (Modules) — 6 منجزة
+  </div>
+  <div class="card" style="background:var(--success-light);border-color:var(--success);margin-bottom:16px;">
+    <p style="color:var(--success);font-weight:600;">جميع الأقسام الستة الحالية منجزة بالكامل. مودل النظافة هو النموذج المرجعي لباقي المودلات.</p>
+  </div>
+  <div class="modules-grid" id="modulesGrid"></div>
+</div>
+
+<!-- ══ ROLES ══ -->
+<div class="section" id="roles">
+  <div class="section-title">
+    <div class="icon" style="background:var(--info-light);color:var(--info);"><svg><use href="#i-users"/></svg></div>
+    الأدوار والصلاحيات — 9 أدوار
+  </div>
+  <div class="roles-grid">
+    <div class="role-card"><div class="role-icon"><svg><use href="#i-crown"/></svg></div><div class="role-name">مدير النظام</div><div class="role-en">system_admin</div></div>
+    <div class="role-card"><div class="role-icon"><svg><use href="#i-building"/></svg></div><div class="role-name">مدير المرافق</div><div class="role-en">facility_manager</div></div>
+    <div class="role-card"><div class="role-icon"><svg><use href="#i-sparkles"/></svg></div><div class="role-name">مدير النظافة</div><div class="role-en">cleaning_manager</div></div>
+    <div class="role-card"><div class="role-icon"><svg><use href="#i-clipboard"/></svg></div><div class="role-name">مشرف النظافة</div><div class="role-en">cleaning_supervisor</div></div>
+    <div class="role-card"><div class="role-icon"><svg><use href="#i-spray"/></svg></div><div class="role-name">عامل نظافة</div><div class="role-en">cleaner</div></div>
+    <div class="role-card"><div class="role-icon"><svg><use href="#i-user"/></svg></div><div class="role-name">موظف</div><div class="role-en">employee</div></div>
+    <div class="role-card"><div class="role-icon"><svg><use href="#i-coffee"/></svg></div><div class="role-name">مدير الضيافة</div><div class="role-en">hospitality_manager</div></div>
+    <div class="role-card"><div class="role-icon"><svg><use href="#i-utensils"/></svg></div><div class="role-name">مشرف الضيافة</div><div class="role-en">hospitality_supervisor</div></div>
+    <div class="role-card"><div class="role-icon"><svg><use href="#i-chef-hat"/></svg></div><div class="role-name">عامل ضيافة</div><div class="role-en">hospitality_worker</div></div>
+  </div>
+  <div class="card" style="margin-top:16px;">
+    <div class="expandable-header" onclick="toggleExpand(this)">
+      <h3>مصفوفة الصلاحيات الكاملة</h3>
+      <span class="arrow"><svg style="stroke:var(--text-secondary);fill:none;stroke-width:2;width:16px;height:16px;"><use href="#i-chevron-left"/></svg></span>
+    </div>
+    <div class="expandable-body">
+      <div class="table-wrap" style="margin-top:12px;">
+        <table>
+          <thead><tr><th>العملية</th><th>system_admin</th><th>facility_manager</th><th>cleaning_manager</th><th>cleaning_supervisor</th><th>cleaner</th><th>employee</th></tr></thead>
+          <tbody>
+            <tr><td>إنشاء بلاغ</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
+            <tr><td>تحديث بلاغ</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
+            <tr><td>إكمال بلاغ</td><td>—</td><td>—</td><td>—</td><td>—</td><td>✓ (own)</td><td>—</td></tr>
+            <tr><td>حذف بلاغ</td><td>✓</td><td>—</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr>
+            <tr><td>إنشاء تقرير</td><td>—</td><td>—</td><td>—</td><td>—</td><td>✓</td><td>—</td></tr>
+            <tr><td>مراجعة تقرير</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
+            <tr><td>تقييم بنجوم</td><td>—</td><td>—</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr>
+            <tr><td>حذف تقرير</td><td>✓</td><td>✓</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr>
+            <tr><td>تصدير CSV</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
+            <tr><td>تصدير Excel/PDF</td><td>✓</td><td>✓</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr>
+            <tr><td>SLA Report</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>—</td><td>—</td></tr>
+            <tr><td>طلب نظافة/ضيافة</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>✓</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ FILE TREE ══ -->
+<div class="section" id="tree">
+  <div class="section-title">
+    <div class="icon" style="background:var(--warning-light);color:var(--warning);"><svg><use href="#i-folder-tree"/></svg></div>
+    شجرة النظام (File Structure)
+  </div>
+  <div class="tree"><span class="folder">mrfq/</span>
+├── <span class="highlight">server.js</span>             <span class="file">← السيرفر الرئيسي (~2,185 سطر) — كل API</span>
+├── <span class="highlight">db.js</span>                 <span class="file">← قاعدة البيانات + 15 migration</span>
+├── package.json           <span class="file">← تبعية واحدة: better-sqlite3</span>
+├── railway.toml           <span class="file">← إعداد النشر</span>
+├── .env.example           <span class="file">← نموذج المتغيرات البيئية</span>
+├── .gitignore             <span class="file">← يستثني DB + secrets + uploads</span>
+├── <span class="file" style="color:var(--danger);">CLOSING_PLAN_EVIDENCE.md   ← يُحذف</span>
+├── <span class="file" style="color:var(--danger);">DEMO_SCENARIO.md           ← يُحذف</span>
+├── <span class="file" style="color:var(--danger);">EVIDENCE_REPORT.md         ← يُحذف</span>
+├── <span class="file" style="color:var(--danger);">VULNERABILITY_ACTION_PLAN.md ← يُحذف</span>
+├── README.md
+│
+├── <span class="folder">public/</span>
+│   ├── index.html         <span class="file">← الصفحة الوحيدة</span>
+│   ├── <span class="highlight">app.js</span>             <span class="file">← كامل منطق الواجهة (~5,500 سطر)</span>
+│   ├── styles.css
+│   ├── sw.js              <span class="file">← Service Worker</span>
+│   ├── manifest.json
+│   ├── html5-qrcode.min.js
+│   └── <span class="folder">assets/</span>
+│       ├── <span class="folder">fonts/</span>         <span class="file">← IBM Plex Sans Arabic (7 أوزان)</span>
+│       └── <span class="folder">logos/</span>         <span class="file">← SVG شعارات</span>
+│
+├── <span class="folder">scripts/</span>
+│   └── seed-demo.js
+│
+├── <span class="folder">test/</span>
+│   ├── smoke.test.js
+│   ├── smoke-hospitality.test.js
+│   ├── smoke-phase4c.test.js
+│   └── smoke-phase4d.test.js
+│
+└── <span class="folder">uploads/</span>
+    └── .gitkeep</div>
+</div>
+
+<!-- ══ CLEANING MODULE DEEP DIVE ══ -->
+<div class="section" id="cleaning">
+  <div class="section-title">
+    <div class="icon" style="background:var(--primary-light);color:var(--primary);"><svg><use href="#i-sparkles"/></svg></div>
+    مودل النظافة — Reference Implementation
+    <span class="badge badge-done" style="margin-right:8px;"><svg style="fill:none;stroke:currentColor;"><use href="#i-star"/></svg> نموذج مرجعي</span>
+  </div>
+
+  <div class="card" style="background:var(--success-light);border-color:var(--success);margin-bottom:16px;">
+    <p style="color:var(--success);font-weight:600;">مودل النظافة هو الـ Reference Implementation — كل مودل مستقبلي (صيانة، أمن، مستودعات، مواصلات) يُبنى على نفس هذا الهيكل.</p>
+  </div>
+
+  <!-- State Machine -->
+  <div class="card">
+    <h3>دورة حياة البلاغ — Ticket State Machine (9 حالات)</h3>
+    <div class="flow" style="margin-top:10px;">
+      <div class="fs s-blue">submitted</div><div class="fa">→</div>
+      <div class="fs s-teal">assigned</div><div class="fa">→</div>
+      <div class="fs s-teal">accepted</div><div class="fa">→</div>
+      <div class="fs s-yellow">in_progress</div><div class="fa">→</div>
+      <div class="fs s-orange">waiting_verification</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0;">
+      <div class="fs s-green">completed 🔒</div>
+      <div class="fs s-orange">reclean_required → assigned</div>
+      <div class="fs s-red">rejected 🔒</div>
+      <div class="fs s-gray">cancelled 🔒</div>
+    </div>
+    <div class="table-wrap" style="margin-top:10px;">
+      <table>
+        <thead><tr><th>من</th><th>إلى (المسموح)</th><th>من يتحكم</th></tr></thead>
+        <tbody>
+          <tr><td><code>submitted</code></td><td>assigned · cancelled · rejected</td><td>supervisor / manager</td></tr>
+          <tr><td><code>assigned</code></td><td>accepted · in_progress · waiting_verification · reclean_required · submitted · cancelled · rejected</td><td>supervisor / cleaner</td></tr>
+          <tr><td><code>accepted</code></td><td>in_progress · waiting_verification · cancelled · rejected</td><td>cleaner</td></tr>
+          <tr><td><code>in_progress</code></td><td>waiting_verification · cancelled · rejected</td><td>cleaner</td></tr>
+          <tr><td><code>waiting_verification</code></td><td>completed · reclean_required · rejected</td><td>supervisor</td></tr>
+          <tr><td><code>reclean_required</code></td><td>assigned · accepted · in_progress · waiting_verification · cancelled</td><td>supervisor / cleaner</td></tr>
+          <tr><td><code>completed / rejected / cancelled</code></td><td colspan="2" style="color:var(--danger);font-weight:700;">🔒 Terminal — لا انتقال ممكن</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:10px;padding:8px;background:var(--bg);border-radius:6px;font-size:12px;color:var(--text-secondary);">
+      <strong>Ownership check:</strong> <code>POST /api/tickets/complete</code> يتحقق أن <code>ticket.assigned_to === me.id</code> → 403 إذا لم يتطابق.
+    </div>
+  </div>
+
+  <!-- Report Cycle -->
+  <div class="card">
+    <h3>دورة حياة التقرير (Report Approval)</h3>
+    <div class="flow">
+      <div class="fs s-teal">cleaner يُنشئ</div><div class="fa">→</div>
+      <div class="fs s-yellow">pending</div><div class="fa">→</div>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <div class="fs s-green">approved ✓</div>
+        <div class="fs s-orange">needs_recleaning</div>
+        <div class="fs s-red">rejected</div>
+      </div>
+      <div class="fa">→</div>
+      <div class="fs s-teal">⭐ manager يقيّم (1–5)</div>
+    </div>
+    <p style="margin-top:8px;font-size:12px;color:var(--text-secondary);">التحقق: لا يمكن مراجعة تقرير مُراجَع مسبقاً — <code>approvalStatus !== 'pending'</code> → 400.</p>
+  </div>
+
+  <!-- Quality Formula -->
+  <div class="g2">
+    <div class="card">
+      <h3>معادلة جودة التقرير</h3>
+      <div style="font-family:monospace;font-size:12px;background:var(--bg);padding:12px;border-radius:8px;line-height:2;border:1px solid var(--border);">
+        صور ≥ 2 → +45 نقطة<br>
+        صورة واحدة → +25 نقطة<br>
+        بدون صور → +0<br>
+        مهام ≥ 4 → +45 نقطة<br>
+        مهام &lt; 4 → عدد × 8<br>
+        ملاحظات → +10 نقطة<br>
+        <strong>الحد الأقصى: 100%</strong>
+      </div>
+    </div>
+    <div class="card">
+      <h3>مؤشرات أداء العامل</h3>
+      <ul style="list-style:none;font-size:12px;color:var(--text-secondary);">
+        <li style="padding:3px 0;">• total / thisMonth / reportsLast30</li>
+        <li style="padding:3px 0;">• approvalRate: % معتمد (30 يوم)</li>
+        <li style="padding:3px 0;">• avgQuality: متوسط جودة التقارير</li>
+        <li style="padding:3px 0;">• avgRatingSupervisor / avgRatingManager</li>
+        <li style="padding:3px 0;">• openTickets: البلاغات المفتوحة</li>
+        <li style="padding:3px 0;">• locCount: عدد المواقع المخصصة</li>
+        <li style="padding:3px 0;">• workloadScore: openTickets/locCount×100</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ══ API ══ -->
+<div class="section" id="api">
+  <div class="section-title">
+    <div class="icon" style="background:var(--info-light);color:var(--info);"><svg><use href="#i-code"/></svg></div>
+    واجهة API — Cleaning Endpoints
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Method</th><th>Path</th><th>الصلاحية</th><th>Validation</th><th>Ownership</th></tr></thead>
+      <tbody>
+        <tr><td><span class="method mp">POST</span></td><td><code>/api/tickets</code></td><td>supervisor+</td><td>locationId · category whitelist · SLA auto-calc</td><td>—</td></tr>
+        <tr><td><span class="method mpu">PUT</span></td><td><code>/api/tickets/:id</code></td><td>supervisor+</td><td>TICKET_TRANSITIONS enforced</td><td>—</td></tr>
+        <tr><td><span class="method mp">POST</span></td><td><code>/api/tickets/complete</code></td><td>cleaner only</td><td>transition valid · photos processed</td><td>✓ assigned_to===me.id</td></tr>
+        <tr><td><span class="method md">DELETE</span></td><td><code>/api/tickets/:id</code></td><td>admin/manager</td><td>exists check</td><td>—</td></tr>
+        <tr><td><span class="method mp">POST</span></td><td><code>/api/reports</code></td><td>cleaner only</td><td>location active · assignment check · typed photos</td><td>implicit (me.id)</td></tr>
+        <tr><td><span class="method mp">POST</span></td><td><code>/api/reports/review</code></td><td>supervisor+</td><td>approvalStatus==='pending'</td><td>—</td></tr>
+        <tr><td><span class="method mp">POST</span></td><td><code>/api/reports/rate</code></td><td>cleaning_manager only</td><td>1≤value≤5 · ratingType whitelist</td><td>—</td></tr>
+        <tr><td><span class="method md">DELETE</span></td><td><code>/api/reports/:id</code></td><td>admin/fm/manager</td><td>exists check</td><td>—</td></tr>
+        <tr><td><span class="method mg">GET</span></td><td><code>/api/reports.csv</code></td><td>supervisor+</td><td>UTF-8 BOM</td><td>—</td></tr>
+        <tr><td><span class="method mg">GET</span></td><td><code>/api/performance</code></td><td>supervisor+</td><td>days param (max 365)</td><td>—</td></tr>
+        <tr><td><span class="method mg">GET</span></td><td><code>/api/sla-report</code></td><td>supervisor+</td><td>days param (max 365)</td><td>—</td></tr>
+        <tr><td><span class="method mp">POST</span></td><td><code>/api/order</code></td><td>employee only</td><td>locationId · category · photo optional</td><td>—</td></tr>
+        <tr><td><span class="method mg">GET</span></td><td><code>/uploads/:filename</code></td><td>any logged-in</td><td>regex <code>^[a-f0-9]{32}\.(jpg|png|webp)$</code> · path traversal</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══ PHOTOS + SLA ══ -->
+<div class="section" id="photos">
+  <div class="section-title">
+    <div class="icon" style="background:var(--warning-light);color:var(--warning);"><svg><use href="#i-camera"/></svg></div>
+    نظام الصور والـ SLA
+  </div>
+  <div class="g2">
+    <div class="card">
+      <h3>نظام الصور — Photo Pattern</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>الجانب</th><th>التفاصيل</th></tr></thead>
+          <tbody>
+            <tr><td>الرفع</td><td>Base64 JSON — لا multipart</td></tr>
+            <tr><td>Magic Bytes</td><td>JPEG: FF D8 FF · PNG: 89 50 4E 47 · WebP</td></tr>
+            <tr><td>الحجم الأقصى</td><td>5 MB</td></tr>
+            <tr><td>الصيغ</td><td>jpeg · png · webp</td></tr>
+            <tr><td>اسم الملف</td><td><code>randomBytes(16).hex + ext</code></td></tr>
+            <tr><td>photo_type</td><td>before / after / general</td></tr>
+            <tr><td>الوصول</td><td>يتطلب session (auth)</td></tr>
+            <tr><td>Path Traversal</td><td>regex + starts-with UPLOADS_DIR</td></tr>
+            <tr><td>Cache</td><td>private · max-age=86400</td></tr>
+            <tr><td>حد التقرير</td><td>10 صور كحد أقصى</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <h3>نظام SLA</h3>
+      <div class="sla-g">
+        <div class="sla-c"><div class="sla-n">🚨 emergency</div><div class="sla-v">15</div><div class="sla-u">دقيقة</div></div>
+        <div class="sla-c"><div class="sla-n">💧 spill</div><div class="sla-v">30</div><div class="sla-u">دقيقة</div></div>
+        <div class="sla-c"><div class="sla-n">🚻 restroom</div><div class="sla-v">30</div><div class="sla-u">دقيقة</div></div>
+        <div class="sla-c"><div class="sla-n">🏢 meeting</div><div class="sla-v">60</div><div class="sla-u">دقيقة</div></div>
+        <div class="sla-c"><div class="sla-n">📋 general</div><div class="sla-v">240</div><div class="sla-u">دقيقة</div></div>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:var(--text-secondary);">
+        <p>• <strong>deadline</strong> = created_at + SLA_MINS[category] × 60000</p>
+        <p style="margin-top:4px;">• Breach check: <code>setInterval</code> كل <strong>5 دقائق</strong></p>
+        <p style="margin-top:4px;">• عند الإكمال: <code>completion_time_mins = (completed_at − created_at) / 60000</code></p>
+        <p style="margin-top:4px;">• SLA_MINS hardcoded في الكود — لا يمكن تغييرها من الإعدادات حالياً</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ COMPARE ══ -->
+<div class="section" id="compare">
+  <div class="section-title">
+    <div class="icon" style="background:var(--success-light);color:var(--success);"><svg><use href="#i-compare"/></svg></div>
+    مقارنة: النظافة vs الضيافة
+  </div>
+  <div class="card">
+    <div style="border-radius:8px;overflow:hidden;border:1px solid var(--border);">
+      <div class="cmp-row"><div class="cmp-cell">الجانب</div><div class="cmp-cell">🧹 Cleaning</div><div class="cmp-cell">☕ Hospitality</div></div>
+      <div class="cmp-row"><div class="cmp-cell">حالات الـ status</div><div class="cmp-cell">9 (submitted→completed)</div><div class="cmp-cell">9 (submitted→delivered→completed)</div></div>
+      <div class="cmp-row"><div class="cmp-cell">SLA</div><div class="cmp-cell">متغير حسب category (15–240 دقيقة)</div><div class="cmp-cell">ثابت (60 دقيقة)</div></div>
+      <div class="cmp-row"><div class="cmp-cell">الصور</div><div class="cmp-cell">✓ before/after إلزامية</div><div class="cmp-cell">— غير موجودة</div></div>
+      <div class="cmp-row"><div class="cmp-cell">نظام التقييم</div><div class="cmp-cell">✓ supervisor + manager (1–5)</div><div class="cmp-cell">— غير موجود</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Quality Score</div><div class="cmp-cell">✓ صور+مهام+ملاحظات</div><div class="cmp-cell">— غير موجود</div></div>
+      <div class="cmp-row"><div class="cmp-cell">تصدير</div><div class="cmp-cell">✓ CSV + Excel + PDF</div><div class="cmp-cell">— غير موجود</div></div>
+      <div class="cmp-row"><div class="cmp-cell">بوابة عامة</div><div class="cmp-cell">— يتطلب login</div><div class="cmp-cell">✓ /order/hospitality بدون login</div></div>
+      <div class="cmp-row"><div class="cmp-cell">قائمة منتجات</div><div class="cmp-cell">— لا ينطبق</div><div class="cmp-cell">✓ menu items + categories</div></div>
+      <div class="cmp-row"><div class="cmp-cell">QR scanner</div><div class="cmp-cell">✓ للمواقع</div><div class="cmp-cell">— غير موجود</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Ownership check</div><div class="cmp-cell">✓ assigned_to===me.id</div><div class="cmp-cell">✓ assigned_to + phone</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SECURITY ══ -->
+<div class="section" id="security">
+  <div class="section-title">
+    <div class="icon" style="background:var(--success-light);color:var(--success);"><svg><use href="#i-shield"/></svg></div>
+    تقييم الأمان
+  </div>
+  <div class="card" id="securityCard"></div>
+</div>
+
+<!-- ══ DATABASE ══ -->
+<div class="section" id="database">
+  <div class="section-title">
+    <div class="icon" style="background:var(--info-light);color:var(--info);"><svg><use href="#i-database"/></svg></div>
+    قاعدة البيانات — 19 جدول
+  </div>
+  <div class="card" style="background:var(--success-light);border-color:var(--success);margin-bottom:16px;">
+    <p style="color:var(--success);font-weight:600;display:flex;align-items:center;gap:6px;">
+      <svg style="width:18px;height:18px;stroke:var(--success);fill:none;stroke-width:2;flex-shrink:0;"><use href="#i-check-circle"/></svg>
+      data.db غير موجودة في المستودع — .gitignore يستثني *.db و *.sqlite. آمن.
+    </p>
+  </div>
+  <div class="card">
+    <div class="expandable-header" onclick="toggleExpand(this)">
+      <h3>جداول قاعدة البيانات</h3>
+      <span class="arrow"><svg style="stroke:var(--text-secondary);fill:none;stroke-width:2;width:16px;height:16px;"><use href="#i-chevron-left"/></svg></span>
+    </div>
+    <div class="expandable-body">
+      <div class="table-wrap" style="margin-top:12px;">
+        <table>
+          <thead><tr><th>#</th><th>الجدول</th><th>المودل</th><th>الوصف</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td><code>users</code></td><td>نظام</td><td>المستخدمون مع كلمات مرور مشفرة (scrypt)</td></tr>
+            <tr><td>2</td><td><code>user_roles</code></td><td>نظام</td><td>أدوار متعددة لكل مستخدم مع حقل module</td></tr>
+            <tr><td>3</td><td><code>sessions</code></td><td>نظام</td><td>جلسات المصادقة (تنتهي بعد ساعتين)</td></tr>
+            <tr><td>4</td><td><code>settings</code></td><td>نظام</td><td>إعدادات التطبيق (key/value)</td></tr>
+            <tr><td>5</td><td><code>locations</code></td><td>مواقع</td><td>المرافق والمواقع (12 نوع)</td></tr>
+            <tr><td>6</td><td><code>zones</code></td><td>مواقع</td><td>المناطق</td></tr>
+            <tr><td>7</td><td><code>facilities</code></td><td>مواقع</td><td>المنشآت (هرمي)</td></tr>
+            <tr><td>8</td><td><code>buildings</code></td><td>مواقع</td><td>المباني (هرمي)</td></tr>
+            <tr><td>9</td><td><code>assignments</code></td><td>نظافة</td><td>تعيين العمال للمواقع + حقل module</td></tr>
+            <tr><td>10</td><td><code>tickets</code></td><td>نظافة</td><td>البلاغات (9 حالات + SLA)</td></tr>
+            <tr><td>11</td><td><code>reports</code></td><td>نظافة</td><td>تقارير النظافة مع اعتماد ثلاثي</td></tr>
+            <tr><td>12</td><td><code>photos</code></td><td>مشترك</td><td>الصور المرفقة (entity pattern — before/after/general)</td></tr>
+            <tr><td>13</td><td><code>approval_history</code></td><td>مشترك</td><td>سجل الاعتمادات</td></tr>
+            <tr><td>14</td><td><code>event_log</code></td><td>مشترك</td><td>سجل الأحداث مع module tag</td></tr>
+            <tr><td>15</td><td><code>hospitality_orders</code></td><td>ضيافة</td><td>طلبات الضيافة (9 حالات)</td></tr>
+            <tr><td>16</td><td><code>hospitality_menu_items</code></td><td>ضيافة</td><td>قائمة الطعام</td></tr>
+            <tr><td>17</td><td><code>hospitality_menu_categories</code></td><td>ضيافة</td><td>فئات القائمة</td></tr>
+            <tr><td>18</td><td><code>hospitality_kitchens</code></td><td>ضيافة</td><td>المطابخ</td></tr>
+            <tr><td>19</td><td><code>_migrations</code></td><td>نظام</td><td>تتبع إصدارات قاعدة البيانات</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ISSUES ══ -->
+<div class="section" id="issues">
+  <div class="section-title">
+    <div class="icon" style="background:var(--warning-light);color:var(--warning);"><svg><use href="#i-alert-triangle"/></svg></div>
+    الفجوات والمخاطر
+    <span class="badge badge-done" style="margin-right:8px;">لا توجد Blockers</span>
+  </div>
+  <div class="card">
+    <div class="issue major">
+      <span class="issue-sev sev-m">MINOR</span>
+      <div class="issue-body">
+        <div class="issue-title">photo_type لا يُتحقق منه (whitelist)</div>
+        <div class="issue-desc">processPhotosTyped تستقبل أي قيمة بدون التحقق أنها من ['before','after','general']. قيمة غير متوقعة يمكن تخزينها.</div>
+        <div class="issue-loc">server.js ~292 · الخطورة: Minor · Blocker: لا</div>
+      </div>
+    </div>
+    <div class="issue major">
+      <span class="issue-sev sev-m">MINOR</span>
+      <div class="issue-body">
+        <div class="issue-title">SLA_MINS hardcoded</div>
+        <div class="issue-desc">قيم SLA مثبتة في الكود. لا يمكن تعديلها من الإعدادات بدون إعادة deploy. يُنصح بنقلها لجدول settings قبل الإنتاج.</div>
+        <div class="issue-loc">server.js ~840 · الخطورة: Minor · Blocker: لا</div>
+      </div>
+    </div>
+    <div class="issue minor">
+      <span class="issue-sev sev-n">INFO</span>
+      <div class="issue-body">
+        <div class="issue-title">لا يوجد audit trail لعمليات الحذف</div>
+        <div class="issue-desc">DELETE tickets/reports يضع deleted_at بدون تسجيل حدث في event_log. يُنصح بإضافة logEvent('ticket.deleted') قبل الإنتاج.</div>
+        <div class="issue-loc">server.js ~1339, ~1423 · الخطورة: Minor · Blocker: لا</div>
+      </div>
+    </div>
+    <div class="issue minor">
+      <span class="issue-sev sev-n">INFO</span>
+      <div class="issue-body">
+        <div class="issue-title">عمود module في assignments غير مستخدم في الفلترة</div>
+        <div class="issue-desc">الجدول يحتوي عمود module لكن الكود لا يفلتر بناءً عليه. ضروري لفصل الوحدات المستقبلية.</div>
+        <div class="issue-loc">db.js · assignments table · الخطورة: Minor · Blocker: لا</div>
+      </div>
+    </div>
+    <div class="issue minor">
+      <span class="issue-sev sev-n">TEST GAP</span>
+      <div class="issue-body">
+        <div class="issue-title">CSV export + periodic SLA job غير مُختبرَين</div>
+        <div class="issue-desc">GET /api/reports.csv و background breach setInterval لا يوجد لهما test cases.</div>
+        <div class="issue-loc">test/smoke.test.js · الخطورة: Minor · Blocker: لا</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>جدول المخاطر الأمنية</h3>
+    <div class="table-wrap" style="margin-top:8px;">
+      <table>
+        <thead><tr><th>المخاطرة</th><th>الحالة</th><th>ملاحظة</th></tr></thead>
+        <tbody>
+          <tr><td>SQL Injection</td><td><span class="badge badge-done">✓ آمن</span></td><td>Prepared statements كاملة</td></tr>
+          <tr><td>XSS</td><td><span class="badge badge-done">✓ محمي</span></td><td>esc() function مستخدمة في كل مخرجات HTML</td></tr>
+          <tr><td>Path Traversal</td><td><span class="badge badge-done">✓ محمي</span></td><td>regex + starts-with UPLOADS_DIR</td></tr>
+          <tr><td>Login Brute Force</td><td><span class="badge badge-done">✓ محمي</span></td><td>5 محاولات / 60 ثانية</td></tr>
+          <tr><td>Magic Bytes Upload</td><td><span class="badge badge-done">✓ موجود</span></td><td>JPEG/PNG/WebP verified</td></tr>
+          <tr><td>Session Tokens</td><td><span class="badge badge-done">✓ آمن</span></td><td>HttpOnly + SameSite=Strict cookies</td></tr>
+          <tr><td>Secrets في الكود</td><td><span class="badge badge-done">✓ آمن</span></td><td>كل الأسرار من env vars</td></tr>
+          <tr><td>unsafe-inline في CSP</td><td><span class="badge badge-pending">⚠ معلوم</span></td><td>SPA يتطلبه حالياً</td></tr>
+          <tr><td>Public hospitality rate limit</td><td><span class="badge badge-pending">⚠ أساسي</span></td><td>يحتاج تعزيز قبل الإنتاج</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CLEANUP ══ -->
+<div class="section" id="cleanup">
+  <div class="section-title">
+    <div class="icon" style="background:var(--danger-light);color:var(--danger);"><svg><use href="#i-trash"/></svg></div>
+    التنظيف المطلوب
+  </div>
+  <div class="card">
+    <h3>ملفات يجب حذفها</h3>
+    <ul class="checklist" id="cleanupList">
+      <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span><code>CLOSING_PLAN_EVIDENCE.md</code> — وثيقة تجريبية</span></li>
+      <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span><code>DEMO_SCENARIO.md</code> — سيناريو عرض تجريبي</span></li>
+      <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span><code>EVIDENCE_REPORT.md</code> — تقرير أدلة تجريبي</span></li>
+      <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span><code>VULNERABILITY_ACTION_PLAN.md</code> — خطة أمنية مؤقتة</span></li>
+      <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span><code>data.example.json</code> — مرجع قديم (SQLite حل محله)</span></li>
+    </ul>
+  </div>
+  <div class="card" style="background:var(--success-light);border-color:var(--success);">
+    <h3 style="color:var(--success);display:flex;align-items:center;gap:6px;">
+      <svg style="width:18px;height:18px;stroke:var(--success);fill:none;stroke-width:2;flex-shrink:0;"><use href="#i-check-circle"/></svg>
+      لا توجد كلمات مرور مكشوفة
+    </h3>
+    <p>كل كلمات المرور تُؤخذ من env vars أو تُولد عشوائياً وتُطبع مرة واحدة في stdout.</p>
+  </div>
+</div>
+
+<!-- ══ PLAN ══ -->
+<div class="section" id="plan">
+  <div class="section-title">
+    <div class="icon" style="background:var(--primary-light);color:var(--primary);"><svg><use href="#i-map"/></svg></div>
+    خطة التطوير والإنجاز
+  </div>
+  <div class="card" style="margin-bottom:16px;">
+    <h3>التقدم الإجمالي</h3>
+    <div style="display:flex;justify-content:space-between;margin-top:8px;">
+      <span style="font-size:13px;font-weight:600;">المرحلة الحالية: Reference Implementation جاهز</span>
+      <span class="progress-text" id="progressText">0%</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+  </div>
+
+  <div class="card">
+    <div class="expandable-header open" onclick="toggleExpand(this)">
+      <h3><span class="badge badge-pending"><svg style="fill:none;stroke:currentColor;"><use href="#i-alert-triangle"/></svg> المرحلة 1</span> &nbsp; التنظيف والتهيئة</h3>
+      <span class="arrow"><svg style="stroke:var(--text-secondary);fill:none;stroke-width:2;width:16px;height:16px;"><use href="#i-chevron-left"/></svg></span>
+    </div>
+    <div class="expandable-body open">
+      <ul class="checklist" style="margin-top:12px;" data-phase="1">
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>حذف CLOSING_PLAN_EVIDENCE.md</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>حذف DEMO_SCENARIO.md</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>حذف EVIDENCE_REPORT.md</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>حذف VULNERABILITY_ACTION_PLAN.md</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>حذف data.example.json</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>إزالة نصوص "Prototype/Demo" من الواجهة (app.js:1282)</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>إضافة photo_type whitelist validation في processPhotosTyped</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>إضافة logEvent قبل DELETE operations</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>تحديث README.md</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="expandable-header" onclick="toggleExpand(this)">
+      <h3><span class="badge badge-info">المرحلة 2</span> &nbsp; إعادة الهيكلة للتوسع</h3>
+      <span class="arrow"><svg style="stroke:var(--text-secondary);fill:none;stroke-width:2;width:16px;height:16px;"><use href="#i-chevron-left"/></svg></span>
+    </div>
+    <div class="expandable-body">
+      <ul class="checklist" style="margin-top:12px;" data-phase="2">
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>تقسيم server.js إلى routes/ modules</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>تقسيم app.js إلى frontend modules</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>تفعيل عمود module في assignments filtering</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>نقل SLA_MINS لجدول settings (configurable)</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>تحسين CSP بإزالة unsafe-inline</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>إنشاء module blueprint/template</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="expandable-header" onclick="toggleExpand(this)">
+      <h3><span class="badge badge-info">المرحلة 3</span> &nbsp; تعزيز البنية التحتية</h3>
+      <span class="arrow"><svg style="stroke:var(--text-secondary);fill:none;stroke-width:2;width:16px;height:16px;"><use href="#i-chevron-left"/></svg></span>
+    </div>
+    <div class="expandable-body">
+      <ul class="checklist" style="margin-top:12px;" data-phase="3">
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>test cases: CSV export + SLA breach job + multi-worker</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>إعداد CI/CD pipeline</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>نظام إشعارات (push / email)</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>logging & monitoring متقدم</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>backup strategy لقاعدة البيانات</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>API documentation (Swagger/OpenAPI)</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="expandable-header" onclick="toggleExpand(this)">
+      <h3><span class="badge badge-info">المرحلة 4</span> &nbsp; مودلات مستقبلية</h3>
+      <span class="arrow"><svg style="stroke:var(--text-secondary);fill:none;stroke-width:2;width:16px;height:16px;"><use href="#i-chevron-left"/></svg></span>
+    </div>
+    <div class="expandable-body">
+      <ul class="checklist" style="margin-top:12px;" data-phase="4">
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>مودل الصيانة (Maintenance) — يرث Ticket + Photo + SLA Pattern</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>مودل الأمن (Security) — يرث Ticket + Escalation Pattern</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>مودل النقل (Transportation) — يرث Ticket + SLA Pattern</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>مودل المستودعات (Inventory) — يرث Request + Approval Pattern</span></li>
+        <li onclick="toggleCheck(this)"><span class="check"><svg><use href="#i-check"/></svg></span><span>مودل حجز القاعات (Room Booking)</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:8px;">
+    <h3 style="display:flex;align-items:center;gap:6px;"><svg style="width:18px;height:18px;stroke:var(--primary);fill:none;stroke-width:2;flex-shrink:0;"><use href="#i-git-branch"/></svg> Blueprint لإضافة مودل جديد</h3>
+    <div class="table-wrap" style="margin-top:10px;">
+      <table>
+        <thead><tr><th>#</th><th>العنصر</th><th>المرجع من النظافة</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Migration جديد في db.js</td><td>tickets + reports tables</td></tr>
+          <tr><td>2</td><td>State Machine (حالات + انتقالات)</td><td>TICKET_TRANSITIONS</td></tr>
+          <tr><td>3</td><td>أدوار جديدة في ALLOWED_ROLES</td><td>cleaning_* roles</td></tr>
+          <tr><td>4</td><td>Permission functions</td><td>canCreateTickets()</td></tr>
+          <tr><td>5</td><td>API Routes (CRUD + status)</td><td>/api/tickets/*</td></tr>
+          <tr><td>6</td><td>Row mapper (snake → camelCase)</td><td>ticketRow()</td></tr>
+          <tr><td>7</td><td>Bootstrap filter بالدور</td><td>buildBootstrap()</td></tr>
+          <tr><td>8</td><td>SSE events</td><td>broadcast('ticket_created')</td></tr>
+          <tr><td>9</td><td>Event logging مع module tag</td><td>logEvent(db, ..., 'cleaning')</td></tr>
+          <tr><td>10</td><td>واجهة المستخدم لكل دور</td><td>renderCleaner / renderSupervisor</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCALABILITY ══ -->
+<div class="section" id="scalability">
+  <div class="section-title">
+    <div class="icon" style="background:var(--primary-light);color:var(--primary);"><svg><use href="#i-rocket"/></svg></div>
+    قابلية التوسع
+  </div>
+  <div class="card" style="background:var(--success-light);border-color:var(--success);margin-bottom:16px;">
+    <h3 style="color:var(--success);display:flex;align-items:center;gap:8px;font-size:17px;">
+      <svg style="width:22px;height:22px;stroke:var(--success);fill:none;stroke-width:2;flex-shrink:0;"><use href="#i-check-circle"/></svg>
+      البنية جاهزة للتوسع
+    </h3>
+  </div>
+  <div class="stats-grid" id="scalabilityGrid"></div>
+  <div class="card">
+    <h3>الخلاصة</h3>
+    <p>النظام مصمم بذكاء ليكون قابلاً للتوسع. العناصر الأساسية موجودة: نظام أدوار متعدد المودلات، سجل أحداث مركزي، نظام migrations، ونمط state machine موحد. التحدي هو حجم الملفات الرئيسية (server.js + app.js) — يُعالج في المرحلة 2. يمكن إضافة 2–3 مودلات جديدة بالبنية الحالية.</p>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<div class="footer">
+  تقرير نظام MRFQ Facility Care — تقرير شامل يجمع معمارية النظام والتدقيق التقني وخطة التطوير<br>
+  تم إنشاؤه بواسطة Claude Code · يونيو 2026
+</div>
+
+<script>
+// ── Icons (inline helpers) ──
+const chkSvg = '<svg style="fill:none;stroke:currentColor;stroke-width:2.5;width:13px;height:13px;"><use href="#i-check"/></svg>';
+
+// ── Security ──
+const secItems = [
+  {ok:true,t:'كلمات المرور',d:'scrypt مع salt عشوائي — مقارنة timing-safe'},
+  {ok:true,t:'الجلسات',d:'HttpOnly + SameSite=Strict — تنتهي بعد ساعتين — في DB'},
+  {ok:true,t:'Security Headers',d:'CSP · X-Frame-Options: DENY · nosniff · HSTS عند HTTPS'},
+  {ok:true,t:'Path Traversal',d:'regex + starts-with UPLOADS_DIR check'},
+  {ok:true,t:'Rate Limiting',d:'5 محاولات/دقيقة على login'},
+  {ok:true,t:'تنقية المدخلات',d:'sanitize() على كل المدخلات + magic bytes للصور'},
+  {ok:true,t:'لا أسرار في الكود',d:'كل الأسرار من env vars — .env في .gitignore'},
+  {ok:true,t:'Soft Delete',d:'deleted_at timestamp — لا حذف فعلي للبيانات'},
+  {ok:false,t:'CSP — unsafe-inline',d:'مطلوب حالياً بسبب SPA monolith — يُحسّن عند تقسيم الواجهة'}
+];
+document.getElementById('securityCard').innerHTML = secItems.map(s=>`
+  <div class="security-item">
+    <div class="security-icon ${s.ok?'good':'warn'}">
+      <svg><use href="${s.ok?'#i-check-circle':'#i-alert-triangle'}"/></svg>
+    </div>
+    <div><strong>${s.t}</strong><br><span style="font-size:12px;color:var(--text-secondary);">${s.d}</span></div>
+  </div>
+`).join('');
+
+// ── Scalability ──
+const scalItems = [
+  {ok:true,icon:'#i-users',t:'أدوار مرنة',d:'user_roles + module field'},
+  {ok:true,icon:'#i-database',t:'سجل أحداث',d:'event_log مع module tag'},
+  {ok:true,icon:'#i-settings',t:'State Machines',d:'نمط موحد قابل للتكرار'},
+  {ok:true,icon:'#i-git-branch',t:'Migration System',d:'إضافة جداول بدون كسر'},
+  {ok:false,icon:'#i-alert-triangle',t:'server.js كبير',d:'~2,185 سطر — يحتاج تقسيم'},
+  {ok:false,icon:'#i-alert-triangle',t:'app.js كبير',d:'~5,500 سطر — يحتاج تقسيم'}
+];
+document.getElementById('scalabilityGrid').innerHTML = scalItems.map(s=>`
+  <div class="stat-card">
+    <div class="stat-icon"><svg style="stroke:${s.ok?'var(--success)':'var(--warning)'};fill:none;"><use href="${s.icon}"/></svg></div>
+    <div class="label" style="font-weight:600;color:var(--text);">${s.t}</div>
+    <div class="label">${s.d}</div>
+  </div>
+`).join('');
+
+// ── Modules ──
+const modules = [
+  {num:1,name:'النظافة (Cleaning)',status:'done',star:true,desc:'النموذج المرجعي لباقي المودلات',
+   features:['تقارير نظافة مع صور (قبل/بعد)','بلاغات (Tickets) — 9 حالات','SLA بتصنيفات (طوارئ 15 دقيقة → عام 4 ساعات)','تعيين تلقائي للعمال (Auto-assign)','مراجعة واعتماد المشرفين','تقييم أداء العمال (نجوم + جودة)','تصدير CSV + Excel + PDF'],
+   tables:'tickets, reports, assignments, photos',roles:'cleaning_manager · cleaning_supervisor · cleaner'},
+  {num:2,name:'الضيافة (Hospitality)',status:'done',desc:'نظام طلبات الضيافة والمطابخ',
+   features:['طلبات ضيافة — 9 حالات','قائمة طعام قابلة للإدارة','فئات قائمة (تفعيل/إيقاف)','مطابخ مع ربط عامل مسؤول','بوابة عامة بدون تسجيل دخول','SLA مستقل (60 دقيقة)'],
+   tables:'hospitality_orders, menu_items, menu_categories, kitchens',roles:'hospitality_manager · hospitality_supervisor · hospitality_worker'},
+  {num:3,name:'بوابة الموظف',status:'done',desc:'واجهة مبسطة للموظفين',
+   features:['تقديم بلاغات تنظيف','متابعة بالرقم المرجعي','تصنيف البلاغات','إرفاق صورة','طلب ضيافة عبر الهاتف'],
+   tables:'tickets (shared)',roles:'employee'},
+  {num:4,name:'إدارة المواقع',status:'done',desc:'هيكل هرمي للمرافق',
+   features:['منشآت (Facilities)','مباني (Buildings)','مواقع (Locations) — 12 نوع','مناطق (Zones)','تفعيل/إيقاف مواقع'],
+   tables:'facilities, buildings, locations, zones',roles:'system_admin · facility_manager · cleaning_manager'},
+  {num:5,name:'المستخدمون والأدوار',status:'done',desc:'نظام صلاحيات متقدم',
+   features:['9 أدوار محددة','أدوار متعددة لنفس المستخدم','تبديل workspace خلال الجلسة','إجبار تغيير كلمة المرور','Soft delete'],
+   tables:'users, user_roles, sessions',roles:'system_admin · cleaning_manager'},
+  {num:6,name:'التحليلات والأداء',status:'done',desc:'مؤشرات أداء وتقارير',
+   features:['تقرير SLA بالتصنيف','أداء العمال (30 يوم)','معدل الاعتماد','متوسط الجودة','مؤشر العبء','إحصائيات الضيافة'],
+   tables:'event_log, approval_history',roles:'cleaning_supervisor+'}
+];
+const grid = document.getElementById('modulesGrid');
+modules.forEach(m=>{
+  const card = document.createElement('div');
+  card.className = 'module-card';
+  card.onclick = ()=>card.classList.toggle('expanded');
+  const starHtml = m.star ? '<svg style="width:13px;height:13px;stroke:var(--warning);fill:var(--warning);stroke-width:1;flex-shrink:0;margin-right:4px;"><use href="#i-star"/></svg>' : '';
+  card.innerHTML = `
+    <div class="module-header">
+      <div class="module-num-circle ${m.status}">${m.num}</div>
+      <div class="module-header-text">
+        <h3 style="display:flex;align-items:center;gap:4px;">${m.name}${starHtml}</h3>
+        <p class="module-desc">${m.desc}</p>
+      </div>
+      <div class="module-status-dot ${m.status}"></div>
+    </div>
+    <ul class="features">
+      ${m.features.map(f=>`<li><span class="feat-check"><svg><use href="#i-check"/></svg></span>${f}</li>`).join('')}
+    </ul>
+    <div class="details" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+      <p style="font-size:11px;"><strong>الجداول:</strong> <code>${m.tables}</code></p>
+      <p style="font-size:11px;margin-top:4px;"><strong>الأدوار:</strong> ${m.roles}</p>
+      <p style="font-size:10px;color:var(--text-secondary);margin-top:8px;">اضغط مرة أخرى للإغلاق</p>
+    </div>
+  `;
+  grid.appendChild(card);
+});
+
+// ── Theme ──
+function toggleTheme(){
+  const dark = document.body.hasAttribute('data-theme');
+  if(dark){document.body.removeAttribute('data-theme');document.getElementById('themeBtn').innerHTML='<svg><use href="#i-moon"/></svg>';}
+  else{document.body.setAttribute('data-theme','dark');document.getElementById('themeBtn').innerHTML='<svg><use href="#i-sun"/></svg>';}
+  localStorage.setItem('theme',dark?'light':'dark');
+}
+if(localStorage.getItem('theme')==='dark'){document.body.setAttribute('data-theme','dark');document.getElementById('themeBtn').innerHTML='<svg><use href="#i-sun"/></svg>';}
+
+// ── Expandable ──
+function toggleExpand(el){el.classList.toggle('open');el.nextElementSibling.classList.toggle('open');}
+
+// ── Checklist ──
+function toggleCheck(li){li.classList.toggle('checked');updateProgress();saveState();}
+function updateProgress(){
+  const all=document.querySelectorAll('.checklist li'),checked=document.querySelectorAll('.checklist li.checked');
+  const pct=all.length?Math.round(checked.length/all.length*100):0;
+  document.getElementById('progressFill').style.width=pct+'%';
+  document.getElementById('progressText').textContent=pct+'%';
+}
+function saveState(){
+  const state={};
+  document.querySelectorAll('.checklist').forEach((list,li)=>{
+    const items=[];list.querySelectorAll('li').forEach(item=>items.push(item.classList.contains('checked')));state[li]=items;
+  });
+  localStorage.setItem('mrfq-report-checklist',JSON.stringify(state));
+}
+function restoreState(){
+  try{
+    const state=JSON.parse(localStorage.getItem('mrfq-report-checklist'));
+    if(!state)return;
+    document.querySelectorAll('.checklist').forEach((list,li)=>{
+      if(!state[li])return;
+      list.querySelectorAll('li').forEach((item,ii)=>{if(state[li][ii])item.classList.add('checked');});
+    });
+    updateProgress();
+  }catch{}
+}
+restoreState();
+
+// ── Scroll Spy ──
+const sections=document.querySelectorAll('.section');
+const navLinks=document.querySelectorAll('.nav-bar a');
+const observer=new IntersectionObserver(entries=>{
+  entries.forEach(entry=>{
+    if(entry.isIntersecting){
+      navLinks.forEach(a=>a.classList.remove('active'));
+      const active=document.querySelector(`.nav-bar a[href="#${entry.target.id}"]`);
+      if(active)active.classList.add('active');
+    }
+  });
+},{rootMargin:'-80px 0px -60% 0px'});
+sections.forEach(s=>observer.observe(s));
+navLinks.forEach(a=>{
+  a.addEventListener('click',e=>{
+    e.preventDefault();
+    const target=document.querySelector(a.getAttribute('href'));
+    if(target)target.scrollIntoView({behavior:'smooth'});
+  });
+});
+</script>
+</body>
+</html>
