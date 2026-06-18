@@ -477,6 +477,14 @@ const MIGRATIONS = {
     CREATE INDEX IF NOT EXISTS idx_tickets_escalated ON tickets(escalation_level);
   `,
 
+  /* ── v19: module column on tickets + reports for multi-module ── */
+  19: `
+    ALTER TABLE tickets ADD COLUMN module TEXT NOT NULL DEFAULT 'cleaning';
+    ALTER TABLE reports ADD COLUMN module TEXT NOT NULL DEFAULT 'cleaning';
+    CREATE INDEX IF NOT EXISTS idx_tickets_module ON tickets(module);
+    CREATE INDEX IF NOT EXISTS idx_reports_module ON reports(module);
+  `,
+
   /* ── v15: hospitality — menu categories ───────────────────── */
   15: `
     CREATE TABLE IF NOT EXISTS hospitality_menu_categories (

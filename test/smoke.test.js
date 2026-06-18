@@ -357,3 +357,61 @@ test('protected endpoint with no session returns 401', async () => {
   assert.equal(r.status, 401);
   assert.equal(r.body.error, 'UNAUTHORIZED');
 });
+
+/* ── 16. Maintenance module ──────────────────────────────────── */
+test('maintenance: cleaner cannot create maintenance ticket (403)', async () => {
+  const api = await login('worker3', PASSWORDS.worker);
+  const r = await api('/api/maintenance-tickets', { method: 'POST', body: JSON.stringify({ locationId: 'lobby-gf', category: 'electrical', title: 'Test' }) });
+  assert.equal(r.status, 403);
+});
+
+test('maintenance: admin can create maintenance ticket', async () => {
+  const api  = await login('admin', PASSWORDS.admin);
+  const boot = await api('/api/bootstrap');
+  const locs = boot.body.locations;
+  assert.ok(locs.length > 0, 'no locations');
+  const locId = locs[0].id;
+  const r = await api('/api/maintenance-tickets', { method: 'POST', body: JSON.stringify({ locationId: locId, category: 'electrical', title: 'كهرباء معطوبة' }) });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.ticket.module, 'maintenance');
+  assert.equal(r.body.ticket.category, 'electrical');
+});
+
+test('maintenance: ticket visible in admin bootstrap but not in cleaner bootstrap', async () => {
+  const adm  = await login('admin', PASSWORDS.admin);
+  const boot = await adm('/api/bootstrap');
+  const locId = boot.body.locations[0].id;
+  await adm('/api/maintenance-tickets', { method: 'POST', body: JSON.stringify({ locationId: locId, category: 'plumbing', title: 'Leak test' }) });
+
+  const admBoot = await adm('/api/bootstrap');
+  const maintTickets = (admBoot.body.tickets || []).filter(t => t.module === 'maintenance');
+  assert.ok(maintTickets.length >= 1, 'admin should see maintenance tickets');
+
+  const wkr = await login('worker3', PASSWORDS.worker);
+  const wkrBoot = await wkr('/api/bootstrap');
+  const wkrMaint = (wkrBoot.body.tickets || []).filter(t => t.module === 'maintenance');
+  assert.equal(wkrMaint.length, 0, 'cleaner should not see maintenance tickets');
+});
+
+test('maintenance: cleaning tickets still scoped to cleaning_manager (not maintenance)', async () => {
+  const mgr  = await login('manager', PASSWORDS.manager);
+  const boot = await mgr('/api/bootstrap');
+  const tickets = boot.body.tickets || [];
+  const hasMaint = tickets.some(t => t.module === 'maintenance');
+  assert.equal(hasMaint, false, 'cleaning_manager should not see maintenance tickets');
+});
+
+test('maintenance: invalid category falls back to general', async () => {
+  const api  = await login('admin', PASSWORDS.admin);
+  const boot = await api('/api/bootstrap');
+  const locId = boot.body.locations[0].id;
+  const r = await api('/api/maintenance-tickets', { method: 'POST', body: JSON.stringify({ locationId: locId, category: 'invalid_cat', title: 'Test' }) });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.ticket.category, 'general', 'invalid category should fallback to general');
+});
+
+test('maintenance: maintenance-worker cannot call cleaning ticket complete (403)', async () => {
+  const api = await login('worker3', PASSWORDS.worker);
+  const r = await api('/api/maintenance-tickets/complete', { method: 'POST', body: JSON.stringify({ id: 'fake-id', notes: '' }) });
+  assert.equal(r.status, 403);
+});
