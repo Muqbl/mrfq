@@ -1,0 +1,27 @@
+Phase 3 legacy event attribute inventory — 2026-06-19
+
+Command scope:
+grep -Rni --exclude-dir=node_modules --exclude-dir=.git "onclick=\|onchange=\|onsubmit=\|oninput=\|onkeyup=\|onload=" public server
+
+Raw matching-line count: 279
+
+First-party source:
+- public/app.js: 278 matching lines; 297 attribute occurrences
+  - onclick: 288
+  - onchange: 6
+  - oninput: 1
+  - onload: 2
+  - onsubmit/onkeyup: 0
+
+Vendored source (excluded from first-party migration):
+- public/html5-qrcode.min.js: 1 minified matching line; 5 string occurrences
+  (onclick: 2, onload: 3). This self-hosted third-party file is not edited.
+
+Server source:
+- No matches.
+
+The actionable baseline is 297 first-party event attributes. The raw grep line
+count is lower because several generated templates contain multiple attributes on
+one physical source line. Exact source locations remain reproducible with the
+command above; the minified vendor line is intentionally not copied into this
+inventory because it is non-actionable and extremely large.
