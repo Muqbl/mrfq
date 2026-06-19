@@ -623,7 +623,10 @@ function maintenanceStatusLabel(status){
 }
 function ticketStatusLabel(ticket){return ticket?.module==='maintenance'?maintenanceStatusLabel(ticket.status):tr(ticket?.status)||ticket?.status}
 function reportStatusLabel(report){return report?.module==='maintenance'?maintenanceStatusLabel(report.approvalStatus||'pending'):tr(report?.approvalStatus||'pending')}
-const esc = s => String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+function escapeHtml(value){
+  return String(value??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+}
+const esc = escapeHtml;
 function fmt(d){
   if(!d) return '—';
   const dt=new Date(d), pad=n=>String(n).padStart(2,'0');
@@ -708,7 +711,11 @@ async function api(path,opt={}){
 function toast(msg,type=''){
   const el = document.createElement('div');
   el.className = `toast ${type}`;
-  el.innerHTML = `<span>${ic(type==='ok'?'check':type==='bad'?'x':'bell',16)}</span><span>${msg}</span>`;
+  const icon = document.createElement('span');
+  icon.innerHTML = ic(type==='ok'?'check':type==='bad'?'x':'bell',16);
+  const text = document.createElement('span');
+  text.textContent = String(msg??'');
+  el.append(icon,text);
   document.body.appendChild(el);
   setTimeout(()=>{el.style.opacity='0';el.style.transform='translateY(12px)';setTimeout(()=>el.remove(),300)},2600);
 }
@@ -3063,7 +3070,7 @@ async function refreshComments(){
     <div class="commentItem${c.userId===me.id?' commentItem--mine':''}">
       <div class="commentItem-header">
         <span class="commentItem-name">${esc(c.userName)}</span>
-        <span class="commentItem-role">${roleLabel(c.userRole)}</span>
+        <span class="commentItem-role">${esc(roleLabel(c.userRole))}</span>
         <span class="commentItem-time">${fmt(c.createdAt)}</span>
         ${(c.userId===me.id||['system_admin','facility_manager','cleaning_manager','maintenance_manager','maintenance_supervisor'].includes(me.role))
           ?`<button class="commentItem-del" onclick="deleteComment('${c.id}')" title="${lang==='ar'?'حذف':'Delete'}">×</button>`:''}

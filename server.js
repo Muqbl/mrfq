@@ -96,8 +96,12 @@ function setSecurityHeaders(res) {
   res.setHeader('Permissions-Policy', 'camera=(self), microphone=(), geolocation=()');
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",   // required for current single-file architecture
+    "script-src 'self'",
+    "script-src-elem 'self'",
+    "script-src-attr 'unsafe-inline'", // legacy generated event attributes; tracked for removal
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "style-src-attr 'unsafe-inline'", // legacy generated style attributes; tracked for removal
     "img-src 'self' data: blob: https://api.qrserver.com",
     "font-src 'self' https://fonts.gstatic.com",
     "connect-src 'self'",

@@ -108,6 +108,11 @@ test('login: admin succeeds and sets cookie', async () => {
 test('health endpoint reports database and storage checks', async () => {
   const res = await fetch(BASE + '/health');
   assert.equal(res.status, 200);
+  const csp = res.headers.get('content-security-policy') || '';
+  assert.match(csp, /default-src 'self'/);
+  assert.match(csp, /script-src 'self'/);
+  assert.match(csp, /script-src-attr 'unsafe-inline'/);
+  assert.doesNotMatch(csp, /script-src 'self' 'unsafe-inline'/);
   const health = await res.json();
   assert.equal(health.status, 'ok');
   assert.equal(health.checks.database, 'ok');
