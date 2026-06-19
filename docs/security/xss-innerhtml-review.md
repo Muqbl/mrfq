@@ -40,3 +40,15 @@ The scan found 62 first-party writes and 6 read/clear checks. Every occurrence i
 
 No first-party usage is currently classified `NEEDS_FIX`. `LEGACY_REVIEWED` means reviewed and bounded, but still scheduled for conversion away from string-based rendering; it does not mean the pattern is preferred for new code.
 
+## Phase 3 revalidation
+
+- Current count: 62 first-party writes and 6 read/clear checks, unchanged from Phase 2.
+- Increase after event/style migration: none.
+- Dangerous raw sinks found: none.
+- User/API/DB values: reviewed leaf renderers continue to use `escapeHtml`/`esc`; the facilities error path remains escaped.
+- Delegated action arguments: serialized as JSON and escaped before insertion into `data-*` attributes.
+- Executable strings: the action dispatcher has an explicit allowlist and does not use `eval` or `Function`; the security scan now rejects either construct.
+- Simple messages: toast continues to use `textContent`.
+- `npm run test:security`: passed after Phase 3 migration with 62 writes, 6 reads, 115 matching inline-handler source lines, 91 inline styles, and zero failures.
+
+The migration did not create a new XSS sink. Remaining `LEGACY_REVIEWED` string renderers still require the existing leaf-escaping discipline until component extraction is complete.

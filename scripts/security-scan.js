@@ -37,8 +37,9 @@ for (const file of targets) {
 const appSource = fs.readFileSync(path.join(root, 'public/app.js'), 'utf8');
 if (!/function escapeHtml\(value\)/.test(appSource)) failures.push('public/app.js: shared escapeHtml helper missing');
 if (!/text\.textContent\s*=\s*String\(msg/.test(appSource)) failures.push('public/app.js: toast message must use textContent');
+if (/\beval\s*\(/.test(appSource) || /\bnew\s+Function\b/.test(appSource)) failures.push('public/app.js: executable string evaluation is forbidden');
+if (!/data-ui-args="\$\{esc\(JSON\.stringify\(args\)\)\}/.test(appSource)) failures.push('public/app.js: delegated UI action arguments must be HTML escaped');
 
 const result = { innerHtmlWrites, innerHtmlReads, inlineHandlers, inlineStyles, failures };
 process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 if (failures.length) process.exitCode = 1;
-
