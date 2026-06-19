@@ -1417,7 +1417,7 @@ function render(){
   if(_lastView==='assignments' && view!=='assignments'){ assignFloorFilter='all'; }
   _lastView = view;
   if(view==='performance'){
-    shell(`<div style="text-align:center;padding:40px">${ic('clock',28)}</div>`);
+    shell(`<div class="u-text-center-p-40">${ic('clock',28)}</div>`);
     performance().then(html=>{
       const main=document.querySelector('.platform-main .pageAnim');
       if(main) main.innerHTML=html;
@@ -1498,7 +1498,7 @@ function showForcePasswordChange(){
     ${fc(lang==='ar'?'تأكيد كلمة المرور':'Confirm Password', inp('fpConfirmPwd',{type:'password', autocomplete:'new-password'}))}
     <div id="fpError" class="formError"></div>
     <button class="btn wide" ${uiAction('submitForcePassword',[])}>${lang==='ar'?'حفظ كلمة المرور الجديدة':'Save New Password'}</button>
-    <button class="btn secondary wide" style="margin-top:10px" ${uiAction('logout',[])}>${lang==='ar'?'تسجيل خروج':'Logout'}</button>
+    <button class="btn secondary wide u-mt-10" ${uiAction('logout',[])}>${lang==='ar'?'تسجيل خروج':'Logout'}</button>
   </div>
 </main>`;
 }
@@ -1517,7 +1517,7 @@ function checkPwdStrength(){
   const colors=['','var(--bad)','var(--warn)','var(--gold)','var(--ok)','var(--brand-mid)'];
   const pct=Math.min(100,score*20);
   el.innerHTML=pwd?`
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+    <div class="u-flex-center-gap-8-mb-4">
       <div style="flex:1;height:4px;background:var(--surface-3);border-radius:2px;overflow:hidden">
         <div style="width:${pct}%;height:100%;background:${colors[score]};transition:all .3s"></div>
       </div>
@@ -1775,7 +1775,7 @@ function renderSystemAdmin(){
     return;
   }
   if(adminView==='products'){
-    adminShell(`<div style="text-align:center;padding:40px">${ic('clock',28)}</div>`);
+    adminShell(`<div class="u-text-center-p-40">${ic('clock',28)}</div>`);
     ensureHospMenuItems().then(()=>{
       const main = document.querySelector('.platform-main .pageAnim');
       if(main) main.innerHTML = hospitalityProductsView();
@@ -1783,7 +1783,7 @@ function renderSystemAdmin(){
     return;
   }
   if(adminView==='kitchens'){
-    adminShell(`<div style="text-align:center;padding:40px">${ic('clock',28)}</div>`);
+    adminShell(`<div class="u-text-center-p-40">${ic('clock',28)}</div>`);
     ensureHospKitchens().then(()=>{
       const main = document.querySelector('.platform-main .pageAnim');
       if(main) main.innerHTML = hospitalityKitchensView();
@@ -2092,9 +2092,9 @@ function adminDashboard(){
 function adminModules(){
   const s=data.settings||{};
   const requestControls=me.role==='system_admin'?`
-  <div class="card" style="margin-bottom:18px">
+  <div class="card u-mb-18">
     <div class="card-head"><span class="card-title">${ic('lock',16)} ${lang==='ar'?'قنوات طلبات الموظفين':'Employee Request Channels'}</span></div>
-    <p style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:12px">${lang==='ar'?'يمكن إيقاف استقبال الطلبات الجديدة لكل خدمة دون تعطيل عمليات القسم الحالية.':'Stop new employee requests for either service without disabling its existing operations.'}</p>
+    <p class="text-muted-xs-mb-12">${lang==='ar'?'يمكن إيقاف استقبال الطلبات الجديدة لكل خدمة دون تعطيل عمليات القسم الحالية.':'Stop new employee requests for either service without disabling its existing operations.'}</p>
     <div class="perfStatGrid">
       ${employeeRequestChannelRow('cleaning',s.employeeCleaningRequestsEnabled!==false)}
       ${employeeRequestChannelRow('maintenance',s.employeeMaintenanceRequestsEnabled!==false)}
@@ -2118,7 +2118,7 @@ function employeeRequestChannelRow(service,enabled){
   const label=service==='maintenance'?(lang==='ar'?'طلبات الصيانة':'Maintenance Requests'):service==='hospitality'?(lang==='ar'?'طلبات الضيافة':'Hospitality Requests'):(lang==='ar'?'طلبات النظافة':'Cleaning Requests');
   const icon=service==='maintenance'?'tool':service==='hospitality'?'coffee':'reports';
   return `<div class="perfStatRow"><span class="perfStatLabel">${ic(icon,15)} ${label}</span>
-    <div style="display:flex;align-items:center;gap:8px"><span class="badge ${enabled?'ok':'bad'}">${enabled?(lang==='ar'?'يستقبل الطلبات':'Accepting'):(lang==='ar'?'مغلق':'Closed')}</span>
+    <div class="u-flex-center-gap-8"><span class="badge ${enabled?'ok':'bad'}">${enabled?(lang==='ar'?'يستقبل الطلبات':'Accepting'):(lang==='ar'?'مغلق':'Closed')}</span>
     <button class="btn ${enabled?'danger':'secondary'} sm" ${uiAction('setEmployeeRequestChannel',[(service),(!enabled)])}>${enabled?(lang==='ar'?'إيقاف':'Disable'):(lang==='ar'?'تشغيل':'Enable')}</button></div></div>`;
 }
 
@@ -2366,12 +2366,12 @@ function adminSettings(){
   </div>
   <div class="card">
     <div class="card-head"><span class="card-title">${ic('clock',16)} ${lang==='ar'?'إعدادات SLA (بالدقائق)':'SLA Settings (minutes)'}</span></div>
-    <p style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:12px">${lang==='ar'?'الحد الأقصى للوقت المسموح به لكل نوع بلاغ قبل اعتباره متأخراً.':'Maximum response time allowed per ticket category before SLA breach.'}</p>
-    <div class="formGrid-4" style="margin-bottom:14px">
+    <p class="text-muted-xs-mb-12">${lang==='ar'?'الحد الأقصى للوقت المسموح به لكل نوع بلاغ قبل اعتباره متأخراً.':'Maximum response time allowed per ticket category before SLA breach.'}</p>
+    <div class="formGrid-4 u-mb-14">
       ${Object.entries(slaLabels).map(([cat,label])=>`
         <div>
           <label style="font-size:var(--fs-xs);font-weight:700;display:flex;align-items:center;gap:5px;margin-bottom:4px">${ic(slaIcons[cat]||'clock',13)} ${label}</label>
-          <input id="sla-${cat}" type="number" min="1" max="1440" value="${sla[cat]||''}" class="ctrl" style="width:100%">
+          <input id="sla-${cat}" type="number" min="1" max="1440" value="${sla[cat]||''}" class="ctrl u-full-width">
         </div>
       `).join('')}
     </div>
@@ -2497,7 +2497,7 @@ function dash(){
       <span class="chartCard-title">${tr('analytics')}</span>
       <span class="badge brand">7 ${lang==='ar'?'أيام':'days'}</span>
     </div>
-    <div class="bars7" style="height:110px;align-items:flex-end;gap:8px">
+    <div class="bars7 u-h-110">
       ${days.map(d=>{
         const h = max>0?Math.max(8,Math.round(d.count/max*100)):8;
         return`<div class="bar-col">
@@ -2543,7 +2543,7 @@ function dash(){
     </div>
     <div class="slaIndicator">
       <div class="slaStatus ${s.openTickets===0?'ok':s.openTickets<=2?'warn':'bad'}">${s.openTickets===0?(lang==='ar'?'كل البلاغات مغلقة':'All tickets resolved'):lang==='ar'?`${num(s.openTickets)} بلاغ مفتوح`:`${num(s.openTickets)} open tickets`}</div>
-      <div class="progress-track" style="margin-top:8px"><div class="progress-fill ${slaPct>70?'ok':slaPct>40?'gold':'bad'}" style="width:${slaPct}%"></div></div>
+      <div class="progress-track u-mt-8"><div class="progress-fill ${slaPct>70?'ok':slaPct>40?'gold':'bad'}" style="width:${slaPct}%"></div></div>
       <p style="font-size:var(--fs-xs);color:var(--muted);margin-top:8px;line-height:1.6">${lang==='ar'?'مؤشر يعتمد على البلاغات المفتوحة':'Based on open ticket count'}</p>
     </div>
   </div>
@@ -2716,17 +2716,17 @@ function reportCard(r,full){
   const tasks = taskSetFor(r.locationType);
   const totalPhotos = imgs.length;
   return`<article class="reportCard">
-    <div class="reportCard-body"  style="cursor:pointer" ${uiAction('openReportDetail',[(r.id)])} role="button" tabindex="0">
+    <div class="reportCard-body"  class="u-cursor-pointer" ${uiAction('openReportDetail',[(r.id)])} role="button" tabindex="0">
       <div>
         <div class="reportCard-loc">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</div>
         <div class="reportCard-meta">${ic('users',12)} ${esc(r.workerName)} &nbsp;·&nbsp; ${fmt(r.createdAt)} &nbsp;·&nbsp; ${tr(r.locationType||'other')}</div>
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <div class="u-flex-wrap-gap-6">
         <span class="badge brand">${ic('camera',10)} ${num(totalPhotos)}</span>
         <span class="badge gold">${tr('quality')}: ${num(q)}%</span>
         <span class="badge ${st==='approved'?'ok':st==='rejected'||st==='needs_recleaning'?'bad':'warn'}">${reportStatusLabel(r)}</span>
         ${rating!=null?`<span class="badge gold">${ic('star',10)} ${rating.toFixed(1)}</span>`:''}
-        <span class="badge" style="margin-inline-start:auto">${ic('arrow',11)} ${lang==='ar'?'تفاصيل':'Details'}</span>
+        <span class="badge u-inline-auto">${ic('arrow',11)} ${lang==='ar'?'تفاصيل':'Details'}</span>
       </div>
     </div>
     ${full&&canReview()&&['pending','pending_approval'].includes(st)?`
@@ -2980,7 +2980,7 @@ function tickets(){
   ${canTicket()?`<button class="btn sm" onclick="showTicketCreate=!showTicketCreate;render()">${ic('plus',14)} ${createLabel}</button>`:''}
 </div>
 ${canTicket()&&showTicketCreate?`
-<div class="card" style="margin-bottom:20px">
+<div class="card u-mb-20">
   <div class="card-head">
     <span class="card-title">${ic('plus',16)} ${createLabel}</span>
     <button class="icon-btn" onclick="showTicketCreate=false;render()" title="${tr('cancel')}">${ic('x',18)}</button>
@@ -3018,7 +3018,7 @@ function ticketCards(items){
     <div class="empty-icon">${ic('tickets',28)}</div>
     <div class="empty-title">${tr('noTickets')}</div>
     <p class="empty-sub">${lang==='ar'?'لا توجد بلاغات مفتوحة. يمكنك إنشاء بلاغ جديد من الأعلى.':'No open tickets. Create a new ticket using the form above.'}</p>
-    ${canTicket()?`<button class="btn sm" style="margin-top:8px" onclick="showTicketCreate=true;render()">${ic('plus',14)} ${tr('createTicket')}</button>`:''}
+    ${canTicket()?`<button class="btn sm u-mt-8" onclick="showTicketCreate=true;render()">${ic('plus',14)} ${tr('createTicket')}</button>`:''}
   </div></div>`;
   return`<div class="ticketGrid">${items.map(t=>{
     const prCls = t.priority==='high'?'bad':t.priority==='low'?'info':'warn';
@@ -3126,8 +3126,8 @@ async function openComments(ticketId){
   showModal('commentsModal',
     `${ic('chat',16)} ${lang==='ar'?'تعليقات البلاغ':'Ticket Comments'} — ${title}`,
     `<div id="commentsList" style="min-height:60px">${lang==='ar'?'جاري التحميل...':'Loading...'}</div>
-     <div style="display:flex;gap:8px;margin-top:12px">
-       <input id="commentInput" class="ctrl" style="flex:1" placeholder="${lang==='ar'?'اكتب تعليق...':'Write a comment...'}" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitComment()}">
+     <div class="u-flex-gap-8-mt-12">
+       <input id="commentInput" class="ctrl u-flex-1" placeholder="${lang==='ar'?'اكتب تعليق...':'Write a comment...'}" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitComment()}">
        <button class="btn sm" ${uiAction('submitComment',[])}>${ic('arrow',14)} ${lang==='ar'?'إرسال':'Send'}</button>
      </div>`,
     `<button class="btn secondary" onclick="document.getElementById('commentsModal')?.remove()">${lang==='ar'?'إغلاق':'Close'}</button>`
@@ -3222,7 +3222,7 @@ function recurringTasksPage(){
   </div>
 </div>
 ${showRecurringCreate?`
-<div class="card" style="margin-bottom:16px">
+<div class="card u-mb-16">
   <div class="card-head"><span class="card-title">${ic('plus',14)} ${lang==='ar'?'مهمة متكررة جديدة':'New Recurring Task'}</span></div>
   <div class="formGrid">
     ${fc(lang==='ar'?'الموقع':'Location', sel('rt-loc',[{v:'',l:lang==='ar'?'اختر موقع':'Select location',sel:true},...locs.map(l=>({v:l.id,l:locName(l),sel:false}))]))}
@@ -3230,7 +3230,7 @@ ${showRecurringCreate?`
     ${fc(lang==='ar'?'عنوان المهمة':'Task Title', inp('rt-title',{placeholder:lang==='ar'?'مثال: تنظيف دوري دورة المياه':'e.g. Periodic restroom cleaning'}))}
     ${fc(lang==='ar'?'التكرار (دقيقة)':'Frequency (minutes)', inp('rt-freq',{type:'number',value:'120',min:'30',max:'10080'}))}
   </div>
-  <div style="display:flex;gap:8px;margin-top:12px">
+  <div class="u-flex-gap-8-mt-12">
     <button class="btn sm" ${uiAction('createRecurringTask',[])}>${ic('check',14)} ${lang==='ar'?'إنشاء':'Create'}</button>
     <button class="btn secondary sm" onclick="showRecurringCreate=false;render()">${lang==='ar'?'إلغاء':'Cancel'}</button>
   </div>
@@ -3256,7 +3256,7 @@ ${tasks.length?`
           <td>${freqLabel(t.frequencyMins)}</td>
           <td style="font-size:var(--fs-xs)">${fmt(t.nextRunAt)}</td>
           <td><span class="badge ${t.active?'ok':''}">${t.active?(lang==='ar'?'نشط':'Active'):(lang==='ar'?'متوقف':'Paused')}</span></td>
-          <td style="display:flex;gap:6px;justify-content:flex-end">
+          <td class="u-flex-end-gap-6">
             <button class="btn secondary sm" ${uiAction('toggleRecurring',[(t.id),(!t.active)])}>${t.active?(lang==='ar'?'إيقاف':'Pause'):(lang==='ar'?'تفعيل':'Resume')}</button>
             <button class="btn danger sm" ${uiAction('deleteRecurring',[(t.id)])}>${ic('trash',13)}</button>
           </td>
@@ -3338,7 +3338,7 @@ function _activityTimeline(ticket, events){
     timeline.push({ts:e.createdAt, label:`${_eventLabel(e.eventType)}${e.actorName?' — '+e.actorName:''}`, icon:'list', cls:''});
   }
   timeline.sort((a,b)=>a.ts.localeCompare(b.ts));
-  if(!timeline.length) return `<div style="color:var(--muted);font-size:var(--fs-xs);padding:8px 0">${lang==='ar'?'لا يوجد نشاط مسجل':'No activity recorded'}</div>`;
+  if(!timeline.length) return `<div class="text-muted-xs-py-8">${lang==='ar'?'لا يوجد نشاط مسجل':'No activity recorded'}</div>`;
   return timeline.map(e=>`
     <div class="activityItem">
       <div class="activityItem-dot ${e.cls}">${ic(e.icon,11)}</div>
@@ -3357,7 +3357,7 @@ function _reportActivityTimeline(report, events){
     timeline.push({ts:e.createdAt, label:`${_eventLabel(e.eventType)}${e.actorName?' — '+e.actorName:''}`, cls:''});
   }
   timeline.sort((a,b)=>a.ts.localeCompare(b.ts));
-  if(!timeline.length) return `<div style="color:var(--muted);font-size:var(--fs-xs);padding:8px 0">${lang==='ar'?'لا يوجد نشاط':'No activity'}</div>`;
+  if(!timeline.length) return `<div class="text-muted-xs-py-8">${lang==='ar'?'لا يوجد نشاط':'No activity'}</div>`;
   return timeline.map(e=>`
     <div class="activityItem">
       <div class="activityItem-dot ${e.cls||''}">${ic('circle',11)}</div>
@@ -3402,7 +3402,7 @@ async function openTicketDetail(id){
         ${hasTyped?`${before.length?`<div><div class="photoGroup-label">${lang==='ar'?'قبل الصيانة':'Before Maintenance'}</div><div class="detailModal-photos">${before.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(before)},${i})' alt="">`).join('')}</div></div>`:''}${after.length?`<div><div class="photoGroup-label ok">${lang==='ar'?'بعد الصيانة':'After Maintenance'}</div><div class="detailModal-photos">${after.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(after)},${i})' alt="">`).join('')}</div></div>`:''}`:t.photos.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(t.photos)},${i})' alt="">`).join('')}
       </div>
     </div>`:
-    `<div class="detailModal-section"><div class="detailModal-sectionTitle">${ic('camera',14)} ${lang==='ar'?'الصور':'Photos'}</div><div style="color:var(--muted);font-size:var(--fs-xs);padding:4px 0">${lang==='ar'?'لا توجد صور':'No photos'}</div></div>`}
+    `<div class="detailModal-section"><div class="detailModal-sectionTitle">${ic('camera',14)} ${lang==='ar'?'الصور':'Photos'}</div><div class="text-muted-xs-py-4">${lang==='ar'?'لا توجد صور':'No photos'}</div></div>`}
     <div class="detailModal-section" id="detail-activity-${id}">
       <div class="detailModal-sectionTitle">${ic('list',14)} ${lang==='ar'?'النشاط':'Activity'}</div>
       <div class="activityTimeline" id="activity-list-${id}"><div style="color:var(--muted);font-size:var(--fs-xs)">${lang==='ar'?'جاري التحميل...':'Loading...'}</div></div>
@@ -3444,7 +3444,7 @@ async function openReportDetail(id){
     ${tasks.length?`
     <div class="detailModal-section">
       <div class="detailModal-sectionTitle">${ic('check',14)} ${lang==='ar'?'المهام':'Tasks'}</div>
-      <div class="reportCard-tasks" style="margin-top:8px">
+      <div class="reportCard-tasks u-mt-8">
         ${tasks.map(p=>{const ok=taskDone(r.tasks,p);return`<div class="taskResult ${ok?'done':'missing'}"><span>${esc(lang==='ar'?p[0]:p[1])}</span><span class="taskMark">${ok?'✓':'×'}</span></div>`}).join('')}
       </div>
     </div>`:''}
@@ -3453,11 +3453,11 @@ async function openReportDetail(id){
       ${allImgs.length?`
       <div class="${hasTyped?'detailModal-photos-split':'detailModal-photos'}">
         ${hasTyped?`
-          ${before.length?`<div><div class="photoGroup-label" style="margin-bottom:6px">${ic('camera',12)} ${r.module==='maintenance'?(lang==='ar'?'صور قبل الصيانة':'Before Maintenance Photos'):tr('beforePhotos')}</div><div class="detailModal-photos">${before.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(before)},${i})' alt="">`).join('')}</div></div>`:''}
-          ${after.length?`<div><div class="photoGroup-label ok" style="margin-bottom:6px">${ic('check',12)} ${r.module==='maintenance'?(lang==='ar'?'صور بعد الصيانة':'After Maintenance Photos'):tr('afterPhotos')}</div><div class="detailModal-photos">${after.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(after)},${i})' alt="">`).join('')}</div></div>`:''}
+          ${before.length?`<div><div class="photoGroup-label u-mb-6">${ic('camera',12)} ${r.module==='maintenance'?(lang==='ar'?'صور قبل الصيانة':'Before Maintenance Photos'):tr('beforePhotos')}</div><div class="detailModal-photos">${before.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(before)},${i})' alt="">`).join('')}</div></div>`:''}
+          ${after.length?`<div><div class="photoGroup-label ok u-mb-6">${ic('check',12)} ${r.module==='maintenance'?(lang==='ar'?'صور بعد الصيانة':'After Maintenance Photos'):tr('afterPhotos')}</div><div class="detailModal-photos">${after.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(after)},${i})' alt="">`).join('')}</div></div>`:''}
         `:allImgs.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(allImgs)},${i})' alt="">`).join('')}
       </div>`:
-      `<div style="color:var(--muted);font-size:var(--fs-xs);padding:4px 0">${lang==='ar'?'لا توجد صور':'No photos'}</div>`}
+      `<div class="text-muted-xs-py-4">${lang==='ar'?'لا توجد صور':'No photos'}</div>`}
     </div>
     <div class="detailModal-section">
       <div class="detailModal-sectionTitle">${ic('list',14)} ${lang==='ar'?'النشاط':'Activity'}</div>
@@ -3503,7 +3503,7 @@ ${canManage()?`
   </div>
 </div>
 ${showLocCreate?`
-<div class="card" style="margin-bottom:20px">
+<div class="card u-mb-20">
   <div class="card-head">
     <span class="card-title">${ic('plus',16)} ${lang==='ar'?'إضافة مرفق':'Add Facility'}</span>
     <button class="icon-btn" onclick="showLocCreate=false;render()" title="${tr('cancel')}">${ic('x',18)}</button>
@@ -3520,7 +3520,7 @@ ${showLocCreate?`
   </div>
 </div>`:''}`:''}
 <!-- FLOOR FILTER -->
-<div class="filterBar" style="margin-bottom:16px">
+<div class="filterBar u-mb-16">
   <div class="filterChips">
     ${['all',...[...new Set((data.locations||[]).map(l=>l.floor).filter(Boolean))].sort()].map(f=>
       `<button class="filterChip${locsFloorFilter===f?' active':''}" onclick="locsFloorFilter='${f}';render()">
@@ -3546,7 +3546,7 @@ ${showLocCreate?`
         </div>
         <span class="badge ${late?'bad':'ok'}">${late?tr('late'):tr('good')}</span>
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <div class="u-flex-wrap-gap-6">
         <span class="badge brand">${tr(l.type)}</span>
         ${l.floor?`<span class="badge">${l.floor}</span>`:''}
         ${l.zone?`<span class="badge">${l.zone}</span>`:''}
@@ -3559,7 +3559,7 @@ ${showLocCreate?`
       </div>
       <div class="locCard-actions">
         ${canManage()?`<button class="btn danger sm" ${uiAction('deleteLocConfirm',[(esc(l.id))])}>${ic('trash',13)} ${lang==='ar'?'حذف':'Delete'}</button>`:''}
-        <details style="flex:1">
+        <details class="u-flex-1">
           <summary style="cursor:pointer;font-size:var(--fs-xs);font-weight:700;color:var(--brand-mid);list-style:none;padding:4px 0">${ic('qr',13)} ${lang==='ar'?'عرض QR':'Show QR'}</summary>
           <div class="locCard-qr" style="margin-top:8px;display:flex;flex-direction:column;align-items:flex-start;gap:8px">
             <img width="120" height="120" src="${qrUrl}" alt="QR ${esc(l.id)}" loading="lazy">
@@ -3630,7 +3630,7 @@ function assignments(){
     ${sel('aw', workers.map(w=>({v:w.id,l:`${w.name} - ${w.username}`})), {changeAction:'fill-assignment'})}
   </div>
   <!-- FLOOR FILTER -->
-  <div class="filterBar" style="margin-bottom:16px">
+  <div class="filterBar u-mb-16">
     <div class="filterChips">
       ${['all',...[...new Set((data.locations||[]).map(l=>l.floor).filter(Boolean))].sort()].map(f=>
         `<button class="filterChip asgFloorBtn${assignFloorFilter===f?' active':''}" data-floor="${f}" ${uiAction('filterAssignFloor',[(f)])}>
@@ -3640,7 +3640,7 @@ function assignments(){
     </div>
   </div>
 
-  <div class="assignGrid" style="margin-top:0">
+  <div class="assignGrid u-mt-0">
     ${(data.locations||[]).map(l=>`
       <label class="assignItem${assignFloorFilter!=='all'&&(l.floor||'')!==assignFloorFilter?' is-hidden':''}" data-floor="${esc(l.floor||'')}">
         <input class="asgCheck" type="checkbox" value="${l.id}">
@@ -3799,8 +3799,8 @@ ${filtered.length===0
               </div>
             </div>
           </td>
-          <td class="mono" style="font-size:11px;color:var(--muted)">${u.employeeNo?esc(u.employeeNo):'—'}</td>
-          <td class="mono" style="font-size:11px;color:var(--muted)">${uLoc?`<span title="${esc(lang==='ar'?uLoc.nameAr:uLoc.nameEn)}">${esc(uLoc.id)}</span>`:'—'}</td>
+          <td class="mono text-muted-11">${u.employeeNo?esc(u.employeeNo):'—'}</td>
+          <td class="mono text-muted-11">${uLoc?`<span title="${esc(lang==='ar'?uLoc.nameAr:uLoc.nameEn)}">${esc(uLoc.id)}</span>`:'—'}</td>
           <td><span class="badge ${u.active?'ok':'bad'}">${u.active?tr('activeUser'):tr('inactive')}</span></td>
           <td>
             <div class="usersTable-roles">
@@ -3837,7 +3837,7 @@ function showUserFormModal(id){
     ${fc(tr('password'),inp('up',{type:'password', placeholder:'••••••••', cls:'ltr'}))}
     ${fc(tr('role'),    sel('ur', editableRoles.map(r=>({v:r,l:tr(r),sel:u?.role===r}))))}
     ${fc(tr('employeeNo'),inp('ue',{value:u?.employeeNo||'', cls:'ltr'}))}
-    <div style="grid-column:1/-1">${fc(lang==='ar'?'موقع المكتب':'Office Location',sel('uDefaultLoc',locOptions))}</div>
+    <div class="u-grid-full">${fc(lang==='ar'?'موقع المكتب':'Office Location',sel('uDefaultLoc',locOptions))}</div>
     ${fc(tr('status'),  sel('ua',[{v:'true',l:tr('activeUser'),sel:u?.active},{v:'false',l:tr('inactive'),sel:u&&!u.active}]))}
   </div>`;
   const foot=`<button class="btn" ${uiAction('saveUser',[])}>${ic('check',16)} ${tr('save')}</button>
@@ -4065,7 +4065,7 @@ function renderWorker(){
               <div class="workerReportItem-body">
                 <div class="workerReportItem-name">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</div>
                 <div class="workerReportItem-meta">${fmt(r.approvedAt||r.createdAt)}${r.reviewNote?' · '+esc(r.reviewNote):''}</div>
-                <span class="badge ${stColor}" style="margin-top:6px">${stLabel}</span>
+                <span class="badge ${stColor} u-mt-6">${stLabel}</span>
               </div>
               ${actionable?`<div class="workerReportItem-action" style="color:var(--${stColor})">${lang==='ar'?'إعادة':'Redo'} ${ic('arrow',14)}</div>`:''}
             </div>`;
@@ -4118,7 +4118,7 @@ function ensureCameraOverlay(){
       <div class="cameraTop-title" id="cameraTopTitle">${ic('camera',18)} ${tr('takePhoto')}</div>
       <button class="camSideBtn" ${uiAction('closeCamera',[])}>${ic('x',20)}</button>
     </div>
-    <div id="cameraCounter" class="cameraCounter" style="display:none"></div>
+    <div id="cameraCounter" class="cameraCounter is-hidden"></div>
   </div>
   <div class="cameraBottom">
     <button class="camSideBtn" ${uiAction('toggleCameraFacing',[])} id="camFlipBtn">${ic('flip',20)}</button>
@@ -4178,8 +4178,8 @@ function startForm(){
     <div class="wCard">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px">
         <div>
-          <div style="font-family:var(--font-head);font-size:var(--fs-lg);font-weight:800;color:var(--ink);line-height:1.35">${esc(locName(loc))}</div>
-          <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:4px">${ic('locations',12)} ${tr(loc.type)} · ${loc.floor||'—'} · ${loc.id}</div>
+          <div class="text-heading-lg">${esc(locName(loc))}</div>
+          <div class="text-muted-xs-mt-4">${ic('locations',12)} ${tr(loc.type)} · ${loc.floor||'—'} · ${loc.id}</div>
         </div>
         <span class="badge brand">${tr('autoTime')}</span>
       </div>
@@ -4191,12 +4191,12 @@ function startForm(){
 
     <div class="wCard">
       <div class="wCard-title">${ic('camera',16)} ${tr('beforePhotos')}</div>
-      <p style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:12px">${tr('beforePhotoHint')}</p>
+      <p class="text-muted-xs-mb-12">${tr('beforePhotoHint')}</p>
       <button class="cameraBtn" ${uiAction('openCamera',['before'])}>
         ${ic('camera',22)}
         <span>${tr('addPhoto')} — ${tr('beforePhotos')}</span>
       </button>
-      <div id="beforePreviews" class="photoGrid" style="margin-top:12px"></div>
+      <div id="beforePreviews" class="photoGrid u-mt-12"></div>
     </div>
 
     <div class="wCard">
@@ -4208,7 +4208,7 @@ function startForm(){
             <span class="taskItem-label">${esc(lang==='ar'?p[0]:p[1])}</span>
           </label>`).join('')}
       </div>
-      <div class="field" style="margin-top:16px">
+      <div class="field u-mt-16">
         <label>${tr('notes')}</label>
         ${ta('wkNotes','',{rows:2, placeholder:lang==='ar'?'ملاحظات اختيارية...':'Optional notes...'})}
       </div>
@@ -4216,15 +4216,15 @@ function startForm(){
 
     <div class="wCard">
       <div class="wCard-title">${ic('camera',16)} ${tr('afterPhotos')}</div>
-      <p style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:12px">${tr('afterPhotoHint')}</p>
+      <p class="text-muted-xs-mb-12">${tr('afterPhotoHint')}</p>
       <button class="cameraBtn" ${uiAction('openCamera',['after'])}>
         ${ic('camera',22)}
         <span>${tr('addPhoto')} — ${tr('afterPhotos')}</span>
       </button>
-      <div id="afterPreviews" class="photoGrid" style="margin-top:12px"></div>
+      <div id="afterPreviews" class="photoGrid u-mt-12"></div>
     </div>
 
-    <div style="height:80px"></div>
+    <div class="u-h-80"></div>
 
     <div class="stickySubmit">
       <button class="submitBtn" ${uiAction('submitReport',[(id)])}>${ic('check',20)} ${tr('submit')}</button>
@@ -4516,7 +4516,7 @@ async function submitReport(locationId){
   const hasPhotos = currentBeforePhotos.length||currentAfterPhotos.length||currentPhotos.length;
   if(!hasPhotos) return toast(tr('photoRequired'),'bad');
   const btn = document.querySelector('.submitBtn');
-  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner" style="width:24px;height:24px;border-width:2.5px"></div>`}
+  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner u-spinner-24"></div>`}
   const usesTyped = currentBeforePhotos.length||currentAfterPhotos.length;
   const payload = {
     locationId,
@@ -4537,11 +4537,11 @@ async function submitReport(locationId){
     toast(tr('reportSent'),'ok');
     currentPhotos = []; currentBeforePhotos = []; currentAfterPhotos = [];
     document.getElementById('workerForm').innerHTML = `
-      <div class="wCard" style="text-align:center;padding:32px">
-        <div style="width:64px;height:64px;border-radius:50%;background:var(--ok-bg);margin:0 auto 16px;display:grid;place-items:center;color:var(--ok)">${ic('check',28)}</div>
-        <div style="font-family:var(--font-head);font-size:var(--fs-xl);font-weight:800;color:var(--ink)">${tr('reportSent')}</div>
-        <p style="color:var(--muted);margin-top:8px;font-size:var(--fs-sm)">${fmt(new Date())}</p>
-        <button class="btn wide" style="margin-top:20px" ${uiAction('renderWorker',[])}>${lang==='ar'?'تقرير جديد':'New Report'}</button>
+      <div class="wCard u-text-center-p-32">
+        <div class="u-success-icon-64">${ic('check',28)}</div>
+        <div class="text-heading-xl">${tr('reportSent')}</div>
+        <p class="text-muted-sm-mt-8">${fmt(new Date())}</p>
+        <button class="btn wide u-mt-20" ${uiAction('renderWorker',[])}>${lang==='ar'?'تقرير جديد':'New Report'}</button>
       </div>`;
     await load();
   }catch(e){
@@ -4600,7 +4600,7 @@ function employeeHome(orders, activeCount){
 ${allRecent.length?`
 <div class="wCard">
   <div class="wCard-title">${ic('clipboardList',16)} ${lang==='ar'?'آخر طلباتي':'Recent requests'}</div>
-  <div class="wCard-list" style="gap:10px">
+  <div class="wCard-list u-gap-10">
     ${allRecent.map(item=>{
       if(item._type==='hosp'){
         const stCls=hospStatusBadgeClass(item.status);
@@ -4633,7 +4633,7 @@ ${allRecent.length?`
       </div>`;
     }).join('')}
   </div>
-  <button class="btn secondary wide" style="margin-top:12px" onclick="employeeView='history';mobileNavActive='employee-history';renderEmployee()">${tr('myRequests')}</button>
+  <button class="btn secondary wide u-mt-12" onclick="employeeView='history';mobileNavActive='employee-history';renderEmployee()">${tr('myRequests')}</button>
 </div>`:''}`;
 }
 
@@ -4666,7 +4666,7 @@ function employeeSubmitForm(){
   return`
 <div class="wCard wCard--compact">
   <button class="linkBtn" onclick="employeeServiceType='';currentPhotos=[];renderEmployee()">${ic('arrow-left',14)} ${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
-  <div class="wCard-title" style="margin-top:12px">${ic(isMaintenance?'tool':'reports',18)} ${isMaintenance?(lang==='ar'?'طلب خدمة صيانة':'Maintenance Service Request'):(lang==='ar'?'طلب خدمة نظافة':'Cleaning Service Request')}</div>
+  <div class="wCard-title u-mt-12">${ic(isMaintenance?'tool':'reports',18)} ${isMaintenance?(lang==='ar'?'طلب خدمة صيانة':'Maintenance Service Request'):(lang==='ar'?'طلب خدمة نظافة':'Cleaning Service Request')}</div>
 </div>
 
 <div class="wCard wCard--compact">
@@ -4678,7 +4678,7 @@ function employeeSubmitForm(){
       <div class="locInput-field">${inp('empLocCode',{cls:'ltr', placeholder:'wc-gf-a'})}</div>
     </div>
   </div>
-  <div id="empLocName" style="font-size:var(--fs-xs);color:var(--brand-mid);min-height:18px;margin-top:4px"></div>
+  <div id="empLocName" class="u-status-help"></div>
   <script>document.getElementById('empLocCode')?.addEventListener('input',function(){
     const id=parseLoc(this.value);
     const loc=(data&&data.locations||[]).find(l=>l.id===id);
@@ -4702,7 +4702,7 @@ function employeeSubmitForm(){
 <div class="wCard">
   <div class="wCard-title"><span class="wCard-number">3</span>${lang==='ar'?'تفاصيل الطلب':'Request Details'}</div>
   <div class="field">
-    <label>${tr('description')} <span style="color:var(--muted);font-weight:400">(${lang==='ar'?'اختياري':'optional'})</span></label>
+    <label>${tr('description')} <span class="text-muted-normal">(${lang==='ar'?'اختياري':'optional'})</span></label>
     ${ta('empDesc','',{rows:3, placeholder:lang==='ar'?'صف المشكلة بالتفصيل...':'Describe the issue in detail...'})}
   </div>
   <div class="field">
@@ -4710,11 +4710,11 @@ function employeeSubmitForm(){
     <button class="cameraBtn" onclick="openCamera('general');window._empPhotoMode=true">
       ${ic('camera',20)}<span>${lang==='ar'?'إضافة صورة':'Add Photo'}</span>
     </button>
-    <div id="empPhotoPrev" class="photoGrid" style="margin-top:10px"></div>
+    <div id="empPhotoPrev" class="photoGrid u-mt-10"></div>
   </div>
 </div>
 
-<div style="height:90px"></div>
+<div class="u-h-90"></div>
 <div class="stickySubmit">
   <button class="submitBtn" ${uiAction('submitEmployeeOrder',[])}>${ic('send',18)} ${tr('submitRequest')}</button>
 </div>`;
@@ -4735,7 +4735,7 @@ function employeeHospForm(){
     }).catch(()=>toast(lang==='ar'?'تعذر تحميل القائمة':'Menu load failed','bad'));
     return `<div class="wCard wCard--compact">
       <button class="linkBtn" onclick="employeeServiceType='';renderEmployee()">${ic('arrow-left',14)} ${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
-      <div class="wCard-title" style="margin-top:12px">${ic('coffee',18)} ${lang==='ar'?'طلب ضيافة':'Hospitality Order'}</div>
+      <div class="wCard-title u-mt-12">${ic('coffee',18)} ${lang==='ar'?'طلب ضيافة':'Hospitality Order'}</div>
       <div class="empty-state"><div class="empty-icon">${ic('sync',28)}</div><div class="empty-title">${lang==='ar'?'جارٍ تحميل القائمة...':'Loading menu…'}</div></div>
     </div>`;
   }
@@ -4751,7 +4751,7 @@ function employeeHospForm(){
   return`
 <div class="wCard wCard--compact">
   <button class="linkBtn" onclick="employeeServiceType='';empHospCart={};renderEmployee()">${ic('arrow-left',14)} ${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
-  <div class="wCard-title" style="margin-top:12px">${ic('coffee',18)} ${lang==='ar'?'طلب ضيافة':'Hospitality Order'}</div>
+  <div class="wCard-title u-mt-12">${ic('coffee',18)} ${lang==='ar'?'طلب ضيافة':'Hospitality Order'}</div>
 </div>
 
 <div class="wCard wCard--compact">
@@ -4763,7 +4763,7 @@ function employeeHospForm(){
       <div class="locInput-field">${inp('empHospLocInput',{cls:'ltr',placeholder:'wc-gf-a',value:empHospLocId||localStorage.getItem('mrfq_hosp_loc')||me.defaultLocationId||''})}</div>
     </div>
   </div>
-  <div id="empHospLocName" style="font-size:var(--fs-xs);color:var(--brand-mid);min-height:18px;margin-top:4px">${locName?(lang==='ar'?locName.nameAr:locName.nameEn):''}</div>
+  <div id="empHospLocName" class="u-status-help">${locName?(lang==='ar'?locName.nameAr:locName.nameEn):''}</div>
   <script>document.getElementById('empHospLocInput')?.addEventListener('input',function(){
     empHospLocId=parseLoc(this.value);
     const l=(data.locations||[]).find(x=>x.id===empHospLocId);
@@ -4774,7 +4774,7 @@ function employeeHospForm(){
 
 <div class="wCard">
   <div class="wCard-title"><span class="wCard-number">2</span>${lang==='ar'?'اختر ما تريد':'Choose Items'} ${cartTotal?`<span class="countBubble" style="margin-right:8px">${cartTotal}</span>`:''}</div>
-  ${cats.length?`<div class="fieldTabs" role="tablist" style="margin-bottom:14px">
+  ${cats.length?`<div class="fieldTabs" role="tablist" class="u-mb-14">
     <button class="fieldTab${!empHospCatFilter?' active':''}" onclick="empHospCatFilter='';renderEmployee()"><span class="fieldTab-main"><span class="fieldTab-label">${lang==='ar'?'الكل':'All'}</span></span></button>
     ${cats.map(c=>`<button class="fieldTab${empHospCatFilter===c.id?' active':''}" onclick="empHospCatFilter='${c.id}';renderEmployee()"><span class="fieldTab-main"><span class="fieldTab-label">${esc(lang==='ar'?c.nameAr:c.nameEn||c.nameAr)}</span></span></button>`).join('')}
   </div>`:''}
@@ -4794,7 +4794,7 @@ function employeeHospForm(){
           </div>
         </div>
       </div>`;
-    }).join(''):`<div class="empty-state" style="grid-column:1/-1"><div class="empty-title">${lang==='ar'?'لا توجد أصناف':'No items'}</div></div>`}
+    }).join(''):`<div class="empty-state u-grid-full"><div class="empty-title">${lang==='ar'?'لا توجد أصناف':'No items'}</div></div>`}
   </div>
 </div>
 
@@ -4807,7 +4807,7 @@ function employeeHospForm(){
   </div>
 </div>
 
-<div style="height:90px"></div>
+<div class="u-h-90"></div>
 <div class="stickySubmit">
   <button class="submitBtn" ${uiAction('submitEmployeeHospOrder',[])}>${ic('send',18)} ${lang==='ar'?'إرسال الطلب':'Send Order'}${cartTotal?` (${cartTotal})`:''}</button>
 </div>`;
@@ -4843,20 +4843,20 @@ async function submitEmployeeHospOrder(){
   });
   const notes=document.getElementById('empHospNotes')?.value.trim()||'';
   const btn=document.querySelector('.submitBtn');
-  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner" style="width:22px;height:22px;border-width:2.5px"></div>`}
+  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner u-spinner-22"></div>`}
   try{
     const res=await api('/hospitality/orders',{method:'POST',body:JSON.stringify({locationId:locId,kitchenId,items,notes,orderType:'menu'})});
     empHospCart={};
     const wc=document.querySelector('.platform-main.platform-main--field');
     if(wc)wc.innerHTML=`
-      <div class="wCard" style="text-align:center;padding:40px 24px;margin-top:24px">
-        <div style="width:72px;height:72px;border-radius:50%;background:var(--ok-bg);margin:0 auto 16px;display:grid;place-items:center;color:var(--ok)">${ic('check',32)}</div>
-        <div style="font-family:var(--font-head);font-size:var(--fs-xl);font-weight:800;color:var(--ink)">${lang==='ar'?'تم إرسال الطلب':'Order Sent'}</div>
-        ${res.order?.referenceNo?`<div style="font-family:ui-monospace,monospace;font-size:var(--fs-sm);color:var(--brand-mid);margin-top:8px">${esc(res.order.referenceNo)}</div>`:''}
-        <p style="color:var(--muted);margin-top:8px;font-size:var(--fs-sm)">${lang==='ar'?'سيتم تجهيز طلبك وإيصاله قريباً.':'Your order will be prepared and delivered shortly.'}</p>
-        <button class="btn wide" style="margin-top:20px" onclick="employeeServiceType='hospitality';empHospCart={};empHospCatFilter='';empHospLocId='${locId}';renderEmployee()">${lang==='ar'?'طلب آخر':'New Order'}</button>
-        <button class="btn secondary wide" style="margin-top:10px" onclick="employeeServiceType='';employeeView='new';renderEmployee()">${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
-        <button class="btn secondary wide" style="margin-top:10px" onclick="employeeView='history';renderEmployee();load()">${tr('myRequests')}</button>
+      <div class="wCard u-text-center-p-40-24-mt-24">
+        <div class="u-success-icon-72">${ic('check',32)}</div>
+        <div class="text-heading-xl">${lang==='ar'?'تم إرسال الطلب':'Order Sent'}</div>
+        ${res.order?.referenceNo?`<div class="u-mono-brand">${esc(res.order.referenceNo)}</div>`:''}
+        <p class="text-muted-sm-mt-8">${lang==='ar'?'سيتم تجهيز طلبك وإيصاله قريباً.':'Your order will be prepared and delivered shortly.'}</p>
+        <button class="btn wide u-mt-20" onclick="employeeServiceType='hospitality';empHospCart={};empHospCatFilter='';empHospLocId='${locId}';renderEmployee()">${lang==='ar'?'طلب آخر':'New Order'}</button>
+        <button class="btn secondary wide u-mt-10" onclick="employeeServiceType='';employeeView='new';renderEmployee()">${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
+        <button class="btn secondary wide u-mt-10" onclick="employeeView='history';renderEmployee();load()">${tr('myRequests')}</button>
       </div>`;
     setTopbarBackButton(true,"employeeServiceType='';employeeView='new';renderEmployee()");
     toast(lang==='ar'?'تم إرسال طلب الضيافة':'Hospitality order sent','ok');
@@ -4890,10 +4890,10 @@ function employeeHistory(orders){
   return`
 <div class="wCard">
   <div class="wCard-title">${ic('clipboardList',16)} ${tr('myRequests')} (${totalAll})</div>
-  <div class="fieldTabs" role="tablist" style="margin-bottom:14px">
+  <div class="fieldTabs" role="tablist" class="u-mb-14">
     ${tabs.map(([v,l])=>`<button class="fieldTab${employeeHistoryFilter===v?' active':''}" onclick="employeeHistoryFilter='${v}';renderEmployee()"><span class="fieldTab-main"><span class="fieldTab-label">${l}</span></span></button>`).join('')}
   </div>
-  <div class="wCard-list" style="gap:10px">
+  <div class="wCard-list u-gap-10">
     ${combined.length?combined.map(item=>{
       if(item._type==='hosp'){
         const stCls=hospStatusBadgeClass(item.status);
@@ -4956,7 +4956,7 @@ async function submitEmployeeOrder(){
   const loc = (data.locations||[]).find(l=>l.id===locId);
   if(!loc) return toast(lang==='ar'?`الموقع "${locId}" غير موجود`:`Location "${locId}" not found`,'bad');
   const btn = document.querySelector('.submitBtn');
-  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner" style="width:22px;height:22px;border-width:2.5px"></div>`}
+  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner u-spinner-22"></div>`}
   const photo = currentPhotos[0] || null;
   try{
     const res = await api('/order',{method:'POST',body:JSON.stringify({
@@ -4968,14 +4968,14 @@ async function submitEmployeeOrder(){
     // Show success card
     const wc = document.querySelector('.platform-main.platform-main--field');
     if(wc) wc.innerHTML=`
-      <div class="wCard" style="text-align:center;padding:40px 24px;margin-top:24px">
-        <div style="width:72px;height:72px;border-radius:50%;background:var(--ok-bg);margin:0 auto 16px;display:grid;place-items:center;color:var(--ok)">${ic('check',32)}</div>
-        <div style="font-family:var(--font-head);font-size:var(--fs-xl);font-weight:800;color:var(--ink)">${tr('requestSubmitted')}</div>
-        ${res.ticket.referenceNo?`<div style="font-family:ui-monospace,monospace;font-size:var(--fs-sm);color:var(--brand-mid);margin-top:8px">${esc(res.ticket.referenceNo)}</div>`:''}
-        <p style="color:var(--muted);margin-top:8px;font-size:var(--fs-sm)">${res.autoAssigned?(lang==='ar'?'تم التعيين التلقائي لعامل النظافة':'Auto-assigned to a cleaning worker'):(serviceType==='maintenance'?(lang==='ar'?'تم إرسال الطلب إلى مشرف الصيانة':'Sent to maintenance supervisor'):(lang==='ar'?'تم إرسال الطلب لمشرف النظافة':'Sent to cleaning supervisor'))}</p>
-        <button class="btn wide" style="margin-top:20px" onclick="employeeView='new';mobileNavActive='employee-new';renderEmployee()">${lang==='ar'?'طلب آخر من نفس الخدمة':'Another Request for This Service'}</button>
-        <button class="btn secondary wide" style="margin-top:10px" onclick="employeeServiceType='';employeeView='new';mobileNavActive='employee-new';renderEmployee()">${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
-        <button class="btn secondary wide" style="margin-top:10px" onclick="employeeView='history';mobileNavActive='employee-history';load().then(renderEmployee)">${tr('myRequests')}</button>
+      <div class="wCard u-text-center-p-40-24-mt-24">
+        <div class="u-success-icon-72">${ic('check',32)}</div>
+        <div class="text-heading-xl">${tr('requestSubmitted')}</div>
+        ${res.ticket.referenceNo?`<div class="u-mono-brand">${esc(res.ticket.referenceNo)}</div>`:''}
+        <p class="text-muted-sm-mt-8">${res.autoAssigned?(lang==='ar'?'تم التعيين التلقائي لعامل النظافة':'Auto-assigned to a cleaning worker'):(serviceType==='maintenance'?(lang==='ar'?'تم إرسال الطلب إلى مشرف الصيانة':'Sent to maintenance supervisor'):(lang==='ar'?'تم إرسال الطلب لمشرف النظافة':'Sent to cleaning supervisor'))}</p>
+        <button class="btn wide u-mt-20" onclick="employeeView='new';mobileNavActive='employee-new';renderEmployee()">${lang==='ar'?'طلب آخر من نفس الخدمة':'Another Request for This Service'}</button>
+        <button class="btn secondary wide u-mt-10" onclick="employeeServiceType='';employeeView='new';mobileNavActive='employee-new';renderEmployee()">${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
+        <button class="btn secondary wide u-mt-10" onclick="employeeView='history';mobileNavActive='employee-history';load().then(renderEmployee)">${tr('myRequests')}</button>
       </div>`;
       setTopbarBackButton(true, "employeeServiceType='';employeeView='new';mobileNavActive='employee-new';renderEmployee()");
   }catch(e){
@@ -4999,7 +4999,7 @@ function renderHospitalityWorker(){
     <div class="wCard wCard--compact" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
       <div>
         <div class="wCard-title">${ic('coffee',16)} ${lang==='ar'?'طلباتي':'My Orders'}</div>
-        <div style="font-size:var(--fs-sm);color:var(--muted)">${active.length} ${lang==='ar'?'طلب نشط':'active'}</div>
+        <div class="text-muted-sm">${active.length} ${lang==='ar'?'طلب نشط':'active'}</div>
       </div>
       ${overdue.length?`<span class="badge bad" style="font-size:var(--fs-sm)">${ic('alert',13)} ${overdue.length} ${lang==='ar'?'متأخر':'overdue'}</span>`:''}
     </div>
@@ -5011,13 +5011,13 @@ function renderHospitalityWorker(){
         </div></div>`}
 
     ${done.length?`
-    <div class="wCard wCard--compact" style="margin-top:6px">
-      <div class="wCard-title" style="font-size:var(--fs-sm);color:var(--muted)">${ic('check',14)} ${lang==='ar'?'المُسلَّمة اليوم':'Delivered today'} (${done.length})</div>
+    <div class="wCard wCard--compact u-mt-6">
+      <div class="wCard-title text-muted-sm">${ic('check',14)} ${lang==='ar'?'المُسلَّمة اليوم':'Delivered today'} (${done.length})</div>
       ${done.slice(0,5).map(o=>`
         <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
           <div>
             <div style="font-weight:600;font-size:var(--fs-sm)">${esc(o.referenceNo||'—')}</div>
-            <div style="font-size:var(--fs-xs);color:var(--muted)">${esc(lang==='ar'?o.locationNameAr:o.locationNameEn)}</div>
+            <div class="text-muted-xs">${esc(lang==='ar'?o.locationNameAr:o.locationNameEn)}</div>
           </div>
           <span class="badge ok">${hospStatusLabel(o.status)}</span>
         </div>`).join('')}
@@ -5062,7 +5062,7 @@ function hospWorkerOrderCard(o){
       <div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:4px">${ic('locations',11)} ${lang==='ar'?'وجهة التوصيل':'Delivery to'}</div>
       <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
         <span style="font-family:ui-monospace,monospace;font-size:var(--fs-xl);font-weight:800;color:${isDelivery?'var(--brand)':'var(--ink)'}">${esc(locCode)}</span>
-        ${locFloor?`<span style="font-size:var(--fs-xs);color:var(--muted)">${esc(locFloor)}</span>`:''}
+        ${locFloor?`<span class="text-muted-xs">${esc(locFloor)}</span>`:''}
       </div>
       <div style="font-size:var(--fs-sm);color:var(--ink-secondary);margin-top:2px">${esc(locName||'')}</div>
       ${o.requesterName?`<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:4px;border-top:1px solid var(--border);padding-top:4px">${ic('user',11)} ${esc(o.requesterName)}</div>`:''}
@@ -5070,7 +5070,7 @@ function hospWorkerOrderCard(o){
 
     ${kitchenName?`<div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:6px">${ic('coffee',11)} ${lang==='ar'?'المطبخ:':'Kitchen:'} <span style="color:var(--ink);font-weight:600">${esc(kitchenName)}</span></div>`:''}
 
-    ${o.items&&o.items.length?`<div class="ticketCard-badges" style="margin-bottom:6px">${o.items.map(i=>`<span class="badge">${hospItemLabel(i)}</span>`).join('')}</div>`:''}
+    ${o.items&&o.items.length?`<div class="ticketCard-badges u-mb-6">${o.items.map(i=>`<span class="badge">${hospItemLabel(i)}</span>`).join('')}</div>`:''}
     ${o.notes?`<div style="font-size:var(--fs-xs);color:var(--muted);background:var(--warn-bg);border-radius:6px;padding:6px 10px;margin-bottom:6px">${ic('alert',11)} ${esc(o.notes)}</div>`:''}
     ${isOverdue?`<div style="font-size:var(--fs-xs);color:var(--bad);font-weight:600;margin-bottom:6px">${ic('alert',11)} ${lang==='ar'?'تجاوز وقت SLA':'SLA exceeded'}</div>`:''}
 
@@ -5112,12 +5112,12 @@ function hospOrderCard(o, mode, workers){
         <div class="ticketCard-title empOrderCard-title">${esc(tr('ot_'+o.orderType)||o.orderType)}</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:2px">
           ${o.referenceNo?`<span class="ticketCard-ref empOrderCard-ref">${esc(o.referenceNo)}</span>`:''}
-          <span style="font-size:var(--fs-xs);color:var(--muted)">${fmt(o.updatedAt||o.createdAt)}</span>
+          <span class="text-muted-xs">${fmt(o.updatedAt||o.createdAt)}</span>
         </div>
       </div>
       <span class="badge ${stCls}">${hospStatusLabel(o.status)}</span>
     </div>
-    <div class="ticketCard-meta empOrderCard-meta" style="margin-top:6px">
+    <div class="ticketCard-meta empOrderCard-meta u-mt-6">
       <span>${ic('locations',12)} <strong>${locName}</strong></span>
       ${requester?`<span>${ic('user',12)} ${esc(requester)}</span>`:''}
     </div>
@@ -5157,7 +5157,7 @@ async function showHospitalityActivity(id){
 }
 
 function hospReassignRowHtml(o, workers){
-  return `<div id="hsr-${o.id}" class="ticketCard-actions supTicketCard-actions" style="display:none">
+  return `<div id="hsr-${o.id}" class="ticketCard-actions supTicketCard-actions is-hidden">
     ${sel(`hsr-sel-${o.id}`,[{v:'',l:tr('selectWorkerLabel')},...(workers||[]).map(w=>({v:w.id,l:w.name}))], {cls:'ctrl-sm'})}
     <button class="btn sm ok" onclick="hospAssignOrder('${o.id}',document.getElementById('hsr-sel-${o.id}').value)">${ic('check',14)} ${tr('assign')}</button>
   </div>`;
@@ -5567,10 +5567,10 @@ function maintTicketsList(tickets, opts={}){
     </div>`;
   };
   return `
-    ${canCreate?`<div style="margin-bottom:16px"><button class="btn btn-primary" ${uiAction('maintOpenTicketCreate',[(renderFn)])}>${ic('plus',16)} ${tr('maintTicketCreate')}</button></div>`:''}
+    ${canCreate?`<div class="u-mb-16"><button class="btn btn-primary" ${uiAction('maintOpenTicketCreate',[(renderFn)])}>${ic('plus',16)} ${tr('maintTicketCreate')}</button></div>`:''}
     ${open.length===0&&done.length===0?`<p class="empty-state">${tr('noData')}</p>`:''}
     ${open.length?`<h4 style="font-size:13px;font-weight:700;margin-bottom:8px">${lang==='ar'?'مفتوحة':'Open'} (${open.length})</h4>${open.map(card).join('')}`:''}
-    ${done.length?`<details style="margin-top:16px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--ink-2)">${lang==='ar'?'مغلقة':'Closed'} (${done.length})</summary><div style="margin-top:8px">${done.map(card).join('')}</div></details>`:''}
+    ${done.length?`<details class="u-mt-16"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--ink-2)">${lang==='ar'?'مغلقة':'Closed'} (${done.length})</summary><div class="u-mt-8">${done.map(card).join('')}</div></details>`:''}
   `;
 }
 
@@ -5611,15 +5611,15 @@ function maintDashboard(tickets, reports, opts={}){
   const completed= tickets.filter(t=>t.status==='completed');
   const pending  = reports.filter(r=>r.approvalStatus==='pending');
   return `
-    <div class="stats-grid" style="margin-bottom:20px">
+    <div class="stats-grid u-mb-20">
       <div class="stat-card"><div class="value">${open.length}</div><div class="label">${lang==='ar'?'طلبات مفتوحة':'Open Tickets'}</div></div>
       <div class="stat-card"><div class="value ${breached.length?'text-danger':''}">${breached.length}</div><div class="label">SLA ${lang==='ar'?'متجاوز':'Breached'}</div></div>
       <div class="stat-card"><div class="value">${completed.length}</div><div class="label">${lang==='ar'?'مكتملة':'Completed'}</div></div>
       <div class="stat-card"><div class="value">${pending.length}</div><div class="label">${lang==='ar'?'تقارير معلقة':'Pending Reports'}</div></div>
     </div>
-    <div style="margin-bottom:16px">
+    <div class="u-mb-16">
       <h4 style="font-size:13px;font-weight:700;margin-bottom:8px">${lang==='ar'?'حسب التصنيف':'By Category'}</h4>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <div class="u-flex-wrap-gap-8">
         ${MAINT_CATS.map(c=>{
           const cnt = open.filter(t=>t.category===c).length;
           return `<div class="card" style="flex:1;min-width:80px;text-align:center;padding:10px 8px">
@@ -5688,7 +5688,7 @@ function maintenancePerformancePage(){
   </div>
 </div>
 ${scored.length>=1?`
-<div class="card" style="margin-bottom:20px">
+<div class="card u-mb-20">
   <div class="card-head">
     <span class="card-title">${ic('award',16)} ${tr('monthlyRecognition')}</span>
     <span class="badge gold">${currentMonthLabel(lang)}</span>
@@ -5759,7 +5759,7 @@ function maintenanceWorkerMyReports(){
         <div class="workerReportItem-body">
           <div class="workerReportItem-name">${ticket?esc(ticket.title):esc(r.ticketId||'—')}</div>
           <div class="workerReportItem-meta">${fmt(r.approvedAt||r.createdAt)}${r.reviewNote?' · '+esc(r.reviewNote):''}</div>
-          <span class="badge ${stColor}" style="margin-top:6px">${stLabel}</span>
+          <span class="badge ${stColor} u-mt-6">${stLabel}</span>
         </div>
         ${actionable?`<div class="workerReportItem-action" style="color:var(--${stColor})">${lang==='ar'?'إعادة':'Redo'} ${ic('arrow',14)}</div>`:''}
       </div>`;
@@ -5804,10 +5804,10 @@ function maintenanceSupervisorDashboard(){
     </div>
     <div class="supSectionsGrid">
       <div class="wCard${attention.length&&!upcoming.length?' wCard--full':''}"><div class="wCard-title">${ic('bell',16)} ${lang==='ar'?'تحتاج متابعة':'Needs Attention'} ${countBubble(attention.length,'warn')}</div>
-        ${attention.length?`<div class="wCard-list">${maintenanceOrderMini(attention)}</div>`:`<div style="padding:10px 0;color:var(--muted);font-size:var(--fs-sm);display:flex;align-items:center;gap:6px">${ic('check',14)} ${lang==='ar'?'لا توجد أوامر حرجة':'No critical orders'}</div>`}
+        ${attention.length?`<div class="wCard-list">${maintenanceOrderMini(attention)}</div>`:`<div class="u-meta-row">${ic('check',14)} ${lang==='ar'?'لا توجد أوامر حرجة':'No critical orders'}</div>`}
       </div>
       <div class="wCard${upcoming.length&&!attention.length?' wCard--full':''}"><div class="wCard-title">${ic('clock',16)} ${tr('maintUpcoming')} ${countBubble(upcoming.length)}</div>
-        ${upcoming.length?maintenanceScheduleMini(upcoming.slice(0,5)):`<div style="padding:10px 0;color:var(--muted);font-size:var(--fs-sm);display:flex;align-items:center;gap:6px">${ic('check',14)} ${lang==='ar'?'لا توجد جداول قادمة':'No upcoming schedules'}</div>`}
+        ${upcoming.length?maintenanceScheduleMini(upcoming.slice(0,5)):`<div class="u-meta-row">${ic('check',14)} ${lang==='ar'?'لا توجد جداول قادمة':'No upcoming schedules'}</div>`}
       </div>
     </div>
   </div>`;
@@ -5819,7 +5819,7 @@ function maintenanceSupervisorRequests(){
   const waiting=tickets.filter(t=>t.status==='waiting_verification');
   const active=tickets.filter(t=>['assigned','accepted','diagnosing','in_progress','awaiting_parts','awaiting_vendor','awaiting_permit','on_hold','reclean_required'].includes(t.status));
   const closed=tickets.filter(t=>['completed','rejected','cancelled'].includes(t.status));
-  const maintEmptyCompact=(msg)=>`<div style="padding:10px 0;color:var(--muted);font-size:var(--fs-sm);display:flex;align-items:center;gap:6px">${ic('check',14)} ${msg}</div>`;
+  const maintEmptyCompact=(msg)=>`<div class="u-meta-row">${ic('check',14)} ${msg}</div>`;
   const group=(title,icon,items,color='',partnerLen=0)=>{
     const full=items.length>2||(items.length>0&&partnerLen===0);
     return `<div class="wCard${full?' wCard--full':''}">
@@ -5920,7 +5920,7 @@ function maintenanceOrdersPage(){
   const closed=tickets.filter(t=>['completed','rejected','cancelled'].includes(t.status));
   return `<div class="pageHeader"><div class="pageHeader-left"><div class="pageTitle">${tr('maintOrders')}</div><div class="pageSub">${active.length} ${lang==='ar'?'نشط':'active'} · ${closed.length} ${lang==='ar'?'مغلق':'closed'}</div></div>${canCreate?`<button class="btn" ${uiAction('showMaintenanceOrderForm',[])}>${ic('plus',15)} ${tr('maintTicketCreate')}</button>`:''}</div>
     <div class="wCard"><div class="wCard-title">${ic('sync',16)} ${lang==='ar'?'أوامر العمل النشطة':'Active Work Orders'} ${countBubble(active.length)}</div><div class="ticketGrid">${active.length?active.map(maintenanceOrderCard).join(''):`<div class="empty-state"><div class="empty-title">${lang==='ar'?'لا توجد أوامر نشطة':'No active work orders'}</div></div>`}</div></div>
-    <div class="wCard" style="margin-top:16px"><div class="wCard-title">${ic('check',16)} ${lang==='ar'?'سجل الأوامر المغلقة':'Closed Work Order History'} ${countBubble(closed.length,'ok')}</div><div class="ticketGrid">${closed.length?closed.map(maintenanceOrderCard).join(''):`<div class="empty-state"><div class="empty-title">${lang==='ar'?'لا توجد أوامر مغلقة':'No closed work orders'}</div></div>`}</div></div>`;
+    <div class="wCard u-mt-16"><div class="wCard-title">${ic('check',16)} ${lang==='ar'?'سجل الأوامر المغلقة':'Closed Work Order History'} ${countBubble(closed.length,'ok')}</div><div class="ticketGrid">${closed.length?closed.map(maintenanceOrderCard).join(''):`<div class="empty-state"><div class="empty-title">${lang==='ar'?'لا توجد أوامر مغلقة':'No closed work orders'}</div></div>`}</div></div>`;
 }
 
 function maintenanceOrderCard(t){
@@ -6026,7 +6026,7 @@ function maintenanceWorkerOrderCard(t,isHistory){
   if(isHistory){
     return `<div class="wCard"><div class="ticketCard-top"><div><div class="ticketCard-title">${esc(t.title)}</div><div class="ticketCard-ref">${esc(t.referenceNo)}</div></div>${maintStatusBadge(t.status)}</div><div class="ticketCard-meta"><span>${esc(t.locationNameAr)}</span><span>${maintTypeLabel(t.maintenanceType)}</span></div>${teamLine}</div>`;
   }
-  return `<button class="assignedItem" ${uiAction('startMaintenanceForm',[(t.id)])}><div><div class="assignedItem-name">${esc(t.title)}</div><div class="assignedItem-sub">${esc(t.locationNameAr)} · ${maintTypeLabel(t.maintenanceType)} · ${esc(t.referenceNo)}</div>${teamLine}</div><div style="display:flex;align-items:center;gap:8px">${maintStatusBadge(t.status)}<span>${ic('arrow',16)}</span></div></button>`;
+  return `<button class="assignedItem" ${uiAction('startMaintenanceForm',[(t.id)])}><div><div class="assignedItem-name">${esc(t.title)}</div><div class="assignedItem-sub">${esc(t.locationNameAr)} · ${maintTypeLabel(t.maintenanceType)} · ${esc(t.referenceNo)}</div>${teamLine}</div><div class="u-flex-center-gap-8">${maintStatusBadge(t.status)}<span>${ic('arrow',16)}</span></div></button>`;
 }
 function maintenanceWorkerActions(t){
   const action=(status,label,cls='secondary')=>`<button class="btn ${cls} sm" ${uiAction('maintWorkerStatus',[(t.id),(status)])}>${label}</button>`;
@@ -6067,33 +6067,33 @@ function startMaintenanceForm(ticketId){
     <div class="wCard">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:4px">
         <div>
-          <div style="font-family:var(--font-head);font-size:var(--fs-lg);font-weight:800;color:var(--ink);line-height:1.35">${esc(t.title)}</div>
-          <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:4px">${ic('tickets',12)} ${esc(t.locationNameAr)} · ${esc(t.referenceNo)}</div>
+          <div class="text-heading-lg">${esc(t.title)}</div>
+          <div class="text-muted-xs-mt-4">${ic('tickets',12)} ${esc(t.locationNameAr)} · ${esc(t.referenceNo)}</div>
         </div>
         ${maintStatusBadge(t.status)}
       </div>
     </div>
     <div class="wCard">
       <div class="wCard-title">${ic('camera',16)} ${lang==='ar'?'صور قبل الصيانة':'Before Photos'}</div>
-      <p style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:12px">${tr('beforePhotoHint')}</p>
+      <p class="text-muted-xs-mb-12">${tr('beforePhotoHint')}</p>
       <button class="cameraBtn" ${uiAction('openCamera',['before'])}>${ic('camera',22)}<span>${tr('addPhoto')} — ${lang==='ar'?'قبل الصيانة':'Before Maintenance'}</span></button>
-      <div id="beforePreviews" class="photoGrid" style="margin-top:12px"></div>
+      <div id="beforePreviews" class="photoGrid u-mt-12"></div>
     </div>
     <div class="wCard">
       <div class="wCard-title">${ic('check',16)} ${lang==='ar'?'قائمة التحقق':'Checklist'}</div>
       <div class="taskChecklist">
         ${MAINT_TASKS.map((p,i)=>`<label class="taskItem" id="mti_${i}"><input class="taskCheck" type="checkbox" checked value="${esc(lang==='ar'?p[0]:p[1])}" data-ui-change="toggle-task"><span class="taskItem-label">${esc(lang==='ar'?p[0]:p[1])}</span></label>`).join('')}
       </div>
-      <div class="field" style="margin-top:16px"><label>${lang==='ar'?'التشخيص':'Diagnosis'}</label>${ta('mwDiagnosis','',{rows:2,placeholder:lang==='ar'?'ما تم تشخيصه وإصلاحه...':'What was diagnosed and repaired...'})}</div>
+      <div class="field u-mt-16"><label>${lang==='ar'?'التشخيص':'Diagnosis'}</label>${ta('mwDiagnosis','',{rows:2,placeholder:lang==='ar'?'ما تم تشخيصه وإصلاحه...':'What was diagnosed and repaired...'})}</div>
       <div class="field"><label>${tr('notes')}</label>${ta('mwNotes','',{rows:2,placeholder:lang==='ar'?'ملاحظات اختيارية...':'Optional notes...'})}</div>
     </div>
     <div class="wCard">
       <div class="wCard-title">${ic('camera',16)} ${lang==='ar'?'صور بعد الصيانة':'After Photos'}</div>
-      <p style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:12px">${tr('afterPhotoHint')}</p>
+      <p class="text-muted-xs-mb-12">${tr('afterPhotoHint')}</p>
       <button class="cameraBtn" ${uiAction('openCamera',['after'])}>${ic('camera',22)}<span>${tr('addPhoto')} — ${lang==='ar'?'بعد الصيانة':'After Maintenance'}</span></button>
-      <div id="afterPreviews" class="photoGrid" style="margin-top:12px"></div>
+      <div id="afterPreviews" class="photoGrid u-mt-12"></div>
     </div>
-    <div style="height:80px"></div>
+    <div class="u-h-80"></div>
     <div class="stickySubmit">
       <button class="submitBtn" ${uiAction('submitMaintenanceWorkerReport',[(ticketId)])}>${ic('check',20)} ${tr('submit')}</button>
     </div>`;
@@ -6105,7 +6105,7 @@ async function submitMaintenanceWorkerReport(ticketId){
   const hasPhotos=currentBeforePhotos.length||currentAfterPhotos.length;
   if(!hasPhotos) return toast(tr('photoRequired'),'bad');
   const btn=document.querySelector('.submitBtn');
-  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner" style="width:24px;height:24px;border-width:2.5px"></div>`}
+  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner u-spinner-24"></div>`}
   const t=(data.tickets||[]).find(x=>x.id===ticketId);
   const locationId=t?.locationId;
   const diagnosis=document.getElementById('mwDiagnosis')?.value||'';
@@ -6129,11 +6129,11 @@ async function submitMaintenanceWorkerReport(ticketId){
     toast(tr('reportSent'),'ok');
     currentBeforePhotos=[]; currentAfterPhotos=[];
     document.getElementById('maintWorkerForm').innerHTML=`
-      <div class="wCard" style="text-align:center;padding:32px">
-        <div style="width:64px;height:64px;border-radius:50%;background:var(--ok-bg);margin:0 auto 16px;display:grid;place-items:center;color:var(--ok)">${ic('check',28)}</div>
-        <div style="font-family:var(--font-head);font-size:var(--fs-xl);font-weight:800;color:var(--ink)">${tr('reportSent')}</div>
-        <p style="color:var(--muted);margin-top:8px;font-size:var(--fs-sm)">${fmt(new Date())}</p>
-        <button class="btn wide" style="margin-top:20px" ${uiAction('maintWorkerGoBack',[])}>${lang==='ar'?'العودة للأوامر':'Back to Orders'}</button>
+      <div class="wCard u-text-center-p-32">
+        <div class="u-success-icon-64">${ic('check',28)}</div>
+        <div class="text-heading-xl">${tr('reportSent')}</div>
+        <p class="text-muted-sm-mt-8">${fmt(new Date())}</p>
+        <button class="btn wide u-mt-20" ${uiAction('maintWorkerGoBack',[])}>${lang==='ar'?'العودة للأوامر':'Back to Orders'}</button>
       </div>`;
     setTopbarBackButton(false);
     await load();
@@ -6205,8 +6205,8 @@ function showMaintenanceCloseForm(id){
     <div class="formGrid">${fc(lang==='ar'?'وقت التوقف بالدقائق':'Downtime Minutes',inp('mclose-down',{type:'number',value:0}))}${fc(lang==='ar'?'تكلفة العمل':'Labor Cost',inp('mclose-cost',{type:'number',value:0}))}${fc(lang==='ar'?'المورد':'Vendor',inp('mclose-vendor'))}</div>
     ${fc(tr('notes'),ta('mclose-notes','',{rows:2}))}
     <div class="formGrid">
-      <div class="field"><label>${lang==='ar'?'صور قبل الصيانة':'Before Maintenance Photos'} <span style="color:var(--muted);font-weight:400">(${lang==='ar'?'اختياري':'optional'})</span></label><button class="cameraBtn" ${uiAction('openCamera',['before'])}>${ic('camera',20)}<span>${tr('addPhoto')} — ${lang==='ar'?'قبل الصيانة':'Before Maintenance'}</span></button><div id="beforePreviews" class="photoGrid" style="margin-top:10px"></div></div>
-      <div class="field"><label>${lang==='ar'?'صور بعد الصيانة':'After Maintenance Photos'} <span style="color:var(--muted);font-weight:400">(${lang==='ar'?'اختياري':'optional'})</span></label><button class="cameraBtn" ${uiAction('openCamera',['after'])}>${ic('camera',20)}<span>${tr('addPhoto')} — ${lang==='ar'?'بعد الصيانة':'After Maintenance'}</span></button><div id="afterPreviews" class="photoGrid" style="margin-top:10px"></div></div>
+      <div class="field"><label>${lang==='ar'?'صور قبل الصيانة':'Before Maintenance Photos'} <span class="text-muted-normal">(${lang==='ar'?'اختياري':'optional'})</span></label><button class="cameraBtn" ${uiAction('openCamera',['before'])}>${ic('camera',20)}<span>${tr('addPhoto')} — ${lang==='ar'?'قبل الصيانة':'Before Maintenance'}</span></button><div id="beforePreviews" class="photoGrid u-mt-10"></div></div>
+      <div class="field"><label>${lang==='ar'?'صور بعد الصيانة':'After Maintenance Photos'} <span class="text-muted-normal">(${lang==='ar'?'اختياري':'optional'})</span></label><button class="cameraBtn" ${uiAction('openCamera',['after'])}>${ic('camera',20)}<span>${tr('addPhoto')} — ${lang==='ar'?'بعد الصيانة':'After Maintenance'}</span></button><div id="afterPreviews" class="photoGrid u-mt-10"></div></div>
     </div>`;
   showModal('maintenanceCloseModal',lang==='ar'?'طلب إغلاق أمر العمل':'Request Work Order Closure',body,`<button class="btn ok" ${uiAction('submitMaintenanceClose',[(id)])}>${tr('submit')}</button><button class="btn secondary" onclick="document.getElementById('maintenanceCloseModal').remove();currentBeforePhotos=[];currentAfterPhotos=[]">${tr('cancel')}</button>`,{wide:true});
 }
@@ -6344,7 +6344,7 @@ function addMaintTask(){
   if(!el) return;
   const row = document.createElement('div');
   row.style.cssText='display:flex;gap:6px;margin-bottom:6px';
-  row.innerHTML=`<input class="ctrl" style="flex:1" placeholder="${lang==='ar'?'المهمة':'Task'}"><button class="btn secondary sm iconOnlyBtn" type="button" onclick="this.parentNode.remove()">${ic('trash',14)}</button>`;
+  row.innerHTML=`<input class="ctrl u-flex-1" placeholder="${lang==='ar'?'المهمة':'Task'}"><button class="btn secondary sm iconOnlyBtn" type="button" onclick="this.parentNode.remove()">${ic('trash',14)}</button>`;
   el.appendChild(row);
 }
 
@@ -6450,7 +6450,7 @@ function showMenuItemFormModal(id){
     ${fc(tr('productImage'), `
       <div id="miImagePreview" class="productCard-img productCard-img--form">${item?.imagePath?`<img src="${esc(item.imagePath)}" alt="">`:ic('image',28)}</div>
       <input type="file" id="miImageFile" accept="image/png,image/jpeg,image/webp" data-ui-change="menu-item-image">
-      ${item?.imagePath?`<button class="btn secondary sm" type="button" style="margin-top:6px" ${uiAction('removeMenuItemImage',[])}>${tr('removeImage')}</button>`:''}
+      ${item?.imagePath?`<button class="btn secondary sm" type="button" class="u-mt-6" ${uiAction('removeMenuItemImage',[])}>${tr('removeImage')}</button>`:''}
     `)}
     ${fc(tr('status'), sel('miActive',[{v:'true',l:tr('productActive'),sel:!item||item.isActive!==false},{v:'false',l:tr('productInactive'),sel:item&&!item.isActive}]))}
   </div>`;
@@ -6747,7 +6747,7 @@ async function performance(){
 
 <!-- MONTHLY RECOGNITION -->
 ${scored.length>=1?`
-<div class="card" style="margin-bottom:20px">
+<div class="card u-mb-20">
   <div class="card-head">
     <span class="card-title">${ic('award',16)} ${tr('monthlyRecognition')}</span>
     <span class="badge gold">${currentMonthLabel(lang)}</span>
@@ -6912,7 +6912,7 @@ function renderSupervisor(){
     <button class="btn secondary sm" onclick="supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()">${lang==='ar'?'الطلبات':'Requests'}</button>
   </div>`;
 
-  const supEmptyCompact=(msg)=>`<div style="padding:10px 0;color:var(--muted);font-size:var(--fs-sm);display:flex;align-items:center;gap:6px">${ic('check',14)} ${msg}</div>`;
+  const supEmptyCompact=(msg)=>`<div class="u-meta-row">${ic('check',14)} ${msg}</div>`;
   const subCls = submitted.length&&!waitingVerif.length?'wCard wCard--full':'wCard';
   const verifCls = waitingVerif.length&&!submitted.length?'wCard wCard--full':'wCard';
   const requestsHtml=`
@@ -7021,7 +7021,7 @@ function supTicketCard(t, mode, workers){
 function supReportCard(r){
   const imgs = imgList(r);
   return`<div class="ticketCard supTicketCard">
-    <div style="cursor:pointer" ${uiAction('openReportDetail',[(r.id)])}>
+    <div class="u-cursor-pointer" ${uiAction('openReportDetail',[(r.id)])}>
       <div class="ticketCard-top">
         <div class="ticketCard-main">
           <div class="ticketCard-title">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</div>
@@ -7032,7 +7032,7 @@ function supReportCard(r){
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
         ${imgs.length?`<span class="badge brand">${ic('camera',10)} ${num(imgs.length)}</span>`:''}
         ${r.notes?`<span class="badge" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.notes)}</span>`:''}
-        <span class="badge" style="margin-inline-start:auto">${ic('arrow',11)} ${lang==='ar'?'تفاصيل':'Details'}</span>
+        <span class="badge u-inline-auto">${ic('arrow',11)} ${lang==='ar'?'تفاصيل':'Details'}</span>
       </div>
     </div>
     ${['cleaning_supervisor','maintenance_supervisor'].includes(me.role)?`<div class="ratingRow" style="padding:6px 0 0" onclick="event.stopPropagation()">
