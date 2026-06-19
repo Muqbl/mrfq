@@ -26,6 +26,7 @@ logs/
 
 # ─── Dependencies (install via npm install) ───────────────────
 node_modules/
+coverage/
 
 # ─── Build / dist ─────────────────────────────────────────────
 dist/
@@ -38,6 +39,7 @@ Thumbs.db
 .vscode/
 .idea/
 .claude/
+__MACOSX/
 
 # ─── Sensitive exports & reports ─────────────────────────────
 *.xlsx
@@ -53,4 +55,5 @@ importAllLocations.js
 TODO.md
 *.bak
 *.tmp
+tmp/
 .tmp-preview/
