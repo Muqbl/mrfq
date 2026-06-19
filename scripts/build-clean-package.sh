@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-STAMP="$(TZ=Asia/Riyadh date +%Y-%m-%d_%H-%M)"
+STAMP="${PACKAGE_STAMP:-$(TZ=Asia/Riyadh date +%Y-%m-%d_%H-%M)}"
 DIST="$ROOT/dist"
 STAGE="$(mktemp -d)"
 OUT="$DIST/mrfq-clean-delivery-$STAMP.zip"
