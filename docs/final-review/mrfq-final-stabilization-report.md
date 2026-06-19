@@ -70,4 +70,23 @@ Unsupervised production deployment: **not yet approved**.
 - `npm test`
 - `scripts/build-clean-package.sh`
 - `unzip -t dist/mrfq-clean-delivery-2026-06-19_11-41.zip`
-- Clean package: `dist/mrfq-clean-delivery-2026-06-19_11-41.zip`
+- Phase 1 clean package: `dist/mrfq-clean-delivery-2026-06-19_11-41.zip`
+- Phase 2 verified clean package: `dist/mrfq-clean-delivery-2026-06-19_12-33.zip`
+
+## 15. Phase 2 verification and hardening
+
+- Branch verified: `feature/mrfq-full-stabilization-2026-06-19_11-27`.
+- Starting HEAD verified: `c938161`.
+- `npm ci`: passed with zero known dependency vulnerabilities.
+- Baseline `npm test`: 121/121; Phase 2 final count is recorded in the Phase 2 report.
+- Existing clean package: archive integrity passed; the literal name scan found the safe `.env.example` template, so the builder was corrected to ship it as `environment.example`.
+- Identity scan: zero outside the audit evidence file.
+- CSP: reduced but not closed. Inline script elements are blocked; event-attribute and style allowances remain for the legacy UI.
+- XSS/`innerHTML`: all first-party occurrences inventoried; toast text moved to `textContent`; shared escaping made explicit; automated scan passes.
+- Responsive QA: browser width simulation completed; all physical-device and OS/browser checks remain pending.
+- Smoke load: six endpoints × five sequential requests passed; this is not a production capacity test.
+- Phase 2 clean package: archive integrity, prohibited-name scan, and extracted identity scan all passed with zero findings.
+- Changed areas: CSP headers/tests, HTML escaping guard, package builder, security/load scripts, responsive/security/verification documentation.
+- Remaining risks: full CSP attribute migration, physical-device testing, wider load/endurance testing, monitoring, backup/restore and production environment readiness.
+
+Post-Phase-2 readiness remains deliberately bounded: production **82/100**, controlled external demo **93/100**, unsupervised production deployment **not approved**.
