@@ -6,7 +6,7 @@
     "start": "node server.js",
     "seed":  "node scripts/seed-demo.js",
     "backup": "node scripts/backup-db.js",
-    "test":  "node --test test",
+    "test":  "node --test test/*.test.js",
     "test:security": "node scripts/security-scan.js",
     "test:smoke": "node scripts/smoke-load-test.js"
   },
