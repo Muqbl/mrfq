@@ -701,21 +701,7 @@ function setQ(q){localStorage.setItem(offlineKey,JSON.stringify(q))}
 
 /* ─── API ────────────────────────────────────────────────────── */
 async function api(path,opt={}){
-  const cleanPath = String(path||'').replace(/^\/?api\/?/, '/');
-  const r = await fetch('/api'+cleanPath,{
-    ...opt,
-    credentials:'include',
-    headers:{
-      'Content-Type':'application/json',
-      'X-Requested-With':'XMLHttpRequest',
-      ...(opt.headers||{})
-    }
-  });
-  const txt = await r.text();
-  let j = {};
-  try{j = txt?JSON.parse(txt):{}}catch(e){}
-  if(!r.ok) throw new Error(j.error||'ERROR');
-  return j;
+  return window.MRFQApi.request(path,opt);
 }
 
 /* ─── TOAST ──────────────────────────────────────────────────── */
@@ -971,8 +957,8 @@ function isMaintenanceRole(role=me?.role){return String(role||'').startsWith('ma
 function maintenanceTicketApi(suffix=''){return `${isMaintenanceRole()?'/maintenance-tickets':'/tickets'}${suffix}`}
 function maintenanceReportApi(suffix=''){return `${isMaintenanceRole()?'/maintenance-reports':'/reports'}${suffix}`}
 function operationalWorkerRole(){return isMaintenanceRole()?'maintenance_worker':'cleaner'}
-function canUsers(){return ['system_admin','cleaning_manager','maintenance_manager'].includes(me.role)}
-function canManageUsers(){return ['system_admin','cleaning_manager','maintenance_manager'].includes(me.role)}
+function canUsers(){return canManageGlobalUsers()||canManageModuleTeam()}
+function canManageUsers(){return canManageGlobalUsers()||canManageModuleTeam()}
 function canManage(){return ['system_admin','facility_manager','cleaning_manager','maintenance_manager'].includes(me.role)}
 function canTicket(){return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','maintenance_manager','maintenance_supervisor'].includes(me.role)}
 function canReview(){return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','maintenance_manager','maintenance_supervisor'].includes(me.role)}
@@ -980,6 +966,10 @@ function canAccessPlatformConsole(){return ['system_admin','facility_manager'].i
 function canAccessGlobalSettings(){return me.role==='system_admin'}
 function canAccessRolesPermissions(){return me.role==='system_admin'}
 function canManageGlobalUsers(){return me.role==='system_admin'}
+function canManageModuleTeam(){return window.MRFQPermissions.canManageModuleTeam(me.role)}
+function canViewExecutiveReports(){return window.MRFQPermissions.canViewExecutiveReports(me.role)}
+function canManageSystemSettings(){return window.MRFQPermissions.canManageSystemSettings(me.role)}
+function canManageFacilities(){return window.MRFQPermissions.canManageFacilities(me.role)}
 function canViewCleaningTeam(){return me.role==='cleaning_manager'}
 function canManageHospitalityMenu(){return ['system_admin','hospitality_manager'].includes(me.role)}
 function canHospitalityAssign(){return ['system_admin','facility_manager','hospitality_manager','hospitality_supervisor'].includes(me.role)}
@@ -1692,6 +1682,11 @@ function showMobileNavMore(){
    ═══════════════════════════════════════════════════════════════ */
 function renderSystemAdmin(){
   setDoc();
+  if(adminView==='facilities'){
+    adminShell(platformFacilitiesPage());
+    window.MRFQFacilities.load('#facilitiesPlatformHost',lang);
+    return;
+  }
   if(adminView==='products'){
     adminShell(`<div style="text-align:center;padding:40px">${ic('clock',28)}</div>`);
     ensureHospMenuItems().then(()=>{
@@ -1738,6 +1733,7 @@ function adminShell(content){
           ${canManageGlobalUsers()?adminNavItem('users',tr('users'),'users'):''}
           ${canAccessRolesPermissions()?adminNavItem('roles',tr('rolesPermissions'),'shield'):''}
           ${adminNavItem('locations',tr('locations'),'locations')}
+          ${adminNavItem('facilities',lang==='ar'?'المرافق والمساحات':'Facilities & Spaces','building')}
           ${adminNavItem('assets',tr('assets'),'building')}
           ${adminNavItem('maps',tr('maps'),'map-pin')}
           ${adminNavItem('products',tr('productsTitle'),'coffee')}
@@ -1793,6 +1789,7 @@ function showAdminNavMore(){
   const items = [
     ...(canAccessRolesPermissions()?[{v:'roles', label:tr('rolesPermissions'), icon:'shield'}]:[]),
     {v:'locations', label:tr('locations'), icon:'locations'},
+    {v:'facilities', label:lang==='ar'?'المرافق والمساحات':'Facilities & Spaces', icon:'building'},
     {v:'assets', label:tr('assets'), icon:'building'},
     {v:'maps', label:tr('maps'), icon:'map-pin'},
     {v:'products', label:tr('productsTitle'), icon:'coffee'},
@@ -1815,6 +1812,11 @@ function showAdminNavMore(){
    ═══════════════════════════════════════════════════════════════ */
 function renderFacilityConsole(){
   setDoc();
+  if(adminView==='facilities'){
+    fmShell(platformFacilitiesPage());
+    window.MRFQFacilities.load('#facilitiesPlatformHost',lang);
+    return;
+  }
   const fn = {
     dashboard: adminDashboard,
     modules: adminModules,
@@ -1839,6 +1841,7 @@ function fmShell(content){
           ${adminNavItem('dashboard',tr('dashboard'),'dashboard')}
           ${adminNavItem('modules',tr('modules'),'layers')}
           ${adminNavItem('locations',tr('locations'),'locations')}
+          ${adminNavItem('facilities',lang==='ar'?'المرافق والمساحات':'Facilities & Spaces','building')}
           ${adminNavItem('reports',tr('generalReports'),'reports')}
           ${adminNavItem('assets',tr('assets'),'building')}
           ${adminNavItem('maps',tr('maps'),'map-pin')}
@@ -1854,6 +1857,13 @@ function fmShell(content){
   </div>
   ${renderFmMobileBottomNav()}
 </div>`;
+}
+
+function platformFacilitiesPage(){
+  return `<section class="pageSection">
+    <div class="pageHead"><div><div class="pageTitle">${lang==='ar'?'المرافق والمساحات':'Facilities & Spaces'}</div><div class="pageSub">${lang==='ar'?'طبقة مركزية للمباني والأدوار والمناطق والمساحات والمخاطر التشغيلية':'Central hierarchy for buildings, floors, zones, spaces and operational risk'}</div></div></div>
+    <div id="facilitiesPlatformHost"><div class="empty-state">${lang==='ar'?'جارٍ تحميل المرافق…':'Loading facilities…'}</div></div>
+  </section>`;
 }
 
 function renderFmMobileBottomNav(){
@@ -7056,5 +7066,3 @@ function renderWorkspaceSwitcher(){
     }
   }catch(e){ loginPage(); }
 })();
-
-

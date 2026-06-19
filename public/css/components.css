@@ -1,0 +1,3 @@
+.heatLegend{display:flex;flex-wrap:wrap;gap:8px;margin-block:16px}.heatLegend span{padding:7px 11px;border-radius:999px;background:#eef3f2}
+.heatmapGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.heatSpace{display:grid;gap:6px;text-align:start;border:1px solid transparent;border-radius:14px;padding:14px;min-height:108px}.heatSpace span{font-weight:800}.heatSpace small{opacity:.75}.heatSpace--normal{background:#e6f5ee;border-color:#8bc5aa}.heatSpace--watch{background:#fff6d8;border-color:#e5c963}.heatSpace--hot{background:#ffe7cf;border-color:#e9a05d}.heatSpace--critical{background:#ffe0df;border-color:#d96b68}
+
