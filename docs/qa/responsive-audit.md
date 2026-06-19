@@ -14,3 +14,37 @@ Browser verification date: 2026-06-19. The DOM was inspected at each target widt
 
 The automated pass is evidence of layout integrity, not a replacement for manual testing on physical iOS/iPadOS devices, keyboard navigation, VoiceOver, and production data volumes.
 
+## Verification scope
+
+Completed:
+
+- Browser viewport simulation.
+- Widths: 375, 390, 430, 768, 1024, 1366, and 1440+ pixels.
+
+Pending:
+
+- Physical iPhone Safari.
+- Physical iPhone Chrome.
+- Physical iPad Safari Portrait.
+- Physical iPad Safari Landscape.
+- Mac Safari.
+- Mac Chrome.
+- Windows Chrome.
+- Windows Edge.
+
+| Device/Browser | Status | Notes | Blocking Issue |
+|---|---|---|---|
+| Simulated browser 375/390/430 | Completed | Layout and overflow checks | Not a physical-device result |
+| Simulated browser 768/1024 | Completed | Portrait/landscape width checks | Not iPadOS Safari |
+| Simulated browser 1366/1440+ | Completed | Desktop layout checks | Not OS/browser matrix |
+| Physical iPhone Safari | Pending | Required before production approval | Device lab unavailable in this phase |
+| Physical iPhone Chrome | Pending | Required before production approval | Device lab unavailable in this phase |
+| Physical iPad Safari Portrait | Pending | Required before production approval | Device lab unavailable in this phase |
+| Physical iPad Safari Landscape | Pending | Required before production approval | Device lab unavailable in this phase |
+| Mac Safari | Pending | Required before production approval | Manual browser matrix pending |
+| Mac Chrome | Pending | Required before production approval | Manual browser matrix pending |
+| Windows Chrome | Pending | Required before production approval | Windows environment pending |
+| Windows Edge | Pending | Required before production approval | Windows environment pending |
+
+Readiness scores must not treat viewport simulation as physical-device certification.
+
