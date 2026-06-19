@@ -138,7 +138,7 @@ test('facility manager executive report is data-backed and role protected', asyn
   const report = await fm('/api/reports/facility-manager/executive');
   assert.equal(report.status, 200);
   assert.equal(report.body.modules.length, 3);
-  const worker = await login('cleaner', PASSWORDS.worker);
+  const worker = await login('worker3', PASSWORDS.worker);
   const denied = await worker('/api/reports/facility-manager/executive');
   assert.equal(denied.status, 403);
 });
