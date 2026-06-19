@@ -6,7 +6,9 @@
     "start": "node server.js",
     "seed":  "node scripts/seed-demo.js",
     "backup": "node scripts/backup-db.js",
-    "test":  "node --test"
+    "test":  "node --test test",
+    "test:security": "node scripts/security-scan.js",
+    "test:smoke": "node scripts/smoke-load-test.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.10.0"
