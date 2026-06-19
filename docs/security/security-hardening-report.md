@@ -18,12 +18,12 @@ Date: 2026-06-19
 
 Production deployment must enable HTTPS, use persistent rate-limit/session infrastructure if horizontally scaled, remove CSP inline allowances, and add security monitoring and backup/restore exercises.
 
-## Phase 2 CSP status
+## Phase 3 CSP status
 
 - Reduced: yes.
 - `unsafe-inline` remains: yes, in `script-src-attr`, `style-src`, `style-src-elem`, and `style-src-attr`.
-- Reason: the legacy string-rendered UI still contains 292 first-party inline event attributes and 225 inline style attributes. Removing the allowance without migrating those controls would break tested workflows.
-- Next required step: replace generated event attributes with delegated `data-action` listeners, move generated styles to semantic classes, then remove `script-src-attr` and all style inline allowances. A nonce is not sufficient for event attributes.
+- Reason: the Phase 3 baseline contained 297 first-party event attributes and 225 inline style attributes. The first safe migration batch reduced these to 119 event attributes and 91 style attributes. Removing the remaining allowances would still break compound workflow controls, charts, heatmap/dashboard presentation, and legacy modals.
+- Completed in Phase 3: 178 event attributes moved to delegated explicit actions; 134 static styles moved to CSS classes; external Google font origins were removed because all fonts are self-hosted.
+- Next required step: replace the remaining compound generated event attributes with workflow-specific delegated actions, migrate component-specific and typed dynamic styles, then remove `script-src-attr` and all style inline allowances. A nonce is not sufficient for event attributes.
 
 The Phase 2 change prevents an injected inline `<script>` element from executing while preserving the legacy event-attribute compatibility boundary. CSP is not reported as fully closed.
-

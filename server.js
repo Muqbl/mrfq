@@ -98,12 +98,12 @@ function setSecurityHeaders(res) {
     "default-src 'self'",
     "script-src 'self'",
     "script-src-elem 'self'",
-    "script-src-attr 'unsafe-inline'", // legacy generated event attributes; tracked for removal
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "style-src-attr 'unsafe-inline'", // legacy generated style attributes; tracked for removal
+    "script-src-attr 'unsafe-inline'", // 119 first-party legacy attributes remain after Phase 3 batch
+    "style-src 'self' 'unsafe-inline'",
+    "style-src-elem 'self' 'unsafe-inline'",
+    "style-src-attr 'unsafe-inline'", // 91 first-party legacy attributes remain after Phase 3 batch
     "img-src 'self' data: blob: https://api.qrserver.com",
-    "font-src 'self' https://fonts.gstatic.com",
+    "font-src 'self'",
     "connect-src 'self'",
     "media-src 'self' blob:",
     "worker-src 'self' blob:",

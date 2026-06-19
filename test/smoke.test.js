@@ -113,6 +113,11 @@ test('health endpoint reports database and storage checks', async () => {
   assert.match(csp, /script-src 'self'/);
   assert.match(csp, /script-src-attr 'unsafe-inline'/);
   assert.doesNotMatch(csp, /script-src 'self' 'unsafe-inline'/);
+  assert.match(csp, /style-src 'self' 'unsafe-inline'/);
+  assert.match(csp, /style-src-attr 'unsafe-inline'/);
+  assert.match(csp, /font-src 'self'/);
+  assert.doesNotMatch(csp, /fonts\.googleapis\.com|fonts\.gstatic\.com/);
+  assert.doesNotMatch(csp, /script-src[^;]*https?:/);
   const health = await res.json();
   assert.equal(health.status, 'ok');
   assert.equal(health.checks.database, 'ok');
