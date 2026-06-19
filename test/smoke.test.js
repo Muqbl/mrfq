@@ -115,6 +115,45 @@ test('health endpoint reports database and storage checks', async () => {
   assert.ok(Number.isInteger(health.uptimeSeconds));
 });
 
+test('platform exposes facilities, spaces, module registry and operational heatmap', async () => {
+  const admin = await login('admin', PASSWORDS.admin);
+  const facilities = await admin('/api/facilities');
+  assert.equal(facilities.status, 200);
+  assert.ok(Array.isArray(facilities.body.facilities));
+  assert.ok(facilities.body.facilities.length >= 1);
+
+  const modules = await admin('/api/modules');
+  assert.equal(modules.status, 200);
+  assert.equal(modules.body.modules.find(m => m.id === 'security').status, 'planned');
+
+  const heatmap = await admin('/api/facilities/heatmap');
+  assert.equal(heatmap.status, 200);
+  assert.ok(Array.isArray(heatmap.body.locations));
+  assert.ok(heatmap.body.locations.length >= 1);
+  assert.deepEqual(Object.keys(heatmap.body.summary), ['normal','watch','hot','critical']);
+});
+
+test('facility manager executive report is data-backed and role protected', async () => {
+  const fm = await login('fm', PASSWORDS.fm);
+  const report = await fm('/api/reports/facility-manager/executive');
+  assert.equal(report.status, 200);
+  assert.equal(report.body.modules.length, 3);
+  const worker = await login('cleaner', PASSWORDS.worker);
+  const denied = await worker('/api/reports/facility-manager/executive');
+  assert.equal(denied.status, 403);
+});
+
+test('cross-site authenticated mutation is rejected by CSRF boundary', async () => {
+  const admin = await login('admin', PASSWORDS.admin);
+  const response = await admin('/api/settings', {
+    method: 'POST',
+    headers: { Origin: 'https://attacker.invalid', 'Sec-Fetch-Site': 'cross-site' },
+    body: JSON.stringify({ require_photo: 1 })
+  });
+  assert.equal(response.status, 403);
+  assert.equal(response.body.error, 'CSRF_REJECTED');
+});
+
 test('login: wrong password rejected with 401', async () => {
   const api = client();
   const r = await api('/api/login', { method: 'POST', body: JSON.stringify({ username: 'admin', password: 'wrong' }) });
