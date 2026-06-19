@@ -27,3 +27,16 @@ Rules:
 - Escape all API/DB/user values before insertion into `data-*` attributes.
 - Prefer explicit action dispatch; do not use `eval`, `Function`, or executable handler strings.
 - Leave risky items documented rather than introducing a generic code interpreter.
+
+## Phase 3 migration result
+
+- Initial first-party attribute count: 297.
+- Final first-party attribute count after the safe migration batch: 119.
+- Converted count: 178 (59.9%).
+- Remaining count: 119 (`onclick`: 117, `onload`: 2).
+- `onchange`, `oninput`, `onsubmit`, and `onkeyup` remaining: 0.
+- Literal repository grep after migration: 115 matching lines, including the single minified vendor line; multiple attributes can exist on one source line.
+
+The converted batch covers 171 simple click calls plus seven input/change controls. Click actions use a delegated listener, an explicit function-name allowlist, JSON-encoded arguments, and HTML escaping. Input/change controls use explicit named actions. No executable strings, `eval`, or `Function` constructor were introduced.
+
+The remaining first-party items are compound state mutations, propagation-dependent controls, dynamic action fragments, generated image fallback handlers, camera/gallery flows, and printable-window controls. Converting these safely requires explicit workflow-specific actions and browser regression coverage. They remain intentionally documented rather than being routed through a generic JavaScript-string interpreter.
