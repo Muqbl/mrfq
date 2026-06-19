@@ -11,7 +11,6 @@
 
 Package verification:
 
-- `unzip -t dist/mrfq-clean-delivery-2026-06-19_11-39.zip`: no errors.
+- `unzip -t dist/mrfq-clean-delivery-2026-06-19_11-41.zip`: no errors.
 - Prohibited artifact scan of ZIP listing: zero matches.
 - Browser responsive audit: 375, 390, 430, 768, 1024, 1366, and 1440 pixel widths passed without page-level overflow.
-

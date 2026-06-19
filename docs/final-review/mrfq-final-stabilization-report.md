@@ -69,6 +69,5 @@ Unsupervised production deployment: **not yet approved**.
 - `npm ci`
 - `npm test`
 - `scripts/build-clean-package.sh`
-- `unzip -t dist/mrfq-clean-delivery-2026-06-19_11-39.zip`
-- Clean package: `dist/mrfq-clean-delivery-2026-06-19_11-39.zip`
-
+- `unzip -t dist/mrfq-clean-delivery-2026-06-19_11-41.zip`
+- Clean package: `dist/mrfq-clean-delivery-2026-06-19_11-41.zip`
