@@ -1,0 +1,30 @@
+Phase 3 inline style inventory — 2026-06-19
+
+Command scope:
+grep -Rni --exclude-dir=node_modules --exclude-dir=.git "style=" public server
+
+Raw matching-line count: 218
+First-party attribute occurrences: 225
+
+By file:
+- public/app.js: 218 matching lines / 225 attributes
+- public/index.html: 0
+- public/js/: 0
+- server/: 0
+- public/html5-qrcode.min.js: 0
+
+The difference between line and attribute counts is caused by generated templates
+that contain more than one style attribute on a physical source line.
+
+Primary groups:
+- spacing and typography utilities
+- flex/grid alignment and visibility
+- fixed image/icon/spinner dimensions
+- card and empty-state presentation
+- progress/chart widths and heights derived from runtime metrics
+- runtime theme/status colors
+- mobile navigation custom-property counts
+
+Repeated static declarations are candidates for CSS classes. Runtime percentages,
+calculated dimensions, custom properties, and bounded theme colors require a
+separate typed rendering strategy before their style attributes can be removed.
