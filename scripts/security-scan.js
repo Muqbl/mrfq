@@ -21,7 +21,7 @@ for (const file of targets) {
   const lines = source.split(/\r?\n/);
   innerHtmlWrites += (source.match(/\.innerHTML\s*=/g) || []).length;
   innerHtmlReads += (source.match(/\.innerHTML(?:\.trim\(\))?/g) || []).length - (source.match(/\.innerHTML\s*=/g) || []).length;
-  inlineHandlers += (source.match(/\son(?:click|change|submit|input|keyup|keydown|load)=/g) || []).length;
+  inlineHandlers += (source.match(/\son(?:click|change|submit|input|keyup|keydown|load|error)=/g) || []).length;
   inlineStyles += (source.match(/\sstyle=/g) || []).length;
 
   lines.forEach((line, index) => {
@@ -39,6 +39,7 @@ if (!/function escapeHtml\(value\)/.test(appSource)) failures.push('public/app.j
 if (!/text\.textContent\s*=\s*String\(msg/.test(appSource)) failures.push('public/app.js: toast message must use textContent');
 if (/\beval\s*\(/.test(appSource) || /\bnew\s+Function\b/.test(appSource)) failures.push('public/app.js: executable string evaluation is forbidden');
 if (!/data-ui-args="\$\{esc\(JSON\.stringify\(args\)\)\}/.test(appSource)) failures.push('public/app.js: delegated UI action arguments must be HTML escaped');
+if (inlineHandlers) failures.push(`first-party inline event attributes remain: ${inlineHandlers}`);
 
 const result = { innerHtmlWrites, innerHtmlReads, inlineHandlers, inlineStyles, failures };
 process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
