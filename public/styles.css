@@ -336,6 +336,11 @@ label{
 .badge.role-cm,.badge.role-cleaning-manager{background:rgba(117,206,200,.15);color:var(--ui-primary);border-color:rgba(0,132,141,.20)}
 .badge.role-cs{background:rgba(0,132,141,.10);color:var(--info);border-color:rgba(0,132,141,.16)}
 .badge.role-cleaner{background:rgba(0,164,136,.08);color:var(--ok);border-color:rgba(0,164,136,.14)}
+.badge.role-maintenance_manager,.badge.role-maintenance_supervisor{background:rgba(230,158,51,.10);color:var(--warn);border-color:rgba(230,158,51,.22)}
+.badge.role-maintenance_worker{background:rgba(230,158,51,.07);color:var(--warn);border-color:rgba(230,158,51,.16)}
+.badge.role-hospitality_manager,.badge.role-hospitality_supervisor{background:rgba(0,164,136,.10);color:var(--ok);border-color:rgba(0,164,136,.20)}
+.badge.role-hospitality_worker{background:rgba(0,164,136,.07);color:var(--ok);border-color:rgba(0,164,136,.14)}
+.badge.role-employee{background:rgba(117,206,200,.12);color:var(--ui-dark);border-color:rgba(117,206,200,.25)}
 
 /* ═══════════════════════════════════════════════════════════════
    CARD SYSTEM — one base, composable variants
@@ -620,9 +625,9 @@ tbody tr:hover td{background:var(--surface-2)}
   width:7px;
   height:7px;
   border-radius:50%;
-  background:#D99A35;
+  background:var(--warning);
   flex-shrink:0;
-  box-shadow:0 0 12px rgba(217,154,53,.55);
+  box-shadow:0 0 12px rgba(230,158,51,.55);
 }
 .featureIcon{
   width:28px;
@@ -838,7 +843,7 @@ tbody tr:hover td{background:var(--surface-2)}
   font-family:var(--font-ui);font-size:var(--fs-xs);font-weight:700;
   color:var(--muted);background:transparent;padding:8px 10px;
 }
-.fieldTab.active{background:#fff;color:var(--mrfq-green);box-shadow:var(--shadow-xs)}
+.fieldTab.active{background:#fff;color:var(--ui-primary);box-shadow:var(--shadow-xs)}
 .fieldTab.active .fieldTab-icon svg{stroke-width:2.3}
 .fieldTab-main{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:0}
 .fieldTab-icon{display:grid;place-items:center;color:currentColor}
@@ -1317,7 +1322,7 @@ tbody tr:hover td{background:var(--surface-2)}
   border:1px solid var(--line);font-weight:800;font-size:var(--fs-xs);
 }
 .zone-del{
-  width:22px;height:22px;border:0;border-radius:var(--r-full);
+  width:36px;height:36px;min-width:36px;min-height:36px;border:0;border-radius:var(--r-full);
   display:grid;place-items:center;background:transparent;color:var(--muted);
   font-size:18px;line-height:1;cursor:pointer;
 }
@@ -1328,6 +1333,7 @@ tbody tr:hover td{background:var(--surface-2)}
 /* ═══════════════════════════════════════════════════════════════
    FACILITIES SUB-VIEWS (heatmap / hierarchy / spaces)
    ═══════════════════════════════════════════════════════════════ */
+.errorBanner{padding:16px;border-radius:var(--r-md);background:var(--bad-bg);color:var(--bad);font-size:var(--fs-sm);font-weight:600;text-align:center;border:1px solid rgba(222,117,89,.25)}
 /* heatmap summary row */
 .heatSummaryRow{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
 .heatSumCard{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-md);padding:10px 16px}
@@ -1335,9 +1341,9 @@ tbody tr:hover td{background:var(--surface-2)}
 /* heatmap grid */
 .heatmapGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
 .heatCell{background:var(--surface-1);border:1px solid var(--line);border-radius:var(--r-md);padding:14px;display:grid;gap:8px}
-.heatCell--watch{border-color:rgba(255,183,0,.35)}
-.heatCell--hot{border-color:rgba(230,73,73,.35)}
-.heatCell--critical{border-color:var(--bad);background:rgba(230,73,73,.04)}
+.heatCell--watch{border-color:rgba(230,158,51,.35)}
+.heatCell--hot{border-color:rgba(222,117,89,.35)}
+.heatCell--critical{border-color:var(--bad);background:rgba(222,117,89,.04)}
 .heatCell-name{font-family:var(--font-head);font-weight:700;font-size:var(--fs-sm);color:var(--ink)}
 .heatCell-score{font-weight:700;font-size:var(--fs-xs);color:var(--muted)}
 .heatCell-meta{color:var(--muted);font-size:var(--fs-xs)}
@@ -1712,7 +1718,7 @@ tbody tr:hover td{background:var(--surface-2)}
     color:var(--muted);font-family:var(--font-ui);font-size:var(--fs-xs);font-weight:700;
   }
   .platform-shell--admin>.mobileBottomNav .mobileBottomNav-item.active{
-    background:#fff;color:var(--mrfq-green);box-shadow:var(--shadow-xs);
+    background:#fff;color:var(--ui-primary);box-shadow:var(--shadow-xs);
   }
   .platform-shell--admin>.mobileBottomNav .mobileBottomNav-item.active .mobileBottomNav-icon svg{stroke-width:2.35}
   .platform-shell--admin>.mobileBottomNav .mobileBottomNav-icon svg{width:16px;height:16px}
@@ -1914,7 +1920,7 @@ tbody tr:hover td{background:var(--surface-2)}
     position:relative;
   }
   .mobileBottomNav-item.active{
-    background:transparent;color:var(--mrfq-green);
+    background:transparent;color:var(--ui-primary);
   }
   .mobileBottomNav-icon{position:relative;display:grid;place-items:center}
   .mobileBottomNav-icon svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
