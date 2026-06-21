@@ -245,6 +245,33 @@ const T = {
     /* Phase 4e — order assignment / reassignment */
     reassignOrderBtn:'إعادة تعيين',assignedToLabel:'مسند إلى',pendingAssignmentBadge:'غير مسند',
     assignOrderModalTitle:'تعيين الطلب',selectWorkerLabel:'اختر عامل الضيافة',
+
+    /* Inventory Phase 2 */
+    inventory:'المخزون',inventoryModuleLabel:'وحدة المخزون',
+    invDashboardTab:'لوحة المخزون',invWarehousesTab:'المستودعات',invItemsTab:'الأصناف',
+    invBalancesTab:'الأرصدة',invMovementsTab:'الحركات',
+    addWarehouse:'إضافة مستودع',editWarehouse:'تعديل المستودع',
+    warehouseNameAr:'الاسم (عربي)',warehouseNameEn:'الاسم (إنجليزي)',
+    warehouseCode:'الرمز',warehouseType:'النوع',warehouseStatus:'الحالة',
+    warehouseNotes:'ملاحظات',saveWarehouse:'حفظ المستودع',noWarehouses:'لا توجد مستودعات بعد',
+    wtype_central:'مركزي',wtype_field:'ميداني',wtype_transit:'عبور',
+    addItem:'إضافة صنف',editItem:'تعديل الصنف',
+    itemNameAr:'الاسم (عربي)',itemNameEn:'الاسم (إنجليزي)',
+    itemSku:'رمز الصنف (SKU)',itemCategory:'الفئة',itemUnit:'وحدة القياس',
+    itemScope:'نطاق الوحدة',itemConsumable:'مستهلك',itemMinLevel:'الحد الأدنى',
+    itemReorderLevel:'مستوى إعادة الطلب',saveItem:'حفظ الصنف',noItems:'لا توجد أصناف بعد',
+    scope_shared:'مشترك',scope_cleaning:'نظافة',scope_maintenance:'صيانة',scope_hospitality:'ضيافة',
+    addMovement:'تسجيل حركة',movementType:'نوع الحركة',movementQty:'الكمية',
+    movementWarehouse:'المستودع',movementItem:'الصنف',movementNotes:'ملاحظات',
+    saveMovement:'حفظ الحركة',noMovements:'لا توجد حركات مخزون بعد',
+    mtype_receive:'استلام',mtype_issue:'صرف',mtype_adjustment:'تعديل',
+    mtype_transfer_in:'نقل وارد',mtype_transfer_out:'نقل صادر',
+    mtype_opening_balance:'رصيد افتتاحي',mtype_reservation:'حجز',
+    mtype_release_reservation:'تحرير حجز',
+    onHand:'بالمخزن',reserved:'محجوز',available:'متاح',minLevel:'الحد الأدنى',
+    lowStockAlert:'مخزون منخفض',allWarehouses:'كل المستودعات',
+    totalWarehouses:'المستودعات',totalItems:'الأصناف',lowStockItems:'أصناف منخفضة',
+    invDashboardTitle:'لوحة المخزون',
   },
   en:{
     app:'MRFQ',sub:'Facilities Management & Operations Platform',
@@ -446,6 +473,33 @@ const T = {
     /* Phase 4e — order assignment / reassignment */
     reassignOrderBtn:'Reassign',assignedToLabel:'Assigned to',pendingAssignmentBadge:'Unassigned',
     assignOrderModalTitle:'Assign Order',selectWorkerLabel:'Select hospitality worker',
+
+    /* Inventory Phase 2 */
+    inventory:'Inventory',inventoryModuleLabel:'Inventory Module',
+    invDashboardTab:'Dashboard',invWarehousesTab:'Warehouses',invItemsTab:'Items',
+    invBalancesTab:'Balances',invMovementsTab:'Movements',
+    addWarehouse:'Add Warehouse',editWarehouse:'Edit Warehouse',
+    warehouseNameAr:'Name (Arabic)',warehouseNameEn:'Name (English)',
+    warehouseCode:'Code',warehouseType:'Type',warehouseStatus:'Status',
+    warehouseNotes:'Notes',saveWarehouse:'Save Warehouse',noWarehouses:'No warehouses yet',
+    wtype_central:'Central',wtype_field:'Field',wtype_transit:'Transit',
+    addItem:'Add Item',editItem:'Edit Item',
+    itemNameAr:'Name (Arabic)',itemNameEn:'Name (English)',
+    itemSku:'SKU',itemCategory:'Category',itemUnit:'Unit',
+    itemScope:'Module Scope',itemConsumable:'Consumable',itemMinLevel:'Min Level',
+    itemReorderLevel:'Reorder Level',saveItem:'Save Item',noItems:'No items yet',
+    scope_shared:'Shared',scope_cleaning:'Cleaning',scope_maintenance:'Maintenance',scope_hospitality:'Hospitality',
+    addMovement:'Record Movement',movementType:'Movement Type',movementQty:'Quantity',
+    movementWarehouse:'Warehouse',movementItem:'Item',movementNotes:'Notes',
+    saveMovement:'Save Movement',noMovements:'No stock movements yet',
+    mtype_receive:'Receive',mtype_issue:'Issue',mtype_adjustment:'Adjustment',
+    mtype_transfer_in:'Transfer In',mtype_transfer_out:'Transfer Out',
+    mtype_opening_balance:'Opening Balance',mtype_reservation:'Reservation',
+    mtype_release_reservation:'Release Reservation',
+    onHand:'On Hand',reserved:'Reserved',available:'Available',minLevel:'Min Level',
+    lowStockAlert:'Low Stock',allWarehouses:'All Warehouses',
+    totalWarehouses:'Warehouses',totalItems:'Items',lowStockItems:'Low Stock Items',
+    invDashboardTitle:'Inventory Dashboard',
   }
 };
 
@@ -509,6 +563,7 @@ const IC = {
   download:`<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
   'alert-red':`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
   map:`<svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>`,
+  box:`<svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`,
 };
 const ic=(name,size=18)=>`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${IC[name]?.replace(/<svg[^>]*>/,'').replace(/<\/svg>/,'')??''}</svg>`;
 
@@ -559,6 +614,7 @@ let hospMenuCategories = null; // cached menu categories list (admin & hospitali
 let editMenuCategoryId = null;
 let adminView = 'dashboard';
 let adminModuleContext = null; // null | 'cleaning'
+let inventoryTab = 'dashboard';
 let perfData = null; // cached performance data
 let workspaceSelected = false; // true after user picks workspace this session
 
@@ -662,7 +718,9 @@ const UI_ACTION_NAMES = new Set([
   'saveMaintenanceUsePart','submitMaintenanceClose','addMaintTask','toggleMenuItemActive',
   'removeMenuItemImage','saveMenuItem','toggleCategoryStatus','saveCategoryForm',
   'toggleKitchenActive','saveKitchen','exportPerformancePDF','supReview','switchWorkspace',
-  'runUiFlow','openGallery'
+  'runUiFlow','openGallery',
+  'invSetTab','invShowWarehouseForm','invSaveWarehouse','invShowItemForm','invSaveItem',
+  'invShowMovementForm','invSaveMovement'
 ]);
 function uiAction(name,args=[]){
   if(!UI_ACTION_NAMES.has(name)) throw new Error(`Unsupported UI action: ${name}`);
@@ -1933,6 +1991,11 @@ function renderSystemAdmin(){
     else if(facilitiesSubView==='spaces') loadFacilitiesSpaces();
     return;
   }
+  if(adminView==='inventory'){
+    adminShell(inventoryPage());
+    if(inventoryTab==='movements') loadInventoryMovements();
+    return;
+  }
   const fn = {
     dashboard: adminDashboard,
     modules: adminModules,
@@ -1966,6 +2029,7 @@ function adminShell(content){
           ${adminNavItem('maps',tr('maps'),'map-pin')}
           ${adminNavItem('products',tr('productsTitle'),'coffee')}
           ${adminNavItem('kitchens',tr('kitchensTitle'),'building')}
+          ${adminNavItem('inventory',tr('inventory'),'box')}
           ${adminNavItem('reports',tr('generalReports'),'reports')}
           ${adminNavItem('audit',tr('auditLog'),'list')}
           ${adminNavItem('recurringTasks',lang==='ar'?'مهام متكررة':'Recurring Tasks','refresh')}
@@ -2022,6 +2086,7 @@ function showAdminNavMore(){
     {v:'maps', label:tr('maps'), icon:'map-pin'},
     {v:'products', label:tr('productsTitle'), icon:'coffee'},
     {v:'kitchens', label:tr('kitchensTitle'), icon:'building'},
+    {v:'inventory', label:tr('inventory'), icon:'box'},
     {v:'reports', label:tr('generalReports'), icon:'reports'},
     {v:'audit', label:tr('auditLog'), icon:'list'},
     ...(canAccessGlobalSettings()?[{v:'settings', label:tr('globalSettings'), icon:'settings'}]:[])
@@ -2052,6 +2117,11 @@ function renderFacilityConsole(){
     else if(facilitiesSubView==='spaces') loadFacilitiesSpaces();
     return;
   }
+  if(adminView==='inventory'){
+    fmShell(inventoryPage());
+    if(inventoryTab==='movements') loadInventoryMovements();
+    return;
+  }
   const fn = {
     dashboard: adminDashboard,
     modules: adminModules,
@@ -2075,6 +2145,7 @@ function fmShell(content){
           ${adminNavItem('dashboard',tr('dashboard'),'dashboard')}
           ${adminNavItem('modules',tr('modules'),'layers')}
           ${adminNavItem('locations',tr('locations'),'locations')}
+          ${adminNavItem('inventory',tr('inventory'),'box')}
           ${adminNavItem('reports',tr('generalReports'),'reports')}
           ${adminNavItem('assets',tr('assets'),'building')}
           ${adminNavItem('maps',tr('maps'),'map-pin')}
@@ -2122,6 +2193,7 @@ function renderFmMobileBottomNav(){
 
 function showFmNavMore(){
   const items = [
+    {v:'inventory', label:tr('inventory'), icon:'box'},
     {v:'reports', label:tr('generalReports'), icon:'reports'},
     {v:'assets', label:tr('assets'), icon:'building'},
     {v:'maps', label:tr('maps'), icon:'map-pin'}
@@ -7421,6 +7493,398 @@ function renderWorkspaceSwitcher(){
     </button>`).join('')}
   </div>`;
   showModal('wsModal', tr('switchWorkspace'), body, null, {narrow:true});
+}
+
+/* ══════════════════════════════════════════════════════════════
+   INVENTORY MODULE — Phase 2 Foundation
+   ══════════════════════════════════════════════════════════════ */
+function inventoryData(){
+  return data.inventory || {warehouses:[], inventoryItems:[], stockBalances:[]};
+}
+
+function inventoryPage(){
+  const tabs = [
+    {key:'dashboard', label:tr('invDashboardTab')},
+    {key:'warehouses', label:tr('invWarehousesTab')},
+    {key:'items', label:tr('invItemsTab')},
+    {key:'balances', label:tr('invBalancesTab')},
+    {key:'movements', label:tr('invMovementsTab')}
+  ];
+  const tabBar = `<div class="fieldTabBar">
+    ${tabs.map(t=>`<button class="fieldTab${inventoryTab===t.key?' active':''}" ${uiAction('invSetTab',[(t.key)])}>${t.label}</button>`).join('')}
+  </div>`;
+  const content = {
+    dashboard: invTabDashboard,
+    warehouses: invTabWarehouses,
+    items: invTabItems,
+    balances: invTabBalances,
+    movements: invTabMovements
+  }[inventoryTab] || invTabDashboard;
+  return `<section class="pageSection">
+    <div class="pageHead">
+      <div>
+        <div class="pageTitle">${tr('inventory')}</div>
+        <div class="pageSub">${lang==='ar'?'إدارة المستودعات والأصناف وأرصدة المخزون':'Manage warehouses, items and stock balances'}</div>
+      </div>
+    </div>
+    ${tabBar}
+    <div class="u-mt-16">${content()}</div>
+  </section>`;
+}
+
+function invSetTab(tab){ inventoryTab = tab; render(); }
+
+function invTabDashboard(){
+  const inv = inventoryData();
+  const warehouses = inv.warehouses || [];
+  const items = inv.inventoryItems || [];
+  const balances = inv.stockBalances || [];
+  const lowStock = balances.filter(b=>b.lowStock);
+  const activeWarehouses = warehouses.filter(w=>w.status==='active');
+  const activeItems = items.filter(i=>i.active);
+  return `<div class="kpiRow">
+    <div class="kpiCard">
+      <div class="kpiCard-icon">${ic('box',22)}</div>
+      <div class="kpiCard-val">${num(activeWarehouses.length)}</div>
+      <div class="kpiCard-label">${tr('totalWarehouses')}</div>
+    </div>
+    <div class="kpiCard">
+      <div class="kpiCard-icon">${ic('list',22)}</div>
+      <div class="kpiCard-val">${num(activeItems.length)}</div>
+      <div class="kpiCard-label">${tr('totalItems')}</div>
+    </div>
+    <div class="kpiCard${lowStock.length>0?' kpiCard--warn':''}">
+      <div class="kpiCard-icon">${ic('alert-triangle',22)}</div>
+      <div class="kpiCard-val">${num(lowStock.length)}</div>
+      <div class="kpiCard-label">${tr('lowStockItems')}</div>
+    </div>
+  </div>
+  ${lowStock.length>0?`<div class="u-mt-16">
+    <div class="sectionTitle">${tr('lowStockAlert')}</div>
+    <div class="dataTable-wrap"><table class="dataTable">
+      <thead><tr>
+        <th>${tr('invItemsTab')}</th>
+        <th>${tr('invWarehousesTab')}</th>
+        <th>${tr('available')}</th>
+        <th>${tr('minLevel')}</th>
+      </tr></thead>
+      <tbody>
+        ${lowStock.map(b=>{
+          const itm = (inv.inventoryItems||[]).find(i=>i.id===b.itemId);
+          const wh = (inv.warehouses||[]).find(w=>w.id===b.warehouseId);
+          const iName = itm?(lang==='ar'?itm.nameAr:itm.nameEn):b.itemId;
+          const wName = wh?(lang==='ar'?wh.nameAr:wh.nameEn):b.warehouseId;
+          return `<tr>
+            <td>${esc(iName)}</td>
+            <td>${esc(wName)}</td>
+            <td><span class="badge badge--warn">${num(b.quantityAvailable)}</span></td>
+            <td>${num(b.minLevel)}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table></div>
+  </div>`:''}`;
+}
+
+function invTabWarehouses(){
+  const inv = inventoryData();
+  const warehouses = inv.warehouses || [];
+  return `<div class="u-flex-end u-mb-12">
+    <button class="btn primary" ${uiAction('invShowWarehouseForm',[null])}>${ic('plus',16)} ${tr('addWarehouse')}</button>
+  </div>
+  ${warehouses.length===0?`<div class="empty-state">${tr('noWarehouses')}</div>`:`
+  <div class="dataTable-wrap"><table class="dataTable">
+    <thead><tr>
+      <th>${lang==='ar'?'الاسم':'Name'}</th>
+      <th>${tr('warehouseCode')}</th>
+      <th>${tr('warehouseType')}</th>
+      <th>${tr('warehouseStatus')}</th>
+      <th></th>
+    </tr></thead>
+    <tbody>
+      ${warehouses.map(w=>`<tr>
+        <td>${esc(lang==='ar'?w.nameAr:w.nameEn)}</td>
+        <td><code>${esc(w.code)}</code></td>
+        <td>${tr('wtype_'+(w.type||'central'))||w.type}</td>
+        <td><span class="badge${w.status==='active'?' badge--ok':' badge--neutral'}">${w.status==='active'?(lang==='ar'?'نشط':'Active'):(lang==='ar'?'غير نشط':'Inactive')}</span></td>
+        <td><button class="btn ghost small" ${uiAction('invShowWarehouseForm',[(w.id)])}>${ic('edit',14)}</button></td>
+      </tr>`).join('')}
+    </tbody>
+  </table></div>`}`;
+}
+
+function invTabItems(){
+  const inv = inventoryData();
+  const items = inv.inventoryItems || [];
+  return `<div class="u-flex-end u-mb-12">
+    <button class="btn primary" ${uiAction('invShowItemForm',[null])}>${ic('plus',16)} ${tr('addItem')}</button>
+  </div>
+  ${items.length===0?`<div class="empty-state">${tr('noItems')}</div>`:`
+  <div class="dataTable-wrap"><table class="dataTable">
+    <thead><tr>
+      <th>${lang==='ar'?'الاسم':'Name'}</th>
+      <th>${tr('itemSku')}</th>
+      <th>${tr('itemCategory')}</th>
+      <th>${tr('itemScope')}</th>
+      <th>${lang==='ar'?'الحالة':'Status'}</th>
+      <th></th>
+    </tr></thead>
+    <tbody>
+      ${items.map(itm=>`<tr>
+        <td>${esc(lang==='ar'?itm.nameAr:itm.nameEn)}</td>
+        <td><code>${esc(itm.sku)}</code></td>
+        <td>${esc(itm.category)}</td>
+        <td>${tr('scope_'+itm.moduleScope)||itm.moduleScope}</td>
+        <td><span class="badge${itm.active?' badge--ok':' badge--neutral'}">${itm.active?(lang==='ar'?'نشط':'Active'):(lang==='ar'?'غير نشط':'Inactive')}</span></td>
+        <td><button class="btn ghost small" ${uiAction('invShowItemForm',[(itm.id)])}>${ic('edit',14)}</button></td>
+      </tr>`).join('')}
+    </tbody>
+  </table></div>`}`;
+}
+
+function invTabBalances(){
+  const inv = inventoryData();
+  const balances = inv.stockBalances || [];
+  if(balances.length===0) return `<div class="empty-state">${lang==='ar'?'لا توجد أرصدة مخزون بعد':'No stock balances yet'}</div>`;
+  return `<div class="dataTable-wrap"><table class="dataTable">
+    <thead><tr>
+      <th>${tr('invWarehousesTab')}</th>
+      <th>${tr('invItemsTab')}</th>
+      <th>${tr('onHand')}</th>
+      <th>${tr('reserved')}</th>
+      <th>${tr('available')}</th>
+      <th>${tr('minLevel')}</th>
+    </tr></thead>
+    <tbody>
+      ${balances.map(b=>{
+        const itm = (inv.inventoryItems||[]).find(i=>i.id===b.itemId);
+        const wh = (inv.warehouses||[]).find(w=>w.id===b.warehouseId);
+        const iName = itm?(lang==='ar'?itm.nameAr:itm.nameEn):b.itemId;
+        const wName = wh?(lang==='ar'?wh.nameAr:wh.nameEn):b.warehouseId;
+        return `<tr>
+          <td>${esc(wName)}</td>
+          <td>${esc(iName)}</td>
+          <td>${num(b.quantityOnHand)}</td>
+          <td>${num(b.quantityReserved)}</td>
+          <td><span class="badge${b.lowStock?' badge--warn':' badge--ok'}">${num(b.quantityAvailable)}</span></td>
+          <td>${num(b.minLevel)}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+function invTabMovements(){
+  return `<div class="u-flex-end u-mb-12">
+    <button class="btn primary" ${uiAction('invShowMovementForm',[])}>${ic('plus',16)} ${tr('addMovement')}</button>
+  </div>
+  <div id="invMovementsList"><div class="empty-state">${lang==='ar'?'جارٍ التحميل…':'Loading…'}</div></div>`;
+}
+
+async function loadInventoryMovements(){
+  const el = document.getElementById('invMovementsList');
+  if(!el) return;
+  try{
+    const r = await fetch('/api/inventory/movements?limit=100',{credentials:'same-origin'});
+    if(!r.ok) throw new Error(r.status);
+    const res = await r.json();
+    const list = Array.isArray(res) ? res : (res.movements || []);
+    const inv = inventoryData();
+    if(list.length===0){el.innerHTML=`<div class="empty-state">${tr('noMovements')}</div>`;return;}
+    el.innerHTML=`<div class="dataTable-wrap"><table class="dataTable">
+      <thead><tr>
+        <th>${lang==='ar'?'التاريخ':'Date'}</th>
+        <th>${tr('movementType')}</th>
+        <th>${tr('invItemsTab')}</th>
+        <th>${tr('invWarehousesTab')}</th>
+        <th>${lang==='ar'?'الكمية':'Qty'}</th>
+        <th>${lang==='ar'?'الرصيد بعد':'Balance After'}</th>
+      </tr></thead>
+      <tbody>
+        ${list.map(m=>{
+          const itm = (inv.inventoryItems||[]).find(i=>i.id===m.itemId);
+          const wh = (inv.warehouses||[]).find(w=>w.id===m.warehouseId);
+          const iName = itm?(lang==='ar'?itm.nameAr:itm.nameEn):m.itemId;
+          const wName = wh?(lang==='ar'?wh.nameAr:wh.nameEn):m.warehouseId;
+          return `<tr>
+            <td>${fmt(m.createdAt)}</td>
+            <td>${tr('mtype_'+m.movementType)||m.movementType}</td>
+            <td>${esc(iName)}</td>
+            <td>${esc(wName)}</td>
+            <td>${num(m.quantity)}</td>
+            <td>${num(m.balanceAfter)}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table></div>`;
+  }catch(e){
+    el.innerHTML=`<div class="errorBanner">${lang==='ar'?'تعذر تحميل الحركات':'Failed to load movements'}</div>`;
+  }
+}
+
+function invShowWarehouseForm(id){
+  const inv = inventoryData();
+  const wh = id ? (inv.warehouses||[]).find(w=>w.id===id) : null;
+  const title = wh ? tr('editWarehouse') : tr('addWarehouse');
+  const types = ['central','field','transit'];
+  const facilities = (data.locations||[]).filter((v,i,a)=>a.findIndex(x=>x.facility===v.facility)===i);
+  const body = `<div class="formGrid">
+    <label>${tr('warehouseNameAr')}<input id="invWhNameAr" class="formInput" value="${esc(wh?wh.nameAr:'')}"></label>
+    <label>${tr('warehouseNameEn')}<input id="invWhNameEn" class="formInput" value="${esc(wh?wh.nameEn:'')}"></label>
+    <label>${tr('warehouseCode')}<input id="invWhCode" class="formInput" value="${esc(wh?wh.code:'')}" ${wh?'readonly':''}></label>
+    <label>${tr('warehouseType')}<select id="invWhType" class="formInput">
+      ${types.map(t=>`<option value="${t}"${(wh?wh.type:'')==t?' selected':''}>${tr('wtype_'+t)||t}</option>`).join('')}
+    </select></label>
+    <label>${tr('warehouseStatus')}<select id="invWhStatus" class="formInput">
+      <option value="active"${(!wh||wh.status==='active')?' selected':''}>${lang==='ar'?'نشط':'Active'}</option>
+      <option value="inactive"${(wh&&wh.status==='inactive')?' selected':''}>${lang==='ar'?'غير نشط':'Inactive'}</option>
+    </select></label>
+    <label class="full">${tr('warehouseNotes')}<textarea id="invWhNotes" class="formInput" rows="2">${esc(wh?wh.notes:'')}</textarea></label>
+  </div>`;
+  const footer = `<button class="btn primary" ${uiAction('invSaveWarehouse',[(id||'')])}>
+    ${tr('saveWarehouse')}
+  </button>
+  <button class="btn secondary" ${uiAction('runUiFlow',['close-element','invWhModal'])}>
+    ${tr('cancel')}
+  </button>`;
+  showModal('invWhModal', title, body, footer, {});
+}
+
+async function invSaveWarehouse(id){
+  const nameAr = document.getElementById('invWhNameAr')?.value.trim()||'';
+  const nameEn = document.getElementById('invWhNameEn')?.value.trim()||'';
+  const code   = document.getElementById('invWhCode')?.value.trim()||'';
+  const type   = document.getElementById('invWhType')?.value||'central';
+  const status = document.getElementById('invWhStatus')?.value||'active';
+  const notes  = document.getElementById('invWhNotes')?.value.trim()||'';
+  if(!nameAr||!code){alert(lang==='ar'?'يرجى تعبئة الحقول الإلزامية':'Please fill required fields');return;}
+  const payload = {nameAr,nameEn,code,type,status,notes};
+  const url = id ? `/api/inventory/warehouses/${id}` : '/api/inventory/warehouses';
+  const method = id ? 'PUT' : 'POST';
+  try{
+    const r = await fetch(url,{method,credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const body = await r.json();
+    if(!r.ok) throw new Error(body.error||r.status);
+    closeModal();
+    await refreshInventory();
+    render();
+  }catch(e){alert(e.message);}
+}
+
+function invShowItemForm(id){
+  const inv = inventoryData();
+  const itm = id ? (inv.inventoryItems||[]).find(i=>i.id===id) : null;
+  const title = itm ? tr('editItem') : tr('addItem');
+  const scopes = ['shared','cleaning','maintenance','hospitality'];
+  const body = `<div class="formGrid">
+    <label>${tr('itemNameAr')}<input id="invItNameAr" class="formInput" value="${esc(itm?itm.nameAr:'')}"></label>
+    <label>${tr('itemNameEn')}<input id="invItNameEn" class="formInput" value="${esc(itm?itm.nameEn:'')}"></label>
+    <label>${tr('itemSku')}<input id="invItSku" class="formInput" value="${esc(itm?itm.sku:'')}" ${itm?'readonly':''}></label>
+    <label>${tr('itemCategory')}<input id="invItCat" class="formInput" value="${esc(itm?itm.category:'general')}"></label>
+    <label>${tr('itemUnit')}<input id="invItUnit" class="formInput" value="${esc(itm?itm.unit:'piece')}"></label>
+    <label>${tr('itemScope')}<select id="invItScope" class="formInput">
+      ${scopes.map(s=>`<option value="${s}"${(itm?itm.moduleScope:'shared')===s?' selected':''}>${tr('scope_'+s)||s}</option>`).join('')}
+    </select></label>
+    <label>${tr('itemMinLevel')}<input id="invItMin" type="number" min="0" step="0.01" class="formInput" value="${itm?itm.minStockLevel:0}"></label>
+    <label>${tr('itemReorderLevel')}<input id="invItReorder" type="number" min="0" step="0.01" class="formInput" value="${itm?itm.reorderLevel:0}"></label>
+  </div>`;
+  const footer = `<button class="btn primary" ${uiAction('invSaveItem',[(id||'')])}>
+    ${tr('saveItem')}
+  </button>
+  <button class="btn secondary" ${uiAction('runUiFlow',['close-element','invItemModal'])}>
+    ${tr('cancel')}
+  </button>`;
+  showModal('invItemModal', title, body, footer, {});
+}
+
+async function invSaveItem(id){
+  const nameAr   = document.getElementById('invItNameAr')?.value.trim()||'';
+  const nameEn   = document.getElementById('invItNameEn')?.value.trim()||'';
+  const sku      = document.getElementById('invItSku')?.value.trim()||'';
+  const category = document.getElementById('invItCat')?.value.trim()||'general';
+  const unit     = document.getElementById('invItUnit')?.value.trim()||'piece';
+  const moduleScope = document.getElementById('invItScope')?.value||'shared';
+  const minStockLevel = parseFloat(document.getElementById('invItMin')?.value||'0')||0;
+  const reorderLevel  = parseFloat(document.getElementById('invItReorder')?.value||'0')||0;
+  if(!nameAr||!sku){alert(lang==='ar'?'يرجى تعبئة الحقول الإلزامية':'Please fill required fields');return;}
+  const payload = {nameAr,nameEn,sku,category,unit,moduleScope,minStockLevel,reorderLevel};
+  const url = id ? `/api/inventory/items/${id}` : '/api/inventory/items';
+  const method = id ? 'PUT' : 'POST';
+  try{
+    const r = await fetch(url,{method,credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const body = await r.json();
+    if(!r.ok) throw new Error(body.error||r.status);
+    closeModal();
+    await refreshInventory();
+    render();
+  }catch(e){alert(e.message);}
+}
+
+function invShowMovementForm(){
+  const inv = inventoryData();
+  const warehouses = (inv.warehouses||[]).filter(w=>w.status==='active');
+  const items = (inv.inventoryItems||[]).filter(i=>i.active);
+  const types = ['opening_balance','receive','issue','adjustment','transfer_in','transfer_out','reservation','release_reservation'];
+  const body = `<div class="formGrid">
+    <label>${tr('movementWarehouse')}<select id="invMvWh" class="formInput">
+      <option value="">${lang==='ar'?'اختر مستودعاً':'Select warehouse'}</option>
+      ${warehouses.map(w=>`<option value="${w.id}">${esc(lang==='ar'?w.nameAr:w.nameEn)}</option>`).join('')}
+    </select></label>
+    <label>${tr('movementItem')}<select id="invMvItem" class="formInput">
+      <option value="">${lang==='ar'?'اختر صنفاً':'Select item'}</option>
+      ${items.map(i=>`<option value="${i.id}">${esc(lang==='ar'?i.nameAr:i.nameEn)} (${esc(i.sku)})</option>`).join('')}
+    </select></label>
+    <label>${tr('movementType')}<select id="invMvType" class="formInput">
+      ${types.map(t=>`<option value="${t}">${tr('mtype_'+t)||t}</option>`).join('')}
+    </select></label>
+    <label>${tr('movementQty')}<input id="invMvQty" type="number" min="0.01" step="0.01" class="formInput" value="1"></label>
+    <label class="full">${tr('movementNotes')}<textarea id="invMvNotes" class="formInput" rows="2"></textarea></label>
+  </div>`;
+  const footer = `<button class="btn primary" ${uiAction('invSaveMovement',[])}>
+    ${tr('saveMovement')}
+  </button>
+  <button class="btn secondary" ${uiAction('runUiFlow',['close-element','invMvModal'])}>
+    ${tr('cancel')}
+  </button>`;
+  showModal('invMvModal', tr('addMovement'), body, footer, {});
+}
+
+async function invSaveMovement(){
+  const warehouseId    = document.getElementById('invMvWh')?.value||'';
+  const itemId         = document.getElementById('invMvItem')?.value||'';
+  const movementType   = document.getElementById('invMvType')?.value||'';
+  const quantity       = parseFloat(document.getElementById('invMvQty')?.value||'0')||0;
+  const notes          = document.getElementById('invMvNotes')?.value.trim()||'';
+  if(!warehouseId||!itemId||!movementType||quantity<=0){
+    alert(lang==='ar'?'يرجى تعبئة جميع الحقول الإلزامية والكمية أكبر من صفر':'Please fill all required fields and quantity > 0');
+    return;
+  }
+  try{
+    const r = await fetch('/api/inventory/movements',{
+      method:'POST',credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({warehouseId,itemId,movementType,quantity,notes})
+    });
+    const body = await r.json();
+    if(!r.ok) throw new Error(body.error||r.status);
+    closeModal();
+    await refreshInventory();
+    render();
+  }catch(e){alert(e.message);}
+}
+
+async function refreshInventory(){
+  try{
+    const [whRes, itemsRes, balRes] = await Promise.all([
+      fetch('/api/inventory/warehouses',{credentials:'same-origin'}).then(r=>r.json()),
+      fetch('/api/inventory/items',{credentials:'same-origin'}).then(r=>r.json()),
+      fetch('/api/inventory/balances',{credentials:'same-origin'}).then(r=>r.json())
+    ]);
+    if(!data.inventory) data.inventory={};
+    data.inventory.warehouses     = Array.isArray(whRes)    ? whRes    : (whRes.warehouses    || []);
+    data.inventory.inventoryItems = Array.isArray(itemsRes) ? itemsRes : (itemsRes.items       || []);
+    data.inventory.stockBalances  = Array.isArray(balRes)   ? balRes   : (balRes.balances      || []);
+  }catch(e){}
 }
 
 /* ─── INIT ────────────────────────────────────────────────────── */

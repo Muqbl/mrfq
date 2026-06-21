@@ -588,6 +588,79 @@ const MIGRATIONS = {
     CREATE INDEX idx_maint_parts_order ON maintenance_work_order_parts(work_order_id);
   `,
 
+  /* ── v24: inventory foundation ──────────────────────────────── */
+  24: `
+    CREATE TABLE IF NOT EXISTS warehouses (
+      id          TEXT PRIMARY KEY,
+      name_ar     TEXT NOT NULL DEFAULT '',
+      name_en     TEXT NOT NULL DEFAULT '',
+      code        TEXT NOT NULL UNIQUE,
+      facility_id TEXT REFERENCES facilities(id),
+      building_id TEXT REFERENCES buildings(id),
+      location_id TEXT REFERENCES locations(id),
+      type        TEXT NOT NULL DEFAULT 'central',
+      status      TEXT NOT NULL DEFAULT 'active',
+      notes       TEXT NOT NULL DEFAULT '',
+      created_at  TEXT NOT NULL,
+      updated_at  TEXT NOT NULL,
+      deleted_at  TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_warehouses_facility ON warehouses(facility_id);
+    CREATE INDEX IF NOT EXISTS idx_warehouses_status   ON warehouses(status);
+    CREATE INDEX IF NOT EXISTS idx_warehouses_deleted  ON warehouses(deleted_at);
+
+    CREATE TABLE IF NOT EXISTS inventory_items (
+      id              TEXT PRIMARY KEY,
+      name_ar         TEXT NOT NULL DEFAULT '',
+      name_en         TEXT NOT NULL DEFAULT '',
+      sku             TEXT NOT NULL UNIQUE,
+      category        TEXT NOT NULL DEFAULT 'general',
+      unit            TEXT NOT NULL DEFAULT 'piece',
+      module_scope    TEXT NOT NULL DEFAULT 'shared',
+      is_consumable   INTEGER NOT NULL DEFAULT 1,
+      min_stock_level REAL NOT NULL DEFAULT 0,
+      reorder_level   REAL NOT NULL DEFAULT 0,
+      active          INTEGER NOT NULL DEFAULT 1,
+      created_at      TEXT NOT NULL,
+      updated_at      TEXT NOT NULL,
+      deleted_at      TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_inv_items_sku     ON inventory_items(sku);
+    CREATE INDEX IF NOT EXISTS idx_inv_items_active  ON inventory_items(active);
+    CREATE INDEX IF NOT EXISTS idx_inv_items_scope   ON inventory_items(module_scope);
+    CREATE INDEX IF NOT EXISTS idx_inv_items_deleted ON inventory_items(deleted_at);
+
+    CREATE TABLE IF NOT EXISTS stock_balances (
+      warehouse_id      TEXT NOT NULL REFERENCES warehouses(id),
+      item_id           TEXT NOT NULL REFERENCES inventory_items(id),
+      quantity_on_hand  REAL NOT NULL DEFAULT 0,
+      quantity_reserved REAL NOT NULL DEFAULT 0,
+      min_level         REAL NOT NULL DEFAULT 0,
+      updated_at        TEXT NOT NULL,
+      PRIMARY KEY (warehouse_id, item_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_stock_bal_warehouse ON stock_balances(warehouse_id);
+    CREATE INDEX IF NOT EXISTS idx_stock_bal_item      ON stock_balances(item_id);
+
+    CREATE TABLE IF NOT EXISTS stock_movements (
+      id             TEXT PRIMARY KEY,
+      warehouse_id   TEXT NOT NULL REFERENCES warehouses(id),
+      item_id        TEXT NOT NULL REFERENCES inventory_items(id),
+      movement_type  TEXT NOT NULL,
+      quantity       REAL NOT NULL,
+      balance_after  REAL NOT NULL,
+      reference_type TEXT NOT NULL DEFAULT 'manual',
+      reference_id   TEXT NOT NULL DEFAULT '',
+      notes          TEXT NOT NULL DEFAULT '',
+      actor_id       TEXT NOT NULL DEFAULT '',
+      created_at     TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_stock_mov_warehouse ON stock_movements(warehouse_id);
+    CREATE INDEX IF NOT EXISTS idx_stock_mov_item      ON stock_movements(item_id);
+    CREATE INDEX IF NOT EXISTS idx_stock_mov_type      ON stock_movements(movement_type);
+    CREATE INDEX IF NOT EXISTS idx_stock_mov_ts        ON stock_movements(created_at);
+  `,
+
   /* ── v15: hospitality — menu categories ───────────────────── */
   15: `
     CREATE TABLE IF NOT EXISTS hospitality_menu_categories (

@@ -458,6 +458,9 @@ function canHospitalityAccess(role)   { return ['system_admin','facility_manager
 function canManageHospitalityMenu(role) { return ['system_admin','hospitality_manager'].includes(role); }
 function canManageHospitalityKitchens(role) { return ['system_admin','hospitality_manager'].includes(role); }
 
+/* ── Inventory permissions ───────────────────────────────────── */
+function canInventory(role) { return ['system_admin','facility_manager'].includes(role); }
+
 /* ── Maintenance permissions ─────────────────────────────────── */
 function canMaintenanceAccess(role)  { return ['system_admin','facility_manager','maintenance_manager','maintenance_supervisor','maintenance_worker','employee'].includes(role); }
 function canMaintenanceCreate(role)  { return ['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(role); }
@@ -634,6 +637,84 @@ function maintenancePayload(me, tickets) {
     assignees: dbMaintenanceAssignees(ids),
     orderParts: dbMaintenanceOrderParts(ids)
   };
+}
+
+/* ── Inventory row mappers ───────────────────────────────────── */
+function warehouseRow(r) {
+  if (!r) return null;
+  return {
+    id: r.id, nameAr: r.name_ar, nameEn: r.name_en, code: r.code,
+    facilityId: r.facility_id || '', buildingId: r.building_id || '',
+    locationId: r.location_id || '', type: r.type,
+    status: r.status, notes: r.notes,
+    createdAt: r.created_at, updatedAt: r.updated_at
+  };
+}
+function inventoryItemRow(r) {
+  if (!r) return null;
+  return {
+    id: r.id, nameAr: r.name_ar, nameEn: r.name_en, sku: r.sku,
+    category: r.category, unit: r.unit, moduleScope: r.module_scope,
+    isConsumable: r.is_consumable === 1,
+    minStockLevel: r.min_stock_level, reorderLevel: r.reorder_level,
+    active: r.active === 1, createdAt: r.created_at, updatedAt: r.updated_at
+  };
+}
+function stockBalanceRow(r) {
+  if (!r) return null;
+  const avail = r.quantity_on_hand - r.quantity_reserved;
+  return {
+    warehouseId: r.warehouse_id, itemId: r.item_id,
+    quantityOnHand: r.quantity_on_hand,
+    quantityReserved: r.quantity_reserved,
+    quantityAvailable: avail,
+    minLevel: r.min_level, updatedAt: r.updated_at,
+    lowStock: avail <= r.min_level
+  };
+}
+function stockMovementRow(r) {
+  if (!r) return null;
+  return {
+    id: r.id, warehouseId: r.warehouse_id, itemId: r.item_id,
+    movementType: r.movement_type, quantity: r.quantity,
+    balanceAfter: r.balance_after, referenceType: r.reference_type,
+    referenceId: r.reference_id, notes: r.notes,
+    actorId: r.actor_id, createdAt: r.created_at
+  };
+}
+function dbWarehouses(status, facilityId, buildingId, type) {
+  const db = getDb();
+  let sql = 'SELECT * FROM warehouses WHERE deleted_at IS NULL';
+  const params = [];
+  if (status)     { sql += ' AND status=?';      params.push(status); }
+  if (facilityId) { sql += ' AND facility_id=?'; params.push(facilityId); }
+  if (buildingId) { sql += ' AND building_id=?'; params.push(buildingId); }
+  if (type)       { sql += ' AND type=?';        params.push(type); }
+  sql += ' ORDER BY name_ar';
+  return db.prepare(sql).all(...params).map(warehouseRow);
+}
+function dbInventoryItems(active, moduleScope, category) {
+  const db = getDb();
+  let sql = 'SELECT * FROM inventory_items WHERE deleted_at IS NULL';
+  const params = [];
+  if (active !== undefined) { sql += ' AND active=?'; params.push(active ? 1 : 0); }
+  if (moduleScope) { sql += ' AND module_scope=?'; params.push(moduleScope); }
+  if (category)    { sql += ' AND category=?';     params.push(category); }
+  sql += ' ORDER BY name_ar';
+  return db.prepare(sql).all(...params).map(inventoryItemRow);
+}
+function dbStockBalances(warehouseId, itemId, lowStock) {
+  const db = getDb();
+  let sql = 'SELECT * FROM stock_balances';
+  const params = [];
+  const conds = [];
+  if (warehouseId) { conds.push('warehouse_id=?'); params.push(warehouseId); }
+  if (itemId)      { conds.push('item_id=?');      params.push(itemId); }
+  if (conds.length) sql += ' WHERE ' + conds.join(' AND ');
+  sql += ' ORDER BY updated_at DESC';
+  const rows = db.prepare(sql).all(...params).map(stockBalanceRow);
+  if (lowStock) return rows.filter(r => r.lowStock);
+  return rows;
 }
 
 /** Map DB hospitality_menu_items row → frontend camelCase */
@@ -997,13 +1078,19 @@ function buildBootstrap(me) {
     };
   }
   // system_admin / facility_manager — full view across all modules
+  const inventory = {
+    warehouses:     dbWarehouses(),
+    inventoryItems: dbInventoryItems(),
+    stockBalances:  dbStockBalances()
+  };
   return {
     ...base,
     users:       users.map(publicUser),
     assignments,
     tickets:     allTickets,
     reports:     allReports,
-    hospitalityOrders
+    hospitalityOrders,
+    inventory
   };
 }
 
@@ -2932,6 +3019,257 @@ const server = http.createServer(async (req, res) => {
         logEvent(db, 'hospitality.kitchen_updated', 'hospitality_kitchen', id, me, { isActive: kitchen.isActive }, 'hospitality');
         broadcast('hospitality_kitchen_updated', { kitchen });
         return send(res, 200, { kitchen });
+      }
+
+      /* ══════════════════════════════════════════════════════════
+         INVENTORY FOUNDATION APIs  /api/inventory/*
+         ══════════════════════════════════════════════════════════ */
+      if (url.pathname.startsWith('/api/inventory')) {
+        if (!canInventory(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const db = getDb();
+
+        /* ── GET /api/inventory/warehouses ─────────────────────── */
+        if (req.method === 'GET' && url.pathname === '/api/inventory/warehouses') {
+          const p = url.searchParams;
+          return send(res, 200, { warehouses: dbWarehouses(
+            p.get('status') || '', p.get('facility_id') || '',
+            p.get('building_id') || '', p.get('type') || ''
+          )});
+        }
+
+        /* ── POST /api/inventory/warehouses ────────────────────── */
+        if (req.method === 'POST' && url.pathname === '/api/inventory/warehouses') {
+          const b = await bodyJSON(req);
+          const nameAr = sanitize(b.nameAr || b.name_ar, 200);
+          const nameEn = sanitize(b.nameEn || b.name_en, 200);
+          if (!nameAr && !nameEn) return send(res, 400, { error: 'NAME_REQUIRED' });
+          const code = sanitize(b.code, 50).toUpperCase();
+          if (!code) return send(res, 400, { error: 'CODE_REQUIRED' });
+          const WAREHOUSE_TYPES   = ['central','branch','kitchen','operational','module'];
+          const WAREHOUSE_STATUSES = ['active','inactive'];
+          const type   = WAREHOUSE_TYPES.includes(b.type)     ? b.type   : 'central';
+          const status = WAREHOUSE_STATUSES.includes(b.status) ? b.status : 'active';
+          if (db.prepare('SELECT 1 FROM warehouses WHERE code=? AND deleted_at IS NULL').get(code))
+            return send(res, 409, { error: 'CODE_EXISTS' });
+          const id = newId('wh'); const ts = now();
+          db.prepare(`INSERT INTO warehouses
+            (id,name_ar,name_en,code,facility_id,building_id,location_id,type,status,notes,created_at,updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
+            .run(id, nameAr, nameEn, code,
+              sanitize(b.facilityId||b.facility_id,80)||null,
+              sanitize(b.buildingId||b.building_id,80)||null,
+              sanitize(b.locationId||b.location_id,80)||null,
+              type, status, sanitize(b.notes,500), ts, ts);
+          logEvent(db,'inventory.warehouse_created','warehouse',id,me,{code,type},'inventory');
+          return send(res, 200, { warehouse: warehouseRow(db.prepare('SELECT * FROM warehouses WHERE id=?').get(id)) });
+        }
+
+        /* ── PUT /api/inventory/warehouses/:id ─────────────────── */
+        if (req.method === 'PUT' && /^\/api\/inventory\/warehouses\/[^/]+$/.test(url.pathname)) {
+          const id = sanitize(url.pathname.split('/')[4], 80);
+          const wh = db.prepare('SELECT * FROM warehouses WHERE id=? AND deleted_at IS NULL').get(id);
+          if (!wh) return send(res, 404, { error: 'NOT_FOUND' });
+          const b = await bodyJSON(req);
+          const WAREHOUSE_TYPES    = ['central','branch','kitchen','operational','module'];
+          const WAREHOUSE_STATUSES = ['active','inactive'];
+          const fields = []; const vals = [];
+          if (b.nameAr  !== undefined) { fields.push('name_ar=?');  vals.push(sanitize(b.nameAr,200)); }
+          if (b.nameEn  !== undefined) { fields.push('name_en=?');  vals.push(sanitize(b.nameEn,200)); }
+          if (b.notes   !== undefined) { fields.push('notes=?');    vals.push(sanitize(b.notes,500)); }
+          if (b.type    !== undefined && WAREHOUSE_TYPES.includes(b.type))   { fields.push('type=?');   vals.push(b.type); }
+          if (b.status  !== undefined && WAREHOUSE_STATUSES.includes(b.status)) { fields.push('status=?'); vals.push(b.status); }
+          if (b.facilityId !== undefined) { fields.push('facility_id=?'); vals.push(sanitize(b.facilityId,80)||null); }
+          if (b.buildingId !== undefined) { fields.push('building_id=?'); vals.push(sanitize(b.buildingId,80)||null); }
+          if (!fields.length) return send(res, 400, { error: 'NO_FIELDS' });
+          fields.push('updated_at=?'); vals.push(now()); vals.push(id);
+          db.prepare(`UPDATE warehouses SET ${fields.join(',')} WHERE id=?`).run(...vals);
+          logEvent(db,'inventory.warehouse_updated','warehouse',id,me,{},'inventory');
+          return send(res, 200, { warehouse: warehouseRow(db.prepare('SELECT * FROM warehouses WHERE id=?').get(id)) });
+        }
+
+        /* ── GET /api/inventory/items ───────────────────────────── */
+        if (req.method === 'GET' && url.pathname === '/api/inventory/items') {
+          const p = url.searchParams;
+          const activeParam = p.has('active') ? p.get('active') !== '0' : undefined;
+          let items = dbInventoryItems(activeParam, p.get('module_scope')||'', p.get('category')||'');
+          const q = (p.get('q')||'').toLowerCase();
+          if (q) items = items.filter(i =>
+            i.nameAr.includes(q) || i.nameEn.toLowerCase().includes(q) || i.sku.toLowerCase().includes(q)
+          );
+          return send(res, 200, { items });
+        }
+
+        /* ── POST /api/inventory/items ──────────────────────────── */
+        if (req.method === 'POST' && url.pathname === '/api/inventory/items') {
+          const b = await bodyJSON(req);
+          const nameAr = sanitize(b.nameAr||b.name_ar, 200);
+          const nameEn = sanitize(b.nameEn||b.name_en, 200);
+          if (!nameAr && !nameEn) return send(res, 400, { error: 'NAME_REQUIRED' });
+          const sku = sanitize(b.sku, 80).toUpperCase();
+          if (!sku) return send(res, 400, { error: 'SKU_REQUIRED' });
+          if (db.prepare('SELECT 1 FROM inventory_items WHERE sku=? AND deleted_at IS NULL').get(sku))
+            return send(res, 409, { error: 'SKU_EXISTS' });
+          const SCOPES = ['shared','hospitality','cleaning','maintenance','safety','security'];
+          const moduleScope = SCOPES.includes(b.moduleScope||b.module_scope) ? (b.moduleScope||b.module_scope) : 'shared';
+          const unit = sanitize(b.unit||'piece', 50) || 'piece';
+          const id = newId('ii'); const ts = now();
+          db.prepare(`INSERT INTO inventory_items
+            (id,name_ar,name_en,sku,category,unit,module_scope,is_consumable,min_stock_level,reorder_level,active,created_at,updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,1,?,?)`)
+            .run(id, nameAr, nameEn, sku,
+              sanitize(b.category||'general',100), unit, moduleScope,
+              b.isConsumable===false ? 0 : 1,
+              Math.max(0, Number(b.minStockLevel)||0),
+              Math.max(0, Number(b.reorderLevel)||0),
+              ts, ts);
+          logEvent(db,'inventory.item_created','inventory_item',id,me,{sku,moduleScope},'inventory');
+          return send(res, 200, { item: inventoryItemRow(db.prepare('SELECT * FROM inventory_items WHERE id=?').get(id)) });
+        }
+
+        /* ── PUT /api/inventory/items/:id ───────────────────────── */
+        if (req.method === 'PUT' && /^\/api\/inventory\/items\/[^/]+$/.test(url.pathname)) {
+          const id = sanitize(url.pathname.split('/')[4], 80);
+          const item = db.prepare('SELECT * FROM inventory_items WHERE id=? AND deleted_at IS NULL').get(id);
+          if (!item) return send(res, 404, { error: 'NOT_FOUND' });
+          const b = await bodyJSON(req);
+          const SCOPES = ['shared','hospitality','cleaning','maintenance','safety','security'];
+          const fields = []; const vals = [];
+          if (b.nameAr      !== undefined) { fields.push('name_ar=?');        vals.push(sanitize(b.nameAr,200)); }
+          if (b.nameEn      !== undefined) { fields.push('name_en=?');        vals.push(sanitize(b.nameEn,200)); }
+          if (b.category    !== undefined) { fields.push('category=?');       vals.push(sanitize(b.category,100)); }
+          if (b.unit        !== undefined) { fields.push('unit=?');           vals.push(sanitize(b.unit,50)); }
+          if (b.moduleScope !== undefined && SCOPES.includes(b.moduleScope)) { fields.push('module_scope=?'); vals.push(b.moduleScope); }
+          if (b.isConsumable!== undefined) { fields.push('is_consumable=?');  vals.push(b.isConsumable ? 1 : 0); }
+          if (b.minStockLevel !== undefined) { fields.push('min_stock_level=?'); vals.push(Math.max(0,Number(b.minStockLevel))); }
+          if (b.reorderLevel  !== undefined) { fields.push('reorder_level=?');   vals.push(Math.max(0,Number(b.reorderLevel))); }
+          if (b.active        !== undefined) { fields.push('active=?');          vals.push(b.active ? 1 : 0); }
+          if (!fields.length) return send(res, 400, { error: 'NO_FIELDS' });
+          fields.push('updated_at=?'); vals.push(now()); vals.push(id);
+          db.prepare(`UPDATE inventory_items SET ${fields.join(',')} WHERE id=?`).run(...vals);
+          logEvent(db,'inventory.item_updated','inventory_item',id,me,{},'inventory');
+          return send(res, 200, { item: inventoryItemRow(db.prepare('SELECT * FROM inventory_items WHERE id=?').get(id)) });
+        }
+
+        /* ── GET /api/inventory/balances ────────────────────────── */
+        if (req.method === 'GET' && url.pathname === '/api/inventory/balances') {
+          const p = url.searchParams;
+          const balances = dbStockBalances(
+            p.get('warehouse_id')||'', p.get('item_id')||'',
+            p.get('low_stock') === '1'
+          );
+          return send(res, 200, { balances });
+        }
+
+        /* ── GET /api/inventory/movements ───────────────────────── */
+        if (req.method === 'GET' && url.pathname === '/api/inventory/movements') {
+          const p = url.searchParams;
+          let sql = 'SELECT * FROM stock_movements WHERE 1=1';
+          const params = [];
+          if (p.get('warehouse_id')) { sql += ' AND warehouse_id=?'; params.push(p.get('warehouse_id')); }
+          if (p.get('item_id'))      { sql += ' AND item_id=?';      params.push(p.get('item_id')); }
+          if (p.get('movement_type')){ sql += ' AND movement_type=?';params.push(p.get('movement_type')); }
+          if (p.get('reference_type')){ sql += ' AND reference_type=?'; params.push(p.get('reference_type')); }
+          sql += ' ORDER BY created_at DESC LIMIT 200';
+          const movements = db.prepare(sql).all(...params).map(stockMovementRow);
+          return send(res, 200, { movements });
+        }
+
+        /* ── POST /api/inventory/movements ──────────────────────── */
+        if (req.method === 'POST' && url.pathname === '/api/inventory/movements') {
+          const b = await bodyJSON(req);
+          const warehouseId = sanitize(b.warehouseId||b.warehouse_id, 80);
+          const itemId      = sanitize(b.itemId||b.item_id, 80);
+          const MOVE_TYPES = ['opening_balance','receive','issue','transfer_out','transfer_in','adjustment','reservation','release_reservation'];
+          const movementType = b.movementType||b.movement_type;
+          if (!MOVE_TYPES.includes(movementType)) return send(res, 400, { error: 'INVALID_MOVEMENT_TYPE' });
+          if (!warehouseId || !itemId) return send(res, 400, { error: 'MISSING_FIELDS' });
+          if (!db.prepare('SELECT 1 FROM warehouses WHERE id=? AND deleted_at IS NULL').get(warehouseId))
+            return send(res, 404, { error: 'WAREHOUSE_NOT_FOUND' });
+          if (!db.prepare('SELECT 1 FROM inventory_items WHERE id=? AND deleted_at IS NULL').get(itemId))
+            return send(res, 404, { error: 'ITEM_NOT_FOUND' });
+
+          const qty = Number(b.quantity);
+          if (!isFinite(qty) || qty === 0) return send(res, 400, { error: 'INVALID_QUANTITY' });
+          const notes = sanitize(b.notes, 500);
+          const ts = now();
+
+          const invItem = db.prepare('SELECT min_stock_level FROM inventory_items WHERE id=?').get(itemId);
+          const itemMinLevel = invItem ? invItem.min_stock_level : 0;
+          let result;
+          try {
+            result = db.transaction(() => {
+            // upsert balance row using item's min_stock_level
+            db.prepare(`INSERT OR IGNORE INTO stock_balances
+              (warehouse_id,item_id,quantity_on_hand,quantity_reserved,min_level,updated_at)
+              VALUES (?,?,0,0,?,?)`)
+              .run(warehouseId, itemId, itemMinLevel, ts);
+            const bal = db.prepare('SELECT * FROM stock_balances WHERE warehouse_id=? AND item_id=?').get(warehouseId, itemId);
+            let onHand   = bal.quantity_on_hand;
+            let reserved = bal.quantity_reserved;
+            let balanceAfter;
+            const absQty = Math.abs(qty);
+
+            if (['opening_balance','receive','transfer_in'].includes(movementType)) {
+              if (absQty <= 0) throw Object.assign(new Error('QUANTITY_MUST_BE_POSITIVE'), {code:400});
+              onHand += absQty;
+              balanceAfter = onHand;
+              db.prepare('UPDATE stock_balances SET quantity_on_hand=?,updated_at=? WHERE warehouse_id=? AND item_id=?')
+                .run(onHand, ts, warehouseId, itemId);
+            } else if (['issue','transfer_out'].includes(movementType)) {
+              if (absQty <= 0) throw Object.assign(new Error('QUANTITY_MUST_BE_POSITIVE'), {code:400});
+              if (onHand - reserved < absQty) throw Object.assign(new Error('INSUFFICIENT_STOCK'), {code:400});
+              onHand -= absQty;
+              balanceAfter = onHand;
+              db.prepare('UPDATE stock_balances SET quantity_on_hand=?,updated_at=? WHERE warehouse_id=? AND item_id=?')
+                .run(onHand, ts, warehouseId, itemId);
+            } else if (movementType === 'adjustment') {
+              onHand = Math.max(0, onHand + qty);
+              balanceAfter = onHand;
+              db.prepare('UPDATE stock_balances SET quantity_on_hand=?,updated_at=? WHERE warehouse_id=? AND item_id=?')
+                .run(onHand, ts, warehouseId, itemId);
+            } else if (movementType === 'reservation') {
+              if (absQty <= 0) throw Object.assign(new Error('QUANTITY_MUST_BE_POSITIVE'), {code:400});
+              if (onHand - reserved < absQty) throw Object.assign(new Error('INSUFFICIENT_STOCK'), {code:400});
+              reserved += absQty;
+              balanceAfter = reserved;
+              db.prepare('UPDATE stock_balances SET quantity_reserved=?,updated_at=? WHERE warehouse_id=? AND item_id=?')
+                .run(reserved, ts, warehouseId, itemId);
+            } else if (movementType === 'release_reservation') {
+              if (absQty <= 0) throw Object.assign(new Error('QUANTITY_MUST_BE_POSITIVE'), {code:400});
+              reserved = Math.max(0, reserved - absQty);
+              balanceAfter = reserved;
+              db.prepare('UPDATE stock_balances SET quantity_reserved=?,updated_at=? WHERE warehouse_id=? AND item_id=?')
+                .run(reserved, ts, warehouseId, itemId);
+            }
+
+            // store signed quantity
+            const storedQty = ['issue','transfer_out'].includes(movementType) ? -absQty
+              : movementType === 'release_reservation' ? -absQty
+              : movementType === 'adjustment' ? qty
+              : absQty;
+
+            const mvId = newId('mv');
+            db.prepare(`INSERT INTO stock_movements
+              (id,warehouse_id,item_id,movement_type,quantity,balance_after,reference_type,reference_id,notes,actor_id,created_at)
+              VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
+              .run(mvId, warehouseId, itemId, movementType, storedQty, balanceAfter,
+                sanitize(b.referenceType||'manual',50), sanitize(b.referenceId||'',80),
+                notes, me.id, ts);
+
+            logEvent(db,'inventory.movement','stock_movement',mvId,me,{movementType,qty:storedQty},'inventory');
+            return {
+              movement: stockMovementRow(db.prepare('SELECT * FROM stock_movements WHERE id=?').get(mvId)),
+              balance:  stockBalanceRow(db.prepare('SELECT * FROM stock_balances WHERE warehouse_id=? AND item_id=?').get(warehouseId,itemId))
+            };
+          })();
+          } catch (e) {
+            if (e.code === 400) return send(res, 400, { error: e.message });
+            throw e;
+          }
+          return send(res, 200, result);
+        }
+
+        return send(res, 404, { error: 'NOT_FOUND' });
       }
 
       return send(res, 404, { error: 'NOT_FOUND' });
