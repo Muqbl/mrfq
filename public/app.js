@@ -1954,7 +1954,6 @@ function adminShell(content){
           ${canManageGlobalUsers()?adminNavItem('users',tr('users'),'users'):''}
           ${canAccessRolesPermissions()?adminNavItem('roles',tr('rolesPermissions'),'shield'):''}
           ${adminNavItem('locations',tr('locations'),'locations')}
-          ${adminNavItem('facilities',lang==='ar'?'المرافق والمساحات':'Facilities & Spaces','building')}
           ${adminNavItem('assets',tr('assets'),'building')}
           ${adminNavItem('maps',tr('maps'),'map-pin')}
           ${adminNavItem('products',tr('productsTitle'),'coffee')}
@@ -2062,7 +2061,6 @@ function fmShell(content){
           ${adminNavItem('dashboard',tr('dashboard'),'dashboard')}
           ${adminNavItem('modules',tr('modules'),'layers')}
           ${adminNavItem('locations',tr('locations'),'locations')}
-          ${adminNavItem('facilities',lang==='ar'?'المرافق والمساحات':'Facilities & Spaces','building')}
           ${adminNavItem('reports',tr('generalReports'),'reports')}
           ${adminNavItem('assets',tr('assets'),'building')}
           ${adminNavItem('maps',tr('maps'),'map-pin')}
