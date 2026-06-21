@@ -33,7 +33,7 @@
   --mrfq-burgundy:#803754;
   --mrfq-orange:#E69E33;
   --mrfq-coral:#DE7559;
-  --btn-primary-bg:#00A488;
+  --btn-primary-bg:#00848D;
   --btn-primary-hover:#00848D;
 
   --bg-app:#F8FAF9;
@@ -180,7 +180,7 @@ img{max-width:100%;display:block}
   background:var(--btn-primary-bg);
   color:#fff;box-shadow:none;border:0;letter-spacing:.1px;
 }
-.btn:hover{filter:none;background:var(--btn-primary-hover);box-shadow:none}
+.btn:hover{filter:brightness(.90);background:var(--btn-primary-bg);box-shadow:none}
 .btn:active{filter:brightness(.98)!important;box-shadow:none!important}
 .btn svg{flex-shrink:0}
 .btn.secondary{background:var(--surface);color:var(--mrfq-dark-teal);border:1px solid var(--mrfq-green);box-shadow:none;min-height:52px;border-radius:16px}
@@ -188,7 +188,7 @@ img{max-width:100%;display:block}
 .btn.ghost{background:var(--surface-2);color:var(--ink);border:1px solid var(--line);box-shadow:none;min-height:52px;border-radius:16px}
 .btn.ghost:hover{background:rgba(14,111,104,.06);border-color:var(--brand-mid)}
 .btn.ok{background:var(--btn-primary-bg);box-shadow:none}
-.btn.ok:hover{background:var(--btn-primary-hover)}
+.btn.ok:hover{filter:brightness(.90);background:var(--btn-primary-bg)}
 .btn.danger{background:var(--surface);border:1px solid var(--bad);color:var(--bad);box-shadow:none}
 .btn.danger:hover{background:var(--bad-bg)}
 .btn.warn{background:var(--warn);color:#fff}
