@@ -22,7 +22,7 @@ Status: specification complete; production dashboards, alert rules, notification
 | Disk usage | Database, uploads, logs and backup volumes |
 | Memory usage | RSS/heap and restart/OOM events |
 | CPU usage | Instance/container CPU saturation |
-| Active sessions | Aggregate count only |
+| Active sessions | Count only; no session identifiers |
 | Request volume | Requests per minute by route class/status |
 | SLA background job | Last successful execution, duration and failures |
 | Backup freshness | Last success, age, size and destination capacity |
