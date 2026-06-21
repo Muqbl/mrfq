@@ -8,7 +8,8 @@
     "backup": "node scripts/backup-db.js",
     "test":  "node --test test/*.test.js",
     "test:security": "node scripts/security-scan.js",
-    "test:smoke": "node scripts/smoke-load-test.js"
+    "test:smoke": "node scripts/smoke-load-test.js",
+    "test:load:basic": "node scripts/load-test-basic.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.10.0"
