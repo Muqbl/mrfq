@@ -14,6 +14,7 @@ let innerHtmlWrites = 0;
 let innerHtmlReads = 0;
 let inlineHandlers = 0;
 let inlineStyles = 0;
+let cssomStyles = 0;
 
 for (const file of targets) {
   const source = fs.readFileSync(file, 'utf8');
@@ -23,6 +24,7 @@ for (const file of targets) {
   innerHtmlReads += (source.match(/\.innerHTML(?:\.trim\(\))?/g) || []).length - (source.match(/\.innerHTML\s*=/g) || []).length;
   inlineHandlers += (source.match(/\son(?:click|change|submit|input|keyup|keydown|load|error)=/g) || []).length;
   inlineStyles += (source.match(/\sstyle=/g) || []).length;
+  cssomStyles += (source.match(/\.style\.[A-Za-z]+\s*=|\.style\.cssText\s*=|setAttribute\(['"]style['"]/g) || []).length;
 
   lines.forEach((line, index) => {
     if (/\.innerHTML\s*=.*\$\{\s*(?:error|err|e)\.message/.test(line) && !/esc\(|escapeHtml\(/.test(line)) {
@@ -40,7 +42,9 @@ if (!/text\.textContent\s*=\s*String\(msg/.test(appSource)) failures.push('publi
 if (/\beval\s*\(/.test(appSource) || /\bnew\s+Function\b/.test(appSource)) failures.push('public/app.js: executable string evaluation is forbidden');
 if (!/data-ui-args="\$\{esc\(JSON\.stringify\(args\)\)\}/.test(appSource)) failures.push('public/app.js: delegated UI action arguments must be HTML escaped');
 if (inlineHandlers) failures.push(`first-party inline event attributes remain: ${inlineHandlers}`);
+if (inlineStyles) failures.push(`first-party inline style attributes remain: ${inlineStyles}`);
+if (cssomStyles) failures.push(`first-party CSSOM inline style assignments remain: ${cssomStyles}`);
 
-const result = { innerHtmlWrites, innerHtmlReads, inlineHandlers, inlineStyles, failures };
+const result = { innerHtmlWrites, innerHtmlReads, inlineHandlers, inlineStyles, cssomStyles, failures };
 process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 if (failures.length) process.exitCode = 1;

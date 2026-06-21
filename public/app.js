@@ -627,6 +627,10 @@ function escapeHtml(value){
   return String(value??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 }
 const esc = escapeHtml;
+function metricClass(axis,value){
+  const amount=Math.max(0,Math.min(100,Math.round(Number(value)||0)));
+  return `${axis==='h'?'metric-h':'metric-w'}-${amount}`;
+}
 const UI_ACTION_NAMES = new Set([
   'adminNavigateTo','showOperationsWorkerProfile','openCamera','navigateTo','enterModule',
   'openReportDetail','reviewReport','openComments','openQRScanner','hospSupervisorDecision',
@@ -916,7 +920,7 @@ function toast(msg,type=''){
   text.textContent = String(msg??'');
   el.append(icon,text);
   document.body.appendChild(el);
-  setTimeout(()=>{el.style.opacity='0';el.style.transform='translateY(12px)';setTimeout(()=>el.remove(),300)},2600);
+  setTimeout(()=>{el.classList.add('toast--leaving');setTimeout(()=>el.remove(),300)},2600);
 }
 
 /* ─── IMAGE COMPRESSION ──────────────────────────────────────── */
@@ -1196,14 +1200,11 @@ function activityFeed(limit=8){
   if(!items.length) return `<div class="empty-state"><div class="empty-icon">${ic('bell',22)}</div><div class="empty-title">${tr('noData')}</div></div>`;
   return `<div class="activityFeed">${items.map(it=>{
     const isReport = it.type==='report';
-    const dotBg = isReport
-      ? (it.st==='approved'?'var(--ok-bg)':it.st==='rejected'||it.st==='needs_recleaning'?'var(--bad-bg)':'var(--warn-bg)')
-      : (it.st==='completed'?'var(--ok-bg)':'var(--bad-bg)');
-    const dotClr = isReport
-      ? (it.st==='approved'?'var(--ok)':it.st==='rejected'||it.st==='needs_recleaning'?'var(--bad)':'var(--warn)')
-      : (it.st==='completed'?'var(--ok)':'var(--bad)');
+    const dotClass = isReport
+      ? (it.st==='approved'?'ok':it.st==='rejected'||it.st==='needs_recleaning'?'bad':'warn')
+      : (it.st==='completed'?'ok':'bad');
     return`<div class="activityItem">
-      <div class="activityDot" style="background:${dotBg};color:${dotClr}">${ic(isReport?'reports':'tickets',14)}</div>
+      <div class="activityDot activityDot--${dotClass}">${ic(isReport?'reports':'tickets',14)}</div>
       <div class="activityBody">
         <div class="activityTitle">${it.label}</div>
         <div class="activitySub">${it.sub}</div>
@@ -1638,12 +1639,12 @@ function checkPwdStrength(){
   const pct=Math.min(100,score*20);
   el.innerHTML=pwd?`
     <div class="u-flex-center-gap-8-mb-4">
-      <div style="flex:1;height:4px;background:var(--surface-3);border-radius:2px;overflow:hidden">
-        <div style="width:${pct}%;height:100%;background:${colors[score]};transition:all .3s"></div>
+      <div class="strength-track">
+        <div class="strength-fill strength-color-${score} ${metricClass('w',pct)}"></div>
       </div>
-      <span style="font-size:var(--fs-xs);font-weight:700;color:${colors[score]}">${labels[score]}</span>
+      <span class="strength-label strength-color-${score}">${labels[score]}</span>
     </div>
-    ${tips.length?`<div style="font-size:10px;color:var(--muted)">${tips.join(' · ')}</div>`:''}
+    ${tips.length?`<div class="text-muted-10">${tips.join(' · ')}</div>`:''}
   `:'';
 }
 
@@ -1837,7 +1838,7 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
   const moreActive = isAdmin ? !primary.some(item=>item.v===view)
     : (showMore && !primary.some(item=>item.active||activeKey===item.v));
   const navCount = primary.length + (showMore ? 1 : 0);
-  return `<nav class="mobileBottomNav" style="--mobile-nav-count:${navCount}" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
+  return `<nav class="mobileBottomNav mobileBottomNav--count-${Math.max(2,Math.min(6,navCount))}" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
     ${primary.map(item=>`
       <button class="mobileBottomNav-item${item.active||activeKey===item.v?' active':''}" ${uiAction('runUiFlow',item.flow||['navigate-main',item.v])}>
         <span class="mobileBottomNav-icon">${ic(item.icon,18)}</span>
@@ -1978,7 +1979,7 @@ function renderAdminMobileBottomNav(){
     {v:'users', label:tr('users'), icon:'users'}
   ];
   const moreActive = !primary.some(item=>item.v===adminView);
-  return `<nav class="mobileBottomNav" style="--mobile-nav-count:${primary.length+1}" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
+  return `<nav class="mobileBottomNav mobileBottomNav--count-${Math.max(2,Math.min(6,primary.length+1))}" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
     ${primary.map(item=>`
       <button class="mobileBottomNav-item${adminView===item.v?' active':''}" ${uiAction('adminNavigateTo',[(item.v)])}>
         <span class="mobileBottomNav-icon">${ic(item.icon,18)}</span>
@@ -2080,7 +2081,7 @@ function renderFmMobileBottomNav(){
     {v:'locations', label:tr('locations'), icon:'locations'}
   ];
   const moreActive = !primary.some(item=>item.v===adminView);
-  return `<nav class="mobileBottomNav" style="--mobile-nav-count:${primary.length+1}" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
+  return `<nav class="mobileBottomNav mobileBottomNav--count-${Math.max(2,Math.min(6,primary.length+1))}" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
     ${primary.map(item=>`
       <button class="mobileBottomNav-item${adminView===item.v?' active':''}" ${uiAction('adminNavigateTo',[(item.v)])}>
         <span class="mobileBottomNav-icon">${ic(item.icon,18)}</span>
@@ -2310,7 +2311,7 @@ function adminRoles(){
       <span class="card-title">${ic('shield',16)} ${tr(r.role)}</span>
       <span class="badge ${roleBadgeClass(r.role)}">${tr(r.role)}</span>
     </div>
-    <p style="font-size:var(--fs-sm);color:var(--muted);line-height:1.7">${lang==='ar'?r.descAr:r.descEn}</p>
+    <p class="text-muted-sm-relaxed">${lang==='ar'?r.descAr:r.descEn}</p>
   </div>`).join('')}
 </div>`;
 }
@@ -2490,7 +2491,7 @@ function adminSettings(){
     <div class="formGrid-4 u-mb-14">
       ${Object.entries(slaLabels).map(([cat,label])=>`
         <div>
-          <label style="font-size:var(--fs-xs);font-weight:700;display:flex;align-items:center;gap:5px;margin-bottom:4px">${ic(slaIcons[cat]||'clock',13)} ${label}</label>
+          <label class="form-label-compact">${ic(slaIcons[cat]||'clock',13)} ${label}</label>
           <input id="sla-${cat}" type="number" min="1" max="1440" value="${sla[cat]||''}" class="ctrl u-full-width">
         </div>
       `).join('')}
@@ -2623,7 +2624,7 @@ function dash(){
         return`<div class="bar-col">
           <span class="bar-count">${d.count?num(d.count):''}</span>
           <div class="bar-track">
-            <div class="bar-fill${d.isToday?' highlight':d.count===0?' low':''}" style="height:${h}%"></div>
+            <div class="bar-fill${d.isToday?' highlight':d.count===0?' low':''} ${metricClass('h',h)}"></div>
           </div>
           <span class="bar-label">${d.label}</span>
         </div>`;
@@ -2643,14 +2644,14 @@ function dash(){
           <span class="perfStatLabel">${lang==='ar'?'جودة التقارير':'Report quality'}</span>
           <span class="perfStatValue">${num(avgQ)}%</span>
         </div>
-        <div class="progress-track"><div class="progress-fill ${avgQ>=70?'ok':avgQ>=40?'gold':'warn'}" style="width:${avgQ}%"></div></div>
+        <div class="progress-track"><div class="progress-fill ${avgQ>=70?'ok':avgQ>=40?'gold':'warn'} ${metricClass('w',avgQ)}"></div></div>
       </div>
       <div>
         <div class="perfStatRow">
           <span class="perfStatLabel">${lang==='ar'?'التغطية اليومية':'Daily coverage'}</span>
           <span class="perfStatValue">${num(s.coverage)}%</span>
         </div>
-        <div class="progress-track"><div class="progress-fill ${s.coverage>=80?'ok':s.coverage>=50?'gold':'warn'}" style="width:${s.coverage}%"></div></div>
+        <div class="progress-track"><div class="progress-fill ${s.coverage>=80?'ok':s.coverage>=50?'gold':'warn'} ${metricClass('w',s.coverage)}"></div></div>
       </div>
     </div>
   </div>
@@ -2663,8 +2664,8 @@ function dash(){
     </div>
     <div class="slaIndicator">
       <div class="slaStatus ${s.openTickets===0?'ok':s.openTickets<=2?'warn':'bad'}">${s.openTickets===0?(lang==='ar'?'كل البلاغات مغلقة':'All tickets resolved'):lang==='ar'?`${num(s.openTickets)} بلاغ مفتوح`:`${num(s.openTickets)} open tickets`}</div>
-      <div class="progress-track u-mt-8"><div class="progress-fill ${slaPct>70?'ok':slaPct>40?'gold':'bad'}" style="width:${slaPct}%"></div></div>
-      <p style="font-size:var(--fs-xs);color:var(--muted);margin-top:8px;line-height:1.6">${lang==='ar'?'مؤشر يعتمد على البلاغات المفتوحة':'Based on open ticket count'}</p>
+      <div class="progress-track u-mt-8"><div class="progress-fill ${slaPct>70?'ok':slaPct>40?'gold':'bad'} ${metricClass('w',slaPct)}"></div></div>
+      <p class="text-muted-xs-relaxed">${lang==='ar'?'مؤشر يعتمد على البلاغات المفتوحة':'Based on open ticket count'}</p>
     </div>
   </div>
 </div>
@@ -2704,9 +2705,9 @@ function mapNode(l){
   const late = !last||Date.now()-new Date(last.createdAt).getTime()>(data.settings.frequencyMinutes||120)*60000;
   return`<div class="mapNode ${late?'late':'ok'}">
     <div class="mapNode-name">${esc(locName(l))}</div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+    <div class="layout-between-center-mt-4">
       <span class="mapNode-meta">${tr(l.type)} · ${l.floor||'—'}</span>
-      <span class="badge ${late?'bad':'ok'}" style="padding:2px 7px;font-size:9px">${late?tr('late'):tr('good')}</span>
+      <span class="badge ${late?'bad':'ok'} badge-micro">${late?tr('late'):tr('good')}</span>
     </div>
   </div>`;
 }
@@ -2718,8 +2719,8 @@ function miniReportList(items){
     const q = qualityScore(r);
     const st = r.approvalStatus||'pending_approval';
     return`<div class="list-row">
-      ${imgs[0]?`<img src="${imgs[0]}" style="width:44px;height:44px;object-fit:cover;border-radius:var(--r-sm);flex-shrink:0">`:
-        `<div class="list-icon" style="background:var(--surface-3);color:var(--muted)">${ic('reports',18)}</div>`}
+      ${imgs[0]?`<img src="${imgs[0]}" class="thumb-44">`:
+        `<div class="list-icon surface-muted">${ic('reports',18)}</div>`}
       <div class="list-body">
         <div class="list-title">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</div>
         <div class="list-sub">${esc(r.workerName)} · ${fmt(r.createdAt)}</div>
@@ -2927,7 +2928,7 @@ function toggleNotif(e){
     <div class="notifPanel-list">
       ${items.length ? items.map(it=>`
         <div class="notifItem" ${uiAction('runUiFlow',['notification-route',it.route])}>
-          <div class="notifItem-dot" style="background:${it.color}"></div>
+          <div class="notifItem-dot notifItem-dot--${it.route}"></div>
           <div class="notifItem-body">
             <div class="notifItem-label">${it.label}</div>
             <div class="notifItem-sub">${it.sub}</div>
@@ -2938,18 +2939,6 @@ function toggleNotif(e){
     </div>`;
 
   document.body.appendChild(panel);
-  const rect = btn.getBoundingClientRect();
-  const panelWidth = Math.min(320, window.innerWidth - 24);
-  panel.style.width = `${panelWidth}px`;
-  panel.style.top = `${Math.min(rect.bottom + 10, window.innerHeight - 80)}px`;
-  const maxInset = Math.max(12, window.innerWidth - panelWidth - 12);
-  if(document.documentElement.dir==='rtl'){
-    panel.style.right = `${Math.min(maxInset, Math.max(12, window.innerWidth - rect.right))}px`;
-    panel.style.left = 'auto';
-  }else{
-    panel.style.left = `${Math.min(maxInset, Math.max(12, rect.left))}px`;
-    panel.style.right = 'auto';
-  }
   panel.addEventListener('click', ev=>ev.stopPropagation());
   // Close on outside click
   setTimeout(()=>document.addEventListener('click',function h(){panel.remove();document.removeEventListener('click',h);}),0);
@@ -3033,11 +3022,11 @@ ${items.map((r,i)=>{
   const st=r.approvalStatus||'pending_approval';
   const cls=st==='approved'?'ok':st==='rejected'||st==='needs_recleaning'?'bad':'warn';
   return`<tr><td>${i+1}</td><td>${esc(r.workerName)}</td>
-    <td>${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}<br><small style="color:#8A989C">${tr(r.locationType||'other')}</small></td>
+    <td>${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}<br><small class="text-gray-8a">${tr(r.locationType||'other')}</small></td>
     <td>${qualityScore(r)}%</td>
     <td class="${cls}">${reportStatusLabel(r)}</td>
-    <td style="white-space:nowrap">${fmt(r.createdAt)}</td>
-  </tr>${r.notes?`<tr><td></td><td colspan="5" style="font-size:11px;color:#6F787F;padding-top:2px">${esc(r.notes)}</td></tr>`:''}`;
+    <td class="no-wrap">${fmt(r.createdAt)}</td>
+  </tr>${r.notes?`<tr><td></td><td colspan="5" class="note-row">${esc(r.notes)}</td></tr>`:''}`;
 }).join('')}
 </tbody></table>
 <div class="footer">مِرفق — MRFQ · ${new Date().toISOString().slice(0,10)}</div>
@@ -3245,7 +3234,7 @@ async function openComments(ticketId){
   const title = t ? esc(t.title) : ticketId;
   showModal('commentsModal',
     `${ic('chat',16)} ${lang==='ar'?'تعليقات البلاغ':'Ticket Comments'} — ${title}`,
-    `<div id="commentsList" style="min-height:60px">${lang==='ar'?'جاري التحميل...':'Loading...'}</div>
+    `<div id="commentsList" class="min-h-60">${lang==='ar'?'جاري التحميل...':'Loading...'}</div>
      <div class="u-flex-gap-8-mt-12">
        <input id="commentInput" class="ctrl u-flex-1" placeholder="${lang==='ar'?'اكتب تعليق...':'Write a comment...'}" data-ui-keydown="submit-comment">
        <button class="btn sm" ${uiAction('submitComment',[])}>${ic('arrow',14)} ${lang==='ar'?'إرسال':'Send'}</button>
@@ -3262,7 +3251,7 @@ async function refreshComments(){
   if(!list) return;
   const comments = res.comments||[];
   if(!comments.length){
-    list.innerHTML=`<div class="empty-state" style="padding:16px 0"><div class="empty-icon">${ic('chat',24)}</div><div class="empty-title" style="font-size:var(--fs-sm)">${lang==='ar'?'لا توجد تعليقات بعد':'No comments yet'}</div></div>`;
+    list.innerHTML=`<div class="empty-state u-py-16"><div class="empty-icon">${ic('chat',24)}</div><div class="empty-title text-size-sm">${lang==='ar'?'لا توجد تعليقات بعد':'No comments yet'}</div></div>`;
     return;
   }
   const roleLabel = r => ({system_admin:lang==='ar'?'مدير النظام':'Admin',facility_manager:lang==='ar'?'مدير المرافق':'FM',cleaning_manager:lang==='ar'?'مدير النظافة':'Cleaning Mgr',cleaning_supervisor:lang==='ar'?'مشرف نظافة':'Cleaning Sup',cleaner:lang==='ar'?'عامل نظافة':'Cleaner',maintenance_manager:lang==='ar'?'مدير الصيانة':'Maint. Mgr',maintenance_supervisor:lang==='ar'?'مشرف صيانة':'Maint. Sup',maintenance_worker:lang==='ar'?'فني صيانة':'Technician',employee:lang==='ar'?'موظف':'Employee'}[r]||r);
@@ -3357,7 +3346,7 @@ ${showRecurringCreate?`
 </div>`:''}
 ${tasks.length?`
 <div class="card">
-  <div style="overflow-x:auto">
+  <div class="overflow-x-auto">
     <table class="dataTable">
       <thead><tr>
         <th>${lang==='ar'?'المهمة':'Task'}</th>
@@ -3374,7 +3363,7 @@ ${tasks.length?`
           <td>${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</td>
           <td><span class="badge">${catLabels[t.category]||t.category}</span></td>
           <td>${freqLabel(t.frequencyMins)}</td>
-          <td style="font-size:var(--fs-xs)">${fmt(t.nextRunAt)}</td>
+          <td class="text-size-xs">${fmt(t.nextRunAt)}</td>
           <td><span class="badge ${t.active?'ok':''}">${t.active?(lang==='ar'?'نشط':'Active'):(lang==='ar'?'متوقف':'Paused')}</span></td>
           <td class="u-flex-end-gap-6">
             <button class="btn secondary sm" ${uiAction('toggleRecurring',[(t.id),(!t.active)])}>${t.active?(lang==='ar'?'إيقاف':'Pause'):(lang==='ar'?'تفعيل':'Resume')}</button>
@@ -3525,7 +3514,7 @@ async function openTicketDetail(id){
     `<div class="detailModal-section"><div class="detailModal-sectionTitle">${ic('camera',14)} ${lang==='ar'?'الصور':'Photos'}</div><div class="text-muted-xs-py-4">${lang==='ar'?'لا توجد صور':'No photos'}</div></div>`}
     <div class="detailModal-section" id="detail-activity-${id}">
       <div class="detailModal-sectionTitle">${ic('list',14)} ${lang==='ar'?'النشاط':'Activity'}</div>
-      <div class="activityTimeline" id="activity-list-${id}"><div style="color:var(--muted);font-size:var(--fs-xs)">${lang==='ar'?'جاري التحميل...':'Loading...'}</div></div>
+      <div class="activityTimeline" id="activity-list-${id}"><div class="text-muted-xs">${lang==='ar'?'جاري التحميل...':'Loading...'}</div></div>
     </div>
   </div>`;
   showModal('ticketDetailModal', `${ic('tickets',16)} ${esc(t.title)}`, body, `
@@ -3581,7 +3570,7 @@ async function openReportDetail(id){
     </div>
     <div class="detailModal-section">
       <div class="detailModal-sectionTitle">${ic('list',14)} ${lang==='ar'?'النشاط':'Activity'}</div>
-      <div class="activityTimeline" id="report-activity-list-${id}"><div style="color:var(--muted);font-size:var(--fs-xs)">${lang==='ar'?'جاري التحميل...':'Loading...'}</div></div>
+      <div class="activityTimeline" id="report-activity-list-${id}"><div class="text-muted-xs">${lang==='ar'?'جاري التحميل...':'Loading...'}</div></div>
     </div>
   </div>`;
   showModal('reportDetailModal', `${ic('reports',16)} ${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)} — ${esc(r.workerName)}`, body, `<button class="btn secondary" ${uiAction('runUiFlow',['close-element','reportDetailModal'])}>${lang==='ar'?'إغلاق':'Close'}</button>`, {wide:true});
@@ -3636,7 +3625,7 @@ ${showLocCreate?`
     ${fc(tr('floor'), sel('lf', FACILITY_FLOORS.map(f=>({v:f,l:f}))))}
     ${fc(tr('zone'), sel('lz', FACILITY_ZONES.map(z=>({v:z,l:z}))))}
     ${fc(tr('priority'), sel('lpri',[{v:'high',l:tr('high')},{v:'medium',l:tr('medium'),sel:true},{v:'low',l:tr('low')}]))}
-    <div class="field" style="align-self:flex-end"><button class="btn wide" ${uiAction('addLoc',[])}>${ic('plus',16)} ${tr('save')}</button></div>
+    <div class="field align-self-end"><button class="btn wide" ${uiAction('addLoc',[])}>${ic('plus',16)} ${tr('save')}</button></div>
   </div>
 </div>`:''}`:''}
 <!-- FLOOR FILTER -->
@@ -3672,7 +3661,7 @@ ${showLocCreate?`
         ${l.zone?`<span class="badge">${l.zone}</span>`:''}
         <span class="badge ${l.priority==='high'?'bad':l.priority==='low'?'info':'warn'}">${tr(l.priority||'medium')}</span>
       </div>
-      <div style="font-size:var(--fs-xs);color:var(--muted);display:flex;align-items:center;gap:5px">
+      <div class="text-muted-xs-flex">
         ${ic(late?'bell':'check',12)}
         ${lang==='ar'?'آخر تقرير':'Last report'}: <strong>${last?fmt(last.createdAt):tr('none')}</strong>
         ${last?`· ${esc(last.workerName||'')}`:'' }
@@ -3680,10 +3669,10 @@ ${showLocCreate?`
       <div class="locCard-actions">
         ${canManage()?`<button class="btn danger sm" ${uiAction('deleteLocConfirm',[(esc(l.id))])}>${ic('trash',13)} ${lang==='ar'?'حذف':'Delete'}</button>`:''}
         <details class="u-flex-1">
-          <summary style="cursor:pointer;font-size:var(--fs-xs);font-weight:700;color:var(--brand-mid);list-style:none;padding:4px 0">${ic('qr',13)} ${lang==='ar'?'عرض QR':'Show QR'}</summary>
-          <div class="locCard-qr" style="margin-top:8px;display:flex;flex-direction:column;align-items:flex-start;gap:8px">
+          <summary class="summary-link">${ic('qr',13)} ${lang==='ar'?'عرض QR':'Show QR'}</summary>
+          <div class="locCard-qr qr-actions">
             <img width="120" height="120" src="${qrUrl}" alt="QR ${esc(l.id)}" loading="lazy">
-            <a class="btn secondary sm" href="${qrUrl}&format=png" download="QR-${esc(l.id)}.png" style="text-decoration:none">${ic('download',13)} ${lang==='ar'?'تحميل QR':'Download QR'}</a>
+            <a class="btn secondary sm" href="${qrUrl}&format=png" download="QR-${esc(l.id)}.png" class="no-decoration">${ic('download',13)} ${lang==='ar'?'تحميل QR':'Download QR'}</a>
           </div>
         </details>
       </div>
@@ -3900,7 +3889,7 @@ ${filtered.length===0
         <th>${lang==='ar'?'موقع المكتب':'Office'}</th>
         <th>${lang==='ar'?'الحالة':'Status'}</th>
         <th>${lang==='ar'?'الصلاحيات':'Roles'}</th>
-        ${canManageUsers()?`<th style="text-align:end">${lang==='ar'?'إجراءات':'Actions'}</th>`:''}
+        ${canManageUsers()?`<th class="text-end">${lang==='ar'?'إجراءات':'Actions'}</th>`:''}
       </tr>
     </thead>
     <tbody>
@@ -4047,28 +4036,14 @@ function showAddRoleModal(userId){
   if(!u) return;
   const existingRoles = u.roles||[u.role];
 
-  const ROLE_COLORS = {
-    system_admin:       {bg:'var(--bg-soft)', color:'var(--mrfq-navy)'},
-    facility_manager:   {bg:'var(--bg-soft)', color:'var(--mrfq-dark-teal)'},
-    cleaning_manager:   {bg:'rgba(111,79,152,.12)', color:'var(--mrfq-purple)'},
-    cleaning_supervisor:{bg:'rgba(0,132,141,.12)', color:'var(--mrfq-teal)'},
-    cleaner:            {bg:'var(--ok-bg)', color:'var(--ok)'},
-    employee:           {bg:'rgba(117,206,200,.16)', color:'var(--mrfq-dark-teal)'},
-    hospitality_manager:   {bg:'rgba(111,79,152,.12)', color:'var(--mrfq-purple)'},
-    hospitality_supervisor:{bg:'rgba(0,132,141,.12)', color:'var(--mrfq-teal)'},
-    hospitality_worker:    {bg:'var(--ok-bg)', color:'var(--ok)'}
-  };
-
   function buildRoleCards(){
     return ROLES.map(r=>{
       const active = existingRoles.includes(r);
       const isLast = active && existingRoles.length===1;
-      const rc = ROLE_COLORS[r]||{bg:'var(--surface-3)',color:'var(--muted)'};
-      const iconStyle = `background:${rc.bg};color:${rc.color}`;
       return `<div class="roleCard ${active?'active':''} ${isLast?'locked':''}"
         title="${isLast?(lang==='ar'?'لا يمكن إزالة الصلاحية الأخيرة':'Cannot remove the last role'):''}"
         ${uiAction('runUiFlow',['role-toggle',active,isLast,userId,r])}>
-        <div class="roleCardIcon" style="${iconStyle}">${active?ic('check',14):ic('plus',14)}</div>
+        <div class="roleCardIcon role-icon-${r}">${active?ic('check',14):ic('plus',14)}</div>
         <div class="roleCardName">${tr(r)}</div>
         ${isLast?`<div class="roleCardLock">${ic('lock',10)}</div>`:''}
       </div>`;
@@ -4177,17 +4152,14 @@ function renderWorker(){
             const stLabel={pending:lang==='ar'?'معلق':'Pending',approved:lang==='ar'?'معتمد':'Approved',rejected:lang==='ar'?'مرفوض':'Rejected',needs_recleaning:lang==='ar'?'إعادة تنظيف':'Re-clean'}[st]||st;
             const stColor=st==='approved'?'ok':st==='rejected'?'bad':st==='needs_recleaning'?'warn':'brand';
             const actionable=st==='rejected'||st==='needs_recleaning';
-            const borderClr=actionable?'rgba(200,50,50,.25)':'var(--line)';
-            const iconBorderClr=stColor==='ok'?'var(--ok)':stColor==='bad'?'var(--bad)':'var(--warn)';
-            return `<div class="workerReportItem ${actionable?'actionable':''}" ${actionable?`${uiAction('workerStartLocation',[(r.locationId)])}`:''}
-              style="border-color:${borderClr};background:var(--${stColor}-bg)">
-              <div class="workerReportItem-icon" style="background:var(--${stColor}-bg);border-color:${iconBorderClr}">${ic(st==='approved'?'check':st==='rejected'?'x':'flip',16)}</div>
+            return `<div class="workerReportItem status-surface-${stColor} ${actionable?'actionable workerReportItem--actionable-border':''}" ${actionable?`${uiAction('workerStartLocation',[(r.locationId)])}`:''}>
+              <div class="workerReportItem-icon status-surface-${stColor}">${ic(st==='approved'?'check':st==='rejected'?'x':'flip',16)}</div>
               <div class="workerReportItem-body">
                 <div class="workerReportItem-name">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</div>
                 <div class="workerReportItem-meta">${fmt(r.approvedAt||r.createdAt)}${r.reviewNote?' · '+esc(r.reviewNote):''}</div>
                 <span class="badge ${stColor} u-mt-6">${stLabel}</span>
               </div>
-              ${actionable?`<div class="workerReportItem-action" style="color:var(--${stColor})">${lang==='ar'?'إعادة':'Redo'} ${ic('arrow',14)}</div>`:''}
+              ${actionable?`<div class="workerReportItem-action status-text-${stColor}">${lang==='ar'?'إعادة':'Redo'} ${ic('arrow',14)}</div>`:''}
             </div>`;
           }).join('')}
         </div>`:`<div class="empty-state"><div class="empty-icon">${ic('reports',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد تقارير':'No reports yet'}</div></div>`}
@@ -4197,7 +4169,7 @@ function renderWorker(){
     <div class="wCard wCard--compact">
       <div class="wCard-title">${ic('locations',16)} ${tr('step1')}</div>
       ${fc(lang==='ar'?'كود الموقع':'Location Code',`<div class="locInput-row"><button class="locInput-scan" ${uiAction('openQRScanner',[])} title="${tr('scanQR')}" aria-label="${tr('scanQR')}">${ic('qr',18)}</button><div class="locInput-field">${inp('locCode',{cls:'ltr', value:param, placeholder:'wc-gf-a'})}</div></div>`)}
-      <button class="btn wide" style="min-height:52px" ${uiAction('startForm',[])}>${ic('arrow',16)} ${tr('start')}</button>
+      <button class="btn wide min-h-52" ${uiAction('startForm',[])}>${ic('arrow',16)} ${tr('start')}</button>
     </div>
     <div id="workerForm"></div>`;
 
@@ -4296,7 +4268,7 @@ function startForm(){
   setTopbarBackButton(true, 'workerGoBack()');
   document.getElementById('workerForm').innerHTML=`
     <div class="wCard">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px">
+      <div class="layout-between-start-mb-16">
         <div>
           <div class="text-heading-lg">${esc(locName(loc))}</div>
           <div class="text-muted-xs-mt-4">${ic('locations',12)} ${tr(loc.type)} · ${loc.floor||'—'} · ${loc.id}</div>
@@ -4385,7 +4357,10 @@ async function openCamera(mode='general'){
     cam.classList.add('active');
 
     const shutter = document.getElementById('camShutter');
-    if(shutter) shutter.style.background = mode==='before'?'var(--warn)':mode==='after'?'var(--ok)':'';
+    if(shutter){
+      shutter.classList.toggle('camera-shutter--before',mode==='before');
+      shutter.classList.toggle('camera-shutter--after',mode==='after');
+    }
 
     const modeEl = document.getElementById('cameraTopTitle');
     if(modeEl){
@@ -4440,8 +4415,8 @@ function updateCameraCounter(){
   const el = document.getElementById('cameraCounter');
   if(!el) return;
   const arr = cameraMode==='before'?currentBeforePhotos:cameraMode==='after'?currentAfterPhotos:currentPhotos;
-  if(arr.length>0){el.style.display='block';el.textContent=`${arr.length} ${lang==='ar'?'صورة':'photos'}`}
-  else{el.style.display='none'}
+  el.classList.toggle('is-hidden',arr.length===0);
+  if(arr.length>0) el.textContent=`${arr.length} ${lang==='ar'?'صورة':'photos'}`;
 }
 function capturePhoto(){
   const vid = document.getElementById('camVideo');
@@ -4456,7 +4431,7 @@ function capturePhoto(){
     updateCameraCounter();
     // Flash feedback
     const flash = document.createElement('div');
-    flash.style.cssText='position:fixed;inset:0;background:#fff;opacity:.5;z-index:9999;pointer-events:none';
+    flash.className='camera-flash';
     document.body.appendChild(flash);
     setTimeout(()=>flash.remove(),150);
   });
@@ -4472,7 +4447,7 @@ function renderPhotoPreviews(mode='general'){
       <div class="photoItem">
         <img src="${p}" alt="" ${uiAction('openGallery',[arr,i])}>
         <button class="photoItem-del" ${uiAction('runUiFlow',['photo-delete',mode,i,mode])}>×</button>
-      </div>`).join('') || `<div style="font-size:var(--fs-xs);color:var(--muted);text-align:center;padding:12px">${tr('photoRequired')}</div>`;
+      </div>`).join('') || `<div class="empty-photo-hint">${tr('photoRequired')}</div>`;
   } else {
     const el = document.getElementById('photoPreviews');
     if(!el) return;
@@ -4480,7 +4455,7 @@ function renderPhotoPreviews(mode='general'){
       <div class="photoItem">
         <img src="${p}" alt="" ${uiAction('openGallery',[currentPhotos,i])}>
         <button class="photoItem-del" ${uiAction('runUiFlow',['photo-delete','general',i,'general'])}>×</button>
-      </div>`).join('') || `<div style="font-size:var(--fs-xs);color:var(--muted);text-align:center;padding:12px">${tr('photoRequired')}</div>`;
+      </div>`).join('') || `<div class="empty-photo-hint">${tr('photoRequired')}</div>`;
   }
 }
 
@@ -4769,7 +4744,7 @@ function employeeSubmitForm(){
 
   if(!employeeServiceType)return `<div class="wCard wCard--compact">
     <div class="wCard-title">${ic('layers',16)} ${lang==='ar'?'اختر الخدمة المطلوبة':'Choose a Service'}</div>
-    <p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:14px">${lang==='ar'?'كل خدمة لها نموذجها وتصنيفاتها ومسارها التشغيلي المستقل.':'Each service has its own form, categories, and operational workflow.'}</p>
+    <p class="text-muted-sm-mb-14">${lang==='ar'?'كل خدمة لها نموذجها وتصنيفاتها ومسارها التشغيلي المستقل.':'Each service has its own form, categories, and operational workflow.'}</p>
     <div class="empCatGrid">
       <button class="empCatBtn${cleaningEnabled?'':' empCatBtn--disabled'}" ${cleaningEnabled?`${uiAction('runUiFlow',['employee-service','cleaning'])}`:'disabled aria-disabled="true"'}><span class="empCatBtn-icon">${ic('reports',22)}</span><span>${lang==='ar'?'خدمة النظافة':'Cleaning Service'}</span>${cleaningEnabled?'':`<small>${lang==='ar'?'متوقفة حالياً':'Currently unavailable'}</small>`}</button>
       <button class="empCatBtn${maintenanceEnabled?'':' empCatBtn--disabled'}" ${maintenanceEnabled?`${uiAction('runUiFlow',['employee-service','maintenance'])}`:'disabled aria-disabled="true"'}><span class="empCatBtn-icon">${ic('tool',22)}</span><span>${lang==='ar'?'خدمة الصيانة':'Maintenance Service'}</span>${maintenanceEnabled?'':`<small>${lang==='ar'?'متوقفة حالياً':'Currently unavailable'}</small>`}</button>
@@ -4893,7 +4868,7 @@ function employeeHospForm(){
 </div>
 
 <div class="wCard">
-  <div class="wCard-title"><span class="wCard-number">2</span>${lang==='ar'?'اختر ما تريد':'Choose Items'} ${cartTotal?`<span class="countBubble" style="margin-right:8px">${cartTotal}</span>`:''}</div>
+  <div class="wCard-title"><span class="wCard-number">2</span>${lang==='ar'?'اختر ما تريد':'Choose Items'} ${cartTotal?`<span class="countBubble u-mr-8">${cartTotal}</span>`:''}</div>
   ${cats.length?`<div class="fieldTabs" role="tablist" class="u-mb-14">
     <button class="fieldTab${!empHospCatFilter?' active':''}" ${uiAction('runUiFlow',['navigate','empHospCatFilter','',null,'renderEmployee'])}><span class="fieldTab-main"><span class="fieldTab-label">${lang==='ar'?'الكل':'All'}</span></span></button>
     ${cats.map(c=>`<button class="fieldTab${empHospCatFilter===c.id?' active':''}" ${uiAction('runUiFlow',['navigate','empHospCatFilter',c.id,null,'renderEmployee'])}><span class="fieldTab-main"><span class="fieldTab-label">${esc(lang==='ar'?c.nameAr:c.nameEn||c.nameAr)}</span></span></button>`).join('')}
@@ -4903,14 +4878,14 @@ function employeeHospForm(){
       const qty=empHospCart[item.id]||0;
       const name=lang==='ar'?item.nameAr:(item.nameEn||item.nameAr);
       return`<div class="productCard${qty?'':''}" id="ehc_${item.id}">
-        ${item.imagePath?`<div class="productCard-img"><img src="${esc(item.imagePath)}" alt="${esc(name)}" loading="lazy" style="width:100%;height:100%;object-fit:cover"></div>`:`<div class="productCard-img">${ic('coffee',28)}</div>`}
+        ${item.imagePath?`<div class="productCard-img"><img src="${esc(item.imagePath)}" alt="${esc(name)}" loading="lazy" class="image-cover"></div>`:`<div class="productCard-img">${ic('coffee',28)}</div>`}
         <div class="productCard-body">
           <div class="productCard-title">${esc(name)}</div>
           ${item.descriptionAr||item.descriptionEn?`<div class="productCard-desc">${esc(lang==='ar'?item.descriptionAr:item.descriptionEn||item.descriptionAr)}</div>`:''}
-          <div class="productCard-actions" style="margin-top:10px;display:flex;align-items:center;gap:8px">
-            <button class="btn secondary sm iconOnlyBtn" ${uiAction('empHospCartAdd',[(item.id),-1])} style="width:32px;height:32px">${ic('minus',14)}</button>
-            <span id="ehq_${item.id}" style="font-weight:700;min-width:20px;text-align:center;font-size:var(--fs-base)">${qty||0}</span>
-            <button class="btn sm iconOnlyBtn" ${uiAction('empHospCartAdd',[(item.id),1])} style="width:32px;height:32px;background:var(--brand)">${ic('plus',14)}</button>
+          <div class="productCard-actions layout-center-gap-8-mt-10">
+            <button class="btn secondary sm iconOnlyBtn" ${uiAction('empHospCartAdd',[(item.id),-1])} class="size-32">${ic('minus',14)}</button>
+            <span id="ehq_${item.id}" class="quantity-value">${qty||0}</span>
+            <button class="btn sm iconOnlyBtn" ${uiAction('empHospCartAdd',[(item.id),1])} class="size-32-brand">${ic('plus',14)}</button>
           </div>
         </div>
       </div>`;
@@ -5116,15 +5091,15 @@ function renderHospitalityWorker(){
   const content=`
 <div class="empPage">
   <div class="empPanel">
-    <div class="wCard wCard--compact" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+    <div class="wCard wCard--compact layout-between-center-gap-12">
       <div>
         <div class="wCard-title">${ic('coffee',16)} ${lang==='ar'?'طلباتي':'My Orders'}</div>
         <div class="text-muted-sm">${active.length} ${lang==='ar'?'طلب نشط':'active'}</div>
       </div>
-      ${overdue.length?`<span class="badge bad" style="font-size:var(--fs-sm)">${ic('alert',13)} ${overdue.length} ${lang==='ar'?'متأخر':'overdue'}</span>`:''}
+      ${overdue.length?`<span class="badge bad text-size-sm">${ic('alert',13)} ${overdue.length} ${lang==='ar'?'متأخر':'overdue'}</span>`:''}
     </div>
 
-    ${active.length?`<div style="display:flex;flex-direction:column;gap:10px">${active.map(o=>hospWorkerOrderCard(o)).join('')}</div>`
+    ${active.length?`<div class="layout-column-gap-10">${active.map(o=>hospWorkerOrderCard(o)).join('')}</div>`
       :`<div class="wCard"><div class="empty-state">
           <div class="empty-icon">${ic('check',28)}</div>
           <div class="empty-title">${lang==='ar'?'لا توجد طلبات مسندة إليك':'No assigned orders'}</div>
@@ -5134,9 +5109,9 @@ function renderHospitalityWorker(){
     <div class="wCard wCard--compact u-mt-6">
       <div class="wCard-title text-muted-sm">${ic('check',14)} ${lang==='ar'?'المُسلَّمة اليوم':'Delivered today'} (${done.length})</div>
       ${done.slice(0,5).map(o=>`
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div class="layout-row-divided">
           <div>
-            <div style="font-weight:600;font-size:var(--fs-sm)">${esc(o.referenceNo||'—')}</div>
+            <div class="text-semibold-sm">${esc(o.referenceNo||'—')}</div>
             <div class="text-muted-xs">${esc(lang==='ar'?o.locationNameAr:o.locationNameEn)}</div>
           </div>
           <span class="badge ok">${hospStatusLabel(o.status)}</span>
@@ -5170,31 +5145,31 @@ function hospWorkerOrderCard(o){
   const isDelivery = o.status === 'out_for_delivery';
   const locCode = o.locationId||'';
   const locFloor = fullLoc?.floor ? (lang==='ar'?`الدور ${fullLoc.floor}`:`Floor ${fullLoc.floor}`) : '';
-  return`<div class="ticketCard empOrderCard" style="${isOverdue?'border-right:3px solid var(--bad)':''}">
+  return`<div class="ticketCard empOrderCard${isOverdue?' roleCard--overdue':''}">
     <div class="ticketCard-top empOrderCard-head">
       <div class="ticketCard-main">
-        <div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:2px">${esc(o.referenceNo||'')} · ${fmt(o.createdAt)}</div>
+        <div class="text-muted-xs-mb-2">${esc(o.referenceNo||'')} · ${fmt(o.createdAt)}</div>
       </div>
       <span class="badge ${stCls}">${hospStatusLabel(o.status)}</span>
     </div>
 
-    <div style="background:${isDelivery?'var(--brand-bg)':'var(--surface-2,var(--bg))'};border:1px solid ${isDelivery?'var(--brand-mid)':'var(--border)'};border-radius:10px;padding:10px 12px;margin:8px 0">
-      <div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:4px">${ic('locations',11)} ${lang==='ar'?'وجهة التوصيل':'Delivery to'}</div>
-      <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-        <span style="font-family:ui-monospace,monospace;font-size:var(--fs-xl);font-weight:800;color:${isDelivery?'var(--brand)':'var(--ink)'}">${esc(locCode)}</span>
+    <div class="order-destination${isDelivery?' delivery-destination':''}">
+      <div class="text-muted-xs-mb-4">${ic('locations',11)} ${lang==='ar'?'وجهة التوصيل':'Delivery to'}</div>
+      <div class="layout-baseline-wrap">
+        <span class="order-code${isDelivery?' delivery-code':''}">${esc(locCode)}</span>
         ${locFloor?`<span class="text-muted-xs">${esc(locFloor)}</span>`:''}
       </div>
-      <div style="font-size:var(--fs-sm);color:var(--ink-secondary);margin-top:2px">${esc(locName||'')}</div>
-      ${o.requesterName?`<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:4px;border-top:1px solid var(--border);padding-top:4px">${ic('user',11)} ${esc(o.requesterName)}</div>`:''}
+      <div class="text-secondary-sm-mt-2">${esc(locName||'')}</div>
+      ${o.requesterName?`<div class="requester-meta">${ic('user',11)} ${esc(o.requesterName)}</div>`:''}
     </div>
 
-    ${kitchenName?`<div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:6px">${ic('coffee',11)} ${lang==='ar'?'المطبخ:':'Kitchen:'} <span style="color:var(--ink);font-weight:600">${esc(kitchenName)}</span></div>`:''}
+    ${kitchenName?`<div class="text-muted-xs-mb-6">${ic('coffee',11)} ${lang==='ar'?'المطبخ:':'Kitchen:'} <span class="text-ink-semibold">${esc(kitchenName)}</span></div>`:''}
 
     ${o.items&&o.items.length?`<div class="ticketCard-badges u-mb-6">${o.items.map(i=>`<span class="badge">${hospItemLabel(i)}</span>`).join('')}</div>`:''}
-    ${o.notes?`<div style="font-size:var(--fs-xs);color:var(--muted);background:var(--warn-bg);border-radius:6px;padding:6px 10px;margin-bottom:6px">${ic('alert',11)} ${esc(o.notes)}</div>`:''}
-    ${isOverdue?`<div style="font-size:var(--fs-xs);color:var(--bad);font-weight:600;margin-bottom:6px">${ic('alert',11)} ${lang==='ar'?'تجاوز وقت SLA':'SLA exceeded'}</div>`:''}
+    ${o.notes?`<div class="note-warning">${ic('alert',11)} ${esc(o.notes)}</div>`:''}
+    ${isOverdue?`<div class="text-bad-xs-semibold">${ic('alert',11)} ${lang==='ar'?'تجاوز وقت SLA':'SLA exceeded'}</div>`:''}
 
-    ${next?`<button class="btn wide" style="margin-top:4px;background:${o.status==='out_for_delivery'?'var(--ok)':'var(--brand)'}" ${uiAction('updateHospitalityOrderStatus',[(o.id),(next.to)])}>${ic(next.icon,15)} ${next.label}</button>`:''}
+    ${next?`<button class="btn wide u-mt-4${o.status==='out_for_delivery'?' delivery-action-complete':''}" ${uiAction('updateHospitalityOrderStatus',[(o.id),(next.to)])}>${ic(next.icon,15)} ${next.label}</button>`:''}
   </div>`;
 }
 
@@ -5223,14 +5198,14 @@ function hospOrderCard(o, mode, workers){
   const items = o.items||[];
   const MAX_ITEMS = 3;
   const itemsHtml = items.length
-    ? `<div class="ticketCard-badges">${items.slice(0,MAX_ITEMS).map(i=>`<span class="badge">${hospItemLabel(i)}</span>`).join('')}${items.length>MAX_ITEMS?`<span class="badge" style="color:var(--muted)">+${items.length-MAX_ITEMS}</span>`:''}</div>`
+    ? `<div class="ticketCard-badges">${items.slice(0,MAX_ITEMS).map(i=>`<span class="badge">${hospItemLabel(i)}</span>`).join('')}${items.length>MAX_ITEMS?`<span class="badge text-muted">+${items.length-MAX_ITEMS}</span>`:''}</div>`
     : '';
   const locName = esc(lang==='ar'?o.locationNameAr:o.locationNameEn);
   return`<div class="ticketCard empOrderCard">
     <div class="ticketCard-top empOrderCard-head">
       <div class="ticketCard-main">
         <div class="ticketCard-title empOrderCard-title">${esc(tr('ot_'+o.orderType)||o.orderType)}</div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:2px">
+        <div class="layout-wrap-gap-8-mt-2">
           ${o.referenceNo?`<span class="ticketCard-ref empOrderCard-ref">${esc(o.referenceNo)}</span>`:''}
           <span class="text-muted-xs">${fmt(o.updatedAt||o.createdAt)}</span>
         </div>
@@ -5244,7 +5219,7 @@ function hospOrderCard(o, mode, workers){
     ${o.assignedToName?`<div class="ticketCard-meta empOrderCard-meta"><span>${ic('users',12)} ${esc(o.assignedToName)}</span></div>`
       :(showAssign?`<div class="ticketCard-meta empOrderCard-meta"><span class="badge warn">${tr('pendingAssignmentBadge')}</span></div>`:'')}
     ${itemsHtml}
-    ${o.notes?`<div class="empOrderCard-queue" style="font-size:var(--fs-xs)">${esc(o.notes)}</div>`:''}
+    ${o.notes?`<div class="empOrderCard-queue text-size-xs">${esc(o.notes)}</div>`:''}
     <div class="ticketCard-actions supTicketCard-actions"><button class="btn sm secondary" ${uiAction('showHospitalityActivity',[(o.id)])}>${ic('list',13)} ${lang==='ar'?'سجل الطلب':'Activity'}</button></div>
     ${mode==='new'?`
     <div class="ticketCard-actions supTicketCard-actions">
@@ -5286,7 +5261,9 @@ function hospReassignRowHtml(o, workers){
 function toggleAssignRow(id){
   const el = document.getElementById('hsr-'+id);
   if(!el) return;
-  el.style.display = el.style.display==='none' ? 'flex' : 'none';
+  const show=el.classList.contains('is-hidden');
+  el.classList.toggle('is-hidden',!show);
+  el.classList.toggle('assign-row--visible',show);
 }
 
 function hospTeamGrid(workers, orders){
@@ -5306,7 +5283,7 @@ function hospOrdersBoard(orders, workers){
   const delivered = orders.filter(o=>o.status==='delivered' && !overdueIds.has(o.id));
   const inProgress = orders.filter(o=>['accepted','preparing','ready','out_for_delivery'].includes(o.status) && o.assignedTo && !overdueIds.has(o.id));
 
-  const emptyCompact = (msg) => `<div style="padding:12px 0;color:var(--muted);font-size:var(--fs-sm);display:flex;align-items:center;gap:6px">${ic('check',14)} ${msg}</div>`;
+  const emptyCompact = (msg) => `<div class="empty-compact">${ic('check',14)} ${msg}</div>`;
   const submittedCls = submitted.length && !unassigned.length ? 'wCard wCard--full' : 'wCard';
   const unassignedCls = unassigned.length && !submitted.length ? 'wCard wCard--full' : 'wCard';
   return `<div class="supSectionsGrid">
@@ -5626,7 +5603,7 @@ function maintShell(me, content, opts={}){
       </div></aside>
       <main class="platform-main"><div class="pageAnim">${content}</div></main>
     </div>
-    <nav class="mobileBottomNav" style="--mobile-nav-count:5" aria-label="${lang==='ar'?'تنقل الصيانة':'Maintenance navigation'}">
+    <nav class="mobileBottomNav mobileBottomNav--count-5" aria-label="${lang==='ar'?'تنقل الصيانة':'Maintenance navigation'}">
       ${[['dashboard',tr('dashboard'),'dashboard'],['orders',tr('maintOrders'),'tickets'],['schedules',tr('maintSchedules'),'clock'],['assets',tr('maintAssets'),'building'],['team',tr('maintTeam'),'users']].map(([v,l,i])=>`<button class="mobileBottomNav-item${maintView===v?' active':''}" ${uiAction('runUiFlow',['navigate','maintView',v,null,renderFn])}><span class="mobileBottomNav-icon">${ic(i,18)}</span><span class="mobileBottomNav-label">${l}</span></button>`).join('')}
     </nav>
   </div>`;
@@ -5656,7 +5633,7 @@ function maintTicketsList(tickets, opts={}){
         <span class="badge badge-info">${ic(MAINT_CAT_ICONS[t.category]||'tool',12)} ${maintCatLabel(t.category)}</span>
         ${maintStatusBadge(t.status)} ${escBadge}
         ${slaOver?`<span class="badge bad">SLA</span>`:''}
-        <span style="margin-right:auto;font-size:11px;color:var(--ink-2)">#${esc(t.referenceNo)}</span>
+        <span class="meta-auto-11">#${esc(t.referenceNo)}</span>
       </div>
       <div class="ticketCard-title">${esc(t.title)}</div>
       <div class="ticketCard-meta">
@@ -5689,8 +5666,8 @@ function maintTicketsList(tickets, opts={}){
   return `
     ${canCreate?`<div class="u-mb-16"><button class="btn btn-primary" ${uiAction('maintOpenTicketCreate',[(renderFn)])}>${ic('plus',16)} ${tr('maintTicketCreate')}</button></div>`:''}
     ${open.length===0&&done.length===0?`<p class="empty-state">${tr('noData')}</p>`:''}
-    ${open.length?`<h4 style="font-size:13px;font-weight:700;margin-bottom:8px">${lang==='ar'?'مفتوحة':'Open'} (${open.length})</h4>${open.map(card).join('')}`:''}
-    ${done.length?`<details class="u-mt-16"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--ink-2)">${lang==='ar'?'مغلقة':'Closed'} (${done.length})</summary><div class="u-mt-8">${done.map(card).join('')}</div></details>`:''}
+    ${open.length?`<h4 class="heading-13-mb-8">${lang==='ar'?'مفتوحة':'Open'} (${open.length})</h4>${open.map(card).join('')}`:''}
+    ${done.length?`<details class="u-mt-16"><summary class="summary-standard">${lang==='ar'?'مغلقة':'Closed'} (${done.length})</summary><div class="u-mt-8">${done.map(card).join('')}</div></details>`:''}
   `;
 }
 
@@ -5704,7 +5681,7 @@ function maintReportsList(reports, opts={}){
     return `<div class="card reportCard" ${uiAction('openReportDetail',[(r.id)])}>
       <div class="reportCard-header" ${uiAction('runUiFlow',['stop-propagation'])}>
         <span class="badge ${statusCls[r.approvalStatus]||'badge-info'}">${statusMap[r.approvalStatus]||r.approvalStatus}</span>
-        <span style="margin-right:auto;font-size:11px;color:var(--ink-2)">${ic('clock',12)} ${fmtDate(r.createdAt)}</span>
+        <span class="meta-auto-11">${ic('clock',12)} ${fmtDate(r.createdAt)}</span>
         ${r.photos.length?`<span class="badge badge-info">${ic('camera',12)} ${r.photos.length}</span>`:''}
       </div>
       <div class="reportCard-worker">${ic('user',13)} ${esc(r.workerName)} — ${esc(r.locationNameAr)}</div>
@@ -5738,14 +5715,14 @@ function maintDashboard(tickets, reports, opts={}){
       <div class="stat-card"><div class="value">${pending.length}</div><div class="label">${lang==='ar'?'تقارير معلقة':'Pending Reports'}</div></div>
     </div>
     <div class="u-mb-16">
-      <h4 style="font-size:13px;font-weight:700;margin-bottom:8px">${lang==='ar'?'حسب التصنيف':'By Category'}</h4>
+      <h4 class="heading-13-mb-8">${lang==='ar'?'حسب التصنيف':'By Category'}</h4>
       <div class="u-flex-wrap-gap-8">
         ${MAINT_CATS.map(c=>{
           const cnt = open.filter(t=>t.category===c).length;
-          return `<div class="card" style="flex:1;min-width:80px;text-align:center;padding:10px 8px">
+          return `<div class="card metric-card-compact">
             ${ic(MAINT_CAT_ICONS[c]||'tool',20)}<br>
-            <span style="font-size:11px">${maintCatLabel(c)}</span><br>
-            <strong style="font-size:18px">${cnt}</strong>
+            <span class="text-11">${maintCatLabel(c)}</span><br>
+            <strong class="text-18">${cnt}</strong>
           </div>`;
         }).join('')}
       </div>
@@ -5874,14 +5851,14 @@ function maintenanceWorkerMyReports(){
       const stColor=st==='approved'?'ok':st==='rejected'?'bad':st==='needs_recleaning'?'warn':'brand';
       const actionable=st==='rejected'||st==='needs_recleaning';
       const ticket=(data.tickets||[]).find(t=>t.id===r.ticketId);
-      return `<div class="workerReportItem ${actionable?'actionable':''}" style="background:var(--${stColor}-bg)">
-        <div class="workerReportItem-icon" style="background:var(--${stColor}-bg)">${ic(st==='approved'?'check':st==='rejected'?'x':'flip',16)}</div>
+      return `<div class="workerReportItem status-surface-${stColor} ${actionable?'actionable':''}">
+        <div class="workerReportItem-icon status-surface-${stColor}">${ic(st==='approved'?'check':st==='rejected'?'x':'flip',16)}</div>
         <div class="workerReportItem-body">
           <div class="workerReportItem-name">${ticket?esc(ticket.title):esc(r.ticketId||'—')}</div>
           <div class="workerReportItem-meta">${fmt(r.approvedAt||r.createdAt)}${r.reviewNote?' · '+esc(r.reviewNote):''}</div>
           <span class="badge ${stColor} u-mt-6">${stLabel}</span>
         </div>
-        ${actionable?`<div class="workerReportItem-action" style="color:var(--${stColor})">${lang==='ar'?'إعادة':'Redo'} ${ic('arrow',14)}</div>`:''}
+        ${actionable?`<div class="workerReportItem-action status-text-${stColor}">${lang==='ar'?'إعادة':'Redo'} ${ic('arrow',14)}</div>`:''}
       </div>`;
     }).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('reports',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد تقارير':'No reports yet'}</div></div>`}
   </div>`;
@@ -6185,7 +6162,7 @@ function startMaintenanceForm(ticketId){
   setTopbarBackButton(true,'maintWorkerGoBack()');
   document.getElementById('maintWorkerForm').innerHTML=`
     <div class="wCard">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:4px">
+      <div class="layout-between-start-mb-4">
         <div>
           <div class="text-heading-lg">${esc(t.title)}</div>
           <div class="text-muted-xs-mt-4">${ic('tickets',12)} ${esc(t.locationNameAr)} · ${esc(t.referenceNo)}</div>
@@ -6463,7 +6440,7 @@ function addMaintTask(){
   const el = document.getElementById('mrTasks');
   if(!el) return;
   const row = document.createElement('div');
-  row.style.cssText='display:flex;gap:6px;margin-bottom:6px';
+  row.className='maintenance-task-row';
   row.innerHTML=`<input class="ctrl u-flex-1" placeholder="${lang==='ar'?'المهمة':'Task'}"><button class="btn secondary sm iconOnlyBtn" type="button" ${uiAction('runUiFlow',['remove-parent'])}>${ic('trash',14)}</button>`;
   el.appendChild(row);
 }
@@ -6926,7 +6903,7 @@ ${scored.length>=1?`
             <td>
               <span class="perfRowLabel">${tr('workloadScore')}</span>
               <div class="perfWorkload progress-track">
-                <div class="progress-fill ${w.workloadScore>80?'bad':w.workloadScore>40?'gold':'ok'}" style="width:${Math.min(100,w.workloadScore)}%"></div>
+                <div class="progress-fill ${w.workloadScore>80?'bad':w.workloadScore>40?'gold':'ok'} ${metricClass('w',w.workloadScore)}"></div>
               </div>
             </td>
             <td><span class="perfRowLabel">${lang==='ar'?'النقاط':'Score'}</span><span class="perfScore ${rank===0?'top':rank<3?'high':''}">${w.weighted}</span></td>
@@ -7149,13 +7126,13 @@ function supReportCard(r){
         </div>
         <span class="badge ${r.status==='completed'?'ok':'brand'}">${tr(r.status)||r.status}</span>
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+      <div class="layout-wrap-gap-6-mt-6">
         ${imgs.length?`<span class="badge brand">${ic('camera',10)} ${num(imgs.length)}</span>`:''}
-        ${r.notes?`<span class="badge" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.notes)}</span>`:''}
+        ${r.notes?`<span class="badge truncate-200">${esc(r.notes)}</span>`:''}
         <span class="badge u-inline-auto">${ic('arrow',11)} ${lang==='ar'?'تفاصيل':'Details'}</span>
       </div>
     </div>
-    ${['cleaning_supervisor','maintenance_supervisor'].includes(me.role)?`<div class="ratingRow" style="padding:6px 0 0" ${uiAction('runUiFlow',['stop-propagation'])}>
+    ${['cleaning_supervisor','maintenance_supervisor'].includes(me.role)?`<div class="ratingRow rating-row-compact" ${uiAction('runUiFlow',['stop-propagation'])}>
       <div class="ratingGroup">
         <span class="ratingLabel">${tr('ratingBySupervisor')}</span>
         ${starRatingWidget(r.id,'supervisor',r.ratingSupervisor)}
@@ -7219,7 +7196,7 @@ function renderWorkspaceSelector(){
             <div class="wsBtn-label">${roleLabel(r)}</div>
           </button>`).join('')}
       </div>
-      <button class="btn secondary" style="margin-top:16px;width:100%" ${uiAction('runUiFlow',['workspace-confirm'])}>
+      <button class="btn secondary u-mt-16-full" ${uiAction('runUiFlow',['workspace-confirm'])}>
         ${lang==='ar'?'المتابعة بالصلاحية الحالية':'Continue with current role'} (${roleLabel(me.role)})
       </button>
     </div>
