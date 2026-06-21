@@ -1326,6 +1326,39 @@ tbody tr:hover td{background:var(--surface-2)}
 .zone-add .ctrl{height:38px;min-height:38px;min-width:120px}
 
 /* ═══════════════════════════════════════════════════════════════
+   FACILITIES SUB-VIEWS (heatmap / hierarchy / spaces)
+   ═══════════════════════════════════════════════════════════════ */
+/* heatmap summary row */
+.heatSummaryRow{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.heatSumCard{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-md);padding:10px 16px}
+.heatSumNum{font-family:var(--font-head);font-weight:800;font-size:1.5rem;color:var(--ink)}
+/* heatmap grid */
+.heatmapGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.heatCell{background:var(--surface-1);border:1px solid var(--line);border-radius:var(--r-md);padding:14px;display:grid;gap:8px}
+.heatCell--watch{border-color:rgba(255,183,0,.35)}
+.heatCell--hot{border-color:rgba(230,73,73,.35)}
+.heatCell--critical{border-color:var(--bad);background:rgba(230,73,73,.04)}
+.heatCell-name{font-family:var(--font-head);font-weight:700;font-size:var(--fs-sm);color:var(--ink)}
+.heatCell-score{font-weight:700;font-size:var(--fs-xs);color:var(--muted)}
+.heatCell-meta{color:var(--muted);font-size:var(--fs-xs)}
+/* hierarchy tree */
+.hierarchyTree{display:grid;gap:8px}
+.hierarchyNode{border-radius:var(--r-md);overflow:hidden}
+.hierarchyNode--facility{border:1px solid var(--line);background:var(--surface-1)}
+.hierarchyNode--facility>.hierarchyNode-label{padding:12px 14px;font-size:var(--fs-sm);background:var(--surface-2);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.hierarchyNode--building{margin:0 12px 8px;border:1px solid var(--line);border-radius:var(--r-sm)}
+.hierarchyNode--building>.hierarchyNode-label{padding:8px 12px;font-size:var(--fs-xs);background:var(--surface-1);display:flex;align-items:center;gap:6px}
+.hierarchyNode--floor{margin:0 12px 6px;border-inline-start:2px solid var(--line);padding-inline-start:10px}
+.hierarchyNode--floor>.hierarchyNode-label{padding:5px 0;font-size:var(--fs-xs);display:flex;align-items:center;gap:5px;color:var(--muted)}
+.hierarchyNode--zone{margin:4px 0 4px 12px}
+.hierarchyNode--zone>.hierarchyNode-label{font-size:var(--fs-xs);color:var(--muted);padding:3px 0;display:flex;align-items:center;gap:5px}
+.hierarchyNode--space{display:inline-flex;gap:4px;margin:3px;flex-wrap:wrap}
+/* spaces grid */
+.spaceGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.spaceCard{background:var(--surface-1);border:1px solid var(--line);border-radius:var(--r-md);padding:14px;display:grid;gap:8px}
+.spaceCard-name{font-family:var(--font-head);font-weight:700;font-size:var(--fs-sm);color:var(--ink)}
+
+/* ═══════════════════════════════════════════════════════════════
    USERS (legacy table helpers kept for usersTable)
    ═══════════════════════════════════════════════════════════════ */
 .usersGrid{display:grid;gap:8px}

@@ -533,6 +533,7 @@ let empHospCatFilter = '';
 let empHospLocId = '';
 let usersSearch = '', usersRoleFilter = 'all', usersStatusFilter = 'all';
 let locsFloorFilter = 'all';
+let facilitiesSubView = 'locations';
 let assignFloorFilter = 'all';
 let showTicketCreate = false, showLocCreate = false, showZoneCreate = false;
 let mobileNavActive = '';
@@ -693,7 +694,7 @@ function runUiFlow(flow,...values){
   };
   const navigate=(scope,value,nav,renderer)=>{
     if(scope==='view') view=value;
-    else if(scope==='adminView') adminView=value;
+    else if(scope==='adminView'){ adminView=value; if(value!=='locations') facilitiesSubView='locations'; }
     else if(scope==='supervisorView') supervisorView=value;
     else if(scope==='workerView') workerView=value;
     else if(scope==='maintWorkerView') maintWorkerView=value;
@@ -705,6 +706,7 @@ function runUiFlow(flow,...values){
     else if(scope==='locsFloorFilter') locsFloorFilter=value;
     else if(scope==='employeeHistoryFilter') employeeHistoryFilter=value;
     else if(scope==='empHospCatFilter') empHospCatFilter=value;
+    else if(scope==='facilitiesSubView') facilitiesSubView=value;
     else return;
     if(nav) mobileNavActive=nav;
     renderByName(renderer);
@@ -1924,12 +1926,18 @@ function renderSystemAdmin(){
     });
     return;
   }
+  if(adminView==='locations'){
+    adminShell(locationsAdminView());
+    if(facilitiesSubView==='heatmap') loadFacilitiesHeatmap();
+    else if(facilitiesSubView==='hierarchy') loadFacilitiesHierarchy();
+    else if(facilitiesSubView==='spaces') loadFacilitiesSpaces();
+    return;
+  }
   const fn = {
     dashboard: adminDashboard,
     modules: adminModules,
     users: users,
     roles: adminRoles,
-    locations: locations,
     assets: adminAssets,
     maps: adminMaps,
     reports: operationsOverview,
@@ -2037,10 +2045,16 @@ function renderFacilityConsole(){
     window.MRFQFacilities.load('#facilitiesPlatformHost',lang);
     return;
   }
+  if(adminView==='locations'){
+    fmShell(locationsAdminView());
+    if(facilitiesSubView==='heatmap') loadFacilitiesHeatmap();
+    else if(facilitiesSubView==='hierarchy') loadFacilitiesHierarchy();
+    else if(facilitiesSubView==='spaces') loadFacilitiesSpaces();
+    return;
+  }
   const fn = {
     dashboard: adminDashboard,
     modules: adminModules,
-    locations: locations,
     reports: operationsOverview,
     assets: adminAssets,
     maps: adminMaps,
@@ -3668,6 +3682,240 @@ ${showLocCreate?`
     </div>`;
   }).join('')}
 </div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LOCATIONS — TABBED ADMIN VIEW (Phase 2)
+   ═══════════════════════════════════════════════════════════════ */
+function _facTabBar(){
+  const tabs=[
+    {id:'locations',label:lang==='ar'?'المواقع التشغيلية':'Operational'},
+    {id:'zones',    label:lang==='ar'?'المناطق':'Zones'},
+    {id:'heatmap',  label:lang==='ar'?'الخريطة الحرارية':'Heatmap'},
+    {id:'hierarchy',label:lang==='ar'?'التسلسل الهرمي':'Hierarchy'},
+    {id:'spaces',   label:lang==='ar'?'المساحات':'Spaces'},
+  ];
+  return`<div class="filterBar u-mb-16"><div class="filterChips">${
+    tabs.map(t=>`<button class="filterChip${facilitiesSubView===t.id?' active':''}" ${uiAction('runUiFlow',['navigate','facilitiesSubView',t.id,null,'render'])}>${t.label}</button>`).join('')
+  }</div></div>`;
+}
+
+function locationsAdminView(){
+  const isOp=facilitiesSubView==='locations';
+  const header=`
+<div class="pageHeader">
+  <div class="pageHeader-left">
+    <div class="pageTitle">${tr('locations')}</div>
+    <div class="pageSub">${num((data.locations||[]).length)} ${lang==='ar'?'مرفق':'facilities'}</div>
+  </div>
+  ${isOp&&canManage()?`<div class="pageActions">
+    <button class="btn sm" ${uiAction('runUiFlow',['toggle-flag','showLocCreate','toggle'])}>${ic('plus',14)} ${lang==='ar'?'إضافة مرفق':'Add Facility'}</button>
+    <button class="btn secondary sm" ${uiAction('runUiFlow',['print'])}>${ic('qr',14)} ${tr('printQR')}</button>
+  </div>`:''}
+</div>`;
+  const tabs=_facTabBar();
+  if(facilitiesSubView==='zones')     return header+tabs+_zonesTabContent();
+  if(facilitiesSubView!=='locations') return header+tabs+`<div id="facSubViewHost" class="u-text-center-p-40">${ic('clock',28)}</div>`;
+  return header+tabs+_operationalTabContent();
+}
+
+function _operationalTabContent(){
+  return`${showLocCreate&&canManage()?`
+<div class="card u-mb-20">
+  <div class="card-head">
+    <span class="card-title">${ic('plus',16)} ${lang==='ar'?'إضافة مرفق':'Add Facility'}</span>
+    <button class="icon-btn" ${uiAction('runUiFlow',['toggle-flag','showLocCreate',false])} title="${tr('cancel')}">${ic('x',18)}</button>
+  </div>
+  <div class="formGrid-4">
+    ${fc('ID', inp('lid',{cls:'ltr', placeholder:'office-01-a'}))}
+    ${fc(tr('type'), sel('ltype', TYPES.map(t=>({v:t,l:tr(t)}))))}
+    ${fc(lang==='ar'?'الاسم العربي':'Arabic Name', inp('lar',{placeholder:'الاسم العربي'}))}
+    ${fc(lang==='ar'?'الاسم الإنجليزي':'English Name', inp('len',{cls:'ltr', placeholder:'English name'}))}
+    ${fc(tr('floor'), sel('lf', FACILITY_FLOORS.map(f=>({v:f,l:f}))))}
+    ${fc(tr('zone'), sel('lz', FACILITY_ZONES.map(z=>({v:z,l:z}))))}
+    ${fc(tr('priority'), sel('lpri',[{v:'high',l:tr('high')},{v:'medium',l:tr('medium'),sel:true},{v:'low',l:tr('low')}]))}
+    <div class="field align-self-end"><button class="btn wide" ${uiAction('addLoc',[])}>${ic('plus',16)} ${tr('save')}</button></div>
+  </div>
+</div>`:''}
+<div class="filterBar u-mb-16"><div class="filterChips">
+  ${['all',...[...new Set((data.locations||[]).map(l=>l.floor).filter(Boolean))].sort()].map(f=>
+    `<button class="filterChip${locsFloorFilter===f?' active':''}" ${uiAction('runUiFlow',['navigate','locsFloorFilter',f,null,'render'])}>
+      ${f==='all'?(lang==='ar'?'الكل':'All'):f}
+    </button>`
+  ).join('')}
+</div></div>
+<div class="locGrid">
+  ${(data.locations||[]).filter(l=>locsFloorFilter==='all'||(l.floor||'')===locsFloorFilter).map(l=>{
+    const last=data.reports.find(r=>r.locationId===l.id);
+    const late=!last||Date.now()-new Date(last.createdAt).getTime()>(data.settings.frequencyMinutes||120)*60000;
+    const locQrPayload=`${location.origin}${location.pathname}?loc=${encodeURIComponent(l.id)}`;
+    const qrUrl=`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(locQrPayload)}`;
+    return`<div class="locCard">
+      <div class="locCard-head">
+        <div><div class="locCard-name">${esc(locName(l))}</div><div class="locCard-id">${esc(l.id)}</div></div>
+        <span class="badge ${late?'bad':'ok'}">${late?tr('late'):tr('good')}</span>
+      </div>
+      <div class="u-flex-wrap-gap-6">
+        <span class="badge brand">${tr(l.type)}</span>
+        ${l.floor?`<span class="badge">${l.floor}</span>`:''}
+        ${l.zone?`<span class="badge">${l.zone}</span>`:''}
+        <span class="badge ${l.priority==='high'?'bad':l.priority==='low'?'info':'warn'}">${tr(l.priority||'medium')}</span>
+      </div>
+      <div class="text-muted-xs-flex">
+        ${ic(late?'bell':'check',12)}
+        ${lang==='ar'?'آخر تقرير':'Last report'}: <strong>${last?fmt(last.createdAt):tr('none')}</strong>
+        ${last?`· ${esc(last.workerName||'')}`:''}</div>
+      <div class="locCard-actions">
+        ${canManage()?`<button class="btn danger sm" ${uiAction('deleteLocConfirm',[(esc(l.id))])}>${ic('trash',13)} ${lang==='ar'?'حذف':'Delete'}</button>`:''}
+        <details class="u-flex-1">
+          <summary class="summary-link">${ic('qr',13)} ${lang==='ar'?'عرض QR':'Show QR'}</summary>
+          <div class="locCard-qr qr-actions">
+            <img width="120" height="120" src="${qrUrl}" alt="QR ${esc(l.id)}" loading="lazy">
+            <a class="btn secondary sm" href="${qrUrl}&format=png" download="QR-${esc(l.id)}.png">${ic('download',13)} ${lang==='ar'?'تحميل QR':'Download QR'}</a>
+          </div>
+        </details>
+      </div>
+    </div>`;
+  }).join('')}
+</div>`;
+}
+
+function _zonesTabContent(){
+  return`<div class="card locationsZonesCard">
+  <div class="card-head">
+    <span class="card-title">${ic('locations',16)} ${lang==='ar'?'إدارة المناطق':'Zones'}</span>
+    ${canManage()?`<button class="btn secondary sm" ${uiAction('runUiFlow',['toggle-flag','showZoneCreate','toggle'])}>${ic('plus',13)} ${lang==='ar'?'منطقة':'Zone'}</button>`:''}
+  </div>
+  <div class="zone-chips">
+    ${(data.zones||[]).map(z=>`<span class="zone-chip">${esc(z)}<button class="zone-del" ${uiAction('deleteZone',[(esc(z))])} title="${lang==='ar'?'حذف':'Delete'}">×</button></span>`).join('')}
+    ${showZoneCreate?`
+    <div class="zone-add">
+      ${inp('new-zone',{placeholder:lang==='ar'?'منطقة جديدة':'New zone'})}
+      <button class="btn sm" ${uiAction('addZone',[])}>${ic('plus',14)} ${lang==='ar'?'إضافة':'Add'}</button>
+    </div>`:''}
+  </div>
+</div>`;
+}
+
+async function loadFacilitiesHeatmap(){
+  const host=document.getElementById('facSubViewHost');
+  try{
+    const d=await api('/facilities/heatmap');
+    const locs=d.locations||[];
+    const sum=d.summary||{};
+    const levelLabel={normal:lang==='ar'?'طبيعي':'Normal',watch:lang==='ar'?'مراقبة':'Watch',hot:lang==='ar'?'نشط':'Hot',critical:lang==='ar'?'حرج':'Critical'};
+    const levelBadge={normal:'ok',watch:'warn',hot:'bad',critical:'bad'};
+    const html=`
+<div class="heatSummaryRow">
+  ${Object.entries(sum).map(([k,v])=>`<div class="heatSumCard"><span class="badge ${levelBadge[k]||''}">${levelLabel[k]||k}</span><span class="heatSumNum">${v}</span></div>`).join('')}
+</div>
+<div class="heatmapGrid">
+  ${locs.length?locs.map(loc=>{
+    const name=lang==='ar'?(loc.name_ar||loc.name_en||loc.space_id):(loc.name_en||loc.name_ar||loc.space_id);
+    const pct=Math.min(100,Math.round(loc.heat_score||0));
+    return`<div class="heatCell heatCell--${esc(loc.level||'normal')}">
+      <div class="heatCell-name">${esc(name)}</div>
+      <div class="u-flex-wrap-gap-6">
+        <span class="badge ${levelBadge[loc.level]||''}">${levelLabel[loc.level]||loc.level}</span>
+        <span class="heatCell-score">${pct}%</span>
+      </div>
+      ${loc.floor?`<div class="heatCell-meta text-muted-xs-flex">${ic('map-pin',11)} ${esc(loc.floor)}</div>`:''}
+    </div>`;
+  }).join(''):`<div class="u-text-center-p-40 text-muted">${lang==='ar'?'لا توجد بيانات':'No data'}</div>`}
+</div>`;
+    if(host) host.innerHTML=html;
+  }catch(e){
+    if(host) host.innerHTML=`<div class="errorBanner">${lang==='ar'?'تعذّر تحميل الخريطة الحرارية':'Failed to load heatmap'}</div>`;
+  }
+}
+
+async function loadFacilitiesHierarchy(){
+  const host=document.getElementById('facSubViewHost');
+  try{
+    const d=await api('/facilities');
+    const facs=d.facilities||[];
+    if(!facs.length){
+      if(host) host.innerHTML=`<div class="u-text-center-p-40 text-muted">${lang==='ar'?'لا توجد مرافق':'No facilities'}</div>`;
+      return;
+    }
+    let html=`<div class="hierarchyTree">`;
+    for(const fac of facs){
+      html+=`<div class="hierarchyNode hierarchyNode--facility">
+        <div class="hierarchyNode-label">${ic('building',16)} <strong>${esc(lang==='ar'?fac.name_ar:fac.name_en)}</strong>
+          <span class="badge">${fac.building_count||0} ${lang==='ar'?'مبنى':'bldg'}</span>
+          <span class="badge info">${fac.space_count||0} ${lang==='ar'?'مساحة':'spaces'}</span>
+        </div>`;
+      const bd=await api(`/facilities/${encodeURIComponent(fac.id)}/buildings`);
+      for(const bld of (bd.buildings||[])){
+        html+=`<div class="hierarchyNode hierarchyNode--building">
+          <div class="hierarchyNode-label">${ic('layers',14)} ${esc(lang==='ar'?bld.name_ar:bld.name_en)}</div>`;
+        const fd=await api(`/buildings/${encodeURIComponent(bld.id)}/floors`);
+        for(const fl of (fd.floors||[])){
+          html+=`<div class="hierarchyNode hierarchyNode--floor">
+            <div class="hierarchyNode-label">${ic('map-pin',13)} ${esc(lang==='ar'?fl.name_ar:fl.name_en)}</div>`;
+          const zd=await api(`/floors/${encodeURIComponent(fl.id)}/zones`);
+          for(const z of (zd.zones||[])){
+            html+=`<div class="hierarchyNode hierarchyNode--zone">
+              <div class="hierarchyNode-label">${ic('locations',12)} ${esc(lang==='ar'?z.name_ar:z.name_en)}</div>`;
+            const sd=await api(`/zones/${encodeURIComponent(z.id)}/spaces`);
+            for(const sp of (sd.spaces||[])){
+              html+=`<div class="hierarchyNode hierarchyNode--space"><span class="badge brand">${esc(lang==='ar'?sp.name_ar:sp.name_en)}</span>${sp.space_type?` <span class="badge">${esc(sp.space_type)}</span>`:''}</div>`;
+            }
+            html+=`</div>`;
+          }
+          html+=`</div>`;
+        }
+        html+=`</div>`;
+      }
+      html+=`</div>`;
+    }
+    html+=`</div>`;
+    if(host) host.innerHTML=html;
+  }catch(e){
+    if(host) host.innerHTML=`<div class="errorBanner">${lang==='ar'?'تعذّر تحميل الهيكل الهرمي':'Failed to load hierarchy'}</div>`;
+  }
+}
+
+async function loadFacilitiesSpaces(){
+  const host=document.getElementById('facSubViewHost');
+  try{
+    const d=await api('/facilities');
+    const facs=d.facilities||[];
+    const spaceItems=[];
+    for(const fac of facs){
+      const bd=await api(`/facilities/${encodeURIComponent(fac.id)}/buildings`);
+      for(const bld of (bd.buildings||[])){
+        const fd=await api(`/buildings/${encodeURIComponent(bld.id)}/floors`);
+        for(const fl of (fd.floors||[])){
+          const zd=await api(`/floors/${encodeURIComponent(fl.id)}/zones`);
+          for(const z of (zd.zones||[])){
+            const sd=await api(`/zones/${encodeURIComponent(z.id)}/spaces`);
+            (sd.spaces||[]).forEach(sp=>spaceItems.push({...sp,
+              facName:lang==='ar'?fac.name_ar:fac.name_en,
+              bldName:lang==='ar'?bld.name_ar:bld.name_en,
+              floorName:lang==='ar'?fl.name_ar:fl.name_en,
+              zoneName:lang==='ar'?z.name_ar:z.name_en
+            }));
+          }
+        }
+      }
+    }
+    const html=spaceItems.length?`<div class="spaceGrid">${spaceItems.map(sp=>`
+  <div class="spaceCard">
+    <div class="spaceCard-name">${esc(lang==='ar'?sp.name_ar:sp.name_en)}</div>
+    <div class="u-flex-wrap-gap-6">
+      ${sp.space_type?`<span class="badge brand">${esc(sp.space_type)}</span>`:''}
+      <span class="badge">${esc(sp.facName)}</span>
+      <span class="badge">${esc(sp.floorName)}</span>
+      <span class="badge">${esc(sp.zoneName)}</span>
+    </div>
+    ${sp.legacy_location_id?`<div class="text-muted-xs-flex">${ic('locations',11)} ${esc(sp.legacy_location_id)}</div>`:''}
+  </div>`).join('')}</div>`
+    :`<div class="u-text-center-p-40 text-muted">${lang==='ar'?'لا توجد مساحات':'No spaces'}</div>`;
+    if(host) host.innerHTML=html;
+  }catch(e){
+    if(host) host.innerHTML=`<div class="errorBanner">${lang==='ar'?'تعذّر تحميل المساحات':'Failed to load spaces'}</div>`;
+  }
 }
 
 async function addLoc(){
