@@ -1,0 +1,16 @@
+@font-face{font-family:IBMPlexArabic;src:url('/assets/fonts/IBMPlexSansArabic-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
+@font-face{font-family:IBMPlexArabic;src:url('/assets/fonts/IBMPlexSansArabic-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:IBMPlexArabic,Tahoma,Arial,sans-serif;padding:24px;color:#123238}
+.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #005257}
+.brand{font-family:IBMPlexArabic,Tahoma,Arial,sans-serif;color:#005257;font-size:20px;font-weight:800}
+.meta{font-size:11px;color:#6f787f;margin-top:4px}
+table{width:100%;border-collapse:collapse;font-size:12px;margin-top:16px}
+th{background:#005257;color:#fff;padding:9px 10px;text-align:left;font-weight:700}
+[dir=rtl] th{text-align:right}
+td{padding:8px 10px;border-bottom:1px solid #e1e9e6;vertical-align:top}
+tr:nth-child(even) td{background:#f8faf9}
+.ok{color:#00a488;font-weight:700}.bad{color:#de7559;font-weight:700}.warn{color:#e69e33;font-weight:700}
+.footer{margin-top:16px;font-size:10px;color:#8a989c;text-align:center}
+.text-gray-8a{color:#8a989c}.no-wrap{white-space:nowrap}.note-row{font-size:11px;color:#6f787f;padding-top:2px}
+@media print{body{padding:12px}@page{margin:15mm}}

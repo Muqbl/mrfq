@@ -4,6 +4,9 @@ const fs     = require('fs');
 const path   = require('path');
 const crypto = require('crypto');
 const { getDb } = require('./db');
+const { isTrustedMutation } = require('./server/middleware/security');
+const permissions = require('./server/middleware/permissions');
+const { handlePlatformRoutes } = require('./server/routes/platform.routes');
 
 /* ═══════════════════════════════════════════════════════════════
    CONFIG  (all from environment — no secrets in code)
@@ -91,18 +94,26 @@ function setSecurityHeaders(res) {
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(self), microphone=(), geolocation=()');
-  res.setHeader('Content-Security-Policy', [
+  const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",   // required for current single-file architecture
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "script-src 'self'",
+    "script-src-elem 'self'",
+    "script-src-attr 'none'",
+    "style-src 'self'",
+    "style-src-elem 'self'",
+    "style-src-attr 'none'",
+    "object-src 'none'",
     "img-src 'self' data: blob: https://api.qrserver.com",
-    "font-src 'self' https://fonts.gstatic.com",
+    "font-src 'self'",
     "connect-src 'self'",
     "media-src 'self' blob:",
     "worker-src 'self' blob:",
+    "form-action 'self'",
     "frame-ancestors 'none'",
     "base-uri 'self'"
-  ].join('; '));
+  ];
+  if (IS_HTTPS) csp.push('upgrade-insecure-requests');
+  res.setHeader('Content-Security-Policy', csp.join('; '));
   if (IS_HTTPS) {
     res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
   }
@@ -417,8 +428,11 @@ const mapLocation = l => l ? {
   space:      l.space || ''
 } : null;
 
-function canManageUsers(role) { return ['system_admin','cleaning_manager','maintenance_manager'].includes(role); }
-function canManageSystem(role){ return ['system_admin','facility_manager','cleaning_manager'].includes(role); }
+function canManageGlobalUsers(role) { return permissions.canManageGlobalUsers(role); }
+function canManageModuleTeam(role) { return permissions.canManageModuleTeam(role); }
+function canManageUsers(role) { return canManageGlobalUsers(role) || canManageModuleTeam(role); }
+function canManageSystem(role){ return permissions.canManageSystemSettings(role); }
+function canManageFacilities(role){ return permissions.canManageFacilities(role); }
 function canCreateTickets(role){ return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(role); }
 function canReview(role)       { return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(role); }
 function canDelete(role)       { return ['system_admin','facility_manager','cleaning_manager'].includes(role); }
@@ -1398,6 +1412,9 @@ const server = http.createServer(async (req, res) => {
       const me = sessionGetUser(req);
       if (!me) return send(res, 401, { error: 'UNAUTHORIZED' });
       const db = getDb();
+      if (!isTrustedMutation(req)) return send(res, 403, { error: 'CSRF_REJECTED' });
+
+      if (await handlePlatformRoutes({ req, res, url, me, db, send, bodyJSON })) return;
 
       /* ── BOOTSTRAP ──────────────────────────────────────────── */
       if (req.method === 'GET' && url.pathname === '/api/bootstrap') {
@@ -1527,7 +1544,7 @@ const server = http.createServer(async (req, res) => {
 
       /* ── LOCATIONS: CREATE ──────────────────────────────────── */
       if (req.method === 'POST' && url.pathname === '/api/locations') {
-        if (!canManageSystem(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        if (!canManageFacilities(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const b     = await bodyJSON(req);
         const locId = sanitize(b.id || ('loc-' + crypto.randomBytes(4).toString('hex')), 80)
                         .replace(/[^a-zA-Z0-9\-_]/g, '');
@@ -1549,7 +1566,7 @@ const server = http.createServer(async (req, res) => {
 
       /* ── LOCATIONS: UPDATE ──────────────────────────────────── */
       if (req.method === 'PUT' && url.pathname.startsWith('/api/locations/')) {
-        if (!canManageSystem(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        if (!canManageFacilities(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const id  = sanitize(url.pathname.split('/').pop(), 80);
         const b   = await bodyJSON(req);
         const loc = db.prepare('SELECT * FROM locations WHERE id = ? AND deleted_at IS NULL').get(id);
@@ -1570,7 +1587,7 @@ const server = http.createServer(async (req, res) => {
 
       /* ── LOCATIONS: DELETE (soft) ───────────────────────────── */
       if (req.method === 'DELETE' && url.pathname.startsWith('/api/locations/')) {
-        if (!canManageSystem(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        if (!canManageFacilities(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const id = decodeURIComponent(url.pathname.split('/').pop());
         db.prepare('UPDATE locations SET deleted_at = ?, updated_at = ? WHERE id = ?').run(now(), now(), id);
         db.prepare('DELETE FROM assignments WHERE location_id = ?').run(id);
@@ -1579,7 +1596,7 @@ const server = http.createServer(async (req, res) => {
 
       /* ── ZONES ──────────────────────────────────────────────── */
       if (req.method === 'POST' && url.pathname === '/api/zones') {
-        if (!canManageSystem(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        if (!canManageFacilities(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const b = await bodyJSON(req);
         const z = sanitize(b.zone, 20);
         if (!z) return send(res, 400, { error: 'EMPTY' });
@@ -1587,7 +1604,7 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { zones: dbZones() });
       }
       if (req.method === 'DELETE' && url.pathname.startsWith('/api/zones/')) {
-        if (!canManageSystem(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        if (!canManageFacilities(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const z = decodeURIComponent(url.pathname.split('/').pop());
         db.prepare('DELETE FROM zones WHERE name = ?').run(z);
         return send(res, 200, { zones: dbZones() });
@@ -1595,9 +1612,12 @@ const server = http.createServer(async (req, res) => {
 
       /* ── ASSIGNMENTS ────────────────────────────────────────── */
       if (req.method === 'POST' && url.pathname === '/api/assignments') {
-        if (!canManageSystem(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        if (!canManageGlobalUsers(me.role) && !canManageModuleTeam(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const b          = await bodyJSON(req);
         const workerId   = sanitize(b.workerId, 50);
+        const worker = db.prepare('SELECT role FROM users WHERE id=? AND deleted_at IS NULL').get(workerId);
+        if (!worker) return send(res, 404, { error: 'USER_NOT_FOUND' });
+        if (!canManageGlobalUsers(me.role) && !allowedRoleEditor(me.role, worker.role)) return send(res, 403, { error: 'ROLE_NOT_ALLOWED' });
         const locationIds = Array.isArray(b.locationIds)
           ? b.locationIds.map(l => sanitize(l, 80)).filter(Boolean) : [];
         db.transaction(() => {

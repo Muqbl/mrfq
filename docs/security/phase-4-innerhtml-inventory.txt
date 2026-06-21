@@ -1,0 +1,17 @@
+Phase 4 innerHTML inventory — 2026-06-21
+
+Command scope:
+grep -Rni --exclude-dir=node_modules --exclude-dir=.git "innerHTML" public server
+
+- First-party writes: 62.
+- Read/clear checks: 6.
+- public/app.js: 60 writes and 6 reads/clears.
+- public/js/platform/facilities.js: 2 writes.
+- server/: 0.
+- Change from Phase 3: no increase.
+
+The inventory remains grouped into static icon/button content, renderer-owned page
+and modal templates, photo/gallery components, activity timelines, loading/success
+states, and read/clear checks. The facilities error renderer continues to escape
+`error.message`. Phase 4 introduced no generated inline script/style element and
+no raw-message sink.

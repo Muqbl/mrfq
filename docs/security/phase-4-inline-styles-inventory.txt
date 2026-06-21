@@ -1,0 +1,21 @@
+Phase 4 inline style inventory — 2026-06-21
+
+Command scope:
+grep -Rni --exclude-dir=node_modules --exclude-dir=.git "style=" public server
+
+- Raw matching lines: 89.
+- First-party inline style attributes: 91.
+- Static attributes: 68.
+- Dynamic attributes: 23.
+- First-party CSSOM assignments (`element.style.* = ...`): 15.
+- Files affected: `public/app.js` only.
+
+Static styles cover typography, spacing, alignment, dimensions, overflow, and
+component presentation. Dynamic styles cover bounded status colors, progress/bar
+percentages, mobile navigation column counts, notification placement, camera
+feedback, and visibility toggles.
+
+Phase 4 treats both HTML style attributes and CSSOM assignments as part of the
+CSP closure boundary. Static values move to classes; bounded metrics move to
+quantized `metric-w-*`/`metric-h-*` classes; status and layout values move to
+enumerated semantic classes.

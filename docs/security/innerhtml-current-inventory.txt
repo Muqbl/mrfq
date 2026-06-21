@@ -1,0 +1,26 @@
+Phase 3 current innerHTML inventory — 2026-06-19
+
+Command scope:
+grep -Rni --exclude-dir=node_modules --exclude-dir=.git "innerHTML" public server
+
+First-party result:
+- Writes: 62
+- Read/clear checks: 6
+- Files: public/app.js, public/js/platform/facilities.js
+- Server-side occurrences: 0
+
+Grouped locations in public/app.js:
+- Static icon/button content: 795, 1038-1039, 1391, 4273, 4519, 4552,
+  4823, 4846, 4865, 4959, 4982, 6108, 6141, 6480.
+- Read/clear checks: 934, 937, 953, 962, 4133-4134, 6049-6050.
+- Page/shell/modal renderers with reviewed leaf escaping: 1147, 1423, 1450,
+  1488, 1519, 1553, 1781, 1789, 1810, 1920, 2802, 2938, 3145, 3149,
+  3417, 3470, 3970, 4102, 4114, 4177, 4314, 4351, 4359, 4408, 4539,
+  4578, 4851, 4970, 5027, 5155-5156, 5398, 5427, 5459, 5481, 5490,
+  5860, 6066, 6131, 6347, 6471, 6968, 7090.
+- Facilities renderer: public/js/platform/facilities.js lines 12 and 19; all API/error
+  strings pass through its local esc helper.
+
+Comparison with Phase 2: unchanged at 62 writes and 6 read/clear checks. The event
+and style migration added no innerHTML sink. `npm run test:security` reports no raw
+message sink, forbids eval/Function, and requires escaped delegated-action arguments.

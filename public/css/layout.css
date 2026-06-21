@@ -1,0 +1,4 @@
+.facilityPlatformGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-block:16px}
+.facilityPlatformCard{background:var(--surface,#fff);border:1px solid var(--line,#dfe7e5);border-radius:14px;padding:16px}
+.facilityPlatformCard small{display:block;color:var(--muted,#64736f);margin-top:6px}
+

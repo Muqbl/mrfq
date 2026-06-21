@@ -623,7 +623,226 @@ function maintenanceStatusLabel(status){
 }
 function ticketStatusLabel(ticket){return ticket?.module==='maintenance'?maintenanceStatusLabel(ticket.status):tr(ticket?.status)||ticket?.status}
 function reportStatusLabel(report){return report?.module==='maintenance'?maintenanceStatusLabel(report.approvalStatus||'pending'):tr(report?.approvalStatus||'pending')}
-const esc = s => String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+function escapeHtml(value){
+  return String(value??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+}
+const esc = escapeHtml;
+function metricClass(axis,value){
+  const amount=Math.max(0,Math.min(100,Math.round(Number(value)||0)));
+  return `${axis==='h'?'metric-h':'metric-w'}-${amount}`;
+}
+const UI_ACTION_NAMES = new Set([
+  'adminNavigateTo','showOperationsWorkerProfile','openCamera','navigateTo','enterModule',
+  'openReportDetail','reviewReport','openComments','openQRScanner','hospSupervisorDecision',
+  'maintCompleteTicket','maintVerifyTicket','maintReviewReport','maintUpdateTicket',
+  'flushOfflineQueue','switchLang','logout','showUserFormModal','workerStartLocation',
+  'empHospCartAdd','openTicketDetail','showMaintenanceOrderForm','showMaintenanceUsePart',
+  'showMenuItemFormModal','showCategoryFormModal','showKitchenFormModal','supVerify',
+  'supReviewPrompt','renderWorkspaceSwitcher','togglePwd','login','submitForcePassword',
+  'exitModule','showMobileNavMore','showAdminNavMore','showFmNavMore',
+  'setEmployeeRequestChannel','saveSlaSettings','load','exportExcelReports',
+  'exportPDFReports','submitRating','deleteReport','createTicket','editTicketModal',
+  'deleteTicketConfirm','saveEditTicket','submitComment','deleteComment',
+  'createRecurringTask','toggleRecurring','deleteRecurring','deleteZone','addZone','addLoc',
+  'deleteLocConfirm','filterAssignFloor','saveAssign','showAddRoleModal',
+  'showPasswordResetModal','deleteUserConfirm','saveUser','hideUserFormModal',
+  'savePasswordReset','hidePasswordResetModal','startTicketWorker','startForm','closeCamera',
+  'toggleCameraFacing','capturePhoto','submitReport','closeQRScanner','renderWorker',
+  'submitEmployeeOrder','submitEmployeeHospOrder','updateHospitalityOrderStatus',
+  'showHospitalityActivity','toggleAssignRow','maintAcceptTicket','maintStartTicket',
+  'maintAssignTicket','maintOpenTicketCreate','showMaintenanceTeamForm',
+  'deleteMaintTicketConfirm','showMaintenanceScheduleForm','showMaintenanceScheduleTeamForm',
+  'runMaintenanceSchedule','deleteMaintenanceSchedule','showMaintenanceAssetForm',
+  'deleteMaintenanceAsset','showMaintenancePartForm','showMaintenancePartEditForm',
+  'deleteMaintenancePart','saveMaintenancePartEdit','startMaintenanceForm',
+  'maintWorkerStatus','showMaintenanceCloseForm','submitMaintenanceWorkerReport',
+  'maintWorkerGoBack','saveMaintenanceOrder','saveMaintenanceTeam','saveMaintenanceSchedule',
+  'saveMaintenanceScheduleTeam','saveMaintenanceAsset','saveMaintenancePart',
+  'saveMaintenanceUsePart','submitMaintenanceClose','addMaintTask','toggleMenuItemActive',
+  'removeMenuItemImage','saveMenuItem','toggleCategoryStatus','saveCategoryForm',
+  'toggleKitchenActive','saveKitchen','exportPerformancePDF','supReview','switchWorkspace',
+  'runUiFlow','openGallery'
+]);
+function uiAction(name,args=[]){
+  if(!UI_ACTION_NAMES.has(name)) throw new Error(`Unsupported UI action: ${name}`);
+  return `data-ui-action="${name}" data-ui-args="${esc(JSON.stringify(args))}"`;
+}
+document.addEventListener('click',event=>{
+  const target=event.target.closest('[data-ui-action]');
+  if(!target || target.disabled) return;
+  const name=target.dataset.uiAction;
+  if(!UI_ACTION_NAMES.has(name)) return;
+  const handler=window[name];
+  if(typeof handler!=='function') return;
+  let args=[];
+  try{args=JSON.parse(target.dataset.uiArgs||'[]')}catch(_error){return}
+  if(name==='runUiFlow') args.push(event,target);
+  Reflect.apply(handler,window,args);
+});
+const UI_RENDERER_NAMES = new Set([
+  'render','renderWorker','renderMaintenanceWorker','renderEmployee','renderSupervisor',
+  'renderMaintenanceSupervisor','renderHospitalitySupervisor','renderHospitalityManager',
+  'renderAdminHospitality','renderMaintenanceManager','renderAdminMaintenance'
+]);
+function runUiFlow(flow,...values){
+  const target=values.pop();
+  const event=values.pop();
+  const renderByName=name=>{
+    if(!UI_RENDERER_NAMES.has(name) || typeof window[name]!=='function') return;
+    window[name]();
+  };
+  const navigate=(scope,value,nav,renderer)=>{
+    if(scope==='view') view=value;
+    else if(scope==='adminView') adminView=value;
+    else if(scope==='supervisorView') supervisorView=value;
+    else if(scope==='workerView') workerView=value;
+    else if(scope==='maintWorkerView') maintWorkerView=value;
+    else if(scope==='employeeView') employeeView=value;
+    else if(scope==='hospSupervisorView') hospSupervisorView=value;
+    else if(scope==='hospManagerView') hospManagerView=value;
+    else if(scope==='maintView') maintView=value;
+    else if(scope==='reportFilter') reportFilter=value;
+    else if(scope==='locsFloorFilter') locsFloorFilter=value;
+    else if(scope==='employeeHistoryFilter') employeeHistoryFilter=value;
+    else if(scope==='empHospCatFilter') empHospCatFilter=value;
+    else return;
+    if(nav) mobileNavActive=nav;
+    renderByName(renderer);
+  };
+  if(flow==='stop-propagation'){event.stopPropagation();return}
+  if(flow==='close-element'){document.getElementById(String(values[0]||''))?.remove();return}
+  if(flow==='toggle-notifications'){toggleNotif(event);return}
+  if(flow==='app-back'){appBack();return}
+  if(flow==='exit-module'){exitModule();return}
+  if(flow==='navigate'){navigate(...values);return}
+  if(flow==='navigate-main'){mobileNavActive=String(values[0]);navigateTo(String(values[0]));return}
+  if(flow==='close-mobile-navigate'){document.getElementById('mobileNavModal')?.remove();navigateTo(String(values[0]));return}
+  if(flow==='close-mobile-admin'){document.getElementById('mobileNavModal')?.remove();adminNavigateTo(String(values[0]));return}
+  if(flow==='close-mobile-flow'){document.getElementById('mobileNavModal')?.remove();navigate(...values);return}
+  if(flow==='print'){window.print();return}
+  if(flow==='close-print'){window.opener?.focus();window.close();return}
+  if(flow==='remove-parent'){target.parentElement?.remove();return}
+  if(flow==='gallery-move'){event.stopPropagation();galleryMove(target,Number(values[0]));return}
+  if(flow==='toggle-flag'){
+    const flag=String(values[0]);
+    if(flag==='showTicketCreate') showTicketCreate=values[1]==='toggle'?!showTicketCreate:Boolean(values[1]);
+    else if(flag==='showRecurringCreate') showRecurringCreate=values[1]==='toggle'?!showRecurringCreate:Boolean(values[1]);
+    else if(flag==='showLocCreate') showLocCreate=values[1]==='toggle'?!showLocCreate:Boolean(values[1]);
+    else if(flag==='showZoneCreate') showZoneCreate=values[1]==='toggle'?!showZoneCreate:Boolean(values[1]);
+    render();return;
+  }
+  if(flow==='camera-done'){closeCamera();doneCamera();return}
+  if(flow==='employee-photo-delete'){currentPhotos.splice(Number(values[0]),1);renderEmpPhotoPrev();return}
+  if(flow==='photo-delete'){
+    const [collection,index,mode]=values;
+    const photos=collection==='before'?currentBeforePhotos:collection==='after'?currentAfterPhotos:currentPhotos;
+    photos.splice(Number(index),1);renderPhotoPreviews(String(mode));return;
+  }
+  if(flow==='employee-service'){
+    const service=String(values[0]||''); employeeServiceType=service; currentPhotos=[];
+    if(service==='hospitality'){empHospCart={};empHospCatFilter='';empHospLocId='';empHospMenuItems=null}
+    renderEmployee();return;
+  }
+  if(flow==='employee-home'){employeeServiceType='';employeeView='new';mobileNavActive='employee-new';renderEmployee();return}
+  if(flow==='employee-history-load'){employeeView='history';if(values[0])mobileNavActive='employee-history';load().then(renderEmployee);return}
+  if(flow==='employee-category'){
+    document.querySelectorAll('.empCatBtn').forEach(button=>button.classList.remove('active'));
+    target.classList.add('active');document.getElementById('empCatVal').value=String(values[0]);return;
+  }
+  if(flow==='employee-camera'){window._empPhotoMode=true;openCamera('general');return}
+  if(flow==='hospitality-reset'){
+    employeeServiceType=String(values[0]||'');empHospCart={};empHospCatFilter='';empHospLocId=String(values[1]||'');
+    if(values[2]) employeeView=String(values[2]);renderEmployee();return;
+  }
+  if(flow==='assign-selected'){
+    const [kind,id,selectId]=values;const selected=document.getElementById(String(selectId))?.value;
+    if(kind==='hospitality') hospAssignOrder(String(id),selected);
+    else if(kind==='supervisor') supAssign(String(id),selected);
+    return;
+  }
+  if(flow==='maintenance-close-reset'){document.getElementById(String(values[0]))?.remove();currentBeforePhotos=[];currentAfterPhotos=[];return}
+  if(flow==='maintenance-rating'){event.stopPropagation();setMaintRating(String(values[0]),String(values[1]),Number(values[2]));return}
+  if(flow==='workspace-confirm'){workspaceSelected=true;sessionStorage.setItem('wsSelected','1');render();return}
+  if(flow==='workspace-switch'){document.getElementById('wsModal')?.remove();switchWorkspace(String(values[0]));return}
+  if(flow==='role-toggle'){
+    const [active,isLast,userId,role]=values;
+    if(active){if(!isLast) removeUserRole(String(userId),String(role))}else addUserRole(String(userId),String(role));
+    return;
+  }
+  if(flow==='close-notifications-reports'){goView('reports');document.getElementById('notifPanel')?.remove();return}
+  if(flow==='notification-route'){
+    const route=String(values[0]);
+    if(route==='reports') view='reports';
+    else if(route==='pending-reports'){view='reports';reportFilter='pending'}
+    else if(route==='tickets') view='tickets';
+    else if(route==='hospitality'){adminModuleContext='hospitality';hospManagerView='orders'}
+    else if(route==='maintenance-parts'){adminModuleContext='maintenance';maintView='parts'}
+    else if(route==='maintenance-assets'){adminModuleContext='maintenance';maintView='assets'}
+    render();document.getElementById('notifPanel')?.remove();return;
+  }
+}
+document.addEventListener('input',event=>{
+  const action=event.target.dataset.uiInput;
+  if(action==='check-password-strength') checkPwdStrength();
+  if(action==='filter-users'){
+    usersSearch=event.target.value;
+    render();
+  }
+  if(action==='employee-location'){
+    const id=parseLoc(event.target.value);
+    const location=(data?.locations||[]).find(item=>item.id===id);
+    const label=document.getElementById('empLocName');
+    if(label) label.textContent=location?(lang==='ar'?location.nameAr:location.nameEn):'';
+  }
+  if(action==='hospitality-location'){
+    empHospLocId=parseLoc(event.target.value);
+    const location=(data?.locations||[]).find(item=>item.id===empHospLocId);
+    const label=document.getElementById('empHospLocName');
+    if(label) label.textContent=location?(lang==='ar'?location.nameAr:location.nameEn):'';
+    if(empHospLocId) localStorage.setItem('mrfq_hosp_loc',empHospLocId);
+  }
+});
+document.addEventListener('keydown',event=>{
+  if(event.target.dataset.uiKeydown==='submit-comment' && event.key==='Enter' && !event.shiftKey){
+    event.preventDefault();
+    submitComment();
+  }
+});
+document.addEventListener('change',event=>{
+  const action=event.target.dataset.uiChange;
+  if(action==='fill-assignment') fillAssign();
+  if(action==='filter-user-role'){
+    usersRoleFilter=event.target.value;
+    render();
+  }
+  if(action==='filter-user-status'){
+    usersStatusFilter=event.target.value;
+    render();
+  }
+  if(action==='filter-hospitality-status'){
+    hospReportStatusFilter=event.target.value;
+    renderHospitalityManager();
+  }
+  if(action==='filter-hospitality-location'){
+    hospReportLocationFilter=event.target.value;
+    renderHospitalityManager();
+  }
+  if(action==='operations-days'){
+    operationsDays=Number(event.target.value);
+    render();
+  }
+  if(action==='toggle-task') event.target.closest('.taskItem')?.classList.toggle('checked',event.target.checked);
+  if(action==='menu-item-image') onMenuItemImageSelected(event);
+});
+document.addEventListener('error',event=>{
+  const target=event.target;
+  if(!(target instanceof HTMLImageElement)) return;
+  if(target.dataset.uiError==='hide') target.classList.add('is-hidden');
+  if(target.dataset.uiError==='logo-fallback' && !target.dataset.fallbackApplied){
+    target.dataset.fallbackApplied='true';
+    target.src='/assets/logos/mrfq-logo-icon-light-v4.svg';
+  }
+},true);
 function fmt(d){
   if(!d) return '—';
   const dt=new Date(d), pad=n=>String(n).padStart(2,'0');
@@ -701,30 +920,20 @@ function setQ(q){localStorage.setItem(offlineKey,JSON.stringify(q))}
 
 /* ─── API ────────────────────────────────────────────────────── */
 async function api(path,opt={}){
-  const cleanPath = String(path||'').replace(/^\/?api\/?/, '/');
-  const r = await fetch('/api'+cleanPath,{
-    ...opt,
-    credentials:'include',
-    headers:{
-      'Content-Type':'application/json',
-      'X-Requested-With':'XMLHttpRequest',
-      ...(opt.headers||{})
-    }
-  });
-  const txt = await r.text();
-  let j = {};
-  try{j = txt?JSON.parse(txt):{}}catch(e){}
-  if(!r.ok) throw new Error(j.error||'ERROR');
-  return j;
+  return window.MRFQApi.request(path,opt);
 }
 
 /* ─── TOAST ──────────────────────────────────────────────────── */
 function toast(msg,type=''){
   const el = document.createElement('div');
   el.className = `toast ${type}`;
-  el.innerHTML = `<span>${ic(type==='ok'?'check':type==='bad'?'x':'bell',16)}</span><span>${msg}</span>`;
+  const icon = document.createElement('span');
+  icon.innerHTML = ic(type==='ok'?'check':type==='bad'?'x':'bell',16);
+  const text = document.createElement('span');
+  text.textContent = String(msg??'');
+  el.append(icon,text);
   document.body.appendChild(el);
-  setTimeout(()=>{el.style.opacity='0';el.style.transform='translateY(12px)';setTimeout(()=>el.remove(),300)},2600);
+  setTimeout(()=>{el.classList.add('toast--leaving');setTimeout(()=>el.remove(),300)},2600);
 }
 
 /* ─── IMAGE COMPRESSION ──────────────────────────────────────── */
@@ -971,8 +1180,8 @@ function isMaintenanceRole(role=me?.role){return String(role||'').startsWith('ma
 function maintenanceTicketApi(suffix=''){return `${isMaintenanceRole()?'/maintenance-tickets':'/tickets'}${suffix}`}
 function maintenanceReportApi(suffix=''){return `${isMaintenanceRole()?'/maintenance-reports':'/reports'}${suffix}`}
 function operationalWorkerRole(){return isMaintenanceRole()?'maintenance_worker':'cleaner'}
-function canUsers(){return ['system_admin','cleaning_manager','maintenance_manager'].includes(me.role)}
-function canManageUsers(){return ['system_admin','cleaning_manager','maintenance_manager'].includes(me.role)}
+function canUsers(){return canManageGlobalUsers()||canManageModuleTeam()}
+function canManageUsers(){return canManageGlobalUsers()||canManageModuleTeam()}
 function canManage(){return ['system_admin','facility_manager','cleaning_manager','maintenance_manager'].includes(me.role)}
 function canTicket(){return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','maintenance_manager','maintenance_supervisor'].includes(me.role)}
 function canReview(){return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','maintenance_manager','maintenance_supervisor'].includes(me.role)}
@@ -980,6 +1189,10 @@ function canAccessPlatformConsole(){return ['system_admin','facility_manager'].i
 function canAccessGlobalSettings(){return me.role==='system_admin'}
 function canAccessRolesPermissions(){return me.role==='system_admin'}
 function canManageGlobalUsers(){return me.role==='system_admin'}
+function canManageModuleTeam(){return window.MRFQPermissions.canManageModuleTeam(me.role)}
+function canViewExecutiveReports(){return window.MRFQPermissions.canViewExecutiveReports(me.role)}
+function canManageSystemSettings(){return window.MRFQPermissions.canManageSystemSettings(me.role)}
+function canManageFacilities(){return window.MRFQPermissions.canManageFacilities(me.role)}
 function canViewCleaningTeam(){return me.role==='cleaning_manager'}
 function canManageHospitalityMenu(){return ['system_admin','hospitality_manager'].includes(me.role)}
 function canHospitalityAssign(){return ['system_admin','facility_manager','hospitality_manager','hospitality_supervisor'].includes(me.role)}
@@ -1000,14 +1213,11 @@ function activityFeed(limit=8){
   if(!items.length) return `<div class="empty-state"><div class="empty-icon">${ic('bell',22)}</div><div class="empty-title">${tr('noData')}</div></div>`;
   return `<div class="activityFeed">${items.map(it=>{
     const isReport = it.type==='report';
-    const dotBg = isReport
-      ? (it.st==='approved'?'var(--ok-bg)':it.st==='rejected'||it.st==='needs_recleaning'?'var(--bad-bg)':'var(--warn-bg)')
-      : (it.st==='completed'?'var(--ok-bg)':'var(--bad-bg)');
-    const dotClr = isReport
-      ? (it.st==='approved'?'var(--ok)':it.st==='rejected'||it.st==='needs_recleaning'?'var(--bad)':'var(--warn)')
-      : (it.st==='completed'?'var(--ok)':'var(--bad)');
+    const dotClass = isReport
+      ? (it.st==='approved'?'ok':it.st==='rejected'||it.st==='needs_recleaning'?'bad':'warn')
+      : (it.st==='completed'?'ok':'bad');
     return`<div class="activityItem">
-      <div class="activityDot" style="background:${dotBg};color:${dotClr}">${ic(isReport?'reports':'tickets',14)}</div>
+      <div class="activityDot activityDot--${dotClass}">${ic(isReport?'reports':'tickets',14)}</div>
       <div class="activityBody">
         <div class="activityTitle">${it.label}</div>
         <div class="activitySub">${it.sub}</div>
@@ -1034,15 +1244,15 @@ function inp(id, opts={}){
   const ph  = opts.placeholder?` placeholder="${esc(opts.placeholder)}"`:'' ;
   const ac  = opts.autocomplete?` autocomplete="${opts.autocomplete}"`:'' ;
   const ro  = opts.readonly?' readonly':'' ;
-  const ev  = opts.oninput?` oninput="${opts.oninput}"`:'' ;
-  const ev2 = opts.onchange?` onchange="${opts.onchange}"`:'' ;
+  const ev  = opts.inputAction?` data-ui-input="${esc(opts.inputAction)}"`:'' ;
+  const ev2 = opts.changeAction?` data-ui-change="${esc(opts.changeAction)}"`:'' ;
   return `<input id="${esc(id)}" type="${type}" class="${classes}"${val}${ph}${ac}${ro}${ev}${ev2}>`;
 }
 
 /* ── select ─────────────────────────────────────────────────── */
 function sel(id, items, opts={}){
   const classes=['ctrl', opts.cls||''].filter(Boolean).join(' ');
-  const ev = opts.onchange?` onchange="${opts.onchange}"`:'' ;
+  const ev = opts.changeAction?` data-ui-change="${esc(opts.changeAction)}"`:'' ;
   const options = items.map(it=>{
     const v = typeof it==='object'?it.v:it;
     const l = typeof it==='object'?it.l:it;
@@ -1071,7 +1281,7 @@ function showModal(id, title, bodyHtml, footerHtml, opts={}){
 <div class="modal-box${sizeClass?' '+sizeClass:''}">
   <div class="modal-header">
     <h3 class="modal-title">${title}</h3>
-    <button class="icon-btn" onclick="document.getElementById('${esc(id)}').remove()">${ic('x',18)}</button>
+    <button class="icon-btn" ${uiAction('runUiFlow',['close-element',id])}>${ic('x',18)}</button>
   </div>
   ${bodyHtml}
   ${footerHtml?`<div class="modal-footer">${footerHtml}</div>`:''}
@@ -1094,19 +1304,19 @@ function renderPlatformTopbar(me, opts={}){
   const alertCount=operationalAlertCount();
 
   const wsSwitcher = me.roles&&me.roles.length>1
-    ?`<button class="icon-btn tb-workspace" onclick="renderWorkspaceSwitcher()" title="${tr('switchWorkspace')}">${ic('layers',20)}</button>`:'';
+    ?`<button class="icon-btn tb-workspace" ${uiAction('renderWorkspaceSwitcher',[])} title="${tr('switchWorkspace')}">${ic('layers',20)}</button>`:'';
 
   const syncBtn = qSize>0
-    ?`<button class="tb-sync pending" onclick="flushOfflineQueue()" title="${tr('sync')}"><span class="tb-sync-dot pending"></span><span class="tb-sync-lbl">${qSize} ${lang==='ar'?'معلق':'pending'}</span></button>`
-    :`<button class="tb-sync" onclick="flushOfflineQueue()" title="${tr('sync')}"><span class="tb-sync-dot"></span><span class="tb-sync-lbl">${tr('sync')}</span></button>`;
+    ?`<button class="tb-sync pending" ${uiAction('flushOfflineQueue',[])} title="${tr('sync')}"><span class="tb-sync-dot pending"></span><span class="tb-sync-lbl">${qSize} ${lang==='ar'?'معلق':'pending'}</span></button>`
+    :`<button class="tb-sync" ${uiAction('flushOfflineQueue',[])} title="${tr('sync')}"><span class="tb-sync-dot"></span><span class="tb-sync-lbl">${tr('sync')}</span></button>`;
 
-  const notifBtn = `<button class="icon-btn tb-notif" id="tb-notif-btn" onclick="toggleNotif(event)" title="${lang==='ar'?'الإشعارات':'Notifications'}">${ic('bell',20)}${alertCount?`<span class="tb-notif-badge"></span>`:''}</button>`;
+  const notifBtn = `<button class="icon-btn tb-notif" id="tb-notif-btn" ${uiAction('runUiFlow',['toggle-notifications'])} title="${lang==='ar'?'الإشعارات':'Notifications'}">${ic('bell',20)}${alertCount?`<span class="tb-notif-badge"></span>`:''}</button>`;
 
   /* Unified brand — same platform name for all roles */
   const brandInner = `<span class="tb-brand-name">${lang==='ar'?'مِرفق':'MRFQ'}</span>`;
   const showBack = opts.back === true || (opts.back !== false && appHasBackTarget());
   const backBtn = showBack
-    ? `<button class="icon-btn tb-back" onclick="${opts.backAction||'appBack()'}" aria-label="${lang==='ar'?'رجوع':'Back'}" title="${lang==='ar'?'رجوع':'Back'}">${ic(lang==='ar'?'arrow':'arrow-left',20)}</button>`
+    ? `<button class="icon-btn tb-back" ${uiAction('runUiFlow',[opts.backFlow||'app-back'])} aria-label="${lang==='ar'?'رجوع':'Back'}" title="${lang==='ar'?'رجوع':'Back'}">${ic(lang==='ar'?'arrow':'arrow-left',20)}</button>`
     : '';
 
   return`
@@ -1115,7 +1325,7 @@ function renderPlatformTopbar(me, opts={}){
     <div class="topbar-start">
       ${backBtn}
       <div class="tb-brand">
-        <div class="tb-brand-icon"><img src="/assets/logos/mrfq-logo-icon-dark-v4.svg" onerror="this.style.display='none'" alt="MRFQ"></div>
+        <div class="tb-brand-icon"><img src="/assets/logos/mrfq-logo-icon-dark-v4.svg" data-ui-error="hide" alt="MRFQ"></div>
         ${brandInner}
       </div>
     </div>
@@ -1123,8 +1333,8 @@ function renderPlatformTopbar(me, opts={}){
       ${syncBtn}
       ${notifBtn}
       ${wsSwitcher}
-      <button class="icon-btn tb-lang" onclick="switchLang()" aria-label="${tr('lang')}" title="${tr('lang')}">${ic('language',20)}</button>
-      <button class="tb-logout icon-btn" onclick="logout()" title="${tr('logout')}">${ic('logout',18)}</button>
+      <button class="icon-btn tb-lang" ${uiAction('switchLang',[])} aria-label="${tr('lang')}" title="${tr('lang')}">${ic('language',20)}</button>
+      <button class="tb-logout icon-btn" ${uiAction('logout',[])} title="${tr('logout')}">${ic('logout',18)}</button>
     </div>
   </div>
 </header>`;
@@ -1133,8 +1343,9 @@ function renderPlatformTopbar(me, opts={}){
 /* ── field workspace shell — Worker / Employee / Supervisor ─── */
 function renderFieldTabs(){
   if(!me) return '';
-  const mk = (active, icon, label, action, count=0) => `
-    <button class="fieldTab${active?' active':''}" onclick="${action}">
+  const tabFlow=(scope,value,nav,renderer)=>uiAction('runUiFlow',['navigate',scope,value,nav,renderer]);
+  const mk = (active, icon, label, actionAttrs, count=0) => `
+    <button class="fieldTab${active?' active':''}" ${actionAttrs}>
       <span class="fieldTab-main">
         <span class="fieldTab-icon">${ic(icon,16)}</span>
         <span class="fieldTab-label">${label}</span>
@@ -1146,11 +1357,11 @@ function renderFieldTabs(){
     const pendingReports = (data?.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
     const workers = (data?.users||[]).filter(u=>(u.roles||[u.role]).includes(operationalWorkerRole())).length;
     return `<div class="fieldTabs" role="tablist">
-      ${mk(supervisorView==='dashboard','dashboard',tr('dashboard'),"supervisorView='dashboard';mobileNavActive='supervisor-dashboard';renderMaintenanceSupervisor()")}
-      ${mk(supervisorView==='requests','tickets',lang==='ar'?'أوامر العمل':'Work Orders',"supervisorView='requests';mobileNavActive='supervisor-requests';renderMaintenanceSupervisor()",openTickets)}
-      ${mk(supervisorView==='schedules','clock',tr('maintSchedules'),"supervisorView='schedules';mobileNavActive='supervisor-schedules';renderMaintenanceSupervisor()")}
-      ${mk(supervisorView==='team','users',tr('maintTeam'),"supervisorView='team';mobileNavActive='supervisor-team';renderMaintenanceSupervisor()",workers)}
-      ${mk(supervisorView==='reports','reports',lang==='ar'?'تقارير الصيانة':'Maintenance Reports',"supervisorView='reports';mobileNavActive='supervisor-reports';renderMaintenanceSupervisor()",pendingReports)}
+      ${mk(supervisorView==='dashboard','dashboard',tr('dashboard'),tabFlow('supervisorView','dashboard','supervisor-dashboard','renderMaintenanceSupervisor'))}
+      ${mk(supervisorView==='requests','tickets',lang==='ar'?'أوامر العمل':'Work Orders',tabFlow('supervisorView','requests','supervisor-requests','renderMaintenanceSupervisor'),openTickets)}
+      ${mk(supervisorView==='schedules','clock',tr('maintSchedules'),tabFlow('supervisorView','schedules','supervisor-schedules','renderMaintenanceSupervisor'))}
+      ${mk(supervisorView==='team','users',tr('maintTeam'),tabFlow('supervisorView','team','supervisor-team','renderMaintenanceSupervisor'),workers)}
+      ${mk(supervisorView==='reports','reports',lang==='ar'?'تقارير الصيانة':'Maintenance Reports',tabFlow('supervisorView','reports','supervisor-reports','renderMaintenanceSupervisor'),pendingReports)}
     </div>`;
   }
   if(me.role==='cleaning_supervisor'){
@@ -1158,10 +1369,10 @@ function renderFieldTabs(){
     const pendingReports = (data?.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
     const workers = (data?.users||[]).filter(u=>(u.roles||[u.role]).includes(operationalWorkerRole())).length;
     return `<div class="fieldTabs" role="tablist">
-      ${mk(supervisorView==='dashboard','dashboard',tr('dashboard'),"supervisorView='dashboard';mobileNavActive='supervisor-dashboard';renderSupervisor()")}
-      ${mk(supervisorView==='requests','tickets',lang==='ar'?'الطلبات':'Requests',"supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()",openTickets)}
-      ${mk(supervisorView==='team','users',lang==='ar'?'الفريق':'Team',"supervisorView='team';mobileNavActive='supervisor-team';renderSupervisor()",workers)}
-      ${mk(supervisorView==='reports','reports',tr('reports'),"supervisorView='reports';mobileNavActive='supervisor-reports';renderSupervisor()",pendingReports)}
+      ${mk(supervisorView==='dashboard','dashboard',tr('dashboard'),tabFlow('supervisorView','dashboard','supervisor-dashboard','renderSupervisor'))}
+      ${mk(supervisorView==='requests','tickets',lang==='ar'?'الطلبات':'Requests',tabFlow('supervisorView','requests','supervisor-requests','renderSupervisor'),openTickets)}
+      ${mk(supervisorView==='team','users',lang==='ar'?'الفريق':'Team',tabFlow('supervisorView','team','supervisor-team','renderSupervisor'),workers)}
+      ${mk(supervisorView==='reports','reports',tr('reports'),tabFlow('supervisorView','reports','supervisor-reports','renderSupervisor'),pendingReports)}
     </div>`;
   }
   if(me.role==='maintenance_worker'){
@@ -1170,28 +1381,28 @@ function renderFieldTabs(){
     const upcoming=(maintenanceData().schedules||[]).filter(s=>(s.defaultTechnicianIds||[]).includes(me.id)&&s.active).length;
     const myReportCount=(data?.reports||[]).filter(r=>r.workerId===me.id&&r.module==='maintenance').length;
     return `<div class="fieldTabs" role="tablist">
-      ${mk(maintWorkerView==='tasks','tickets',tr('maintMyTasks'),"maintWorkerView='tasks';renderMaintenanceWorker()",active)}
-      ${mk(maintWorkerView==='team','users',tr('maintTeamTasks'),"maintWorkerView='team';renderMaintenanceWorker()",team)}
-      ${mk(maintWorkerView==='upcoming','clock',tr('maintUpcoming'),"maintWorkerView='upcoming';renderMaintenanceWorker()",upcoming)}
-      ${mk(maintWorkerView==='history','reports',tr('maintHistory'),"maintWorkerView='history';renderMaintenanceWorker()")}
-      ${mk(maintWorkerView==='myreports','reports',lang==='ar'?'تقاريري':'My Reports',"maintWorkerView='myreports';renderMaintenanceWorker()",myReportCount)}
+      ${mk(maintWorkerView==='tasks','tickets',tr('maintMyTasks'),tabFlow('maintWorkerView','tasks',null,'renderMaintenanceWorker'),active)}
+      ${mk(maintWorkerView==='team','users',tr('maintTeamTasks'),tabFlow('maintWorkerView','team',null,'renderMaintenanceWorker'),team)}
+      ${mk(maintWorkerView==='upcoming','clock',tr('maintUpcoming'),tabFlow('maintWorkerView','upcoming',null,'renderMaintenanceWorker'),upcoming)}
+      ${mk(maintWorkerView==='history','reports',tr('maintHistory'),tabFlow('maintWorkerView','history',null,'renderMaintenanceWorker'))}
+      ${mk(maintWorkerView==='myreports','reports',lang==='ar'?'تقاريري':'My Reports',tabFlow('maintWorkerView','myreports',null,'renderMaintenanceWorker'),myReportCount)}
     </div>`;
   }
   if(me.role==='cleaner'){
     const assignedCount = ((data?.assignments||[]).find(a=>a.workerId===me?.id)?.locationIds||[]).length;
     const reportCount = (data?.reports||[]).filter(r=>r.workerId===me.id).length;
     return `<div class="fieldTabs" role="tablist">
-      ${mk(workerView==='task','check',lang==='ar'?'المهمة':'Task',`workerView='task';mobileNavActive='worker-task';${isMaintenanceRole()?'renderMaintenanceWorker':'renderWorker'}()`)}
-      ${mk(workerView==='assigned','locations',lang==='ar'?'المسندة':'Assigned',`workerView='assigned';mobileNavActive='worker-assigned';${isMaintenanceRole()?'renderMaintenanceWorker':'renderWorker'}()`,assignedCount)}
-      ${mk(workerView==='reports','reports',lang==='ar'?'تقاريري':'Reports',`workerView='reports';mobileNavActive='worker-reports';${isMaintenanceRole()?'renderMaintenanceWorker':'renderWorker'}()`,reportCount)}
+      ${mk(workerView==='task','check',lang==='ar'?'المهمة':'Task',tabFlow('workerView','task','worker-task',isMaintenanceRole()?'renderMaintenanceWorker':'renderWorker'))}
+      ${mk(workerView==='assigned','locations',lang==='ar'?'المسندة':'Assigned',tabFlow('workerView','assigned','worker-assigned',isMaintenanceRole()?'renderMaintenanceWorker':'renderWorker'),assignedCount)}
+      ${mk(workerView==='reports','reports',lang==='ar'?'تقاريري':'Reports',tabFlow('workerView','reports','worker-reports',isMaintenanceRole()?'renderMaintenanceWorker':'renderWorker'),reportCount)}
     </div>`;
   }
   if(me.role==='employee'){
     const activeCount = (data?.tickets||[]).filter(t=>t.createdById===me.id&&!['completed','rejected','cancelled'].includes(t.status)).length;
     return `<div class="fieldTabs" role="tablist">
-      ${mk(employeeView==='home','dashboard',lang==='ar'?'الرئيسية':'Home',"employeeView='home';mobileNavActive='employee-home';renderEmployee()")}
-      ${mk(employeeView==='new','send',lang==='ar'?'طلب خدمة':'Request Service',"employeeServiceType='';employeeView='new';mobileNavActive='employee-new';renderEmployee()")}
-      ${mk(employeeView==='history','clipboardList',tr('myRequests'),"employeeView='history';mobileNavActive='employee-history';renderEmployee()",activeCount)}
+      ${mk(employeeView==='home','dashboard',lang==='ar'?'الرئيسية':'Home',tabFlow('employeeView','home','employee-home','renderEmployee'))}
+      ${mk(employeeView==='new','send',lang==='ar'?'طلب خدمة':'Request Service',uiAction('runUiFlow',['employee-home']))}
+      ${mk(employeeView==='history','clipboardList',tr('myRequests'),tabFlow('employeeView','history','employee-history','renderEmployee'),activeCount)}
     </div>`;
   }
   if(me.role==='hospitality_supervisor'){
@@ -1199,20 +1410,20 @@ function renderFieldTabs(){
     const newCount = orders.filter(o=>o.status==='submitted').length;
     const workers = (data?.users||[]).filter(u=>(u.roles||[u.role]).includes('hospitality_worker')).length;
     return `<div class="fieldTabs" role="tablist">
-      ${mk(hospSupervisorView==='dashboard','dashboard',tr('hospDashboardTab'),"hospSupervisorView='dashboard';mobileNavActive='hospsup-dashboard';renderHospitalitySupervisor()")}
-      ${mk(hospSupervisorView==='orders','coffee',tr('hospOrdersTab'),"hospSupervisorView='orders';mobileNavActive='hospsup-orders';renderHospitalitySupervisor()",newCount)}
-      ${mk(hospSupervisorView==='team','users',tr('hospTeamTab'),"hospSupervisorView='team';mobileNavActive='hospsup-team';renderHospitalitySupervisor()",workers)}
+      ${mk(hospSupervisorView==='dashboard','dashboard',tr('hospDashboardTab'),tabFlow('hospSupervisorView','dashboard','hospsup-dashboard','renderHospitalitySupervisor'))}
+      ${mk(hospSupervisorView==='orders','coffee',tr('hospOrdersTab'),tabFlow('hospSupervisorView','orders','hospsup-orders','renderHospitalitySupervisor'),newCount)}
+      ${mk(hospSupervisorView==='team','users',tr('hospTeamTab'),tabFlow('hospSupervisorView','team','hospsup-team','renderHospitalitySupervisor'),workers)}
     </div>`;
   }
   if(me.role==='hospitality_manager'){
     const orders = data?.hospitalityOrders||[];
     const newCount = orders.filter(o=>o.status==='submitted').length;
     return `<div class="fieldTabs" role="tablist">
-      ${mk(hospManagerView==='dashboard','dashboard',tr('hospDashboardTab'),"hospManagerView='dashboard';mobileNavActive='hospmgr-dashboard';renderHospitalityManager()")}
-      ${mk(hospManagerView==='orders','coffee',tr('hospOrdersTab'),"hospManagerView='orders';mobileNavActive='hospmgr-orders';renderHospitalityManager()",newCount)}
-      ${mk(hospManagerView==='reports','reports',tr('hospReportsTab'),"hospManagerView='reports';mobileNavActive='hospmgr-reports';renderHospitalityManager()")}
-      ${mk(hospManagerView==='products','coffee',tr('productsTitle'),"hospManagerView='products';mobileNavActive='hospmgr-products';renderHospitalityManager()")}
-      ${mk(hospManagerView==='kitchens','building',tr('kitchensTitle'),"hospManagerView='kitchens';mobileNavActive='hospmgr-kitchens';renderHospitalityManager()")}
+      ${mk(hospManagerView==='dashboard','dashboard',tr('hospDashboardTab'),tabFlow('hospManagerView','dashboard','hospmgr-dashboard','renderHospitalityManager'))}
+      ${mk(hospManagerView==='orders','coffee',tr('hospOrdersTab'),tabFlow('hospManagerView','orders','hospmgr-orders','renderHospitalityManager'),newCount)}
+      ${mk(hospManagerView==='reports','reports',tr('hospReportsTab'),tabFlow('hospManagerView','reports','hospmgr-reports','renderHospitalityManager'))}
+      ${mk(hospManagerView==='products','coffee',tr('productsTitle'),tabFlow('hospManagerView','products','hospmgr-products','renderHospitalityManager'))}
+      ${mk(hospManagerView==='kitchens','building',tr('kitchensTitle'),tabFlow('hospManagerView','kitchens','hospmgr-kitchens','renderHospitalityManager'))}
     </div>`;
   }
   if(['system_admin','facility_manager'].includes(me.role) && adminModuleContext==='hospitality'){
@@ -1220,11 +1431,11 @@ function renderFieldTabs(){
     const newCount = orders.filter(o=>o.status==='submitted').length;
     const canManage = me.role==='system_admin';
     return `<div class="fieldTabs" role="tablist">
-      ${mk(hospManagerView==='dashboard','dashboard',tr('hospDashboardTab'),"hospManagerView='dashboard';mobileNavActive='hospmgr-dashboard';renderAdminHospitality()")}
-      ${mk(hospManagerView==='orders','coffee',tr('hospOrdersTab'),"hospManagerView='orders';mobileNavActive='hospmgr-orders';renderAdminHospitality()",newCount)}
-      ${mk(hospManagerView==='reports','reports',tr('hospReportsTab'),"hospManagerView='reports';mobileNavActive='hospmgr-reports';renderAdminHospitality()")}
-      ${canManage?mk(hospManagerView==='products','coffee',tr('productsTitle'),"hospManagerView='products';mobileNavActive='hospmgr-products';renderAdminHospitality()"):''}
-      ${canManage?mk(hospManagerView==='kitchens','building',tr('kitchensTitle'),"hospManagerView='kitchens';mobileNavActive='hospmgr-kitchens';renderAdminHospitality()"):''}
+      ${mk(hospManagerView==='dashboard','dashboard',tr('hospDashboardTab'),tabFlow('hospManagerView','dashboard','hospmgr-dashboard','renderAdminHospitality'))}
+      ${mk(hospManagerView==='orders','coffee',tr('hospOrdersTab'),tabFlow('hospManagerView','orders','hospmgr-orders','renderAdminHospitality'),newCount)}
+      ${mk(hospManagerView==='reports','reports',tr('hospReportsTab'),tabFlow('hospManagerView','reports','hospmgr-reports','renderAdminHospitality'))}
+      ${canManage?mk(hospManagerView==='products','coffee',tr('productsTitle'),tabFlow('hospManagerView','products','hospmgr-products','renderAdminHospitality')):''}
+      ${canManage?mk(hospManagerView==='kitchens','building',tr('kitchensTitle'),tabFlow('hospManagerView','kitchens','hospmgr-kitchens','renderAdminHospitality')):''}
     </div>`;
   }
   return '';
@@ -1234,7 +1445,7 @@ function fieldShell(me, contentHtml, opts={}){
   const openTickets = (data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
   const pendingReports = (data?.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
   return`<div class="platform-shell">
-  ${renderPlatformTopbar(me, {sync:true, back:opts.back, backAction:opts.backAction})}
+  ${renderPlatformTopbar(me, {sync:true, back:opts.back, backFlow:opts.backFlow})}
   <div class="platform-body">
     <main class="${mainCls}">
       ${renderFieldTabs()}
@@ -1252,15 +1463,15 @@ function hospManagerShell(me, contentHtml, opts={}){
   const newCount = orders.filter(o=>o.status==='submitted').length;
   const renderFn = opts.renderFn || 'renderHospitalityManager';
   const canManage = !!opts.canManage;
-  const goto = (v)=>`hospManagerView='${v}';mobileNavActive='hospmgr-${v}';${renderFn}()`;
-  const item = (v,label,icon,count=0)=>`<button class="navBtn${hospManagerView===v?' active':''}" onclick="${goto(v)}">
+  const goto = v=>uiAction('runUiFlow',['navigate','hospManagerView',v,`hospmgr-${v}`,renderFn]);
+  const item = (v,label,icon,count=0)=>`<button class="navBtn${hospManagerView===v?' active':''}" ${goto(v)}>
     <span class="navBtn-icon">${ic(icon,18)}</span>
     <span class="navBtn-label">${label}</span>
     ${count>0?`<span class="countBubble navBtn-badge">${num(count)}</span>`:''}
   </button>`;
   return `
 <div class="platform-shell platform-shell--admin">
-  ${renderPlatformTopbar(me, {search:false, notif:true, sync:true, adminMode:true, back:opts.back, backAction:opts.backAction})}
+  ${renderPlatformTopbar(me, {search:false, notif:true, sync:true, adminMode:true, back:opts.back, backFlow:opts.backFlow})}
 
   <!-- BODY -->
   <div class="platform-body">
@@ -1340,7 +1551,7 @@ function render(){
   if(_lastView==='assignments' && view!=='assignments'){ assignFloorFilter='all'; }
   _lastView = view;
   if(view==='performance'){
-    shell(`<div style="text-align:center;padding:40px">${ic('clock',28)}</div>`);
+    shell(`<div class="u-text-center-p-40">${ic('clock',28)}</div>`);
     performance().then(html=>{
       const main=document.querySelector('.platform-main .pageAnim');
       if(main) main.innerHTML=html;
@@ -1388,14 +1599,14 @@ function loginPage(){
       </div>
     </div>
     <div class="loginPanel">
-      <button class="loginLangBtn" onclick="switchLang()" type="button" aria-label="${tr('lang')}" title="${tr('lang')}">${ic('language',22)}</button>
+      <button class="loginLangBtn" ${uiAction('switchLang',[])} type="button" aria-label="${tr('lang')}" title="${tr('lang')}">${ic('language',22)}</button>
       <div class="loginPanel-logo">
-        <img src="/assets/logos/mrfq-logo-icon-dark-v4.svg" onerror="this.src='/assets/logos/mrfq-logo-icon-light-v4.svg'" alt="MRFQ">
+        <img src="/assets/logos/mrfq-logo-icon-dark-v4.svg" data-ui-error="logo-fallback" alt="MRFQ">
       </div>
       <h2 class="loginPanel-title">${tr('app')}</h2>
       ${fc(tr('user'), `<div class="input-wrap login-input-wrap"><span class="input-icon input-icon-static">${ic('user',16)}</span>${inp('lu',{type:'text', autocomplete:'username', placeholder:tr('user'), cls:'login-input'})}</div>`)}
-      ${fc(tr('pass'),`<div class="input-wrap login-input-wrap"><span class="input-icon input-icon-static">${ic('lock',16)}</span>${inp('lp',{type:'password', autocomplete:'current-password', placeholder:tr('pass'), cls:'login-input login-input--with-action'})}<button class="input-icon input-icon-btn" id="pwdToggle" onclick="togglePwd()" type="button" tabindex="-1" aria-label="${lang==='ar'?'إظهار/إخفاء كلمة المرور':'Toggle password visibility'}">${ic('eye-off',16)}</button></div>`)}
-      <button class="btn wide" onclick="login()">${tr('login')}</button>
+      ${fc(tr('pass'),`<div class="input-wrap login-input-wrap"><span class="input-icon input-icon-static">${ic('lock',16)}</span>${inp('lp',{type:'password', autocomplete:'current-password', placeholder:tr('pass'), cls:'login-input login-input--with-action'})}<button class="input-icon input-icon-btn" id="pwdToggle" ${uiAction('togglePwd',[])} type="button" tabindex="-1" aria-label="${lang==='ar'?'إظهار/إخفاء كلمة المرور':'Toggle password visibility'}">${ic('eye-off',16)}</button></div>`)}
+      <button class="btn wide" ${uiAction('login',[])}>${tr('login')}</button>
       <p class="loginPanel-foot">${lang==='ar'?'الدخول متاح فقط للمستخدمين المصرح لهم داخل المنصة.':'Access is restricted to authorized platform users only.'}</p>
     </div>
   </div>
@@ -1412,16 +1623,16 @@ function showForcePasswordChange(){
 <main class="loginPage">
   <div class="fpBox">
     <div class="fpBox-logo">
-      <img src="/assets/logos/mrfq-logo-icon-dark-v4.svg" onerror="this.src='/assets/logos/mrfq-logo-icon-light-v4.svg'" alt="MRFQ">
+      <img src="/assets/logos/mrfq-logo-icon-dark-v4.svg" data-ui-error="logo-fallback" alt="MRFQ">
     </div>
     <h2 class="fpBox-title">${lang==='ar'?'تغيير كلمة المرور':'Change Password'}</h2>
     <p class="fpBox-sub">${lang==='ar'?'يجب تغيير كلمة المرور المؤقتة قبل استخدام النظام':'You must change your temporary password before using the system'}</p>
-    ${fc(lang==='ar'?'كلمة المرور الجديدة':'New Password', inp('fpNewPwd',{type:'password', oninput:'checkPwdStrength()', autocomplete:'new-password'}))}
+    ${fc(lang==='ar'?'كلمة المرور الجديدة':'New Password', inp('fpNewPwd',{type:'password', inputAction:'check-password-strength', autocomplete:'new-password'}))}
     <div id="pwdStrength" class="pwdStrength"></div>
     ${fc(lang==='ar'?'تأكيد كلمة المرور':'Confirm Password', inp('fpConfirmPwd',{type:'password', autocomplete:'new-password'}))}
     <div id="fpError" class="formError"></div>
-    <button class="btn wide" onclick="submitForcePassword()">${lang==='ar'?'حفظ كلمة المرور الجديدة':'Save New Password'}</button>
-    <button class="btn secondary wide" style="margin-top:10px" onclick="logout()">${lang==='ar'?'تسجيل خروج':'Logout'}</button>
+    <button class="btn wide" ${uiAction('submitForcePassword',[])}>${lang==='ar'?'حفظ كلمة المرور الجديدة':'Save New Password'}</button>
+    <button class="btn secondary wide u-mt-10" ${uiAction('logout',[])}>${lang==='ar'?'تسجيل خروج':'Logout'}</button>
   </div>
 </main>`;
 }
@@ -1440,13 +1651,13 @@ function checkPwdStrength(){
   const colors=['','var(--bad)','var(--warn)','var(--gold)','var(--ok)','var(--brand-mid)'];
   const pct=Math.min(100,score*20);
   el.innerHTML=pwd?`
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-      <div style="flex:1;height:4px;background:var(--surface-3);border-radius:2px;overflow:hidden">
-        <div style="width:${pct}%;height:100%;background:${colors[score]};transition:all .3s"></div>
+    <div class="u-flex-center-gap-8-mb-4">
+      <div class="strength-track">
+        <div class="strength-fill strength-color-${score} ${metricClass('w',pct)}"></div>
       </div>
-      <span style="font-size:var(--fs-xs);font-weight:700;color:${colors[score]}">${labels[score]}</span>
+      <span class="strength-label strength-color-${score}">${labels[score]}</span>
     </div>
-    ${tips.length?`<div style="font-size:10px;color:var(--muted)">${tips.join(' · ')}</div>`:''}
+    ${tips.length?`<div class="text-muted-10">${tips.join(' · ')}</div>`:''}
   `:'';
 }
 
@@ -1514,12 +1725,12 @@ function shell(content){
 function moduleContextBar(labelKey='cleaningModuleLabel'){
   return `<div class="moduleContextBar">
     <span class="moduleContextBar-label">${ic('reports',16)} ${tr(labelKey)}</span>
-    <button class="btn secondary sm" onclick="exitModule()">${ic('arrow-left',14)} ${tr('backToConsole')}</button>
+    <button class="btn secondary sm" ${uiAction('exitModule',[])}>${ic('arrow-left',14)} ${tr('backToConsole')}</button>
   </div>`;
 }
 
 function navItem(v,label,icon,count){
-  return `<button class="navBtn${view===v?' active':''}" onclick="navigateTo('${v}')">
+  return `<button class="navBtn${view===v?' active':''}" ${uiAction('navigateTo',[(v)])}>
     <span class="navBtn-icon">${ic(icon,18)}</span>
     <span class="navBtn-label">${label}</span>
     ${count>0?`<span class="countBubble navBtn-badge">${num(count)}</span>`:''}
@@ -1540,9 +1751,9 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
     const activeCount = (data?.tickets||[]).filter(t=>t.createdById===me.id&&!['completed','rejected','cancelled'].includes(t.status)).length;
     showMore = false;
     primary = [
-      {v:'employee-home', label:lang==='ar'?'الرئيسية':'Home', icon:'dashboard', count:0, action:"employeeView='home';mobileNavActive='employee-home';renderEmployee()", active:employeeView==='home'},
-      {v:'employee-new', label:lang==='ar'?'طلب خدمة':'Request', icon:'send', count:0, action:"employeeServiceType='';employeeView='new';mobileNavActive='employee-new';renderEmployee()", active:employeeView==='new'},
-      {v:'employee-history', label:tr('myRequests'), icon:'clipboardList', count:activeCount, action:"employeeView='history';mobileNavActive='employee-history';renderEmployee()", active:employeeView==='history'}
+      {v:'employee-home', label:lang==='ar'?'الرئيسية':'Home', icon:'dashboard', count:0, flow:['navigate','employeeView','home','employee-home','renderEmployee'], active:employeeView==='home'},
+      {v:'employee-new', label:lang==='ar'?'طلب خدمة':'Request', icon:'send', count:0, flow:['employee-home'], active:employeeView==='new'},
+      {v:'employee-history', label:tr('myRequests'), icon:'clipboardList', count:activeCount, flow:['navigate','employeeView','history','employee-history','renderEmployee'], active:employeeView==='history'}
     ];
   }else if(role==='maintenance_worker'){
     showMore=false;
@@ -1550,35 +1761,35 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
     const team=(data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)&&maintenanceAssignees(t.id).length>1).length;
     const upcoming=(maintenanceData().schedules||[]).filter(s=>(s.defaultTechnicianIds||[]).includes(me.id)&&s.active).length;
     primary=[
-      {v:'maint-worker-tasks',label:tr('maintMyTasks'),icon:'tickets',count:active,action:"maintWorkerView='tasks';renderMaintenanceWorker()",active:maintWorkerView==='tasks'},
-      {v:'maint-worker-team',label:tr('maintTeamTasks'),icon:'users',count:team,action:"maintWorkerView='team';renderMaintenanceWorker()",active:maintWorkerView==='team'},
-      {v:'maint-worker-upcoming',label:tr('maintUpcoming'),icon:'clock',count:upcoming,action:"maintWorkerView='upcoming';renderMaintenanceWorker()",active:maintWorkerView==='upcoming'},
-      {v:'maint-worker-history',label:tr('maintHistory'),icon:'reports',count:0,action:"maintWorkerView='history';renderMaintenanceWorker()",active:maintWorkerView==='history'}
+      {v:'maint-worker-tasks',label:tr('maintMyTasks'),icon:'tickets',count:active,flow:['navigate','maintWorkerView','tasks',null,'renderMaintenanceWorker'],active:maintWorkerView==='tasks'},
+      {v:'maint-worker-team',label:tr('maintTeamTasks'),icon:'users',count:team,flow:['navigate','maintWorkerView','team',null,'renderMaintenanceWorker'],active:maintWorkerView==='team'},
+      {v:'maint-worker-upcoming',label:tr('maintUpcoming'),icon:'clock',count:upcoming,flow:['navigate','maintWorkerView','upcoming',null,'renderMaintenanceWorker'],active:maintWorkerView==='upcoming'},
+      {v:'maint-worker-history',label:tr('maintHistory'),icon:'reports',count:0,flow:['navigate','maintWorkerView','history',null,'renderMaintenanceWorker'],active:maintWorkerView==='history'}
     ];
   }else if(role==='cleaner'){
     const assignedCount = ((data?.assignments||[]).find(a=>a.workerId===me?.id)?.locationIds||[]).length;
     showMore = false;
     primary = [
-      {v:'worker-task', label:lang==='ar'?'المهمة':'Task', icon:'check', count:openTickets, action:`workerView='task';mobileNavActive='worker-task';${isMaintenanceRole(role)?'renderMaintenanceWorker':'renderWorker'}()`, active:workerView==='task'},
-      {v:'worker-assigned', label:lang==='ar'?'المسندة':'Assigned', icon:'locations', count:assignedCount, action:`workerView='assigned';mobileNavActive='worker-assigned';${isMaintenanceRole(role)?'renderMaintenanceWorker':'renderWorker'}()`, active:workerView==='assigned'},
-      {v:'worker-reports', label:lang==='ar'?'تقاريري':'Reports', icon:'reports', count:pendingReports, action:`workerView='reports';mobileNavActive='worker-reports';${isMaintenanceRole(role)?'renderMaintenanceWorker':'renderWorker'}()`, active:workerView==='reports'}
+      {v:'worker-task', label:lang==='ar'?'المهمة':'Task', icon:'check', count:openTickets, flow:['navigate','workerView','task','worker-task',isMaintenanceRole(role)?'renderMaintenanceWorker':'renderWorker'], active:workerView==='task'},
+      {v:'worker-assigned', label:lang==='ar'?'المسندة':'Assigned', icon:'locations', count:assignedCount, flow:['navigate','workerView','assigned','worker-assigned',isMaintenanceRole(role)?'renderMaintenanceWorker':'renderWorker'], active:workerView==='assigned'},
+      {v:'worker-reports', label:lang==='ar'?'تقاريري':'Reports', icon:'reports', count:pendingReports, flow:['navigate','workerView','reports','worker-reports',isMaintenanceRole(role)?'renderMaintenanceWorker':'renderWorker'], active:workerView==='reports'}
     ];
   }else if(role==='maintenance_supervisor'){
     showMore = false;
     primary = [
-      {v:'supervisor-dashboard',label:tr('dashboard'),icon:'dashboard',count:0,action:"supervisorView='dashboard';mobileNavActive='supervisor-dashboard';renderMaintenanceSupervisor()",active:supervisorView==='dashboard'},
-      {v:'supervisor-requests',label:lang==='ar'?'أوامر العمل':'Work Orders',icon:'tickets',count:openTickets,action:"supervisorView='requests';mobileNavActive='supervisor-requests';renderMaintenanceSupervisor()",active:supervisorView==='requests'},
-      {v:'supervisor-schedules',label:tr('maintSchedules'),icon:'clock',count:0,action:"supervisorView='schedules';mobileNavActive='supervisor-schedules';renderMaintenanceSupervisor()",active:supervisorView==='schedules'},
-      {v:'supervisor-team',label:tr('maintTeam'),icon:'users',count:0,action:"supervisorView='team';mobileNavActive='supervisor-team';renderMaintenanceSupervisor()",active:supervisorView==='team'},
-      {v:'supervisor-reports',label:lang==='ar'?'التقارير':'Reports',icon:'reports',count:pendingReports,action:"supervisorView='reports';mobileNavActive='supervisor-reports';renderMaintenanceSupervisor()",active:supervisorView==='reports'}
+      {v:'supervisor-dashboard',label:tr('dashboard'),icon:'dashboard',count:0,flow:['navigate','supervisorView','dashboard','supervisor-dashboard','renderMaintenanceSupervisor'],active:supervisorView==='dashboard'},
+      {v:'supervisor-requests',label:lang==='ar'?'أوامر العمل':'Work Orders',icon:'tickets',count:openTickets,flow:['navigate','supervisorView','requests','supervisor-requests','renderMaintenanceSupervisor'],active:supervisorView==='requests'},
+      {v:'supervisor-schedules',label:tr('maintSchedules'),icon:'clock',count:0,flow:['navigate','supervisorView','schedules','supervisor-schedules','renderMaintenanceSupervisor'],active:supervisorView==='schedules'},
+      {v:'supervisor-team',label:tr('maintTeam'),icon:'users',count:0,flow:['navigate','supervisorView','team','supervisor-team','renderMaintenanceSupervisor'],active:supervisorView==='team'},
+      {v:'supervisor-reports',label:lang==='ar'?'التقارير':'Reports',icon:'reports',count:pendingReports,flow:['navigate','supervisorView','reports','supervisor-reports','renderMaintenanceSupervisor'],active:supervisorView==='reports'}
     ];
   }else if(role==='cleaning_supervisor'){
     showMore = false;
     primary = [
-      {v:'supervisor-dashboard', label:tr('dashboard'), icon:'dashboard', count:0, action:"supervisorView='dashboard';mobileNavActive='supervisor-dashboard';renderSupervisor()", active:supervisorView==='dashboard'},
-      {v:'supervisor-requests', label:lang==='ar'?'الطلبات':'Requests', icon:'tickets', count:openTickets, action:"supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()", active:supervisorView==='requests'},
-      {v:'supervisor-team', label:lang==='ar'?'الفريق':'Team', icon:'users', count:0, action:"supervisorView='team';mobileNavActive='supervisor-team';renderSupervisor()", active:supervisorView==='team'},
-      {v:'supervisor-reports', label:tr('reports'), icon:'reports', count:pendingReports, action:"supervisorView='reports';mobileNavActive='supervisor-reports';renderSupervisor()", active:supervisorView==='reports'}
+      {v:'supervisor-dashboard', label:tr('dashboard'), icon:'dashboard', count:0, flow:['navigate','supervisorView','dashboard','supervisor-dashboard','renderSupervisor'], active:supervisorView==='dashboard'},
+      {v:'supervisor-requests', label:lang==='ar'?'الطلبات':'Requests', icon:'tickets', count:openTickets, flow:['navigate','supervisorView','requests','supervisor-requests','renderSupervisor'], active:supervisorView==='requests'},
+      {v:'supervisor-team', label:lang==='ar'?'الفريق':'Team', icon:'users', count:0, flow:['navigate','supervisorView','team','supervisor-team','renderSupervisor'], active:supervisorView==='team'},
+      {v:'supervisor-reports', label:tr('reports'), icon:'reports', count:pendingReports, flow:['navigate','supervisorView','reports','supervisor-reports','renderSupervisor'], active:supervisorView==='reports'}
     ];
   }else if(role==='maintenance_manager'){
     showMore = false;
@@ -1592,7 +1803,7 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
     showMore = false;
     const hospCount = (data?.hospitalityOrders||[]).filter(o=>!['completed','cancelled','rejected'].includes(o.status)).length;
     primary = [
-      {v:'hosp-worker', label:tr('hospitalityWorkerTitle'), icon:'coffee', count:hospCount, action:"render()", active:true}
+      {v:'hosp-worker', label:tr('hospitalityWorkerTitle'), icon:'coffee', count:hospCount, flow:['navigate','view',view,null,'render'], active:true}
     ];
   }else if(role==='hospitality_supervisor'){
     showMore = false;
@@ -1600,32 +1811,32 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
     const newCount = orders.filter(o=>o.status==='submitted').length;
     const workers = (data?.users||[]).filter(u=>(u.roles||[u.role]).includes('hospitality_worker')).length;
     primary = [
-      {v:'hospsup-dashboard', label:tr('hospDashboardTab'), icon:'dashboard', count:0, action:"hospSupervisorView='dashboard';mobileNavActive='hospsup-dashboard';renderHospitalitySupervisor()", active:hospSupervisorView==='dashboard'},
-      {v:'hospsup-orders', label:tr('hospOrdersTab'), icon:'coffee', count:newCount, action:"hospSupervisorView='orders';mobileNavActive='hospsup-orders';renderHospitalitySupervisor()", active:hospSupervisorView==='orders'},
-      {v:'hospsup-team', label:tr('hospTeamTab'), icon:'users', count:workers, action:"hospSupervisorView='team';mobileNavActive='hospsup-team';renderHospitalitySupervisor()", active:hospSupervisorView==='team'}
+      {v:'hospsup-dashboard', label:tr('hospDashboardTab'), icon:'dashboard', count:0, flow:['navigate','hospSupervisorView','dashboard','hospsup-dashboard','renderHospitalitySupervisor'], active:hospSupervisorView==='dashboard'},
+      {v:'hospsup-orders', label:tr('hospOrdersTab'), icon:'coffee', count:newCount, flow:['navigate','hospSupervisorView','orders','hospsup-orders','renderHospitalitySupervisor'], active:hospSupervisorView==='orders'},
+      {v:'hospsup-team', label:tr('hospTeamTab'), icon:'users', count:workers, flow:['navigate','hospSupervisorView','team','hospsup-team','renderHospitalitySupervisor'], active:hospSupervisorView==='team'}
     ];
   }else if(role==='hospitality_manager'){
     showMore = true;
     const orders = data?.hospitalityOrders||[];
     const newCount = orders.filter(o=>o.status==='submitted').length;
     primary = [
-      {v:'hospmgr-dashboard', label:lang==='ar'?'الرئيسية':'Home', icon:'dashboard', count:0, action:"hospManagerView='dashboard';mobileNavActive='hospmgr-dashboard';renderHospitalityManager()", active:hospManagerView==='dashboard'},
-      {v:'hospmgr-orders', label:tr('hospOrdersTab'), icon:'coffee', count:newCount, action:"hospManagerView='orders';mobileNavActive='hospmgr-orders';renderHospitalityManager()", active:hospManagerView==='orders'},
-      {v:'hospmgr-products', label:tr('productsTitle'), icon:'coffee', count:0, action:"hospManagerView='products';mobileNavActive='hospmgr-products';renderHospitalityManager()", active:hospManagerView==='products'},
-      {v:'hospmgr-kitchens', label:tr('kitchensTitle'), icon:'building', count:0, action:"hospManagerView='kitchens';mobileNavActive='hospmgr-kitchens';renderHospitalityManager()", active:hospManagerView==='kitchens'}
+      {v:'hospmgr-dashboard', label:lang==='ar'?'الرئيسية':'Home', icon:'dashboard', count:0, flow:['navigate','hospManagerView','dashboard','hospmgr-dashboard','renderHospitalityManager'], active:hospManagerView==='dashboard'},
+      {v:'hospmgr-orders', label:tr('hospOrdersTab'), icon:'coffee', count:newCount, flow:['navigate','hospManagerView','orders','hospmgr-orders','renderHospitalityManager'], active:hospManagerView==='orders'},
+      {v:'hospmgr-products', label:tr('productsTitle'), icon:'coffee', count:0, flow:['navigate','hospManagerView','products','hospmgr-products','renderHospitalityManager'], active:hospManagerView==='products'},
+      {v:'hospmgr-kitchens', label:tr('kitchensTitle'), icon:'building', count:0, flow:['navigate','hospManagerView','kitchens','hospmgr-kitchens','renderHospitalityManager'], active:hospManagerView==='kitchens'}
     ];
   }else if(adminModuleContext==='hospitality' && ['system_admin','facility_manager'].includes(role)){
     const orders = data?.hospitalityOrders||[];
     const newCount = orders.filter(o=>o.status==='submitted').length;
     const canManage = canManageHospitalityMenu();
     primary = [
-      {v:'hospmgr-dashboard', label:lang==='ar'?'الرئيسية':'Home', icon:'dashboard', count:0, action:"hospManagerView='dashboard';mobileNavActive='hospmgr-dashboard';renderAdminHospitality()", active:hospManagerView==='dashboard'},
-      {v:'hospmgr-orders', label:tr('hospOrdersTab'), icon:'coffee', count:newCount, action:"hospManagerView='orders';mobileNavActive='hospmgr-orders';renderAdminHospitality()", active:hospManagerView==='orders'},
+      {v:'hospmgr-dashboard', label:lang==='ar'?'الرئيسية':'Home', icon:'dashboard', count:0, flow:['navigate','hospManagerView','dashboard','hospmgr-dashboard','renderAdminHospitality'], active:hospManagerView==='dashboard'},
+      {v:'hospmgr-orders', label:tr('hospOrdersTab'), icon:'coffee', count:newCount, flow:['navigate','hospManagerView','orders','hospmgr-orders','renderAdminHospitality'], active:hospManagerView==='orders'},
       ...(canManage?[
-        {v:'hospmgr-products', label:tr('productsTitle'), icon:'coffee', count:0, action:"hospManagerView='products';mobileNavActive='hospmgr-products';renderAdminHospitality()", active:hospManagerView==='products'},
-        {v:'hospmgr-kitchens', label:tr('kitchensTitle'), icon:'building', count:0, action:"hospManagerView='kitchens';mobileNavActive='hospmgr-kitchens';renderAdminHospitality()", active:hospManagerView==='kitchens'}
+        {v:'hospmgr-products', label:tr('productsTitle'), icon:'coffee', count:0, flow:['navigate','hospManagerView','products','hospmgr-products','renderAdminHospitality'], active:hospManagerView==='products'},
+        {v:'hospmgr-kitchens', label:tr('kitchensTitle'), icon:'building', count:0, flow:['navigate','hospManagerView','kitchens','hospmgr-kitchens','renderAdminHospitality'], active:hospManagerView==='kitchens'}
       ]:[
-        {v:'hospmgr-reports', label:tr('hospReportsTab'), icon:'reports', count:0, action:"hospManagerView='reports';mobileNavActive='hospmgr-reports';renderAdminHospitality()", active:hospManagerView==='reports'}
+        {v:'hospmgr-reports', label:tr('hospReportsTab'), icon:'reports', count:0, flow:['navigate','hospManagerView','reports','hospmgr-reports','renderAdminHospitality'], active:hospManagerView==='reports'}
       ])
     ];
     showMore = canManage;
@@ -1640,15 +1851,15 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
   const moreActive = isAdmin ? !primary.some(item=>item.v===view)
     : (showMore && !primary.some(item=>item.active||activeKey===item.v));
   const navCount = primary.length + (showMore ? 1 : 0);
-  return `<nav class="mobileBottomNav" style="--mobile-nav-count:${navCount}" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
+  return `<nav class="mobileBottomNav mobileBottomNav--count-${Math.max(2,Math.min(6,navCount))}" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
     ${primary.map(item=>`
-      <button class="mobileBottomNav-item${item.active||activeKey===item.v?' active':''}" onclick="${item.action||`mobileNavActive='${item.v}';navigateTo('${item.v}')`}">
+      <button class="mobileBottomNav-item${item.active||activeKey===item.v?' active':''}" ${uiAction('runUiFlow',item.flow||['navigate-main',item.v])}>
         <span class="mobileBottomNav-icon">${ic(item.icon,18)}</span>
         <span class="mobileBottomNav-label">${item.label}</span>
         ${item.count>0?`<span class="countBubble mobileBottomNav-badge">${num(item.count)}</span>`:''}
       </button>
     `).join('')}
-    ${showMore?`<button class="mobileBottomNav-item${moreActive?' active':''}" onclick="showMobileNavMore()">
+    ${showMore?`<button class="mobileBottomNav-item${moreActive?' active':''}" ${uiAction('showMobileNavMore',[])}>
       <span class="mobileBottomNav-icon">${ic('menu',18)}</span>
       <span class="mobileBottomNav-label">${lang==='ar'?'المزيد':'More'}</span>
     </button>`:''}
@@ -1659,13 +1870,13 @@ function showMobileNavMore(){
   let items;
   if(me.role==='hospitality_manager'){
     items = [
-      {v:'hospmgr-reports', label:tr('hospReportsTab'), icon:'reports', active:hospManagerView==='reports', action:"hospManagerView='reports';mobileNavActive='hospmgr-reports';renderHospitalityManager()"},
-      {v:'hospmgr-categories', label:tr('categoriesTitle'), icon:'layers', active:hospManagerView==='categories', action:"hospManagerView='categories';mobileNavActive='hospmgr-categories';renderHospitalityManager()"}
+      {v:'hospmgr-reports', label:tr('hospReportsTab'), icon:'reports', active:hospManagerView==='reports', flow:['navigate','hospManagerView','reports','hospmgr-reports','renderHospitalityManager']},
+      {v:'hospmgr-categories', label:tr('categoriesTitle'), icon:'layers', active:hospManagerView==='categories', flow:['navigate','hospManagerView','categories','hospmgr-categories','renderHospitalityManager']}
     ];
   }else if(adminModuleContext==='hospitality' && ['system_admin','facility_manager'].includes(me.role) && canManageHospitalityMenu()){
     items = [
-      {v:'hospmgr-reports', label:tr('hospReportsTab'), icon:'reports', active:hospManagerView==='reports', action:"hospManagerView='reports';mobileNavActive='hospmgr-reports';renderAdminHospitality()"},
-      {v:'hospmgr-categories', label:tr('categoriesTitle'), icon:'layers', active:hospManagerView==='categories', action:"hospManagerView='categories';mobileNavActive='hospmgr-categories';renderAdminHospitality()"}
+      {v:'hospmgr-reports', label:tr('hospReportsTab'), icon:'reports', active:hospManagerView==='reports', flow:['navigate','hospManagerView','reports','hospmgr-reports','renderAdminHospitality']},
+      {v:'hospmgr-categories', label:tr('categoriesTitle'), icon:'layers', active:hospManagerView==='categories', flow:['navigate','hospManagerView','categories','hospmgr-categories','renderAdminHospitality']}
     ];
   }else{
     items = [
@@ -1679,7 +1890,7 @@ function showMobileNavMore(){
     ];
   }
   const body = `<div class="mobileMoreGrid">
-    ${items.map(item=>`<button class="mobileMoreItem${(item.active!==undefined?item.active:view===item.v)?' active':''}" onclick="document.getElementById('mobileNavModal')?.remove();${item.action||`navigateTo('${item.v}')`}">
+    ${items.map(item=>`<button class="mobileMoreItem${(item.active!==undefined?item.active:view===item.v)?' active':''}" ${uiAction('runUiFlow',item.flow?['close-mobile-flow',...item.flow.slice(1)]:['close-mobile-navigate',item.v])}>
       <span class="mobileMoreIcon">${ic(item.icon,18)}</span>
       <span>${item.label}</span>
     </button>`).join('')}
@@ -1692,8 +1903,13 @@ function showMobileNavMore(){
    ═══════════════════════════════════════════════════════════════ */
 function renderSystemAdmin(){
   setDoc();
+  if(adminView==='facilities'){
+    adminShell(platformFacilitiesPage());
+    window.MRFQFacilities.load('#facilitiesPlatformHost',lang);
+    return;
+  }
   if(adminView==='products'){
-    adminShell(`<div style="text-align:center;padding:40px">${ic('clock',28)}</div>`);
+    adminShell(`<div class="u-text-center-p-40">${ic('clock',28)}</div>`);
     ensureHospMenuItems().then(()=>{
       const main = document.querySelector('.platform-main .pageAnim');
       if(main) main.innerHTML = hospitalityProductsView();
@@ -1701,7 +1917,7 @@ function renderSystemAdmin(){
     return;
   }
   if(adminView==='kitchens'){
-    adminShell(`<div style="text-align:center;padding:40px">${ic('clock',28)}</div>`);
+    adminShell(`<div class="u-text-center-p-40">${ic('clock',28)}</div>`);
     ensureHospKitchens().then(()=>{
       const main = document.querySelector('.platform-main .pageAnim');
       if(main) main.innerHTML = hospitalityKitchensView();
@@ -1738,6 +1954,7 @@ function adminShell(content){
           ${canManageGlobalUsers()?adminNavItem('users',tr('users'),'users'):''}
           ${canAccessRolesPermissions()?adminNavItem('roles',tr('rolesPermissions'),'shield'):''}
           ${adminNavItem('locations',tr('locations'),'locations')}
+          ${adminNavItem('facilities',lang==='ar'?'المرافق والمساحات':'Facilities & Spaces','building')}
           ${adminNavItem('assets',tr('assets'),'building')}
           ${adminNavItem('maps',tr('maps'),'map-pin')}
           ${adminNavItem('products',tr('productsTitle'),'coffee')}
@@ -1760,7 +1977,7 @@ function adminShell(content){
 }
 
 function adminNavItem(v,label,icon){
-  return `<button class="navBtn${adminView===v?' active':''}" onclick="adminNavigateTo('${v}')">
+  return `<button class="navBtn${adminView===v?' active':''}" ${uiAction('adminNavigateTo',[(v)])}>
     <span class="navBtn-icon">${ic(icon,18)}</span>
     <span class="navBtn-label">${label}</span>
   </button>`;
@@ -1775,14 +1992,14 @@ function renderAdminMobileBottomNav(){
     {v:'users', label:tr('users'), icon:'users'}
   ];
   const moreActive = !primary.some(item=>item.v===adminView);
-  return `<nav class="mobileBottomNav" style="--mobile-nav-count:${primary.length+1}" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
+  return `<nav class="mobileBottomNav mobileBottomNav--count-${Math.max(2,Math.min(6,primary.length+1))}" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
     ${primary.map(item=>`
-      <button class="mobileBottomNav-item${adminView===item.v?' active':''}" onclick="adminNavigateTo('${item.v}')">
+      <button class="mobileBottomNav-item${adminView===item.v?' active':''}" ${uiAction('adminNavigateTo',[(item.v)])}>
         <span class="mobileBottomNav-icon">${ic(item.icon,18)}</span>
         <span class="mobileBottomNav-label">${item.label}</span>
       </button>
     `).join('')}
-    <button class="mobileBottomNav-item${moreActive?' active':''}" onclick="showAdminNavMore()">
+    <button class="mobileBottomNav-item${moreActive?' active':''}" ${uiAction('showAdminNavMore',[])}>
       <span class="mobileBottomNav-icon">${ic('menu',18)}</span>
       <span class="mobileBottomNav-label">${lang==='ar'?'المزيد':'More'}</span>
     </button>
@@ -1793,6 +2010,7 @@ function showAdminNavMore(){
   const items = [
     ...(canAccessRolesPermissions()?[{v:'roles', label:tr('rolesPermissions'), icon:'shield'}]:[]),
     {v:'locations', label:tr('locations'), icon:'locations'},
+    {v:'facilities', label:lang==='ar'?'المرافق والمساحات':'Facilities & Spaces', icon:'building'},
     {v:'assets', label:tr('assets'), icon:'building'},
     {v:'maps', label:tr('maps'), icon:'map-pin'},
     {v:'products', label:tr('productsTitle'), icon:'coffee'},
@@ -1802,7 +2020,7 @@ function showAdminNavMore(){
     ...(canAccessGlobalSettings()?[{v:'settings', label:tr('globalSettings'), icon:'settings'}]:[])
   ];
   const body = `<div class="mobileMoreGrid">
-    ${items.map(item=>`<button class="mobileMoreItem${adminView===item.v?' active':''}" onclick="document.getElementById('mobileNavModal')?.remove();adminNavigateTo('${item.v}')">
+    ${items.map(item=>`<button class="mobileMoreItem${adminView===item.v?' active':''}" ${uiAction('runUiFlow',['close-mobile-admin',item.v])}>
       <span class="mobileMoreIcon">${ic(item.icon,18)}</span>
       <span>${item.label}</span>
     </button>`).join('')}
@@ -1815,6 +2033,11 @@ function showAdminNavMore(){
    ═══════════════════════════════════════════════════════════════ */
 function renderFacilityConsole(){
   setDoc();
+  if(adminView==='facilities'){
+    fmShell(platformFacilitiesPage());
+    window.MRFQFacilities.load('#facilitiesPlatformHost',lang);
+    return;
+  }
   const fn = {
     dashboard: adminDashboard,
     modules: adminModules,
@@ -1839,6 +2062,7 @@ function fmShell(content){
           ${adminNavItem('dashboard',tr('dashboard'),'dashboard')}
           ${adminNavItem('modules',tr('modules'),'layers')}
           ${adminNavItem('locations',tr('locations'),'locations')}
+          ${adminNavItem('facilities',lang==='ar'?'المرافق والمساحات':'Facilities & Spaces','building')}
           ${adminNavItem('reports',tr('generalReports'),'reports')}
           ${adminNavItem('assets',tr('assets'),'building')}
           ${adminNavItem('maps',tr('maps'),'map-pin')}
@@ -1856,6 +2080,13 @@ function fmShell(content){
 </div>`;
 }
 
+function platformFacilitiesPage(){
+  return `<section class="pageSection">
+    <div class="pageHead"><div><div class="pageTitle">${lang==='ar'?'المرافق والمساحات':'Facilities & Spaces'}</div><div class="pageSub">${lang==='ar'?'طبقة مركزية للمباني والأدوار والمناطق والمساحات والمخاطر التشغيلية':'Central hierarchy for buildings, floors, zones, spaces and operational risk'}</div></div></div>
+    <div id="facilitiesPlatformHost"><div class="empty-state">${lang==='ar'?'جارٍ تحميل المرافق…':'Loading facilities…'}</div></div>
+  </section>`;
+}
+
 function renderFmMobileBottomNav(){
   const primary = [
     {v:'dashboard', label:tr('dashboard'), icon:'dashboard'},
@@ -1863,14 +2094,14 @@ function renderFmMobileBottomNav(){
     {v:'locations', label:tr('locations'), icon:'locations'}
   ];
   const moreActive = !primary.some(item=>item.v===adminView);
-  return `<nav class="mobileBottomNav" style="--mobile-nav-count:${primary.length+1}" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
+  return `<nav class="mobileBottomNav mobileBottomNav--count-${Math.max(2,Math.min(6,primary.length+1))}" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
     ${primary.map(item=>`
-      <button class="mobileBottomNav-item${adminView===item.v?' active':''}" onclick="adminNavigateTo('${item.v}')">
+      <button class="mobileBottomNav-item${adminView===item.v?' active':''}" ${uiAction('adminNavigateTo',[(item.v)])}>
         <span class="mobileBottomNav-icon">${ic(item.icon,18)}</span>
         <span class="mobileBottomNav-label">${item.label}</span>
       </button>
     `).join('')}
-    <button class="mobileBottomNav-item${moreActive?' active':''}" onclick="showFmNavMore()">
+    <button class="mobileBottomNav-item${moreActive?' active':''}" ${uiAction('showFmNavMore',[])}>
       <span class="mobileBottomNav-icon">${ic('menu',18)}</span>
       <span class="mobileBottomNav-label">${lang==='ar'?'المزيد':'More'}</span>
     </button>
@@ -1884,7 +2115,7 @@ function showFmNavMore(){
     {v:'maps', label:tr('maps'), icon:'map-pin'}
   ];
   const body = `<div class="mobileMoreGrid">
-    ${items.map(item=>`<button class="mobileMoreItem${adminView===item.v?' active':''}" onclick="document.getElementById('mobileNavModal')?.remove();adminNavigateTo('${item.v}')">
+    ${items.map(item=>`<button class="mobileMoreItem${adminView===item.v?' active':''}" ${uiAction('runUiFlow',['close-mobile-admin',item.v])}>
       <span class="mobileMoreIcon">${ic(item.icon,18)}</span>
       <span>${item.label}</span>
     </button>`).join('')}
@@ -1933,8 +2164,8 @@ function adminDashboard(){
     <div class="dashHero-title">${greeting}، ${esc(me.name.split('،')[0].split(' ')[0])}</div>
     <p class="dashHero-sub">${summaryText} · ${fmtDate(new Date())}</p>
     <div class="dashHero-actions">
-      <button class="dashHero-action" onclick="adminNavigateTo('modules')">${ic('layers',14)} ${tr('modules')}</button>
-      ${me.role==='system_admin'?`<button class="dashHero-action" onclick="adminNavigateTo('users')">${ic('users',14)} ${tr('users')}</button>`:`<button class="dashHero-action" onclick="adminNavigateTo('reports')">${ic('reports',14)} ${tr('reports')}</button>`}
+      <button class="dashHero-action" ${uiAction('adminNavigateTo',['modules'])}>${ic('layers',14)} ${tr('modules')}</button>
+      ${me.role==='system_admin'?`<button class="dashHero-action" ${uiAction('adminNavigateTo',['users'])}>${ic('users',14)} ${tr('users')}</button>`:`<button class="dashHero-action" ${uiAction('adminNavigateTo',['reports'])}>${ic('reports',14)} ${tr('reports')}</button>`}
     </div>
   </div>
   <div class="dashHero-right">
@@ -1965,7 +2196,7 @@ function adminDashboard(){
   <div class="card">
     <div class="card-head">
       <span class="card-title">${tr('modules')}</span>
-      <button class="btn secondary sm" onclick="adminNavigateTo('modules')">${tr('modules')}</button>
+      <button class="btn secondary sm" ${uiAction('adminNavigateTo',['modules'])}>${tr('modules')}</button>
     </div>
     <div class="moduleGrid moduleGrid--compact">
       ${MODULES.map(m=>moduleCard(m)).join('')}
@@ -1995,9 +2226,9 @@ function adminDashboard(){
 function adminModules(){
   const s=data.settings||{};
   const requestControls=me.role==='system_admin'?`
-  <div class="card" style="margin-bottom:18px">
+  <div class="card u-mb-18">
     <div class="card-head"><span class="card-title">${ic('lock',16)} ${lang==='ar'?'قنوات طلبات الموظفين':'Employee Request Channels'}</span></div>
-    <p style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:12px">${lang==='ar'?'يمكن إيقاف استقبال الطلبات الجديدة لكل خدمة دون تعطيل عمليات القسم الحالية.':'Stop new employee requests for either service without disabling its existing operations.'}</p>
+    <p class="text-muted-xs-mb-12">${lang==='ar'?'يمكن إيقاف استقبال الطلبات الجديدة لكل خدمة دون تعطيل عمليات القسم الحالية.':'Stop new employee requests for either service without disabling its existing operations.'}</p>
     <div class="perfStatGrid">
       ${employeeRequestChannelRow('cleaning',s.employeeCleaningRequestsEnabled!==false)}
       ${employeeRequestChannelRow('maintenance',s.employeeMaintenanceRequestsEnabled!==false)}
@@ -2021,8 +2252,8 @@ function employeeRequestChannelRow(service,enabled){
   const label=service==='maintenance'?(lang==='ar'?'طلبات الصيانة':'Maintenance Requests'):service==='hospitality'?(lang==='ar'?'طلبات الضيافة':'Hospitality Requests'):(lang==='ar'?'طلبات النظافة':'Cleaning Requests');
   const icon=service==='maintenance'?'tool':service==='hospitality'?'coffee':'reports';
   return `<div class="perfStatRow"><span class="perfStatLabel">${ic(icon,15)} ${label}</span>
-    <div style="display:flex;align-items:center;gap:8px"><span class="badge ${enabled?'ok':'bad'}">${enabled?(lang==='ar'?'يستقبل الطلبات':'Accepting'):(lang==='ar'?'مغلق':'Closed')}</span>
-    <button class="btn ${enabled?'danger':'secondary'} sm" onclick="setEmployeeRequestChannel('${service}',${!enabled})">${enabled?(lang==='ar'?'إيقاف':'Disable'):(lang==='ar'?'تشغيل':'Enable')}</button></div></div>`;
+    <div class="u-flex-center-gap-8"><span class="badge ${enabled?'ok':'bad'}">${enabled?(lang==='ar'?'يستقبل الطلبات':'Accepting'):(lang==='ar'?'مغلق':'Closed')}</span>
+    <button class="btn ${enabled?'danger':'secondary'} sm" ${uiAction('setEmployeeRequestChannel',[(service),(!enabled)])}>${enabled?(lang==='ar'?'إيقاف':'Disable'):(lang==='ar'?'تشغيل':'Enable')}</button></div></div>`;
 }
 
 async function setEmployeeRequestChannel(service,enabled){
@@ -2055,7 +2286,7 @@ function moduleCard(m){
   const badgeLabel = isActive?tr('moduleStatusActive'):isInProgress?tr('moduleStatusInProgress'):tr('moduleStatusPlanned');
   const note = isInProgress ? (lang==='ar'?m.noteAr:m.noteEn) : (!isActive ? tr('plannedNote') : '');
   const actionBtn = isActive
-    ? `<button class="btn sm" onclick="enterModule('${m.key}')">${tr('openModule')}</button>`
+    ? `<button class="btn sm" ${uiAction('enterModule',[(m.key)])}>${tr('openModule')}</button>`
     : `<button class="btn secondary sm" disabled>${tr('comingSoon')}</button>`;
   return `<div class="moduleCard">
     <div class="moduleCard-head">
@@ -2093,7 +2324,7 @@ function adminRoles(){
       <span class="card-title">${ic('shield',16)} ${tr(r.role)}</span>
       <span class="badge ${roleBadgeClass(r.role)}">${tr(r.role)}</span>
     </div>
-    <p style="font-size:var(--fs-sm);color:var(--muted);line-height:1.7">${lang==='ar'?r.descAr:r.descEn}</p>
+    <p class="text-muted-sm-relaxed">${lang==='ar'?r.descAr:r.descEn}</p>
   </div>`).join('')}
 </div>`;
 }
@@ -2161,7 +2392,7 @@ function operationsModuleCard(module,items,reports=[]){
       <div><strong>${pending}</strong><span>${lang==='ar'?'للمراجعة':'To review'}</span></div>
       <div><strong>${sla}%</strong><span>SLA</span></div>
     </div>
-    <button class="btn secondary sm wide" onclick="enterModule('${module.key}')">${lang==='ar'?'فتح الوحدة':'Open module'}</button>
+    <button class="btn secondary sm wide" ${uiAction('enterModule',[(module.key)])}>${lang==='ar'?'فتح الوحدة':'Open module'}</button>
   </article>`;
 }
 function operationsWorkerRows(module){
@@ -2175,7 +2406,7 @@ function operationsWorkerRows(module){
     const open=workerItems.filter(x=>!['completed','cancelled','rejected'].includes(x.status)).length;
     const ratingValues=workerReports.flatMap(r=>[r.ratingSupervisor,r.ratingManager]).map(Number).filter(Number.isFinite);
     const avgRating=ratingValues.length?ratingValues.reduce((s,x)=>s+x,0)/ratingValues.length:null;
-    return `<div class="opsWorkerRow"><div><b>${esc(w.name)}</b><small>${esc(label)} · ${completed} ${lang==='ar'?'مكتملة':'completed'} · ${open} ${lang==='ar'?'مفتوحة':'open'}</small></div><div class="opsWorkerRow-end">${avgRating!=null?`<span class="badge gold">${ic('star',11)} ${avgRating.toFixed(1)}</span>`:''}<button class="btn secondary sm" onclick="showOperationsWorkerProfile('${w.id}','${module.key}')">${lang==='ar'?'ملف الأداء':'Profile'}</button></div></div>`;
+    return `<div class="opsWorkerRow"><div><b>${esc(w.name)}</b><small>${esc(label)} · ${completed} ${lang==='ar'?'مكتملة':'completed'} · ${open} ${lang==='ar'?'مفتوحة':'open'}</small></div><div class="opsWorkerRow-end">${avgRating!=null?`<span class="badge gold">${ic('star',11)} ${avgRating.toFixed(1)}</span>`:''}<button class="btn secondary sm" ${uiAction('showOperationsWorkerProfile',[(w.id),(module.key)])}>${lang==='ar'?'ملف الأداء':'Profile'}</button></div></div>`;
   }).join('');
 }
 function operationsOverview(){
@@ -2187,13 +2418,13 @@ function operationsOverview(){
     ...(maintenanceData().assets||[]).filter(a=>a.status==='down').map(a=>({label:lang==='ar'?a.nameAr:a.nameEn||a.nameAr,sub:lang==='ar'?'أصل متوقف':'Asset down',module:'maintenance'})),
     ...hospitality.filter(o=>o.slaBreached||o.overdue).map(o=>({label:o.referenceNo||tr('hospitalityOrder'),sub:lang==='ar'?'طلب ضيافة متأخر':'Overdue hospitality order',module:'hospitality'}))
   ];
-  return `<div class="pageHeader"><div><div class="pageTitle">${lang==='ar'?'مركز الأداء التشغيلي':'Operations Performance Center'}</div><div class="pageSub">${lang==='ar'?'مقارنة موحدة للمودلات التشغيلية المسجلة':'Unified comparison for registered operational modules'}</div></div><div class="pageActions"><select class="ctrl" onchange="operationsDays=Number(this.value);render()"><option value="7" ${operationsDays===7?'selected':''}>7 ${lang==='ar'?'أيام':'days'}</option><option value="30" ${operationsDays===30?'selected':''}>30 ${lang==='ar'?'يوماً':'days'}</option><option value="90" ${operationsDays===90?'selected':''}>90 ${lang==='ar'?'يوماً':'days'}</option></select></div></div>
+  return `<div class="pageHeader"><div><div class="pageTitle">${lang==='ar'?'مركز الأداء التشغيلي':'Operations Performance Center'}</div><div class="pageSub">${lang==='ar'?'مقارنة موحدة للمودلات التشغيلية المسجلة':'Unified comparison for registered operational modules'}</div></div><div class="pageActions"><select class="ctrl" data-ui-change="operations-days"><option value="7" ${operationsDays===7?'selected':''}>7 ${lang==='ar'?'أيام':'days'}</option><option value="30" ${operationsDays===30?'selected':''}>30 ${lang==='ar'?'يوماً':'days'}</option><option value="90" ${operationsDays===90?'selected':''}>90 ${lang==='ar'?'يوماً':'days'}</option></select></div></div>
   <div class="opsModuleGrid">
     ${operationalModules.map(module=>operationsModuleCard(module,moduleOperationalItems(module),moduleOperationalReports(module))).join('')}
   </div>
   <div class="contentGrid opsOverviewGrid"><div class="card"><div class="card-head"><span class="card-title">${ic('users',16)} ${lang==='ar'?'أداء الفرق':'Team Performance'}</span></div><div class="opsWorkerList">
     ${operationalModules.map(operationsWorkerRows).join('')}
-  </div></div><div class="card"><div class="card-head"><span class="card-title">${ic('bell',16)} ${lang==='ar'?'تنبيهات تشغيلية':'Operational Alerts'}</span><span class="badge ${alerts.length?'bad':'ok'}">${alerts.length}</span></div>${alerts.length?`<div class="opsAlertList">${alerts.slice(0,12).map(a=>`<button class="opsAlertRow" onclick="enterModule('${a.module}')"><span class="opsAlertDot"></span><span><b>${esc(a.label)}</b><small>${esc(a.sub)}</small></span></button>`).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد تنبيهات حرجة':'No critical alerts'}</div></div>`}</div></div>`;
+  </div></div><div class="card"><div class="card-head"><span class="card-title">${ic('bell',16)} ${lang==='ar'?'تنبيهات تشغيلية':'Operational Alerts'}</span><span class="badge ${alerts.length?'bad':'ok'}">${alerts.length}</span></div>${alerts.length?`<div class="opsAlertList">${alerts.slice(0,12).map(a=>`<button class="opsAlertRow" ${uiAction('enterModule',[(a.module)])}><span class="opsAlertDot"></span><span><b>${esc(a.label)}</b><small>${esc(a.sub)}</small></span></button>`).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('check',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد تنبيهات حرجة':'No critical alerts'}</div></div>`}</div></div>`;
 }
 function showOperationsWorkerProfile(workerId,module){
   const worker=(data.users||[]).find(u=>u.id===workerId);if(!worker)return;
@@ -2205,7 +2436,7 @@ function showOperationsWorkerProfile(workerId,module){
   const rating=values.length?values.reduce((s,x)=>s+x,0)/values.length:null;
   const approval=reports.filter(r=>r.approvalStatus==='approved').length;
   const body=`<div class="workerProfileHero"><div class="workerProfileAvatar">${esc(initials(worker.name))}</div><div><h3>${esc(worker.name)}</h3><p>${tr(worker.role)}</p></div></div><div class="opsModuleMetrics workerProfileMetrics"><div><strong>${completed}</strong><span>${lang==='ar'?'مكتملة':'Completed'}</span></div><div><strong>${open}</strong><span>${lang==='ar'?'مفتوحة':'Open'}</span></div><div><strong>${reports.length}</strong><span>${lang==='ar'?'تقارير':'Reports'}</span></div><div><strong>${rating!=null?rating.toFixed(1):'—'}</strong><span>${lang==='ar'?'التقييم':'Rating'}</span></div></div>${module!=='hospitality'?`<div class="perfStatRow"><span>${lang==='ar'?'تقارير معتمدة':'Approved reports'}</span><b>${approval}/${reports.length}</b></div>`:''}`;
-  showModal('operationsWorkerProfileModal',lang==='ar'?'ملف أداء الموظف':'Employee Performance Profile',body,`<button class="btn secondary" onclick="document.getElementById('operationsWorkerProfileModal')?.remove()">${tr('close')}</button>`);
+  showModal('operationsWorkerProfileModal',lang==='ar'?'ملف أداء الموظف':'Employee Performance Profile',body,`<button class="btn secondary" ${uiAction('runUiFlow',['close-element','operationsWorkerProfileModal'])}>${tr('close')}</button>`);
 }
 
 /* ── audit log (recent activity, extended) ─────────────────── */
@@ -2269,16 +2500,16 @@ function adminSettings(){
   </div>
   <div class="card">
     <div class="card-head"><span class="card-title">${ic('clock',16)} ${lang==='ar'?'إعدادات SLA (بالدقائق)':'SLA Settings (minutes)'}</span></div>
-    <p style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:12px">${lang==='ar'?'الحد الأقصى للوقت المسموح به لكل نوع بلاغ قبل اعتباره متأخراً.':'Maximum response time allowed per ticket category before SLA breach.'}</p>
-    <div class="formGrid-4" style="margin-bottom:14px">
+    <p class="text-muted-xs-mb-12">${lang==='ar'?'الحد الأقصى للوقت المسموح به لكل نوع بلاغ قبل اعتباره متأخراً.':'Maximum response time allowed per ticket category before SLA breach.'}</p>
+    <div class="formGrid-4 u-mb-14">
       ${Object.entries(slaLabels).map(([cat,label])=>`
         <div>
-          <label style="font-size:var(--fs-xs);font-weight:700;display:flex;align-items:center;gap:5px;margin-bottom:4px">${ic(slaIcons[cat]||'clock',13)} ${label}</label>
-          <input id="sla-${cat}" type="number" min="1" max="1440" value="${sla[cat]||''}" class="ctrl" style="width:100%">
+          <label class="form-label-compact">${ic(slaIcons[cat]||'clock',13)} ${label}</label>
+          <input id="sla-${cat}" type="number" min="1" max="1440" value="${sla[cat]||''}" class="ctrl u-full-width">
         </div>
       `).join('')}
     </div>
-    <button class="btn sm" onclick="saveSlaSettings()">${ic('check',14)} ${lang==='ar'?'حفظ إعدادات SLA':'Save SLA Settings'}</button>
+    <button class="btn sm" ${uiAction('saveSlaSettings',[])}>${ic('check',14)} ${lang==='ar'?'حفظ إعدادات SLA':'Save SLA Settings'}</button>
   </div>
   <div class="card">
     <div class="card-head"><span class="card-title">${ic('layers',16)} ${tr('modules')}</span></div>
@@ -2364,8 +2595,8 @@ function dash(){
     <div class="dashHero-title">${greeting}، ${esc(me.name.split(' ')[0])}</div>
     <p class="dashHero-sub">${summaryText} · ${fmtDate(new Date())}</p>
     <div class="dashHero-actions">
-      <button class="dashHero-action" onclick="navigateTo('tickets')">${ic('tickets',14)} ${tr('tickets')}</button>
-      <button class="dashHero-action" onclick="navigateTo('reports')">${ic('reports',14)} ${tr('reports')}</button>
+      <button class="dashHero-action" ${uiAction('navigateTo',['tickets'])}>${ic('tickets',14)} ${tr('tickets')}</button>
+      <button class="dashHero-action" ${uiAction('navigateTo',['reports'])}>${ic('reports',14)} ${tr('reports')}</button>
     </div>
   </div>
   <div class="dashHero-right">
@@ -2400,13 +2631,13 @@ function dash(){
       <span class="chartCard-title">${tr('analytics')}</span>
       <span class="badge brand">7 ${lang==='ar'?'أيام':'days'}</span>
     </div>
-    <div class="bars7" style="height:110px;align-items:flex-end;gap:8px">
+    <div class="bars7 u-h-110">
       ${days.map(d=>{
         const h = max>0?Math.max(8,Math.round(d.count/max*100)):8;
         return`<div class="bar-col">
           <span class="bar-count">${d.count?num(d.count):''}</span>
           <div class="bar-track">
-            <div class="bar-fill${d.isToday?' highlight':d.count===0?' low':''}" style="height:${h}%"></div>
+            <div class="bar-fill${d.isToday?' highlight':d.count===0?' low':''} ${metricClass('h',h)}"></div>
           </div>
           <span class="bar-label">${d.label}</span>
         </div>`;
@@ -2426,14 +2657,14 @@ function dash(){
           <span class="perfStatLabel">${lang==='ar'?'جودة التقارير':'Report quality'}</span>
           <span class="perfStatValue">${num(avgQ)}%</span>
         </div>
-        <div class="progress-track"><div class="progress-fill ${avgQ>=70?'ok':avgQ>=40?'gold':'warn'}" style="width:${avgQ}%"></div></div>
+        <div class="progress-track"><div class="progress-fill ${avgQ>=70?'ok':avgQ>=40?'gold':'warn'} ${metricClass('w',avgQ)}"></div></div>
       </div>
       <div>
         <div class="perfStatRow">
           <span class="perfStatLabel">${lang==='ar'?'التغطية اليومية':'Daily coverage'}</span>
           <span class="perfStatValue">${num(s.coverage)}%</span>
         </div>
-        <div class="progress-track"><div class="progress-fill ${s.coverage>=80?'ok':s.coverage>=50?'gold':'warn'}" style="width:${s.coverage}%"></div></div>
+        <div class="progress-track"><div class="progress-fill ${s.coverage>=80?'ok':s.coverage>=50?'gold':'warn'} ${metricClass('w',s.coverage)}"></div></div>
       </div>
     </div>
   </div>
@@ -2446,8 +2677,8 @@ function dash(){
     </div>
     <div class="slaIndicator">
       <div class="slaStatus ${s.openTickets===0?'ok':s.openTickets<=2?'warn':'bad'}">${s.openTickets===0?(lang==='ar'?'كل البلاغات مغلقة':'All tickets resolved'):lang==='ar'?`${num(s.openTickets)} بلاغ مفتوح`:`${num(s.openTickets)} open tickets`}</div>
-      <div class="progress-track" style="margin-top:8px"><div class="progress-fill ${slaPct>70?'ok':slaPct>40?'gold':'bad'}" style="width:${slaPct}%"></div></div>
-      <p style="font-size:var(--fs-xs);color:var(--muted);margin-top:8px;line-height:1.6">${lang==='ar'?'مؤشر يعتمد على البلاغات المفتوحة':'Based on open ticket count'}</p>
+      <div class="progress-track u-mt-8"><div class="progress-fill ${slaPct>70?'ok':slaPct>40?'gold':'bad'} ${metricClass('w',slaPct)}"></div></div>
+      <p class="text-muted-xs-relaxed">${lang==='ar'?'مؤشر يعتمد على البلاغات المفتوحة':'Based on open ticket count'}</p>
     </div>
   </div>
 </div>
@@ -2457,7 +2688,7 @@ function dash(){
   <div class="card">
     <div class="card-head">
       <span class="card-title">${tr('latest')}</span>
-      <button class="btn secondary sm" onclick="navigateTo('reports')">${tr('reports')}</button>
+      <button class="btn secondary sm" ${uiAction('navigateTo',['reports'])}>${tr('reports')}</button>
     </div>
     ${miniReportList(data.reports.slice(0,6))}
   </div>
@@ -2487,9 +2718,9 @@ function mapNode(l){
   const late = !last||Date.now()-new Date(last.createdAt).getTime()>(data.settings.frequencyMinutes||120)*60000;
   return`<div class="mapNode ${late?'late':'ok'}">
     <div class="mapNode-name">${esc(locName(l))}</div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+    <div class="layout-between-center-mt-4">
       <span class="mapNode-meta">${tr(l.type)} · ${l.floor||'—'}</span>
-      <span class="badge ${late?'bad':'ok'}" style="padding:2px 7px;font-size:9px">${late?tr('late'):tr('good')}</span>
+      <span class="badge ${late?'bad':'ok'} badge-micro">${late?tr('late'):tr('good')}</span>
     </div>
   </div>`;
 }
@@ -2501,8 +2732,8 @@ function miniReportList(items){
     const q = qualityScore(r);
     const st = r.approvalStatus||'pending_approval';
     return`<div class="list-row">
-      ${imgs[0]?`<img src="${imgs[0]}" style="width:44px;height:44px;object-fit:cover;border-radius:var(--r-sm);flex-shrink:0">`:
-        `<div class="list-icon" style="background:var(--surface-3);color:var(--muted)">${ic('reports',18)}</div>`}
+      ${imgs[0]?`<img src="${imgs[0]}" class="thumb-44">`:
+        `<div class="list-icon surface-muted">${ic('reports',18)}</div>`}
       <div class="list-body">
         <div class="list-title">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</div>
         <div class="list-sub">${esc(r.workerName)} · ${fmt(r.createdAt)}</div>
@@ -2558,19 +2789,19 @@ function reports(){
     <div class="pageSub">${num(filtered.length)} ${lang==='ar'?'تقرير':'reports'}</div>
   </div>
   <div class="pageActions reportHeaderActions">
-    <button class="btn secondary sm" onclick="load()">${ic('sync',14)} ${lang==='ar'?'تحديث':'Refresh'}</button>
+    <button class="btn secondary sm" ${uiAction('load',[])}>${ic('sync',14)} ${lang==='ar'?'تحديث':'Refresh'}</button>
     ${me.role!=='cleaning_supervisor'?`<details class="exportMenu">
       <summary class="btn secondary sm">${ic('reports',14)} ${lang==='ar'?'تصدير':'Export'}</summary>
       <div class="exportMenu-list">
-        <button onclick="exportExcelReports()">${ic('arrow',14)} ${lang==='ar'?'Excel':'Excel'}</button>
-        <button onclick="exportPDFReports()">${ic('reports',14)} ${lang==='ar'?'PDF':'PDF'}</button>
+        <button ${uiAction('exportExcelReports',[])}>${ic('arrow',14)} ${lang==='ar'?'Excel':'Excel'}</button>
+        <button ${uiAction('exportPDFReports',[])}>${ic('reports',14)} ${lang==='ar'?'PDF':'PDF'}</button>
       </div>
     </details>`:''}
   </div>
 </div>
 <div class="filterBar reportTabs">
   <div class="filterChips">
-    ${filters.map(f=>`<button class="filterChip${reportFilter===f.key?' active':''}" onclick="reportFilter='${f.key}';render()">${f.label}</button>`).join('')}
+    ${filters.map(f=>`<button class="filterChip${reportFilter===f.key?' active':''}" ${uiAction('runUiFlow',['navigate','reportFilter',f.key,null,'render'])}>${f.label}</button>`).join('')}
   </div>
 </div>
 ${filtered.length===0
@@ -2582,7 +2813,7 @@ function starRatingWidget(reportId, ratingType, current, readOnly){
   const stars = [1,2,3,4,5];
   const val = current != null ? Math.round(current) : 0;
   return `<div class="starRating" data-report="${esc(reportId)}" data-type="${esc(ratingType)}">
-    ${stars.map(s=>`<button class="starBtn${s<=val?' filled':''}"${readOnly?' disabled':` onclick="submitRating('${esc(reportId)}','${esc(ratingType)}',${s})"`} title="${s}" aria-label="${s} stars">${ic('star',15)}</button>`).join('')}
+    ${stars.map(s=>`<button class="starBtn${s<=val?' filled':''}"${readOnly?' disabled':` ${uiAction('submitRating',[(esc(reportId)),(esc(ratingType)),(s)])}`} title="${s}" aria-label="${s} stars">${ic('star',15)}</button>`).join('')}
     <span class="starVal">${current!=null?current.toFixed(1):tr('noRating')}</span>
   </div>`;
 }
@@ -2619,31 +2850,31 @@ function reportCard(r,full){
   const tasks = taskSetFor(r.locationType);
   const totalPhotos = imgs.length;
   return`<article class="reportCard">
-    <div class="reportCard-body"  style="cursor:pointer" onclick="openReportDetail('${r.id}')" role="button" tabindex="0">
+    <div class="reportCard-body"  class="u-cursor-pointer" ${uiAction('openReportDetail',[(r.id)])} role="button" tabindex="0">
       <div>
         <div class="reportCard-loc">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</div>
         <div class="reportCard-meta">${ic('users',12)} ${esc(r.workerName)} &nbsp;·&nbsp; ${fmt(r.createdAt)} &nbsp;·&nbsp; ${tr(r.locationType||'other')}</div>
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <div class="u-flex-wrap-gap-6">
         <span class="badge brand">${ic('camera',10)} ${num(totalPhotos)}</span>
         <span class="badge gold">${tr('quality')}: ${num(q)}%</span>
         <span class="badge ${st==='approved'?'ok':st==='rejected'||st==='needs_recleaning'?'bad':'warn'}">${reportStatusLabel(r)}</span>
         ${rating!=null?`<span class="badge gold">${ic('star',10)} ${rating.toFixed(1)}</span>`:''}
-        <span class="badge" style="margin-inline-start:auto">${ic('arrow',11)} ${lang==='ar'?'تفاصيل':'Details'}</span>
+        <span class="badge u-inline-auto">${ic('arrow',11)} ${lang==='ar'?'تفاصيل':'Details'}</span>
       </div>
     </div>
     ${full&&canReview()&&['pending','pending_approval'].includes(st)?`
-      <div class="reportCard-actions" onclick="event.stopPropagation()">
+      <div class="reportCard-actions" ${uiAction('runUiFlow',['stop-propagation'])}>
         <div class="reportCard-actions-primary">
-          <button class="btn ok sm action-btn" onclick="reviewReport('${r.id}','approved')">${ic('check',13)} ${tr('approve')}</button>
+          <button class="btn ok sm action-btn" ${uiAction('reviewReport',[(r.id),'approved'])}>${ic('check',13)} ${tr('approve')}</button>
         </div>
         <div class="reportCard-actions-secondary${canDelete()?'':' reportCard-actions-secondary--full'}">
-          <button class="btn warn sm action-btn" onclick="reviewReport('${r.id}','needs_recleaning')">${ic('flip',13)} ${r.module==='maintenance'?(lang==='ar'?'إعادة العمل':'Rework'):tr('reclean')}</button>
-          <button class="btn danger sm action-btn" onclick="reviewReport('${r.id}','rejected')">${ic('x',13)} ${tr('reject')}</button>
+          <button class="btn warn sm action-btn" ${uiAction('reviewReport',[(r.id),'needs_recleaning'])}>${ic('flip',13)} ${r.module==='maintenance'?(lang==='ar'?'إعادة العمل':'Rework'):tr('reclean')}</button>
+          <button class="btn danger sm action-btn" ${uiAction('reviewReport',[(r.id),'rejected'])}>${ic('x',13)} ${tr('reject')}</button>
         </div>
-        ${canDelete()?`<div class="reportCard-actions-danger"><button class="btn secondary sm action-btn reportDeleteBtn" onclick="deleteReport('${r.id}')" aria-label="${lang==='ar'?'حذف التقرير':'Delete report'}" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button></div>`:''}
+        ${canDelete()?`<div class="reportCard-actions-danger"><button class="btn secondary sm action-btn reportDeleteBtn" ${uiAction('deleteReport',[(r.id)])} aria-label="${lang==='ar'?'حذف التقرير':'Delete report'}" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button></div>`:''}
       </div>`:''}
-    ${full&&canReview()?`<div onclick="event.stopPropagation()">${reportRatingControls(r)}</div>`:''}
+    ${full&&canReview()?`<div ${uiAction('runUiFlow',['stop-propagation'])}>${reportRatingControls(r)}</div>`:''}
   </article>`;
 }
 
@@ -2676,26 +2907,26 @@ function toggleNotif(e){
       label: lang==='ar'? `تقرير بانتظار الاعتماد` : 'Report pending approval',
       sub:   esc((lang==='ar'?r.locationNameAr:r.locationNameEn)||r.locationNameAr),
       time:  fmt(r.createdAt),
-      go:()=>{ view='reports'; reportFilter='pending'; render(); }
+      route:'pending-reports'
     })),
     ...openTkts.map(t=>({
       color:'var(--bad)',
       label: esc(t.title),
       sub:   `${ticketStatusLabel(t)} · ${tr('activeTicket')}`,
       time:  fmt(t.createdAt),
-      go:()=>{ view='tickets'; render(); }
+      route:'tickets'
     })),
     ...overdueHospitality.map(o=>({
       color:'var(--bad)',label:lang==='ar'?'طلب ضيافة متأخر':'Overdue hospitality order',sub:esc(o.referenceNo||o.requesterName||''),time:fmt(o.createdAt),
-      go:()=>{ adminModuleContext='hospitality';hospManagerView='orders';render(); }
+      route:'hospitality'
     })),
     ...lowParts.map(p=>({
       color:'var(--warn)',label:lang==='ar'?'مخزون قطعة منخفض':'Spare part stock is low',sub:esc(lang==='ar'?p.nameAr:p.nameEn||p.nameAr),time:'',
-      go:()=>{ adminModuleContext='maintenance';maintView='parts';render(); }
+      route:'maintenance-parts'
     })),
     ...downAssets.map(a=>({
       color:'var(--bad)',label:lang==='ar'?'أصل متوقف':'Asset is down',sub:esc(lang==='ar'?a.nameAr:a.nameEn||a.nameAr),time:'',
-      go:()=>{ adminModuleContext='maintenance';maintView='assets';render(); }
+      route:'maintenance-assets'
     }))
   ].sort((a,b)=>0); // keep order
 
@@ -2705,12 +2936,12 @@ function toggleNotif(e){
   panel.innerHTML=`
     <div class="notifPanel-head">
       <span class="notifPanel-title">${lang==='ar'?'الإشعارات':'Notifications'}${items.length?` (${items.length})`:''}</span>
-      ${items.length?`<button class="notifPanel-clear" onclick="goView('reports');document.getElementById('notifPanel')?.remove()">${lang==='ar'?'عرض الكل':'View all'}</button>`:''}
+      ${items.length?`<button class="notifPanel-clear" ${uiAction('runUiFlow',['close-notifications-reports'])}>${lang==='ar'?'عرض الكل':'View all'}</button>`:''}
     </div>
     <div class="notifPanel-list">
       ${items.length ? items.map(it=>`
-        <div class="notifItem" onclick="(${it.go.toString()})();document.getElementById('notifPanel')?.remove()">
-          <div class="notifItem-dot" style="background:${it.color}"></div>
+        <div class="notifItem" ${uiAction('runUiFlow',['notification-route',it.route])}>
+          <div class="notifItem-dot notifItem-dot--${it.route}"></div>
           <div class="notifItem-body">
             <div class="notifItem-label">${it.label}</div>
             <div class="notifItem-sub">${it.sub}</div>
@@ -2721,18 +2952,6 @@ function toggleNotif(e){
     </div>`;
 
   document.body.appendChild(panel);
-  const rect = btn.getBoundingClientRect();
-  const panelWidth = Math.min(320, window.innerWidth - 24);
-  panel.style.width = `${panelWidth}px`;
-  panel.style.top = `${Math.min(rect.bottom + 10, window.innerHeight - 80)}px`;
-  const maxInset = Math.max(12, window.innerWidth - panelWidth - 12);
-  if(document.documentElement.dir==='rtl'){
-    panel.style.right = `${Math.min(maxInset, Math.max(12, window.innerWidth - rect.right))}px`;
-    panel.style.left = 'auto';
-  }else{
-    panel.style.left = `${Math.min(maxInset, Math.max(12, rect.left))}px`;
-    panel.style.right = 'auto';
-  }
   panel.addEventListener('click', ev=>ev.stopPropagation());
   // Close on outside click
   setTimeout(()=>document.addEventListener('click',function h(){panel.remove();document.removeEventListener('click',h);}),0);
@@ -2781,29 +3000,7 @@ function exportPDFReports(){
   const dir=lang==='ar'?'rtl':'ltr';
   const html=`<!DOCTYPE html><html lang="${lang}" dir="${dir}"><head><meta charset="utf-8">
 <title>MRFQ — ${tr('reports')}</title>
-<style>
-  @font-face{font-family:'IBMPlexArabic';src:url('/assets/fonts/IBMPlexSansArabic-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
-  @font-face{font-family:'IBMPlexArabic';src:url('/assets/fonts/IBMPlexSansArabic-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'IBMPlexArabic',Tahoma,Arial,sans-serif;padding:24px;color:#123238;direction:${dir}}
-  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #005257}
-  .brand{font-family:'IBMPlexArabic',Tahoma,Arial,sans-serif;color:#005257;font-size:20px;font-weight:800}
-  .meta{font-size:11px;color:#6F787F;margin-top:4px}
-  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:16px}
-  th{background:#005257;color:#fff;padding:9px 10px;text-align:${lang==='ar'?'right':'left'};font-weight:700}
-  td{padding:8px 10px;border-bottom:1px solid #E1E9E6;vertical-align:top}
-  tr:nth-child(even) td{background:#F8FAF9}
-  .ok{color:#00A488;font-weight:700} .bad{color:#DE7559;font-weight:700} .warn{color:#E69E33;font-weight:700}
-  .footer{margin-top:16px;font-size:10px;color:#8A989C;text-align:center}
-  .pdfActions{display:flex;gap:10px;justify-content:flex-end;align-items:center;margin-bottom:18px}
-  .pdfBtn{border:1px solid #D8E6E2;background:#fff;color:#005257;border-radius:14px;padding:9px 16px;font:700 13px 'IBMPlexArabic',Tahoma,Arial,sans-serif;cursor:pointer}
-  .pdfBtn.primary{background:#00848D;border-color:#00848D;color:#fff}
-  @media print{body{padding:12px}.pdfActions{display:none!important}@page{margin:15mm}}
-</style></head><body>
-<div class="pdfActions">
-  <button class="pdfBtn" onclick="window.opener&&window.opener.focus();window.close();">${lang==='ar'?'رجوع':'Back'}</button>
-  <button class="pdfBtn primary" onclick="window.print()">${lang==='ar'?'طباعة PDF':'Print PDF'}</button>
-</div>
+<link rel="stylesheet" href="/css/print.css"></head><body>
 <div class="header">
   <div><div class="brand">مِرفق — MRFQ</div><div class="meta">${tr('reports')} · ${fmtDate(new Date())} · ${items.length} ${lang==='ar'?'تقرير':'records'}</div></div>
   <div class="meta">${lang==='ar'?'مُصدَّر بواسطة: ':'Exported by: '}${esc(me.name)}</div>
@@ -2816,11 +3013,11 @@ ${items.map((r,i)=>{
   const st=r.approvalStatus||'pending_approval';
   const cls=st==='approved'?'ok':st==='rejected'||st==='needs_recleaning'?'bad':'warn';
   return`<tr><td>${i+1}</td><td>${esc(r.workerName)}</td>
-    <td>${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}<br><small style="color:#8A989C">${tr(r.locationType||'other')}</small></td>
+    <td>${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}<br><small class="text-gray-8a">${tr(r.locationType||'other')}</small></td>
     <td>${qualityScore(r)}%</td>
     <td class="${cls}">${reportStatusLabel(r)}</td>
-    <td style="white-space:nowrap">${fmt(r.createdAt)}</td>
-  </tr>${r.notes?`<tr><td></td><td colspan="5" style="font-size:11px;color:#6F787F;padding-top:2px">${esc(r.notes)}</td></tr>`:''}`;
+    <td class="no-wrap">${fmt(r.createdAt)}</td>
+  </tr>${r.notes?`<tr><td></td><td colspan="5" class="note-row">${esc(r.notes)}</td></tr>`:''}`;
 }).join('')}
 </tbody></table>
 <div class="footer">مِرفق — MRFQ · ${new Date().toISOString().slice(0,10)}</div>
@@ -2839,10 +3036,10 @@ function openGallery(imgs,i=0){
   box.dataset.index = idx;
   box.dataset.images = JSON.stringify(safeImgs);
   box.innerHTML=`
-    <button class="lightbox-close" onclick="this.parentElement.remove()" aria-label="${tr('closeModal')}">${ic('x',22)}</button>
-    ${safeImgs.length>1?`<button class="lightbox-nav prev" onclick="event.stopPropagation();galleryMove(this,-1)" aria-label="${lang==='ar'?'السابق':'Previous'}">${ic('arrow',22)}</button>`:''}
+    <button class="lightbox-close" ${uiAction('runUiFlow',['remove-parent'])} aria-label="${tr('closeModal')}">${ic('x',22)}</button>
+    ${safeImgs.length>1?`<button class="lightbox-nav prev" ${uiAction('runUiFlow',['gallery-move',-1])} aria-label="${lang==='ar'?'السابق':'Previous'}">${ic('arrow',22)}</button>`:''}
     <img src="${safeImgs[idx]||''}" alt="">
-    ${safeImgs.length>1?`<button class="lightbox-nav next" onclick="event.stopPropagation();galleryMove(this,1)" aria-label="${lang==='ar'?'التالي':'Next'}">${ic('arrow',22)}</button>`:''}
+    ${safeImgs.length>1?`<button class="lightbox-nav next" ${uiAction('runUiFlow',['gallery-move',1])} aria-label="${lang==='ar'?'التالي':'Next'}">${ic('arrow',22)}</button>`:''}
     <div class="lightbox-count">${num(idx+1)} / ${num(safeImgs.length||1)}</div>`;
   box.addEventListener('click',e=>{if(e.target===box)box.remove()});
   document.body.appendChild(box);
@@ -2880,13 +3077,13 @@ function tickets(){
     <div class="pageTitle">${tr('tickets')}</div>
     <div class="pageSub">${num((data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length)} ${lang==='ar'?'بلاغ نشط':'active tickets'}</div>
   </div>
-  ${canTicket()?`<button class="btn sm" onclick="showTicketCreate=!showTicketCreate;render()">${ic('plus',14)} ${createLabel}</button>`:''}
+  ${canTicket()?`<button class="btn sm" ${uiAction('runUiFlow',['toggle-flag','showTicketCreate','toggle'])}>${ic('plus',14)} ${createLabel}</button>`:''}
 </div>
 ${canTicket()&&showTicketCreate?`
-<div class="card" style="margin-bottom:20px">
+<div class="card u-mb-20">
   <div class="card-head">
     <span class="card-title">${ic('plus',16)} ${createLabel}</span>
-    <button class="icon-btn" onclick="showTicketCreate=false;render()" title="${tr('cancel')}">${ic('x',18)}</button>
+    <button class="icon-btn" ${uiAction('runUiFlow',['toggle-flag','showTicketCreate',false])} title="${tr('cancel')}">${ic('x',18)}</button>
   </div>
   <div class="formGrid">
     ${fc(tr('title'), inp('tt',{value:isMaintenanceRole()?(lang==='ar'?'طلب صيانة':'Maintenance Ticket'):(lang==='ar'?'بلاغ نظافة':'Cleaning Ticket')}))}
@@ -2897,7 +3094,7 @@ ${canTicket()&&showTicketCreate?`
   </div>
   ${fc(tr('description'), ta('td','',{rows:2, placeholder:lang==='ar'?'وصف البلاغ...':'Describe the issue...'}))}
 
-  <button class="btn" onclick="createTicket()">${ic('plus',16)} ${createLabel}</button>
+  <button class="btn" ${uiAction('createTicket',[])}>${ic('plus',16)} ${createLabel}</button>
 </div>`:''}
 ${ticketCards(data.tickets||[])}`;
 }
@@ -2921,7 +3118,7 @@ function ticketCards(items){
     <div class="empty-icon">${ic('tickets',28)}</div>
     <div class="empty-title">${tr('noTickets')}</div>
     <p class="empty-sub">${lang==='ar'?'لا توجد بلاغات مفتوحة. يمكنك إنشاء بلاغ جديد من الأعلى.':'No open tickets. Create a new ticket using the form above.'}</p>
-    ${canTicket()?`<button class="btn sm" style="margin-top:8px" onclick="showTicketCreate=true;render()">${ic('plus',14)} ${tr('createTicket')}</button>`:''}
+    ${canTicket()?`<button class="btn sm u-mt-8" ${uiAction('runUiFlow',['toggle-flag','showTicketCreate',true])}>${ic('plus',14)} ${tr('createTicket')}</button>`:''}
   </div></div>`;
   return`<div class="ticketGrid">${items.map(t=>{
     const prCls = t.priority==='high'?'bad':t.priority==='low'?'info':'warn';
@@ -2962,9 +3159,9 @@ function ticketCards(items){
         ${t.completionTimeMins!=null?`<span class="badge ok">${ic('check',11)} ${t.completionTimeMins<60?t.completionTimeMins+tr('mins'):Math.round(t.completionTimeMins/60)+tr('hours')}</span>`:''}
       </div>
       <div class="ticketCard-actions">
-        <button class="btn secondary sm" onclick="openComments('${t.id}')">${ic('chat',13)} ${lang==='ar'?'تعليقات':'Comments'}</button>
-        ${canEdit?`<button class="btn secondary sm" onclick="editTicketModal('${t.id}')">${ic('edit',13)} ${lang==='ar'?'تعديل':'Edit'}</button>`:''}
-        ${canDel?`<button class="btn danger sm" onclick="deleteTicketConfirm('${t.id}')">${ic('trash',13)} ${lang==='ar'?'حذف':'Delete'}</button>`:''}
+        <button class="btn secondary sm" ${uiAction('openComments',[(t.id)])}>${ic('chat',13)} ${lang==='ar'?'تعليقات':'Comments'}</button>
+        ${canEdit?`<button class="btn secondary sm" ${uiAction('editTicketModal',[(t.id)])}>${ic('edit',13)} ${lang==='ar'?'تعديل':'Edit'}</button>`:''}
+        ${canDel?`<button class="btn danger sm" ${uiAction('deleteTicketConfirm',[(t.id)])}>${ic('trash',13)} ${lang==='ar'?'حذف':'Delete'}</button>`:''}
       </div>
     </div>`;
   }).join('')}</div>`;
@@ -2987,8 +3184,8 @@ function editTicketModal(id){
     ${fc(tr('assignedTo'), sel('et-worker',[{v:'',l:tr('unassigned'),sel:!t.assignedTo},...workers.map(w=>({v:w.id,l:w.name,sel:t.assignedTo===w.id}))]))}
   </div>
   ${fc(tr('description'), ta('et-desc', t.description||'', {rows:3}))}`;
-  const foot=`<button class="btn" onclick="saveEditTicket('${esc(id)}')">${ic('check',16)} ${tr('save')}</button>
-    <button class="btn secondary" onclick="document.getElementById('editTicketModal').remove()">${tr('cancel')}</button>`;
+  const foot=`<button class="btn" ${uiAction('saveEditTicket',[(esc(id))])}>${ic('check',16)} ${tr('save')}</button>
+    <button class="btn secondary" ${uiAction('runUiFlow',['close-element','editTicketModal'])}>${tr('cancel')}</button>`;
   showModal('editTicketModal', `${ic('edit',16)} ${lang==='ar'?'تعديل البلاغ':'Edit Ticket'}`, body, foot);
 }
 
@@ -3028,12 +3225,12 @@ async function openComments(ticketId){
   const title = t ? esc(t.title) : ticketId;
   showModal('commentsModal',
     `${ic('chat',16)} ${lang==='ar'?'تعليقات البلاغ':'Ticket Comments'} — ${title}`,
-    `<div id="commentsList" style="min-height:60px">${lang==='ar'?'جاري التحميل...':'Loading...'}</div>
-     <div style="display:flex;gap:8px;margin-top:12px">
-       <input id="commentInput" class="ctrl" style="flex:1" placeholder="${lang==='ar'?'اكتب تعليق...':'Write a comment...'}" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitComment()}">
-       <button class="btn sm" onclick="submitComment()">${ic('arrow',14)} ${lang==='ar'?'إرسال':'Send'}</button>
+    `<div id="commentsList" class="min-h-60">${lang==='ar'?'جاري التحميل...':'Loading...'}</div>
+     <div class="u-flex-gap-8-mt-12">
+       <input id="commentInput" class="ctrl u-flex-1" placeholder="${lang==='ar'?'اكتب تعليق...':'Write a comment...'}" data-ui-keydown="submit-comment">
+       <button class="btn sm" ${uiAction('submitComment',[])}>${ic('arrow',14)} ${lang==='ar'?'إرسال':'Send'}</button>
      </div>`,
-    `<button class="btn secondary" onclick="document.getElementById('commentsModal')?.remove()">${lang==='ar'?'إغلاق':'Close'}</button>`
+    `<button class="btn secondary" ${uiAction('runUiFlow',['close-element','commentsModal'])}>${lang==='ar'?'إغلاق':'Close'}</button>`
   );
   await refreshComments();
 }
@@ -3045,7 +3242,7 @@ async function refreshComments(){
   if(!list) return;
   const comments = res.comments||[];
   if(!comments.length){
-    list.innerHTML=`<div class="empty-state" style="padding:16px 0"><div class="empty-icon">${ic('chat',24)}</div><div class="empty-title" style="font-size:var(--fs-sm)">${lang==='ar'?'لا توجد تعليقات بعد':'No comments yet'}</div></div>`;
+    list.innerHTML=`<div class="empty-state u-py-16"><div class="empty-icon">${ic('chat',24)}</div><div class="empty-title text-size-sm">${lang==='ar'?'لا توجد تعليقات بعد':'No comments yet'}</div></div>`;
     return;
   }
   const roleLabel = r => ({system_admin:lang==='ar'?'مدير النظام':'Admin',facility_manager:lang==='ar'?'مدير المرافق':'FM',cleaning_manager:lang==='ar'?'مدير النظافة':'Cleaning Mgr',cleaning_supervisor:lang==='ar'?'مشرف نظافة':'Cleaning Sup',cleaner:lang==='ar'?'عامل نظافة':'Cleaner',maintenance_manager:lang==='ar'?'مدير الصيانة':'Maint. Mgr',maintenance_supervisor:lang==='ar'?'مشرف صيانة':'Maint. Sup',maintenance_worker:lang==='ar'?'فني صيانة':'Technician',employee:lang==='ar'?'موظف':'Employee'}[r]||r);
@@ -3053,10 +3250,10 @@ async function refreshComments(){
     <div class="commentItem${c.userId===me.id?' commentItem--mine':''}">
       <div class="commentItem-header">
         <span class="commentItem-name">${esc(c.userName)}</span>
-        <span class="commentItem-role">${roleLabel(c.userRole)}</span>
+        <span class="commentItem-role">${esc(roleLabel(c.userRole))}</span>
         <span class="commentItem-time">${fmt(c.createdAt)}</span>
         ${(c.userId===me.id||['system_admin','facility_manager','cleaning_manager','maintenance_manager','maintenance_supervisor'].includes(me.role))
-          ?`<button class="commentItem-del" onclick="deleteComment('${c.id}')" title="${lang==='ar'?'حذف':'Delete'}">×</button>`:''}
+          ?`<button class="commentItem-del" ${uiAction('deleteComment',[(c.id)])} title="${lang==='ar'?'حذف':'Delete'}">×</button>`:''}
       </div>
       <div class="commentItem-body">${esc(c.body)}</div>
     </div>`).join('');
@@ -3121,11 +3318,11 @@ function recurringTasksPage(){
     <div class="pageSub">${tasks.length} ${lang==='ar'?'مهمة':'tasks'}</div>
   </div>
   <div class="pageActions">
-    <button class="btn sm" onclick="showRecurringCreate=!showRecurringCreate;render()">${ic('plus',14)} ${lang==='ar'?'إضافة':'Add'}</button>
+    <button class="btn sm" ${uiAction('runUiFlow',['toggle-flag','showRecurringCreate','toggle'])}>${ic('plus',14)} ${lang==='ar'?'إضافة':'Add'}</button>
   </div>
 </div>
 ${showRecurringCreate?`
-<div class="card" style="margin-bottom:16px">
+<div class="card u-mb-16">
   <div class="card-head"><span class="card-title">${ic('plus',14)} ${lang==='ar'?'مهمة متكررة جديدة':'New Recurring Task'}</span></div>
   <div class="formGrid">
     ${fc(lang==='ar'?'الموقع':'Location', sel('rt-loc',[{v:'',l:lang==='ar'?'اختر موقع':'Select location',sel:true},...locs.map(l=>({v:l.id,l:locName(l),sel:false}))]))}
@@ -3133,14 +3330,14 @@ ${showRecurringCreate?`
     ${fc(lang==='ar'?'عنوان المهمة':'Task Title', inp('rt-title',{placeholder:lang==='ar'?'مثال: تنظيف دوري دورة المياه':'e.g. Periodic restroom cleaning'}))}
     ${fc(lang==='ar'?'التكرار (دقيقة)':'Frequency (minutes)', inp('rt-freq',{type:'number',value:'120',min:'30',max:'10080'}))}
   </div>
-  <div style="display:flex;gap:8px;margin-top:12px">
-    <button class="btn sm" onclick="createRecurringTask()">${ic('check',14)} ${lang==='ar'?'إنشاء':'Create'}</button>
-    <button class="btn secondary sm" onclick="showRecurringCreate=false;render()">${lang==='ar'?'إلغاء':'Cancel'}</button>
+  <div class="u-flex-gap-8-mt-12">
+    <button class="btn sm" ${uiAction('createRecurringTask',[])}>${ic('check',14)} ${lang==='ar'?'إنشاء':'Create'}</button>
+    <button class="btn secondary sm" ${uiAction('runUiFlow',['toggle-flag','showRecurringCreate',false])}>${lang==='ar'?'إلغاء':'Cancel'}</button>
   </div>
 </div>`:''}
 ${tasks.length?`
 <div class="card">
-  <div style="overflow-x:auto">
+  <div class="overflow-x-auto">
     <table class="dataTable">
       <thead><tr>
         <th>${lang==='ar'?'المهمة':'Task'}</th>
@@ -3157,11 +3354,11 @@ ${tasks.length?`
           <td>${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</td>
           <td><span class="badge">${catLabels[t.category]||t.category}</span></td>
           <td>${freqLabel(t.frequencyMins)}</td>
-          <td style="font-size:var(--fs-xs)">${fmt(t.nextRunAt)}</td>
+          <td class="text-size-xs">${fmt(t.nextRunAt)}</td>
           <td><span class="badge ${t.active?'ok':''}">${t.active?(lang==='ar'?'نشط':'Active'):(lang==='ar'?'متوقف':'Paused')}</span></td>
-          <td style="display:flex;gap:6px;justify-content:flex-end">
-            <button class="btn secondary sm" onclick="toggleRecurring('${t.id}',${!t.active})">${t.active?(lang==='ar'?'إيقاف':'Pause'):(lang==='ar'?'تفعيل':'Resume')}</button>
-            <button class="btn danger sm" onclick="deleteRecurring('${t.id}')">${ic('trash',13)}</button>
+          <td class="u-flex-end-gap-6">
+            <button class="btn secondary sm" ${uiAction('toggleRecurring',[(t.id),(!t.active)])}>${t.active?(lang==='ar'?'إيقاف':'Pause'):(lang==='ar'?'تفعيل':'Resume')}</button>
+            <button class="btn danger sm" ${uiAction('deleteRecurring',[(t.id)])}>${ic('trash',13)}</button>
           </td>
         </tr>`).join('')}
       </tbody>
@@ -3241,7 +3438,7 @@ function _activityTimeline(ticket, events){
     timeline.push({ts:e.createdAt, label:`${_eventLabel(e.eventType)}${e.actorName?' — '+e.actorName:''}`, icon:'list', cls:''});
   }
   timeline.sort((a,b)=>a.ts.localeCompare(b.ts));
-  if(!timeline.length) return `<div style="color:var(--muted);font-size:var(--fs-xs);padding:8px 0">${lang==='ar'?'لا يوجد نشاط مسجل':'No activity recorded'}</div>`;
+  if(!timeline.length) return `<div class="text-muted-xs-py-8">${lang==='ar'?'لا يوجد نشاط مسجل':'No activity recorded'}</div>`;
   return timeline.map(e=>`
     <div class="activityItem">
       <div class="activityItem-dot ${e.cls}">${ic(e.icon,11)}</div>
@@ -3260,7 +3457,7 @@ function _reportActivityTimeline(report, events){
     timeline.push({ts:e.createdAt, label:`${_eventLabel(e.eventType)}${e.actorName?' — '+e.actorName:''}`, cls:''});
   }
   timeline.sort((a,b)=>a.ts.localeCompare(b.ts));
-  if(!timeline.length) return `<div style="color:var(--muted);font-size:var(--fs-xs);padding:8px 0">${lang==='ar'?'لا يوجد نشاط':'No activity'}</div>`;
+  if(!timeline.length) return `<div class="text-muted-xs-py-8">${lang==='ar'?'لا يوجد نشاط':'No activity'}</div>`;
   return timeline.map(e=>`
     <div class="activityItem">
       <div class="activityItem-dot ${e.cls||''}">${ic('circle',11)}</div>
@@ -3302,18 +3499,18 @@ async function openTicketDetail(id){
     <div class="detailModal-section">
       <div class="detailModal-sectionTitle">${ic('camera',14)} ${lang==='ar'?'الصور':'Photos'} <span class="badge brand">${t.photos.length}</span></div>
       <div class="${hasTyped?'detailModal-photos-split':'detailModal-photos'}">
-        ${hasTyped?`${before.length?`<div><div class="photoGroup-label">${lang==='ar'?'قبل الصيانة':'Before Maintenance'}</div><div class="detailModal-photos">${before.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(before)},${i})' alt="">`).join('')}</div></div>`:''}${after.length?`<div><div class="photoGroup-label ok">${lang==='ar'?'بعد الصيانة':'After Maintenance'}</div><div class="detailModal-photos">${after.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(after)},${i})' alt="">`).join('')}</div></div>`:''}`:t.photos.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(t.photos)},${i})' alt="">`).join('')}
+        ${hasTyped?`${before.length?`<div><div class="photoGroup-label">${lang==='ar'?'قبل الصيانة':'Before Maintenance'}</div><div class="detailModal-photos">${before.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" ${uiAction('openGallery',[before,i])} alt="">`).join('')}</div></div>`:''}${after.length?`<div><div class="photoGroup-label ok">${lang==='ar'?'بعد الصيانة':'After Maintenance'}</div><div class="detailModal-photos">${after.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" ${uiAction('openGallery',[after,i])} alt="">`).join('')}</div></div>`:''}`:t.photos.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" ${uiAction('openGallery',[t.photos,i])} alt="">`).join('')}
       </div>
     </div>`:
-    `<div class="detailModal-section"><div class="detailModal-sectionTitle">${ic('camera',14)} ${lang==='ar'?'الصور':'Photos'}</div><div style="color:var(--muted);font-size:var(--fs-xs);padding:4px 0">${lang==='ar'?'لا توجد صور':'No photos'}</div></div>`}
+    `<div class="detailModal-section"><div class="detailModal-sectionTitle">${ic('camera',14)} ${lang==='ar'?'الصور':'Photos'}</div><div class="text-muted-xs-py-4">${lang==='ar'?'لا توجد صور':'No photos'}</div></div>`}
     <div class="detailModal-section" id="detail-activity-${id}">
       <div class="detailModal-sectionTitle">${ic('list',14)} ${lang==='ar'?'النشاط':'Activity'}</div>
-      <div class="activityTimeline" id="activity-list-${id}"><div style="color:var(--muted);font-size:var(--fs-xs)">${lang==='ar'?'جاري التحميل...':'Loading...'}</div></div>
+      <div class="activityTimeline" id="activity-list-${id}"><div class="text-muted-xs">${lang==='ar'?'جاري التحميل...':'Loading...'}</div></div>
     </div>
   </div>`;
   showModal('ticketDetailModal', `${ic('tickets',16)} ${esc(t.title)}`, body, `
-    <button class="btn secondary sm" onclick="openComments('${t.id}')">${ic('chat',14)} ${lang==='ar'?'تعليقات':'Comments'}</button>
-    <button class="btn secondary" onclick="document.getElementById('ticketDetailModal')?.remove()">${lang==='ar'?'إغلاق':'Close'}</button>`, {wide:true});
+    <button class="btn secondary sm" ${uiAction('openComments',[(t.id)])}>${ic('chat',14)} ${lang==='ar'?'تعليقات':'Comments'}</button>
+    <button class="btn secondary" ${uiAction('runUiFlow',['close-element','ticketDetailModal'])}>${lang==='ar'?'إغلاق':'Close'}</button>`, {wide:true});
   // Fetch activity in background
   api('/tickets/'+id+'/activity').then(res=>{
     const el = document.getElementById('activity-list-'+id);
@@ -3347,7 +3544,7 @@ async function openReportDetail(id){
     ${tasks.length?`
     <div class="detailModal-section">
       <div class="detailModal-sectionTitle">${ic('check',14)} ${lang==='ar'?'المهام':'Tasks'}</div>
-      <div class="reportCard-tasks" style="margin-top:8px">
+      <div class="reportCard-tasks u-mt-8">
         ${tasks.map(p=>{const ok=taskDone(r.tasks,p);return`<div class="taskResult ${ok?'done':'missing'}"><span>${esc(lang==='ar'?p[0]:p[1])}</span><span class="taskMark">${ok?'✓':'×'}</span></div>`}).join('')}
       </div>
     </div>`:''}
@@ -3356,18 +3553,18 @@ async function openReportDetail(id){
       ${allImgs.length?`
       <div class="${hasTyped?'detailModal-photos-split':'detailModal-photos'}">
         ${hasTyped?`
-          ${before.length?`<div><div class="photoGroup-label" style="margin-bottom:6px">${ic('camera',12)} ${r.module==='maintenance'?(lang==='ar'?'صور قبل الصيانة':'Before Maintenance Photos'):tr('beforePhotos')}</div><div class="detailModal-photos">${before.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(before)},${i})' alt="">`).join('')}</div></div>`:''}
-          ${after.length?`<div><div class="photoGroup-label ok" style="margin-bottom:6px">${ic('check',12)} ${r.module==='maintenance'?(lang==='ar'?'صور بعد الصيانة':'After Maintenance Photos'):tr('afterPhotos')}</div><div class="detailModal-photos">${after.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(after)},${i})' alt="">`).join('')}</div></div>`:''}
-        `:allImgs.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" onclick='openGallery(${JSON.stringify(allImgs)},${i})' alt="">`).join('')}
+          ${before.length?`<div><div class="photoGroup-label u-mb-6">${ic('camera',12)} ${r.module==='maintenance'?(lang==='ar'?'صور قبل الصيانة':'Before Maintenance Photos'):tr('beforePhotos')}</div><div class="detailModal-photos">${before.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" ${uiAction('openGallery',[before,i])} alt="">`).join('')}</div></div>`:''}
+          ${after.length?`<div><div class="photoGroup-label ok u-mb-6">${ic('check',12)} ${r.module==='maintenance'?(lang==='ar'?'صور بعد الصيانة':'After Maintenance Photos'):tr('afterPhotos')}</div><div class="detailModal-photos">${after.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" ${uiAction('openGallery',[after,i])} alt="">`).join('')}</div></div>`:''}
+        `:allImgs.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" ${uiAction('openGallery',[allImgs,i])} alt="">`).join('')}
       </div>`:
-      `<div style="color:var(--muted);font-size:var(--fs-xs);padding:4px 0">${lang==='ar'?'لا توجد صور':'No photos'}</div>`}
+      `<div class="text-muted-xs-py-4">${lang==='ar'?'لا توجد صور':'No photos'}</div>`}
     </div>
     <div class="detailModal-section">
       <div class="detailModal-sectionTitle">${ic('list',14)} ${lang==='ar'?'النشاط':'Activity'}</div>
-      <div class="activityTimeline" id="report-activity-list-${id}"><div style="color:var(--muted);font-size:var(--fs-xs)">${lang==='ar'?'جاري التحميل...':'Loading...'}</div></div>
+      <div class="activityTimeline" id="report-activity-list-${id}"><div class="text-muted-xs">${lang==='ar'?'جاري التحميل...':'Loading...'}</div></div>
     </div>
   </div>`;
-  showModal('reportDetailModal', `${ic('reports',16)} ${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)} — ${esc(r.workerName)}`, body, `<button class="btn secondary" onclick="document.getElementById('reportDetailModal')?.remove()">${lang==='ar'?'إغلاق':'Close'}</button>`, {wide:true});
+  showModal('reportDetailModal', `${ic('reports',16)} ${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)} — ${esc(r.workerName)}`, body, `<button class="btn secondary" ${uiAction('runUiFlow',['close-element','reportDetailModal'])}>${lang==='ar'?'إغلاق':'Close'}</button>`, {wide:true});
   api('/reports/'+id+'/activity').then(res=>{
     const el = document.getElementById('report-activity-list-'+id);
     if(el) el.innerHTML = _reportActivityTimeline(r, res.events||[]);
@@ -3385,31 +3582,31 @@ function locations(){
     <div class="pageSub">${num((data.locations||[]).length)} ${lang==='ar'?'مرفق':'facilities'}</div>
   </div>
   <div class="pageActions">
-    ${canManage()?`<button class="btn sm" onclick="showLocCreate=!showLocCreate;render()">${ic('plus',14)} ${lang==='ar'?'إضافة مرفق':'Add Facility'}</button>`:''}
-    <button class="btn secondary sm" onclick="window.print()">${ic('qr',14)} ${tr('printQR')}</button>
+    ${canManage()?`<button class="btn sm" ${uiAction('runUiFlow',['toggle-flag','showLocCreate','toggle'])}>${ic('plus',14)} ${lang==='ar'?'إضافة مرفق':'Add Facility'}</button>`:''}
+    <button class="btn secondary sm" ${uiAction('runUiFlow',['print'])}>${ic('qr',14)} ${tr('printQR')}</button>
   </div>
 </div>
 ${canManage()?`
 <div class="card locationsZonesCard">
   <div class="card-head">
     <span class="card-title">${ic('locations',16)} ${lang==='ar'?'إدارة المناطق':'Zones'}</span>
-    <button class="btn secondary sm" onclick="showZoneCreate=!showZoneCreate;render()">${ic('plus',13)} ${lang==='ar'?'منطقة':'Zone'}</button>
+    <button class="btn secondary sm" ${uiAction('runUiFlow',['toggle-flag','showZoneCreate','toggle'])}>${ic('plus',13)} ${lang==='ar'?'منطقة':'Zone'}</button>
   </div>
   <div class="zone-chips">
-    ${(data.zones||[]).map(z=>`<span class="zone-chip">${esc(z)}<button class="zone-del" onclick="deleteZone('${esc(z)}')" title="${lang==='ar'?'حذف':'Delete'}">×</button></span>`).join('')}
+    ${(data.zones||[]).map(z=>`<span class="zone-chip">${esc(z)}<button class="zone-del" ${uiAction('deleteZone',[(esc(z))])} title="${lang==='ar'?'حذف':'Delete'}">×</button></span>`).join('')}
     ${showZoneCreate?`
     <div class="zone-add">
       ${inp('new-zone',{placeholder:lang==='ar'?'منطقة جديدة':'New zone'})}
-      <button class="btn sm" onclick="addZone()">${ic('plus',14)} ${lang==='ar'?'إضافة':'Add'}</button>
+      <button class="btn sm" ${uiAction('addZone',[])}>${ic('plus',14)} ${lang==='ar'?'إضافة':'Add'}</button>
     </div>
     `:''}
   </div>
 </div>
 ${showLocCreate?`
-<div class="card" style="margin-bottom:20px">
+<div class="card u-mb-20">
   <div class="card-head">
     <span class="card-title">${ic('plus',16)} ${lang==='ar'?'إضافة مرفق':'Add Facility'}</span>
-    <button class="icon-btn" onclick="showLocCreate=false;render()" title="${tr('cancel')}">${ic('x',18)}</button>
+    <button class="icon-btn" ${uiAction('runUiFlow',['toggle-flag','showLocCreate',false])} title="${tr('cancel')}">${ic('x',18)}</button>
   </div>
   <div class="formGrid-4">
     ${fc('ID', inp('lid',{cls:'ltr', placeholder:'office-01-a'}))}
@@ -3419,14 +3616,14 @@ ${showLocCreate?`
     ${fc(tr('floor'), sel('lf', FACILITY_FLOORS.map(f=>({v:f,l:f}))))}
     ${fc(tr('zone'), sel('lz', FACILITY_ZONES.map(z=>({v:z,l:z}))))}
     ${fc(tr('priority'), sel('lpri',[{v:'high',l:tr('high')},{v:'medium',l:tr('medium'),sel:true},{v:'low',l:tr('low')}]))}
-    <div class="field" style="align-self:flex-end"><button class="btn wide" onclick="addLoc()">${ic('plus',16)} ${tr('save')}</button></div>
+    <div class="field align-self-end"><button class="btn wide" ${uiAction('addLoc',[])}>${ic('plus',16)} ${tr('save')}</button></div>
   </div>
 </div>`:''}`:''}
 <!-- FLOOR FILTER -->
-<div class="filterBar" style="margin-bottom:16px">
+<div class="filterBar u-mb-16">
   <div class="filterChips">
     ${['all',...[...new Set((data.locations||[]).map(l=>l.floor).filter(Boolean))].sort()].map(f=>
-      `<button class="filterChip${locsFloorFilter===f?' active':''}" onclick="locsFloorFilter='${f}';render()">
+      `<button class="filterChip${locsFloorFilter===f?' active':''}" ${uiAction('runUiFlow',['navigate','locsFloorFilter',f,null,'render'])}>
         ${f==='all'?(lang==='ar'?'الكل':'All'):f}
       </button>`
     ).join('')}
@@ -3449,24 +3646,24 @@ ${showLocCreate?`
         </div>
         <span class="badge ${late?'bad':'ok'}">${late?tr('late'):tr('good')}</span>
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <div class="u-flex-wrap-gap-6">
         <span class="badge brand">${tr(l.type)}</span>
         ${l.floor?`<span class="badge">${l.floor}</span>`:''}
         ${l.zone?`<span class="badge">${l.zone}</span>`:''}
         <span class="badge ${l.priority==='high'?'bad':l.priority==='low'?'info':'warn'}">${tr(l.priority||'medium')}</span>
       </div>
-      <div style="font-size:var(--fs-xs);color:var(--muted);display:flex;align-items:center;gap:5px">
+      <div class="text-muted-xs-flex">
         ${ic(late?'bell':'check',12)}
         ${lang==='ar'?'آخر تقرير':'Last report'}: <strong>${last?fmt(last.createdAt):tr('none')}</strong>
         ${last?`· ${esc(last.workerName||'')}`:'' }
       </div>
       <div class="locCard-actions">
-        ${canManage()?`<button class="btn danger sm" onclick="deleteLocConfirm('${esc(l.id)}')">${ic('trash',13)} ${lang==='ar'?'حذف':'Delete'}</button>`:''}
-        <details style="flex:1">
-          <summary style="cursor:pointer;font-size:var(--fs-xs);font-weight:700;color:var(--brand-mid);list-style:none;padding:4px 0">${ic('qr',13)} ${lang==='ar'?'عرض QR':'Show QR'}</summary>
-          <div class="locCard-qr" style="margin-top:8px;display:flex;flex-direction:column;align-items:flex-start;gap:8px">
+        ${canManage()?`<button class="btn danger sm" ${uiAction('deleteLocConfirm',[(esc(l.id))])}>${ic('trash',13)} ${lang==='ar'?'حذف':'Delete'}</button>`:''}
+        <details class="u-flex-1">
+          <summary class="summary-link">${ic('qr',13)} ${lang==='ar'?'عرض QR':'Show QR'}</summary>
+          <div class="locCard-qr qr-actions">
             <img width="120" height="120" src="${qrUrl}" alt="QR ${esc(l.id)}" loading="lazy">
-            <a class="btn secondary sm" href="${qrUrl}&format=png" download="QR-${esc(l.id)}.png" style="text-decoration:none">${ic('download',13)} ${lang==='ar'?'تحميل QR':'Download QR'}</a>
+            <a class="btn secondary sm" href="${qrUrl}&format=png" download="QR-${esc(l.id)}.png" class="no-decoration">${ic('download',13)} ${lang==='ar'?'تحميل QR':'Download QR'}</a>
           </div>
         </details>
       </div>
@@ -3530,20 +3727,20 @@ function assignments(){
 <div class="card">
   <div class="field">
     <label>${tr('selectWorker')}</label>
-    ${sel('aw', workers.map(w=>({v:w.id,l:`${w.name} - ${w.username}`})), {onchange:'fillAssign()'})}
+    ${sel('aw', workers.map(w=>({v:w.id,l:`${w.name} - ${w.username}`})), {changeAction:'fill-assignment'})}
   </div>
   <!-- FLOOR FILTER -->
-  <div class="filterBar" style="margin-bottom:16px">
+  <div class="filterBar u-mb-16">
     <div class="filterChips">
       ${['all',...[...new Set((data.locations||[]).map(l=>l.floor).filter(Boolean))].sort()].map(f=>
-        `<button class="filterChip asgFloorBtn${assignFloorFilter===f?' active':''}" data-floor="${f}" onclick="filterAssignFloor('${f}')">
+        `<button class="filterChip asgFloorBtn${assignFloorFilter===f?' active':''}" data-floor="${f}" ${uiAction('filterAssignFloor',[(f)])}>
           ${f==='all'?(lang==='ar'?'الكل':'All'):f}
         </button>`
       ).join('')}
     </div>
   </div>
 
-  <div class="assignGrid" style="margin-top:0">
+  <div class="assignGrid u-mt-0">
     ${(data.locations||[]).map(l=>`
       <label class="assignItem${assignFloorFilter!=='all'&&(l.floor||'')!==assignFloorFilter?' is-hidden':''}" data-floor="${esc(l.floor||'')}">
         <input class="asgCheck" type="checkbox" value="${l.id}">
@@ -3555,7 +3752,7 @@ function assignments(){
       </label>`).join('')}
   </div>
   <div class="assignActions">
-    <button class="btn" onclick="saveAssign()">${ic('check',16)} ${tr('save')}</button>
+    <button class="btn" ${uiAction('saveAssign',[])}>${ic('check',16)} ${tr('save')}</button>
   </div>
 </div>`;
 }
@@ -3623,7 +3820,7 @@ function users(){
     <div class="pageSub">${num(filtered.length)}${filtered.length!==allUsers.length?' / '+num(allUsers.length):''} ${lang==='ar'?'مستخدم':'users'}</div>
   </div>
   <div class="pageHeader-actions">
-    ${canManageUsers()?`<button class="btn" onclick="showUserFormModal()">${ic('plus',16)} ${tr('addUser')}</button>`:''}
+    ${canManageUsers()?`<button class="btn" ${uiAction('showUserFormModal',[])}>${ic('plus',16)} ${tr('addUser')}</button>`:''}
   </div>
 </div>
 
@@ -3661,14 +3858,14 @@ function users(){
 
 <!-- Filter bar -->
 <div class="usersFilterBar">
-  ${inp('usersSearch',{type:'search', placeholder:lang==='ar'?'بحث...':'Search users...', value:usersSearch, oninput:'usersSearch=this.value;render()'})}
+  ${inp('usersSearch',{type:'search', placeholder:lang==='ar'?'بحث...':'Search users...', value:usersSearch, inputAction:'filter-users'})}
   <div class="usersFilterBar-sep"></div>
-  ${sel('usersRoleFilter', [{v:'all',l:lang==='ar'?'كل الصلاحيات':'All Roles',sel:usersRoleFilter==='all'},...roleOptions.map(r=>({v:r,l:tr(r),sel:usersRoleFilter===r}))], {onchange:'usersRoleFilter=this.value;render()'})}
+  ${sel('usersRoleFilter', [{v:'all',l:lang==='ar'?'كل الصلاحيات':'All Roles',sel:usersRoleFilter==='all'},...roleOptions.map(r=>({v:r,l:tr(r),sel:usersRoleFilter===r}))], {changeAction:'filter-user-role'})}
   ${sel('usersStatusFilter', [
     {v:'all',l:lang==='ar'?'كل الحالات':'All Status',sel:usersStatusFilter==='all'},
     {v:'active',l:tr('activeUser'),sel:usersStatusFilter==='active'},
     {v:'inactive',l:tr('inactive'),sel:usersStatusFilter==='inactive'}
-  ], {onchange:'usersStatusFilter=this.value;render()'})}
+  ], {changeAction:'filter-user-status'})}
 </div>
 
 <!-- Enterprise table -->
@@ -3683,7 +3880,7 @@ ${filtered.length===0
         <th>${lang==='ar'?'موقع المكتب':'Office'}</th>
         <th>${lang==='ar'?'الحالة':'Status'}</th>
         <th>${lang==='ar'?'الصلاحيات':'Roles'}</th>
-        ${canManageUsers()?`<th style="text-align:end">${lang==='ar'?'إجراءات':'Actions'}</th>`:''}
+        ${canManageUsers()?`<th class="text-end">${lang==='ar'?'إجراءات':'Actions'}</th>`:''}
       </tr>
     </thead>
     <tbody>
@@ -3702,8 +3899,8 @@ ${filtered.length===0
               </div>
             </div>
           </td>
-          <td class="mono" style="font-size:11px;color:var(--muted)">${u.employeeNo?esc(u.employeeNo):'—'}</td>
-          <td class="mono" style="font-size:11px;color:var(--muted)">${uLoc?`<span title="${esc(lang==='ar'?uLoc.nameAr:uLoc.nameEn)}">${esc(uLoc.id)}</span>`:'—'}</td>
+          <td class="mono text-muted-11">${u.employeeNo?esc(u.employeeNo):'—'}</td>
+          <td class="mono text-muted-11">${uLoc?`<span title="${esc(lang==='ar'?uLoc.nameAr:uLoc.nameEn)}">${esc(uLoc.id)}</span>`:'—'}</td>
           <td><span class="badge ${u.active?'ok':'bad'}">${u.active?tr('activeUser'):tr('inactive')}</span></td>
           <td>
             <div class="usersTable-roles">
@@ -3713,10 +3910,10 @@ ${filtered.length===0
           </td>
           ${canEdit?`<td>
             <div class="usersTable-actions">
-              <button class="btn secondary sm rolesActionBtn" onclick="showAddRoleModal('${u.id}')" title="${lang==='ar'?'إدارة الصلاحيات':'Manage Roles'}">${ic('shield',13)} <span>${lang==='ar'?'الصلاحيات':'Roles'}</span></button>
-              <button class="btn secondary sm iconOnlyBtn" onclick="showUserFormModal('${u.id}')" title="${lang==='ar'?'تعديل':'Edit'}">${ic('edit',13)}</button>
-              ${me.role==='system_admin'?`<button class="btn secondary sm iconOnlyBtn" onclick="showPasswordResetModal('${u.id}')" title="${tr('resetPassword')}">${ic('lock',13)}</button>`:''}
-              ${canDel?`<button class="btn danger sm iconOnlyBtn" onclick="deleteUserConfirm('${u.id}')" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button>`:''}
+              <button class="btn secondary sm rolesActionBtn" ${uiAction('showAddRoleModal',[(u.id)])} title="${lang==='ar'?'إدارة الصلاحيات':'Manage Roles'}">${ic('shield',13)} <span>${lang==='ar'?'الصلاحيات':'Roles'}</span></button>
+              <button class="btn secondary sm iconOnlyBtn" ${uiAction('showUserFormModal',[(u.id)])} title="${lang==='ar'?'تعديل':'Edit'}">${ic('edit',13)}</button>
+              ${me.role==='system_admin'?`<button class="btn secondary sm iconOnlyBtn" ${uiAction('showPasswordResetModal',[(u.id)])} title="${tr('resetPassword')}">${ic('lock',13)}</button>`:''}
+              ${canDel?`<button class="btn danger sm iconOnlyBtn" ${uiAction('deleteUserConfirm',[(u.id)])} title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button>`:''}
             </div>
           </td>`:''}
         </tr>`;
@@ -3740,11 +3937,11 @@ function showUserFormModal(id){
     ${fc(tr('password'),inp('up',{type:'password', placeholder:'••••••••', cls:'ltr'}))}
     ${fc(tr('role'),    sel('ur', editableRoles.map(r=>({v:r,l:tr(r),sel:u?.role===r}))))}
     ${fc(tr('employeeNo'),inp('ue',{value:u?.employeeNo||'', cls:'ltr'}))}
-    <div style="grid-column:1/-1">${fc(lang==='ar'?'موقع المكتب':'Office Location',sel('uDefaultLoc',locOptions))}</div>
+    <div class="u-grid-full">${fc(lang==='ar'?'موقع المكتب':'Office Location',sel('uDefaultLoc',locOptions))}</div>
     ${fc(tr('status'),  sel('ua',[{v:'true',l:tr('activeUser'),sel:u?.active},{v:'false',l:tr('inactive'),sel:u&&!u.active}]))}
   </div>`;
-  const foot=`<button class="btn" onclick="saveUser()">${ic('check',16)} ${tr('save')}</button>
-    <button class="btn secondary" onclick="hideUserFormModal()">${tr('cancel')}</button>`;
+  const foot=`<button class="btn" ${uiAction('saveUser',[])}>${ic('check',16)} ${tr('save')}</button>
+    <button class="btn secondary" ${uiAction('hideUserFormModal',[])}>${tr('cancel')}</button>`;
   const el = showModal('userFormModal', titleHtml, body, foot);
   el.addEventListener('click',e=>{if(e.target===el)hideUserFormModal();});
 }
@@ -3788,8 +3985,8 @@ function showPasswordResetModal(userId){
     ${fc(tr('newPassword'),    inp('rpNew',{type:'password', placeholder:'••••••••', cls:'ltr'}))}
     ${fc(tr('confirmPassword'),inp('rpConfirm',{type:'password', placeholder:'••••••••', cls:'ltr'}))}
   </div>`;
-  const foot=`<button class="btn" onclick="savePasswordReset()">${ic('check',16)} ${tr('save')}</button>
-    <button class="btn secondary" onclick="hidePasswordResetModal()">${tr('cancel')}</button>`;
+  const foot=`<button class="btn" ${uiAction('savePasswordReset',[])}>${ic('check',16)} ${tr('save')}</button>
+    <button class="btn secondary" ${uiAction('hidePasswordResetModal',[])}>${tr('cancel')}</button>`;
   const el = showModal('passwordResetModal', titleHtml, body, foot);
   el.addEventListener('click',e=>{if(e.target===el)hidePasswordResetModal();});
 }
@@ -3830,28 +4027,14 @@ function showAddRoleModal(userId){
   if(!u) return;
   const existingRoles = u.roles||[u.role];
 
-  const ROLE_COLORS = {
-    system_admin:       {bg:'var(--bg-soft)', color:'var(--mrfq-navy)'},
-    facility_manager:   {bg:'var(--bg-soft)', color:'var(--mrfq-dark-teal)'},
-    cleaning_manager:   {bg:'rgba(111,79,152,.12)', color:'var(--mrfq-purple)'},
-    cleaning_supervisor:{bg:'rgba(0,132,141,.12)', color:'var(--mrfq-teal)'},
-    cleaner:            {bg:'var(--ok-bg)', color:'var(--ok)'},
-    employee:           {bg:'rgba(117,206,200,.16)', color:'var(--mrfq-dark-teal)'},
-    hospitality_manager:   {bg:'rgba(111,79,152,.12)', color:'var(--mrfq-purple)'},
-    hospitality_supervisor:{bg:'rgba(0,132,141,.12)', color:'var(--mrfq-teal)'},
-    hospitality_worker:    {bg:'var(--ok-bg)', color:'var(--ok)'}
-  };
-
   function buildRoleCards(){
     return ROLES.map(r=>{
       const active = existingRoles.includes(r);
       const isLast = active && existingRoles.length===1;
-      const rc = ROLE_COLORS[r]||{bg:'var(--surface-3)',color:'var(--muted)'};
-      const iconStyle = `background:${rc.bg};color:${rc.color}`;
       return `<div class="roleCard ${active?'active':''} ${isLast?'locked':''}"
         title="${isLast?(lang==='ar'?'لا يمكن إزالة الصلاحية الأخيرة':'Cannot remove the last role'):''}"
-        onclick="${active?(isLast?'':`removeUserRole('${userId}','${r}')`):`addUserRole('${userId}','${r}')`}">
-        <div class="roleCardIcon" style="${iconStyle}">${active?ic('check',14):ic('plus',14)}</div>
+        ${uiAction('runUiFlow',['role-toggle',active,isLast,userId,r])}>
+        <div class="roleCardIcon role-icon-${r}">${active?ic('check',14):ic('plus',14)}</div>
         <div class="roleCardName">${tr(r)}</div>
         ${isLast?`<div class="roleCardLock">${ic('lock',10)}</div>`:''}
       </div>`;
@@ -3859,7 +4042,7 @@ function showAddRoleModal(userId){
   }
 
   const titleHtml = `<div><div class="modal-title">${tr('rolesLabel')}</div><div class="modal-subtitle">${esc(u.name)}</div></div>`;
-  const foot = `<button class="btn secondary" onclick="document.getElementById('rolesModal').remove()">${tr('cancel')}</button>`;
+  const foot = `<button class="btn secondary" ${uiAction('runUiFlow',['close-element','rolesModal'])}>${tr('cancel')}</button>`;
   showModal('rolesModal', titleHtml, `<div class="roles-grid" id="rolesGrid">${buildRoleCards()}</div>`, foot, {narrow:true});
 
   window._rolesModalUserId = userId;
@@ -3943,7 +4126,7 @@ function renderWorker(){
       <div class="wCard-title">${ic('tickets',16)} ${tr('myTickets')}</div>
       <div class="wCard-list">
         ${myTickets.map(t=>`
-          <button class="workerTicketItem" onclick="startTicketWorker('${t.id}')">
+          <button class="workerTicketItem" ${uiAction('startTicketWorker',[(t.id)])}>
             <div class="workerTicketItem-title">${esc(t.title)}</div>
             <div class="workerTicketItem-loc">${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</div>
           </button>`).join('')}
@@ -3960,17 +4143,14 @@ function renderWorker(){
             const stLabel={pending:lang==='ar'?'معلق':'Pending',approved:lang==='ar'?'معتمد':'Approved',rejected:lang==='ar'?'مرفوض':'Rejected',needs_recleaning:lang==='ar'?'إعادة تنظيف':'Re-clean'}[st]||st;
             const stColor=st==='approved'?'ok':st==='rejected'?'bad':st==='needs_recleaning'?'warn':'brand';
             const actionable=st==='rejected'||st==='needs_recleaning';
-            const borderClr=actionable?'rgba(200,50,50,.25)':'var(--line)';
-            const iconBorderClr=stColor==='ok'?'var(--ok)':stColor==='bad'?'var(--bad)':'var(--warn)';
-            return `<div class="workerReportItem ${actionable?'actionable':''}" ${actionable?`onclick="workerStartLocation('${r.locationId}')"`:''}
-              style="border-color:${borderClr};background:var(--${stColor}-bg)">
-              <div class="workerReportItem-icon" style="background:var(--${stColor}-bg);border-color:${iconBorderClr}">${ic(st==='approved'?'check':st==='rejected'?'x':'flip',16)}</div>
+            return `<div class="workerReportItem status-surface-${stColor} ${actionable?'actionable workerReportItem--actionable-border':''}" ${actionable?`${uiAction('workerStartLocation',[(r.locationId)])}`:''}>
+              <div class="workerReportItem-icon status-surface-${stColor}">${ic(st==='approved'?'check':st==='rejected'?'x':'flip',16)}</div>
               <div class="workerReportItem-body">
                 <div class="workerReportItem-name">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</div>
                 <div class="workerReportItem-meta">${fmt(r.approvedAt||r.createdAt)}${r.reviewNote?' · '+esc(r.reviewNote):''}</div>
-                <span class="badge ${stColor}" style="margin-top:6px">${stLabel}</span>
+                <span class="badge ${stColor} u-mt-6">${stLabel}</span>
               </div>
-              ${actionable?`<div class="workerReportItem-action" style="color:var(--${stColor})">${lang==='ar'?'إعادة':'Redo'} ${ic('arrow',14)}</div>`:''}
+              ${actionable?`<div class="workerReportItem-action status-text-${stColor}">${lang==='ar'?'إعادة':'Redo'} ${ic('arrow',14)}</div>`:''}
             </div>`;
           }).join('')}
         </div>`:`<div class="empty-state"><div class="empty-icon">${ic('reports',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد تقارير':'No reports yet'}</div></div>`}
@@ -3979,8 +4159,8 @@ function renderWorker(){
   const startBlock = `
     <div class="wCard wCard--compact">
       <div class="wCard-title">${ic('locations',16)} ${tr('step1')}</div>
-      ${fc(lang==='ar'?'كود الموقع':'Location Code',`<div class="locInput-row"><button class="locInput-scan" onclick="openQRScanner()" title="${tr('scanQR')}" aria-label="${tr('scanQR')}">${ic('qr',18)}</button><div class="locInput-field">${inp('locCode',{cls:'ltr', value:param, placeholder:'wc-gf-a'})}</div></div>`)}
-      <button class="btn wide" style="min-height:52px" onclick="startForm()">${ic('arrow',16)} ${tr('start')}</button>
+      ${fc(lang==='ar'?'كود الموقع':'Location Code',`<div class="locInput-row"><button class="locInput-scan" ${uiAction('openQRScanner',[])} title="${tr('scanQR')}" aria-label="${tr('scanQR')}">${ic('qr',18)}</button><div class="locInput-field">${inp('locCode',{cls:'ltr', value:param, placeholder:'wc-gf-a'})}</div></div>`)}
+      <button class="btn wide min-h-52" ${uiAction('startForm',[])}>${ic('arrow',16)} ${tr('start')}</button>
     </div>
     <div id="workerForm"></div>`;
 
@@ -3989,7 +4169,7 @@ function renderWorker(){
     ${locs.length?`
     <div class="assignedList">
       ${locs.map(l=>`
-        <button class="assignedItem" onclick="workerStartLocation('${l.id}')">
+        <button class="assignedItem" ${uiAction('workerStartLocation',[(l.id)])}>
           <div><div class="assignedItem-name">${esc(locName(l))}</div><div class="assignedItem-sub">${tr(l.type)} · ${l.floor||'—'} · ${l.id}</div></div>
           <span>${ic('arrow',16)}</span>
         </button>`).join('')}
@@ -4019,14 +4199,14 @@ function ensureCameraOverlay(){
     <div class="cameraFrame"></div>
     <div class="cameraTop">
       <div class="cameraTop-title" id="cameraTopTitle">${ic('camera',18)} ${tr('takePhoto')}</div>
-      <button class="camSideBtn" onclick="closeCamera()">${ic('x',20)}</button>
+      <button class="camSideBtn" ${uiAction('closeCamera',[])}>${ic('x',20)}</button>
     </div>
-    <div id="cameraCounter" class="cameraCounter" style="display:none"></div>
+    <div id="cameraCounter" class="cameraCounter is-hidden"></div>
   </div>
   <div class="cameraBottom">
-    <button class="camSideBtn" onclick="toggleCameraFacing()" id="camFlipBtn">${ic('flip',20)}</button>
-    <button class="shutter" id="camShutter" onclick="capturePhoto()"></button>
-    <button class="camSideBtn" onclick="closeCamera();doneCamera()">${lang==='ar'?'تم':'Done'}</button>
+    <button class="camSideBtn" ${uiAction('toggleCameraFacing',[])} id="camFlipBtn">${ic('flip',20)}</button>
+    <button class="shutter" id="camShutter" ${uiAction('capturePhoto',[])}></button>
+    <button class="camSideBtn" ${uiAction('runUiFlow',['camera-done'])}>${lang==='ar'?'تم':'Done'}</button>
   </div>`;
   document.body.appendChild(div);
 }
@@ -4079,10 +4259,10 @@ function startForm(){
   setTopbarBackButton(true, 'workerGoBack()');
   document.getElementById('workerForm').innerHTML=`
     <div class="wCard">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px">
+      <div class="layout-between-start-mb-16">
         <div>
-          <div style="font-family:var(--font-head);font-size:var(--fs-lg);font-weight:800;color:var(--ink);line-height:1.35">${esc(locName(loc))}</div>
-          <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:4px">${ic('locations',12)} ${tr(loc.type)} · ${loc.floor||'—'} · ${loc.id}</div>
+          <div class="text-heading-lg">${esc(locName(loc))}</div>
+          <div class="text-muted-xs-mt-4">${ic('locations',12)} ${tr(loc.type)} · ${loc.floor||'—'} · ${loc.id}</div>
         </div>
         <span class="badge brand">${tr('autoTime')}</span>
       </div>
@@ -4094,12 +4274,12 @@ function startForm(){
 
     <div class="wCard">
       <div class="wCard-title">${ic('camera',16)} ${tr('beforePhotos')}</div>
-      <p style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:12px">${tr('beforePhotoHint')}</p>
-      <button class="cameraBtn" onclick="openCamera('before')">
+      <p class="text-muted-xs-mb-12">${tr('beforePhotoHint')}</p>
+      <button class="cameraBtn" ${uiAction('openCamera',['before'])}>
         ${ic('camera',22)}
         <span>${tr('addPhoto')} — ${tr('beforePhotos')}</span>
       </button>
-      <div id="beforePreviews" class="photoGrid" style="margin-top:12px"></div>
+      <div id="beforePreviews" class="photoGrid u-mt-12"></div>
     </div>
 
     <div class="wCard">
@@ -4107,11 +4287,11 @@ function startForm(){
       <div class="taskChecklist">
         ${tasks.map((p,i)=>`
           <label class="taskItem" id="ti_${i}">
-            <input class="taskCheck" type="checkbox" checked value="${esc(lang==='ar'?p[0]:p[1])}" onchange="this.closest('.taskItem').classList.toggle('checked',this.checked)">
+            <input class="taskCheck" type="checkbox" checked value="${esc(lang==='ar'?p[0]:p[1])}" data-ui-change="toggle-task">
             <span class="taskItem-label">${esc(lang==='ar'?p[0]:p[1])}</span>
           </label>`).join('')}
       </div>
-      <div class="field" style="margin-top:16px">
+      <div class="field u-mt-16">
         <label>${tr('notes')}</label>
         ${ta('wkNotes','',{rows:2, placeholder:lang==='ar'?'ملاحظات اختيارية...':'Optional notes...'})}
       </div>
@@ -4119,18 +4299,18 @@ function startForm(){
 
     <div class="wCard">
       <div class="wCard-title">${ic('camera',16)} ${tr('afterPhotos')}</div>
-      <p style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:12px">${tr('afterPhotoHint')}</p>
-      <button class="cameraBtn" onclick="openCamera('after')">
+      <p class="text-muted-xs-mb-12">${tr('afterPhotoHint')}</p>
+      <button class="cameraBtn" ${uiAction('openCamera',['after'])}>
         ${ic('camera',22)}
         <span>${tr('addPhoto')} — ${tr('afterPhotos')}</span>
       </button>
-      <div id="afterPreviews" class="photoGrid" style="margin-top:12px"></div>
+      <div id="afterPreviews" class="photoGrid u-mt-12"></div>
     </div>
 
-    <div style="height:80px"></div>
+    <div class="u-h-80"></div>
 
     <div class="stickySubmit">
-      <button class="submitBtn" onclick="submitReport('${id}')">${ic('check',20)} ${tr('submit')}</button>
+      <button class="submitBtn" ${uiAction('submitReport',[(id)])}>${ic('check',20)} ${tr('submit')}</button>
     </div>`;
 
   // Check all tasks by default
@@ -4168,7 +4348,10 @@ async function openCamera(mode='general'){
     cam.classList.add('active');
 
     const shutter = document.getElementById('camShutter');
-    if(shutter) shutter.style.background = mode==='before'?'var(--warn)':mode==='after'?'var(--ok)':'';
+    if(shutter){
+      shutter.classList.toggle('camera-shutter--before',mode==='before');
+      shutter.classList.toggle('camera-shutter--after',mode==='after');
+    }
 
     const modeEl = document.getElementById('cameraTopTitle');
     if(modeEl){
@@ -4216,15 +4399,15 @@ function renderEmpPhotoPrev(){
   if(!el) return;
   el.innerHTML=currentPhotos.map((p,i)=>`<div class="photoItem">
     <img src="${p}" loading="lazy">
-    <button class="photoItem-del" onclick="currentPhotos.splice(${i},1);renderEmpPhotoPrev()">×</button>
+    <button class="photoItem-del" ${uiAction('runUiFlow',['employee-photo-delete',i])}>×</button>
   </div>`).join('');
 }
 function updateCameraCounter(){
   const el = document.getElementById('cameraCounter');
   if(!el) return;
   const arr = cameraMode==='before'?currentBeforePhotos:cameraMode==='after'?currentAfterPhotos:currentPhotos;
-  if(arr.length>0){el.style.display='block';el.textContent=`${arr.length} ${lang==='ar'?'صورة':'photos'}`}
-  else{el.style.display='none'}
+  el.classList.toggle('is-hidden',arr.length===0);
+  if(arr.length>0) el.textContent=`${arr.length} ${lang==='ar'?'صورة':'photos'}`;
 }
 function capturePhoto(){
   const vid = document.getElementById('camVideo');
@@ -4239,7 +4422,7 @@ function capturePhoto(){
     updateCameraCounter();
     // Flash feedback
     const flash = document.createElement('div');
-    flash.style.cssText='position:fixed;inset:0;background:#fff;opacity:.5;z-index:9999;pointer-events:none';
+    flash.className='camera-flash';
     document.body.appendChild(flash);
     setTimeout(()=>flash.remove(),150);
   });
@@ -4253,17 +4436,17 @@ function renderPhotoPreviews(mode='general'){
     if(!el) return;
     el.innerHTML = arr.map((p,i)=>`
       <div class="photoItem">
-        <img src="${p}" alt="" onclick='openGallery(${JSON.stringify(arr)},${i})'>
-        <button class="photoItem-del" onclick="${mode==='before'?'currentBeforePhotos':'currentAfterPhotos'}.splice(${i},1);renderPhotoPreviews('${mode}')">×</button>
-      </div>`).join('') || `<div style="font-size:var(--fs-xs);color:var(--muted);text-align:center;padding:12px">${tr('photoRequired')}</div>`;
+        <img src="${p}" alt="" ${uiAction('openGallery',[arr,i])}>
+        <button class="photoItem-del" ${uiAction('runUiFlow',['photo-delete',mode,i,mode])}>×</button>
+      </div>`).join('') || `<div class="empty-photo-hint">${tr('photoRequired')}</div>`;
   } else {
     const el = document.getElementById('photoPreviews');
     if(!el) return;
     el.innerHTML = currentPhotos.map((p,i)=>`
       <div class="photoItem">
-        <img src="${p}" alt="" onclick='openGallery(${JSON.stringify(currentPhotos)},${i})'>
-        <button class="photoItem-del" onclick="currentPhotos.splice(${i},1);renderPhotoPreviews('general')">×</button>
-      </div>`).join('') || `<div style="font-size:var(--fs-xs);color:var(--muted);text-align:center;padding:12px">${tr('photoRequired')}</div>`;
+        <img src="${p}" alt="" ${uiAction('openGallery',[currentPhotos,i])}>
+        <button class="photoItem-del" ${uiAction('runUiFlow',['photo-delete','general',i,'general'])}>×</button>
+      </div>`).join('') || `<div class="empty-photo-hint">${tr('photoRequired')}</div>`;
   }
 }
 
@@ -4312,7 +4495,7 @@ async function openQRScanner(){
     <div class="qr-scanner-container">
       <div class="qr-scanner-header">
         <span class="qr-scanner-title">${lang==='ar'?'مسح رمز QR':'Scan QR Code'}</span>
-        <button class="qr-scanner-close" onclick="closeQRScanner()">${ic('x',22)}</button>
+        <button class="qr-scanner-close" ${uiAction('closeQRScanner',[])}>${ic('x',22)}</button>
       </div>
       <div id="qr-reader"></div>
       <p class="qr-scanner-hint">${lang==='ar'?'وجّه الكاميرا نحو رمز QR الخاص بالمرفق':'Point the camera at the facility QR code'}</p>
@@ -4419,7 +4602,7 @@ async function submitReport(locationId){
   const hasPhotos = currentBeforePhotos.length||currentAfterPhotos.length||currentPhotos.length;
   if(!hasPhotos) return toast(tr('photoRequired'),'bad');
   const btn = document.querySelector('.submitBtn');
-  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner" style="width:24px;height:24px;border-width:2.5px"></div>`}
+  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner u-spinner-24"></div>`}
   const usesTyped = currentBeforePhotos.length||currentAfterPhotos.length;
   const payload = {
     locationId,
@@ -4440,11 +4623,11 @@ async function submitReport(locationId){
     toast(tr('reportSent'),'ok');
     currentPhotos = []; currentBeforePhotos = []; currentAfterPhotos = [];
     document.getElementById('workerForm').innerHTML = `
-      <div class="wCard" style="text-align:center;padding:32px">
-        <div style="width:64px;height:64px;border-radius:50%;background:var(--ok-bg);margin:0 auto 16px;display:grid;place-items:center;color:var(--ok)">${ic('check',28)}</div>
-        <div style="font-family:var(--font-head);font-size:var(--fs-xl);font-weight:800;color:var(--ink)">${tr('reportSent')}</div>
-        <p style="color:var(--muted);margin-top:8px;font-size:var(--fs-sm)">${fmt(new Date())}</p>
-        <button class="btn wide" style="margin-top:20px" onclick="renderWorker()">${lang==='ar'?'تقرير جديد':'New Report'}</button>
+      <div class="wCard u-text-center-p-32">
+        <div class="u-success-icon-64">${ic('check',28)}</div>
+        <div class="text-heading-xl">${tr('reportSent')}</div>
+        <p class="text-muted-sm-mt-8">${fmt(new Date())}</p>
+        <button class="btn wide u-mt-20" ${uiAction('renderWorker',[])}>${lang==='ar'?'تقرير جديد':'New Report'}</button>
       </div>`;
     await load();
   }catch(e){
@@ -4498,12 +4681,12 @@ function employeeHome(orders, activeCount){
     </div>
     ${countBubble(orders.length+myHospOrders.length)}
   </div>
-  <button class="btn wide" onclick="employeeServiceType='';employeeView='new';mobileNavActive='employee-new';renderEmployee()">${ic('send',18)} ${lang==='ar'?'طلب خدمة':'Request a Service'}</button>
+  <button class="btn wide" ${uiAction('runUiFlow',['employee-home'])}>${ic('send',18)} ${lang==='ar'?'طلب خدمة':'Request a Service'}</button>
 </div>
 ${allRecent.length?`
 <div class="wCard">
   <div class="wCard-title">${ic('clipboardList',16)} ${lang==='ar'?'آخر طلباتي':'Recent requests'}</div>
-  <div class="wCard-list" style="gap:10px">
+  <div class="wCard-list u-gap-10">
     ${allRecent.map(item=>{
       if(item._type==='hosp'){
         const stCls=hospStatusBadgeClass(item.status);
@@ -4536,7 +4719,7 @@ ${allRecent.length?`
       </div>`;
     }).join('')}
   </div>
-  <button class="btn secondary wide" style="margin-top:12px" onclick="employeeView='history';mobileNavActive='employee-history';renderEmployee()">${tr('myRequests')}</button>
+  <button class="btn secondary wide u-mt-12" ${uiAction('runUiFlow',['navigate','employeeView','history','employee-history','renderEmployee'])}>${tr('myRequests')}</button>
 </div>`:''}`;
 }
 
@@ -4552,11 +4735,11 @@ function employeeSubmitForm(){
 
   if(!employeeServiceType)return `<div class="wCard wCard--compact">
     <div class="wCard-title">${ic('layers',16)} ${lang==='ar'?'اختر الخدمة المطلوبة':'Choose a Service'}</div>
-    <p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:14px">${lang==='ar'?'كل خدمة لها نموذجها وتصنيفاتها ومسارها التشغيلي المستقل.':'Each service has its own form, categories, and operational workflow.'}</p>
+    <p class="text-muted-sm-mb-14">${lang==='ar'?'كل خدمة لها نموذجها وتصنيفاتها ومسارها التشغيلي المستقل.':'Each service has its own form, categories, and operational workflow.'}</p>
     <div class="empCatGrid">
-      <button class="empCatBtn${cleaningEnabled?'':' empCatBtn--disabled'}" ${cleaningEnabled?`onclick="employeeServiceType='cleaning';currentPhotos=[];renderEmployee()"`:'disabled aria-disabled="true"'}><span class="empCatBtn-icon">${ic('reports',22)}</span><span>${lang==='ar'?'خدمة النظافة':'Cleaning Service'}</span>${cleaningEnabled?'':`<small>${lang==='ar'?'متوقفة حالياً':'Currently unavailable'}</small>`}</button>
-      <button class="empCatBtn${maintenanceEnabled?'':' empCatBtn--disabled'}" ${maintenanceEnabled?`onclick="employeeServiceType='maintenance';currentPhotos=[];renderEmployee()"`:'disabled aria-disabled="true"'}><span class="empCatBtn-icon">${ic('tool',22)}</span><span>${lang==='ar'?'خدمة الصيانة':'Maintenance Service'}</span>${maintenanceEnabled?'':`<small>${lang==='ar'?'متوقفة حالياً':'Currently unavailable'}</small>`}</button>
-      <button class="empCatBtn${hospitalityEnabled?'':' empCatBtn--disabled'}" ${hospitalityEnabled?`onclick="employeeServiceType='hospitality';empHospCart={};empHospCatFilter='';empHospLocId='';empHospMenuItems=null;renderEmployee()"`:'disabled aria-disabled="true"'}><span class="empCatBtn-icon">${ic('coffee',22)}</span><span>${lang==='ar'?'طلب ضيافة':'Hospitality Order'}</span>${hospitalityEnabled?'':`<small>${lang==='ar'?'متوقفة حالياً':'Currently unavailable'}</small>`}</button>
+      <button class="empCatBtn${cleaningEnabled?'':' empCatBtn--disabled'}" ${cleaningEnabled?`${uiAction('runUiFlow',['employee-service','cleaning'])}`:'disabled aria-disabled="true"'}><span class="empCatBtn-icon">${ic('reports',22)}</span><span>${lang==='ar'?'خدمة النظافة':'Cleaning Service'}</span>${cleaningEnabled?'':`<small>${lang==='ar'?'متوقفة حالياً':'Currently unavailable'}</small>`}</button>
+      <button class="empCatBtn${maintenanceEnabled?'':' empCatBtn--disabled'}" ${maintenanceEnabled?`${uiAction('runUiFlow',['employee-service','maintenance'])}`:'disabled aria-disabled="true"'}><span class="empCatBtn-icon">${ic('tool',22)}</span><span>${lang==='ar'?'خدمة الصيانة':'Maintenance Service'}</span>${maintenanceEnabled?'':`<small>${lang==='ar'?'متوقفة حالياً':'Currently unavailable'}</small>`}</button>
+      <button class="empCatBtn${hospitalityEnabled?'':' empCatBtn--disabled'}" ${hospitalityEnabled?`${uiAction('runUiFlow',['employee-service','hospitality'])}`:'disabled aria-disabled="true"'}><span class="empCatBtn-icon">${ic('coffee',22)}</span><span>${lang==='ar'?'طلب ضيافة':'Hospitality Order'}</span>${hospitalityEnabled?'':`<small>${lang==='ar'?'متوقفة حالياً':'Currently unavailable'}</small>`}</button>
     </div>
   </div>`;
 
@@ -4568,8 +4751,8 @@ function employeeSubmitForm(){
   const catLabel=c=>isMaintenance?maintCatLabel(c):tr('cat_'+c);
   return`
 <div class="wCard wCard--compact">
-  <button class="linkBtn" onclick="employeeServiceType='';currentPhotos=[];renderEmployee()">${ic('arrow-left',14)} ${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
-  <div class="wCard-title" style="margin-top:12px">${ic(isMaintenance?'tool':'reports',18)} ${isMaintenance?(lang==='ar'?'طلب خدمة صيانة':'Maintenance Service Request'):(lang==='ar'?'طلب خدمة نظافة':'Cleaning Service Request')}</div>
+  <button class="linkBtn" ${uiAction('runUiFlow',['employee-service',''])}>${ic('arrow-left',14)} ${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
+  <div class="wCard-title u-mt-12">${ic(isMaintenance?'tool':'reports',18)} ${isMaintenance?(lang==='ar'?'طلب خدمة صيانة':'Maintenance Service Request'):(lang==='ar'?'طلب خدمة نظافة':'Cleaning Service Request')}</div>
 </div>
 
 <div class="wCard wCard--compact">
@@ -4577,24 +4760,18 @@ function employeeSubmitForm(){
   <div class="field">
     <label>${lang==='ar'?'كود الموقع':'Location Code'}</label>
     <div class="locInput-row">
-      <button class="locInput-scan" onclick="openQRScanner()" title="${tr('scanQR')}" aria-label="${tr('scanQR')}">${ic('qr',18)}</button>
-      <div class="locInput-field">${inp('empLocCode',{cls:'ltr', placeholder:'wc-gf-a'})}</div>
+      <button class="locInput-scan" ${uiAction('openQRScanner',[])} title="${tr('scanQR')}" aria-label="${tr('scanQR')}">${ic('qr',18)}</button>
+      <div class="locInput-field">${inp('empLocCode',{cls:'ltr', placeholder:'wc-gf-a',inputAction:'employee-location'})}</div>
     </div>
   </div>
-  <div id="empLocName" style="font-size:var(--fs-xs);color:var(--brand-mid);min-height:18px;margin-top:4px"></div>
-  <script>document.getElementById('empLocCode')?.addEventListener('input',function(){
-    const id=parseLoc(this.value);
-    const loc=(data&&data.locations||[]).find(l=>l.id===id);
-    const el=document.getElementById('empLocName');
-    if(el)el.textContent=loc?(lang==='ar'?loc.nameAr:loc.nameEn):'';
-  });<\/script>
+  <div id="empLocName" class="u-status-help"></div>
 </div>
 
 <div class="wCard">
   <div class="wCard-title"><span class="wCard-number">2</span>${tr('reqCategory')}</div>
   <div class="empCatGrid">
     ${CATS.map(c=>`
-      <button class="empCatBtn" data-cat="${c}" onclick="document.querySelectorAll('.empCatBtn').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.getElementById('empCatVal').value='${c}'">
+      <button class="empCatBtn" data-cat="${c}" ${uiAction('runUiFlow',['employee-category',c])}>
         <span class="empCatBtn-icon">${ic(CAT_ICONS[c]||'locations',20)}</span>
         <span>${catLabel(c)}</span>
       </button>`).join('')}
@@ -4605,21 +4782,21 @@ function employeeSubmitForm(){
 <div class="wCard">
   <div class="wCard-title"><span class="wCard-number">3</span>${lang==='ar'?'تفاصيل الطلب':'Request Details'}</div>
   <div class="field">
-    <label>${tr('description')} <span style="color:var(--muted);font-weight:400">(${lang==='ar'?'اختياري':'optional'})</span></label>
+    <label>${tr('description')} <span class="text-muted-normal">(${lang==='ar'?'اختياري':'optional'})</span></label>
     ${ta('empDesc','',{rows:3, placeholder:lang==='ar'?'صف المشكلة بالتفصيل...':'Describe the issue in detail...'})}
   </div>
   <div class="field">
     <label>${lang==='ar'?'صورة (اختياري)':'Photo (optional)'}</label>
-    <button class="cameraBtn" onclick="openCamera('general');window._empPhotoMode=true">
+    <button class="cameraBtn" ${uiAction('runUiFlow',['employee-camera'])}>
       ${ic('camera',20)}<span>${lang==='ar'?'إضافة صورة':'Add Photo'}</span>
     </button>
-    <div id="empPhotoPrev" class="photoGrid" style="margin-top:10px"></div>
+    <div id="empPhotoPrev" class="photoGrid u-mt-10"></div>
   </div>
 </div>
 
-<div style="height:90px"></div>
+<div class="u-h-90"></div>
 <div class="stickySubmit">
-  <button class="submitBtn" onclick="submitEmployeeOrder()">${ic('send',18)} ${tr('submitRequest')}</button>
+  <button class="submitBtn" ${uiAction('submitEmployeeOrder',[])}>${ic('send',18)} ${tr('submitRequest')}</button>
 </div>`;
 }
 
@@ -4637,8 +4814,8 @@ function employeeHospForm(){
       renderEmployee();
     }).catch(()=>toast(lang==='ar'?'تعذر تحميل القائمة':'Menu load failed','bad'));
     return `<div class="wCard wCard--compact">
-      <button class="linkBtn" onclick="employeeServiceType='';renderEmployee()">${ic('arrow-left',14)} ${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
-      <div class="wCard-title" style="margin-top:12px">${ic('coffee',18)} ${lang==='ar'?'طلب ضيافة':'Hospitality Order'}</div>
+      <button class="linkBtn" ${uiAction('runUiFlow',['employee-service',''])}>${ic('arrow-left',14)} ${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
+      <div class="wCard-title u-mt-12">${ic('coffee',18)} ${lang==='ar'?'طلب ضيافة':'Hospitality Order'}</div>
       <div class="empty-state"><div class="empty-icon">${ic('sync',28)}</div><div class="empty-title">${lang==='ar'?'جارٍ تحميل القائمة...':'Loading menu…'}</div></div>
     </div>`;
   }
@@ -4653,8 +4830,8 @@ function employeeHospForm(){
 
   return`
 <div class="wCard wCard--compact">
-  <button class="linkBtn" onclick="employeeServiceType='';empHospCart={};renderEmployee()">${ic('arrow-left',14)} ${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
-  <div class="wCard-title" style="margin-top:12px">${ic('coffee',18)} ${lang==='ar'?'طلب ضيافة':'Hospitality Order'}</div>
+  <button class="linkBtn" ${uiAction('runUiFlow',['hospitality-reset',''])}>${ic('arrow-left',14)} ${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
+  <div class="wCard-title u-mt-12">${ic('coffee',18)} ${lang==='ar'?'طلب ضيافة':'Hospitality Order'}</div>
 </div>
 
 <div class="wCard wCard--compact">
@@ -4662,42 +4839,36 @@ function employeeHospForm(){
   <div class="field">
     <label>${lang==='ar'?'كود الموقع':'Location Code'}</label>
     <div class="locInput-row">
-      <button class="locInput-scan" onclick="openQRScanner()" title="${tr('scanQR')}">${ic('qr',18)}</button>
-      <div class="locInput-field">${inp('empHospLocInput',{cls:'ltr',placeholder:'wc-gf-a',value:empHospLocId||localStorage.getItem('mrfq_hosp_loc')||me.defaultLocationId||''})}</div>
+      <button class="locInput-scan" ${uiAction('openQRScanner',[])} title="${tr('scanQR')}">${ic('qr',18)}</button>
+      <div class="locInput-field">${inp('empHospLocInput',{cls:'ltr',placeholder:'wc-gf-a',value:empHospLocId||localStorage.getItem('mrfq_hosp_loc')||me.defaultLocationId||'',inputAction:'hospitality-location'})}</div>
     </div>
   </div>
-  <div id="empHospLocName" style="font-size:var(--fs-xs);color:var(--brand-mid);min-height:18px;margin-top:4px">${locName?(lang==='ar'?locName.nameAr:locName.nameEn):''}</div>
-  <script>document.getElementById('empHospLocInput')?.addEventListener('input',function(){
-    empHospLocId=parseLoc(this.value);
-    const l=(data.locations||[]).find(x=>x.id===empHospLocId);
-    document.getElementById('empHospLocName').textContent=l?(lang==='ar'?l.nameAr:l.nameEn):'';
-    if(empHospLocId)localStorage.setItem('mrfq_hosp_loc',empHospLocId);
-  });<\/script>
+  <div id="empHospLocName" class="u-status-help">${locName?(lang==='ar'?locName.nameAr:locName.nameEn):''}</div>
 </div>
 
 <div class="wCard">
-  <div class="wCard-title"><span class="wCard-number">2</span>${lang==='ar'?'اختر ما تريد':'Choose Items'} ${cartTotal?`<span class="countBubble" style="margin-right:8px">${cartTotal}</span>`:''}</div>
-  ${cats.length?`<div class="fieldTabs" role="tablist" style="margin-bottom:14px">
-    <button class="fieldTab${!empHospCatFilter?' active':''}" onclick="empHospCatFilter='';renderEmployee()"><span class="fieldTab-main"><span class="fieldTab-label">${lang==='ar'?'الكل':'All'}</span></span></button>
-    ${cats.map(c=>`<button class="fieldTab${empHospCatFilter===c.id?' active':''}" onclick="empHospCatFilter='${c.id}';renderEmployee()"><span class="fieldTab-main"><span class="fieldTab-label">${esc(lang==='ar'?c.nameAr:c.nameEn||c.nameAr)}</span></span></button>`).join('')}
+  <div class="wCard-title"><span class="wCard-number">2</span>${lang==='ar'?'اختر ما تريد':'Choose Items'} ${cartTotal?`<span class="countBubble u-mr-8">${cartTotal}</span>`:''}</div>
+  ${cats.length?`<div class="fieldTabs" role="tablist" class="u-mb-14">
+    <button class="fieldTab${!empHospCatFilter?' active':''}" ${uiAction('runUiFlow',['navigate','empHospCatFilter','',null,'renderEmployee'])}><span class="fieldTab-main"><span class="fieldTab-label">${lang==='ar'?'الكل':'All'}</span></span></button>
+    ${cats.map(c=>`<button class="fieldTab${empHospCatFilter===c.id?' active':''}" ${uiAction('runUiFlow',['navigate','empHospCatFilter',c.id,null,'renderEmployee'])}><span class="fieldTab-main"><span class="fieldTab-label">${esc(lang==='ar'?c.nameAr:c.nameEn||c.nameAr)}</span></span></button>`).join('')}
   </div>`:''}
   <div class="productGrid">
     ${menuItems.length?menuItems.map(item=>{
       const qty=empHospCart[item.id]||0;
       const name=lang==='ar'?item.nameAr:(item.nameEn||item.nameAr);
       return`<div class="productCard${qty?'':''}" id="ehc_${item.id}">
-        ${item.imagePath?`<div class="productCard-img"><img src="${esc(item.imagePath)}" alt="${esc(name)}" loading="lazy" style="width:100%;height:100%;object-fit:cover"></div>`:`<div class="productCard-img">${ic('coffee',28)}</div>`}
+        ${item.imagePath?`<div class="productCard-img"><img src="${esc(item.imagePath)}" alt="${esc(name)}" loading="lazy" class="image-cover"></div>`:`<div class="productCard-img">${ic('coffee',28)}</div>`}
         <div class="productCard-body">
           <div class="productCard-title">${esc(name)}</div>
           ${item.descriptionAr||item.descriptionEn?`<div class="productCard-desc">${esc(lang==='ar'?item.descriptionAr:item.descriptionEn||item.descriptionAr)}</div>`:''}
-          <div class="productCard-actions" style="margin-top:10px;display:flex;align-items:center;gap:8px">
-            <button class="btn secondary sm iconOnlyBtn" onclick="empHospCartAdd('${item.id}',-1)" style="width:32px;height:32px">${ic('minus',14)}</button>
-            <span id="ehq_${item.id}" style="font-weight:700;min-width:20px;text-align:center;font-size:var(--fs-base)">${qty||0}</span>
-            <button class="btn sm iconOnlyBtn" onclick="empHospCartAdd('${item.id}',1)" style="width:32px;height:32px;background:var(--brand)">${ic('plus',14)}</button>
+          <div class="productCard-actions layout-center-gap-8-mt-10">
+            <button class="btn secondary sm iconOnlyBtn" ${uiAction('empHospCartAdd',[(item.id),-1])} class="size-32">${ic('minus',14)}</button>
+            <span id="ehq_${item.id}" class="quantity-value">${qty||0}</span>
+            <button class="btn sm iconOnlyBtn" ${uiAction('empHospCartAdd',[(item.id),1])} class="size-32-brand">${ic('plus',14)}</button>
           </div>
         </div>
       </div>`;
-    }).join(''):`<div class="empty-state" style="grid-column:1/-1"><div class="empty-title">${lang==='ar'?'لا توجد أصناف':'No items'}</div></div>`}
+    }).join(''):`<div class="empty-state u-grid-full"><div class="empty-title">${lang==='ar'?'لا توجد أصناف':'No items'}</div></div>`}
   </div>
 </div>
 
@@ -4710,9 +4881,9 @@ function employeeHospForm(){
   </div>
 </div>
 
-<div style="height:90px"></div>
+<div class="u-h-90"></div>
 <div class="stickySubmit">
-  <button class="submitBtn" onclick="submitEmployeeHospOrder()">${ic('send',18)} ${lang==='ar'?'إرسال الطلب':'Send Order'}${cartTotal?` (${cartTotal})`:''}</button>
+  <button class="submitBtn" ${uiAction('submitEmployeeHospOrder',[])}>${ic('send',18)} ${lang==='ar'?'إرسال الطلب':'Send Order'}${cartTotal?` (${cartTotal})`:''}</button>
 </div>`;
 }
 
@@ -4746,20 +4917,20 @@ async function submitEmployeeHospOrder(){
   });
   const notes=document.getElementById('empHospNotes')?.value.trim()||'';
   const btn=document.querySelector('.submitBtn');
-  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner" style="width:22px;height:22px;border-width:2.5px"></div>`}
+  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner u-spinner-22"></div>`}
   try{
     const res=await api('/hospitality/orders',{method:'POST',body:JSON.stringify({locationId:locId,kitchenId,items,notes,orderType:'menu'})});
     empHospCart={};
     const wc=document.querySelector('.platform-main.platform-main--field');
     if(wc)wc.innerHTML=`
-      <div class="wCard" style="text-align:center;padding:40px 24px;margin-top:24px">
-        <div style="width:72px;height:72px;border-radius:50%;background:var(--ok-bg);margin:0 auto 16px;display:grid;place-items:center;color:var(--ok)">${ic('check',32)}</div>
-        <div style="font-family:var(--font-head);font-size:var(--fs-xl);font-weight:800;color:var(--ink)">${lang==='ar'?'تم إرسال الطلب':'Order Sent'}</div>
-        ${res.order?.referenceNo?`<div style="font-family:ui-monospace,monospace;font-size:var(--fs-sm);color:var(--brand-mid);margin-top:8px">${esc(res.order.referenceNo)}</div>`:''}
-        <p style="color:var(--muted);margin-top:8px;font-size:var(--fs-sm)">${lang==='ar'?'سيتم تجهيز طلبك وإيصاله قريباً.':'Your order will be prepared and delivered shortly.'}</p>
-        <button class="btn wide" style="margin-top:20px" onclick="employeeServiceType='hospitality';empHospCart={};empHospCatFilter='';empHospLocId='${locId}';renderEmployee()">${lang==='ar'?'طلب آخر':'New Order'}</button>
-        <button class="btn secondary wide" style="margin-top:10px" onclick="employeeServiceType='';employeeView='new';renderEmployee()">${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
-        <button class="btn secondary wide" style="margin-top:10px" onclick="employeeView='history';renderEmployee();load()">${tr('myRequests')}</button>
+      <div class="wCard u-text-center-p-40-24-mt-24">
+        <div class="u-success-icon-72">${ic('check',32)}</div>
+        <div class="text-heading-xl">${lang==='ar'?'تم إرسال الطلب':'Order Sent'}</div>
+        ${res.order?.referenceNo?`<div class="u-mono-brand">${esc(res.order.referenceNo)}</div>`:''}
+        <p class="text-muted-sm-mt-8">${lang==='ar'?'سيتم تجهيز طلبك وإيصاله قريباً.':'Your order will be prepared and delivered shortly.'}</p>
+        <button class="btn wide u-mt-20" ${uiAction('runUiFlow',['hospitality-reset','hospitality',locId])}>${lang==='ar'?'طلب آخر':'New Order'}</button>
+        <button class="btn secondary wide u-mt-10" ${uiAction('runUiFlow',['hospitality-reset','',null,'new'])}>${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
+        <button class="btn secondary wide u-mt-10" ${uiAction('runUiFlow',['employee-history-load',false])}>${tr('myRequests')}</button>
       </div>`;
     setTopbarBackButton(true,"employeeServiceType='';employeeView='new';renderEmployee()");
     toast(lang==='ar'?'تم إرسال طلب الضيافة':'Hospitality order sent','ok');
@@ -4793,10 +4964,10 @@ function employeeHistory(orders){
   return`
 <div class="wCard">
   <div class="wCard-title">${ic('clipboardList',16)} ${tr('myRequests')} (${totalAll})</div>
-  <div class="fieldTabs" role="tablist" style="margin-bottom:14px">
-    ${tabs.map(([v,l])=>`<button class="fieldTab${employeeHistoryFilter===v?' active':''}" onclick="employeeHistoryFilter='${v}';renderEmployee()"><span class="fieldTab-main"><span class="fieldTab-label">${l}</span></span></button>`).join('')}
+  <div class="fieldTabs" role="tablist" class="u-mb-14">
+    ${tabs.map(([v,l])=>`<button class="fieldTab${employeeHistoryFilter===v?' active':''}" ${uiAction('runUiFlow',['navigate','employeeHistoryFilter',v,null,'renderEmployee'])}><span class="fieldTab-main"><span class="fieldTab-label">${l}</span></span></button>`).join('')}
   </div>
-  <div class="wCard-list" style="gap:10px">
+  <div class="wCard-list u-gap-10">
     ${combined.length?combined.map(item=>{
       if(item._type==='hosp'){
         const stCls=hospStatusBadgeClass(item.status);
@@ -4859,7 +5030,7 @@ async function submitEmployeeOrder(){
   const loc = (data.locations||[]).find(l=>l.id===locId);
   if(!loc) return toast(lang==='ar'?`الموقع "${locId}" غير موجود`:`Location "${locId}" not found`,'bad');
   const btn = document.querySelector('.submitBtn');
-  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner" style="width:22px;height:22px;border-width:2.5px"></div>`}
+  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner u-spinner-22"></div>`}
   const photo = currentPhotos[0] || null;
   try{
     const res = await api('/order',{method:'POST',body:JSON.stringify({
@@ -4871,14 +5042,14 @@ async function submitEmployeeOrder(){
     // Show success card
     const wc = document.querySelector('.platform-main.platform-main--field');
     if(wc) wc.innerHTML=`
-      <div class="wCard" style="text-align:center;padding:40px 24px;margin-top:24px">
-        <div style="width:72px;height:72px;border-radius:50%;background:var(--ok-bg);margin:0 auto 16px;display:grid;place-items:center;color:var(--ok)">${ic('check',32)}</div>
-        <div style="font-family:var(--font-head);font-size:var(--fs-xl);font-weight:800;color:var(--ink)">${tr('requestSubmitted')}</div>
-        ${res.ticket.referenceNo?`<div style="font-family:ui-monospace,monospace;font-size:var(--fs-sm);color:var(--brand-mid);margin-top:8px">${esc(res.ticket.referenceNo)}</div>`:''}
-        <p style="color:var(--muted);margin-top:8px;font-size:var(--fs-sm)">${res.autoAssigned?(lang==='ar'?'تم التعيين التلقائي لعامل النظافة':'Auto-assigned to a cleaning worker'):(serviceType==='maintenance'?(lang==='ar'?'تم إرسال الطلب إلى مشرف الصيانة':'Sent to maintenance supervisor'):(lang==='ar'?'تم إرسال الطلب لمشرف النظافة':'Sent to cleaning supervisor'))}</p>
-        <button class="btn wide" style="margin-top:20px" onclick="employeeView='new';mobileNavActive='employee-new';renderEmployee()">${lang==='ar'?'طلب آخر من نفس الخدمة':'Another Request for This Service'}</button>
-        <button class="btn secondary wide" style="margin-top:10px" onclick="employeeServiceType='';employeeView='new';mobileNavActive='employee-new';renderEmployee()">${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
-        <button class="btn secondary wide" style="margin-top:10px" onclick="employeeView='history';mobileNavActive='employee-history';load().then(renderEmployee)">${tr('myRequests')}</button>
+      <div class="wCard u-text-center-p-40-24-mt-24">
+        <div class="u-success-icon-72">${ic('check',32)}</div>
+        <div class="text-heading-xl">${tr('requestSubmitted')}</div>
+        ${res.ticket.referenceNo?`<div class="u-mono-brand">${esc(res.ticket.referenceNo)}</div>`:''}
+        <p class="text-muted-sm-mt-8">${res.autoAssigned?(lang==='ar'?'تم التعيين التلقائي لعامل النظافة':'Auto-assigned to a cleaning worker'):(serviceType==='maintenance'?(lang==='ar'?'تم إرسال الطلب إلى مشرف الصيانة':'Sent to maintenance supervisor'):(lang==='ar'?'تم إرسال الطلب لمشرف النظافة':'Sent to cleaning supervisor'))}</p>
+        <button class="btn wide u-mt-20" ${uiAction('runUiFlow',['navigate','employeeView','new','employee-new','renderEmployee'])}>${lang==='ar'?'طلب آخر من نفس الخدمة':'Another Request for This Service'}</button>
+        <button class="btn secondary wide u-mt-10" ${uiAction('runUiFlow',['employee-home'])}>${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
+        <button class="btn secondary wide u-mt-10" ${uiAction('runUiFlow',['employee-history-load',true])}>${tr('myRequests')}</button>
       </div>`;
       setTopbarBackButton(true, "employeeServiceType='';employeeView='new';mobileNavActive='employee-new';renderEmployee()");
   }catch(e){
@@ -4899,28 +5070,28 @@ function renderHospitalityWorker(){
   const content=`
 <div class="empPage">
   <div class="empPanel">
-    <div class="wCard wCard--compact" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+    <div class="wCard wCard--compact layout-between-center-gap-12">
       <div>
         <div class="wCard-title">${ic('coffee',16)} ${lang==='ar'?'طلباتي':'My Orders'}</div>
-        <div style="font-size:var(--fs-sm);color:var(--muted)">${active.length} ${lang==='ar'?'طلب نشط':'active'}</div>
+        <div class="text-muted-sm">${active.length} ${lang==='ar'?'طلب نشط':'active'}</div>
       </div>
-      ${overdue.length?`<span class="badge bad" style="font-size:var(--fs-sm)">${ic('alert',13)} ${overdue.length} ${lang==='ar'?'متأخر':'overdue'}</span>`:''}
+      ${overdue.length?`<span class="badge bad text-size-sm">${ic('alert',13)} ${overdue.length} ${lang==='ar'?'متأخر':'overdue'}</span>`:''}
     </div>
 
-    ${active.length?`<div style="display:flex;flex-direction:column;gap:10px">${active.map(o=>hospWorkerOrderCard(o)).join('')}</div>`
+    ${active.length?`<div class="layout-column-gap-10">${active.map(o=>hospWorkerOrderCard(o)).join('')}</div>`
       :`<div class="wCard"><div class="empty-state">
           <div class="empty-icon">${ic('check',28)}</div>
           <div class="empty-title">${lang==='ar'?'لا توجد طلبات مسندة إليك':'No assigned orders'}</div>
         </div></div>`}
 
     ${done.length?`
-    <div class="wCard wCard--compact" style="margin-top:6px">
-      <div class="wCard-title" style="font-size:var(--fs-sm);color:var(--muted)">${ic('check',14)} ${lang==='ar'?'المُسلَّمة اليوم':'Delivered today'} (${done.length})</div>
+    <div class="wCard wCard--compact u-mt-6">
+      <div class="wCard-title text-muted-sm">${ic('check',14)} ${lang==='ar'?'المُسلَّمة اليوم':'Delivered today'} (${done.length})</div>
       ${done.slice(0,5).map(o=>`
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div class="layout-row-divided">
           <div>
-            <div style="font-weight:600;font-size:var(--fs-sm)">${esc(o.referenceNo||'—')}</div>
-            <div style="font-size:var(--fs-xs);color:var(--muted)">${esc(lang==='ar'?o.locationNameAr:o.locationNameEn)}</div>
+            <div class="text-semibold-sm">${esc(o.referenceNo||'—')}</div>
+            <div class="text-muted-xs">${esc(lang==='ar'?o.locationNameAr:o.locationNameEn)}</div>
           </div>
           <span class="badge ok">${hospStatusLabel(o.status)}</span>
         </div>`).join('')}
@@ -4953,31 +5124,31 @@ function hospWorkerOrderCard(o){
   const isDelivery = o.status === 'out_for_delivery';
   const locCode = o.locationId||'';
   const locFloor = fullLoc?.floor ? (lang==='ar'?`الدور ${fullLoc.floor}`:`Floor ${fullLoc.floor}`) : '';
-  return`<div class="ticketCard empOrderCard" style="${isOverdue?'border-right:3px solid var(--bad)':''}">
+  return`<div class="ticketCard empOrderCard${isOverdue?' roleCard--overdue':''}">
     <div class="ticketCard-top empOrderCard-head">
       <div class="ticketCard-main">
-        <div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:2px">${esc(o.referenceNo||'')} · ${fmt(o.createdAt)}</div>
+        <div class="text-muted-xs-mb-2">${esc(o.referenceNo||'')} · ${fmt(o.createdAt)}</div>
       </div>
       <span class="badge ${stCls}">${hospStatusLabel(o.status)}</span>
     </div>
 
-    <div style="background:${isDelivery?'var(--brand-bg)':'var(--surface-2,var(--bg))'};border:1px solid ${isDelivery?'var(--brand-mid)':'var(--border)'};border-radius:10px;padding:10px 12px;margin:8px 0">
-      <div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:4px">${ic('locations',11)} ${lang==='ar'?'وجهة التوصيل':'Delivery to'}</div>
-      <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-        <span style="font-family:ui-monospace,monospace;font-size:var(--fs-xl);font-weight:800;color:${isDelivery?'var(--brand)':'var(--ink)'}">${esc(locCode)}</span>
-        ${locFloor?`<span style="font-size:var(--fs-xs);color:var(--muted)">${esc(locFloor)}</span>`:''}
+    <div class="order-destination${isDelivery?' delivery-destination':''}">
+      <div class="text-muted-xs-mb-4">${ic('locations',11)} ${lang==='ar'?'وجهة التوصيل':'Delivery to'}</div>
+      <div class="layout-baseline-wrap">
+        <span class="order-code${isDelivery?' delivery-code':''}">${esc(locCode)}</span>
+        ${locFloor?`<span class="text-muted-xs">${esc(locFloor)}</span>`:''}
       </div>
-      <div style="font-size:var(--fs-sm);color:var(--ink-secondary);margin-top:2px">${esc(locName||'')}</div>
-      ${o.requesterName?`<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:4px;border-top:1px solid var(--border);padding-top:4px">${ic('user',11)} ${esc(o.requesterName)}</div>`:''}
+      <div class="text-secondary-sm-mt-2">${esc(locName||'')}</div>
+      ${o.requesterName?`<div class="requester-meta">${ic('user',11)} ${esc(o.requesterName)}</div>`:''}
     </div>
 
-    ${kitchenName?`<div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:6px">${ic('coffee',11)} ${lang==='ar'?'المطبخ:':'Kitchen:'} <span style="color:var(--ink);font-weight:600">${esc(kitchenName)}</span></div>`:''}
+    ${kitchenName?`<div class="text-muted-xs-mb-6">${ic('coffee',11)} ${lang==='ar'?'المطبخ:':'Kitchen:'} <span class="text-ink-semibold">${esc(kitchenName)}</span></div>`:''}
 
-    ${o.items&&o.items.length?`<div class="ticketCard-badges" style="margin-bottom:6px">${o.items.map(i=>`<span class="badge">${hospItemLabel(i)}</span>`).join('')}</div>`:''}
-    ${o.notes?`<div style="font-size:var(--fs-xs);color:var(--muted);background:var(--warn-bg);border-radius:6px;padding:6px 10px;margin-bottom:6px">${ic('alert',11)} ${esc(o.notes)}</div>`:''}
-    ${isOverdue?`<div style="font-size:var(--fs-xs);color:var(--bad);font-weight:600;margin-bottom:6px">${ic('alert',11)} ${lang==='ar'?'تجاوز وقت SLA':'SLA exceeded'}</div>`:''}
+    ${o.items&&o.items.length?`<div class="ticketCard-badges u-mb-6">${o.items.map(i=>`<span class="badge">${hospItemLabel(i)}</span>`).join('')}</div>`:''}
+    ${o.notes?`<div class="note-warning">${ic('alert',11)} ${esc(o.notes)}</div>`:''}
+    ${isOverdue?`<div class="text-bad-xs-semibold">${ic('alert',11)} ${lang==='ar'?'تجاوز وقت SLA':'SLA exceeded'}</div>`:''}
 
-    ${next?`<button class="btn wide" style="margin-top:4px;background:${o.status==='out_for_delivery'?'var(--ok)':'var(--brand)'}" onclick="updateHospitalityOrderStatus('${o.id}','${next.to}')">${ic(next.icon,15)} ${next.label}</button>`:''}
+    ${next?`<button class="btn wide u-mt-4${o.status==='out_for_delivery'?' delivery-action-complete':''}" ${uiAction('updateHospitalityOrderStatus',[(o.id),(next.to)])}>${ic(next.icon,15)} ${next.label}</button>`:''}
   </div>`;
 }
 
@@ -5006,43 +5177,43 @@ function hospOrderCard(o, mode, workers){
   const items = o.items||[];
   const MAX_ITEMS = 3;
   const itemsHtml = items.length
-    ? `<div class="ticketCard-badges">${items.slice(0,MAX_ITEMS).map(i=>`<span class="badge">${hospItemLabel(i)}</span>`).join('')}${items.length>MAX_ITEMS?`<span class="badge" style="color:var(--muted)">+${items.length-MAX_ITEMS}</span>`:''}</div>`
+    ? `<div class="ticketCard-badges">${items.slice(0,MAX_ITEMS).map(i=>`<span class="badge">${hospItemLabel(i)}</span>`).join('')}${items.length>MAX_ITEMS?`<span class="badge text-muted">+${items.length-MAX_ITEMS}</span>`:''}</div>`
     : '';
   const locName = esc(lang==='ar'?o.locationNameAr:o.locationNameEn);
   return`<div class="ticketCard empOrderCard">
     <div class="ticketCard-top empOrderCard-head">
       <div class="ticketCard-main">
         <div class="ticketCard-title empOrderCard-title">${esc(tr('ot_'+o.orderType)||o.orderType)}</div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:2px">
+        <div class="layout-wrap-gap-8-mt-2">
           ${o.referenceNo?`<span class="ticketCard-ref empOrderCard-ref">${esc(o.referenceNo)}</span>`:''}
-          <span style="font-size:var(--fs-xs);color:var(--muted)">${fmt(o.updatedAt||o.createdAt)}</span>
+          <span class="text-muted-xs">${fmt(o.updatedAt||o.createdAt)}</span>
         </div>
       </div>
       <span class="badge ${stCls}">${hospStatusLabel(o.status)}</span>
     </div>
-    <div class="ticketCard-meta empOrderCard-meta" style="margin-top:6px">
+    <div class="ticketCard-meta empOrderCard-meta u-mt-6">
       <span>${ic('locations',12)} <strong>${locName}</strong></span>
       ${requester?`<span>${ic('user',12)} ${esc(requester)}</span>`:''}
     </div>
     ${o.assignedToName?`<div class="ticketCard-meta empOrderCard-meta"><span>${ic('users',12)} ${esc(o.assignedToName)}</span></div>`
       :(showAssign?`<div class="ticketCard-meta empOrderCard-meta"><span class="badge warn">${tr('pendingAssignmentBadge')}</span></div>`:'')}
     ${itemsHtml}
-    ${o.notes?`<div class="empOrderCard-queue" style="font-size:var(--fs-xs)">${esc(o.notes)}</div>`:''}
-    <div class="ticketCard-actions supTicketCard-actions"><button class="btn sm secondary" onclick="showHospitalityActivity('${o.id}')">${ic('list',13)} ${lang==='ar'?'سجل الطلب':'Activity'}</button></div>
+    ${o.notes?`<div class="empOrderCard-queue text-size-xs">${esc(o.notes)}</div>`:''}
+    <div class="ticketCard-actions supTicketCard-actions"><button class="btn sm secondary" ${uiAction('showHospitalityActivity',[(o.id)])}>${ic('list',13)} ${lang==='ar'?'سجل الطلب':'Activity'}</button></div>
     ${mode==='new'?`
     <div class="ticketCard-actions supTicketCard-actions">
-      <button class="btn sm ok" onclick="hospSupervisorDecision('${o.id}','accepted')">${ic('check',14)} ${tr('acceptOrder')}</button>
-      <button class="btn sm danger" onclick="hospSupervisorDecision('${o.id}','rejected')">${ic('x',14)} ${tr('rejectOrder')}</button>
+      <button class="btn sm ok" ${uiAction('hospSupervisorDecision',[(o.id),'accepted'])}>${ic('check',14)} ${tr('acceptOrder')}</button>
+      <button class="btn sm danger" ${uiAction('hospSupervisorDecision',[(o.id),'rejected'])}>${ic('x',14)} ${tr('rejectOrder')}</button>
     </div>`:mode==='assign'&&workers?`
     <div class="ticketCard-actions supTicketCard-actions">
       ${sel(`hsa-${o.id}`,[{v:'',l:tr('chooseWorker')},...workers.map(w=>({v:w.id,l:w.name}))], {cls:'ctrl-sm'})}
-      <button class="btn sm ok" onclick="hospAssignOrder('${o.id}',document.getElementById('hsa-${o.id}').value)">${tr('assign')}</button>
+      <button class="btn sm ok" ${uiAction('runUiFlow',['assign-selected','hospitality',o.id,`hsa-${o.id}`])}>${tr('assign')}</button>
     </div>`:mode==='complete'?`
     <div class="ticketCard-actions supTicketCard-actions">
-      <button class="btn sm ok" onclick="hospSupervisorDecision('${o.id}','completed')">${ic('check',14)} ${tr('completeOrder')}</button>
+      <button class="btn sm ok" ${uiAction('hospSupervisorDecision',[(o.id),'completed'])}>${ic('check',14)} ${tr('completeOrder')}</button>
     </div>`:''}
     ${showAssign?`<div class="ticketCard-actions supTicketCard-actions">
-      <button class="btn sm secondary" onclick="toggleAssignRow('${o.id}')">${ic('users',13)} ${o.assignedToName?tr('reassignOrderBtn'):tr('assign')}</button>
+      <button class="btn sm secondary" ${uiAction('toggleAssignRow',[(o.id)])}>${ic('users',13)} ${o.assignedToName?tr('reassignOrderBtn'):tr('assign')}</button>
     </div>
     ${hospReassignRowHtml(o, workers)}`:''}
   </div>`;
@@ -5060,16 +5231,18 @@ async function showHospitalityActivity(id){
 }
 
 function hospReassignRowHtml(o, workers){
-  return `<div id="hsr-${o.id}" class="ticketCard-actions supTicketCard-actions" style="display:none">
+  return `<div id="hsr-${o.id}" class="ticketCard-actions supTicketCard-actions is-hidden">
     ${sel(`hsr-sel-${o.id}`,[{v:'',l:tr('selectWorkerLabel')},...(workers||[]).map(w=>({v:w.id,l:w.name}))], {cls:'ctrl-sm'})}
-    <button class="btn sm ok" onclick="hospAssignOrder('${o.id}',document.getElementById('hsr-sel-${o.id}').value)">${ic('check',14)} ${tr('assign')}</button>
+    <button class="btn sm ok" ${uiAction('runUiFlow',['assign-selected','hospitality',o.id,`hsr-sel-${o.id}`])}>${ic('check',14)} ${tr('assign')}</button>
   </div>`;
 }
 
 function toggleAssignRow(id){
   const el = document.getElementById('hsr-'+id);
   if(!el) return;
-  el.style.display = el.style.display==='none' ? 'flex' : 'none';
+  const show=el.classList.contains('is-hidden');
+  el.classList.toggle('is-hidden',!show);
+  el.classList.toggle('assign-row--visible',show);
 }
 
 function hospTeamGrid(workers, orders){
@@ -5089,7 +5262,7 @@ function hospOrdersBoard(orders, workers){
   const delivered = orders.filter(o=>o.status==='delivered' && !overdueIds.has(o.id));
   const inProgress = orders.filter(o=>['accepted','preparing','ready','out_for_delivery'].includes(o.status) && o.assignedTo && !overdueIds.has(o.id));
 
-  const emptyCompact = (msg) => `<div style="padding:12px 0;color:var(--muted);font-size:var(--fs-sm);display:flex;align-items:center;gap:6px">${ic('check',14)} ${msg}</div>`;
+  const emptyCompact = (msg) => `<div class="empty-compact">${ic('check',14)} ${msg}</div>`;
   const submittedCls = submitted.length && !unassigned.length ? 'wCard wCard--full' : 'wCard';
   const unassignedCls = unassigned.length && !submitted.length ? 'wCard wCard--full' : 'wCard';
   return `<div class="supSectionsGrid">
@@ -5130,8 +5303,8 @@ function hospReportsView(orders, locations, workers){
   return `<div class="wCard">
     <div class="wCard-title">${ic('reports',16)} ${tr('hospReportsTab')} ${countBubble(filtered.length)}</div>
     <div class="usersFilterBar">
-      ${sel('hospFilterStatus',statusOptions,{onchange:"hospReportStatusFilter=this.value;renderHospitalityManager()"})}
-      ${sel('hospFilterLocation',locationOptions,{onchange:"hospReportLocationFilter=this.value;renderHospitalityManager()"})}
+      ${sel('hospFilterStatus',statusOptions,{changeAction:'filter-hospitality-status'})}
+      ${sel('hospFilterLocation',locationOptions,{changeAction:'filter-hospitality-location'})}
     </div>
     ${filtered.length?`<div class="wCard-list supTicketList">${filtered.map(o=>hospOrderCard(o,'view',workers)).join('')}</div>`
       :`<div class="empty-state"><div class="empty-icon">${ic('reports',24)}</div><div class="empty-title">${tr('noOrdersAtAll')}</div></div>`}
@@ -5198,8 +5371,8 @@ function hospManagerDashboardHtml(orders, workers){
       <div class="dashHero-title">${greeting}، ${esc(me.name.split(' ')[0])}</div>
       <p class="dashHero-sub">${summaryText} · ${fmtDate(new Date())}</p>
       <div class="dashHero-actions">
-        <button class="dashHero-action" onclick="hospManagerView='orders';mobileNavActive='hospmgr-orders';${renderFn}()">${ic('coffee',14)} ${tr('hospOrdersTab')}</button>
-        <button class="dashHero-action" onclick="hospManagerView='reports';mobileNavActive='hospmgr-reports';${renderFn}()">${ic('reports',14)} ${tr('hospReportsTab')}</button>
+        <button class="dashHero-action" ${uiAction('runUiFlow',['navigate','hospManagerView','orders','hospmgr-orders',renderFn])}>${ic('coffee',14)} ${tr('hospOrdersTab')}</button>
+        <button class="dashHero-action" ${uiAction('runUiFlow',['navigate','hospManagerView','reports','hospmgr-reports',renderFn])}>${ic('reports',14)} ${tr('hospReportsTab')}</button>
       </div>
     </div>
     <div class="dashHero-right">
@@ -5246,7 +5419,7 @@ function hospManagerDashboardHtml(orders, workers){
     </div>
     ${perfWorkers.length?`<div class="supTeamGrid">${perfWorkers.map(w=>`
       <div class="supTeamCard"><div class="supTeamCard-info"><div class="supTeamCard-name">${esc(w.name)}</div>
-      <div class="supTeamCard-meta">${tr('completedCountLabel')}: ${num(w.completed)} · ${tr('openCountLabel')}: ${num(w.open)}</div></div><button class="btn secondary sm" onclick="showOperationsWorkerProfile('${w.workerId}','hospitality')">${lang==='ar'?'ملف الأداء':'Profile'}</button></div>`).join('')}</div>`
+      <div class="supTeamCard-meta">${tr('completedCountLabel')}: ${num(w.completed)} · ${tr('openCountLabel')}: ${num(w.open)}</div></div><button class="btn secondary sm" ${uiAction('showOperationsWorkerProfile',[(w.workerId),'hospitality'])}>${lang==='ar'?'ملف الأداء':'Profile'}</button></div>`).join('')}</div>`
       :`<div class="empty-state"><div class="empty-icon">${ic('users',24)}</div><div class="empty-title">${tr('noPerformanceData')}</div></div>`}
   </div>`;
 
@@ -5285,8 +5458,8 @@ function renderHospitalitySupervisor(){
     <div class="wCard">
       <div class="wCard-title">${ic('dashboard',16)} ${lang==='ar'?'اختصارات التشغيل':'Operational shortcuts'}</div>
       <div class="quickActionGrid quickActionGrid--supervisor">
-        <button class="quickAction" onclick="hospSupervisorView='orders';mobileNavActive='hospsup-orders';renderHospitalitySupervisor()"><span>${ic('coffee',18)}</span><b>${tr('hospOrdersTab')}</b><small>${num(orders.length)}</small></button>
-        <button class="quickAction" onclick="hospSupervisorView='team';mobileNavActive='hospsup-team';renderHospitalitySupervisor()"><span>${ic('users',18)}</span><b>${tr('hospTeamTab')}</b><small>${num(workers.length)}</small></button>
+        <button class="quickAction" ${uiAction('runUiFlow',['navigate','hospSupervisorView','orders','hospsup-orders','renderHospitalitySupervisor'])}><span>${ic('coffee',18)}</span><b>${tr('hospOrdersTab')}</b><small>${num(orders.length)}</small></button>
+        <button class="quickAction" ${uiAction('runUiFlow',['navigate','hospSupervisorView','team','hospsup-team','renderHospitalitySupervisor'])}><span>${ic('users',18)}</span><b>${tr('hospTeamTab')}</b><small>${num(workers.length)}</small></button>
       </div>
     </div>
     ${teamHtml}
@@ -5359,7 +5532,7 @@ async function renderAdminHospitality(){
     : (canManage && hospManagerView==='kitchens') ? hospitalityKitchensView()
     : dashboardHtml;
 
-  app.innerHTML = hospManagerShell(me, content, {renderFn:'renderAdminHospitality', canManage, adminContext:true, back:true, backAction:'exitModule()'});
+  app.innerHTML = hospManagerShell(me, content, {renderFn:'renderAdminHospitality', canManage, adminContext:true, back:true, backFlow:'exit-module'});
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -5387,7 +5560,7 @@ function maintShell(me, content, opts={}){
   const openTickets=(data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
   const pendingReports=(data.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
   const renderFn=opts.renderFn||'renderMaintenanceManager';
-  const item=(v,label,icon,count=0)=>`<button class="navBtn${maintView===v?' active':''}" onclick="maintView='${v}';mobileNavActive='maint-${v}';${renderFn}()">
+  const item=(v,label,icon,count=0)=>`<button class="navBtn${maintView===v?' active':''}" ${uiAction('runUiFlow',['navigate','maintView',v,`maint-${v}`,renderFn])}>
     <span class="navBtn-icon">${ic(icon,18)}</span><span class="navBtn-label">${label}</span>
     ${count?`<span class="countBubble navBtn-badge">${num(count)}</span>`:''}</button>`;
   app.innerHTML=`<div class="platform-shell platform-shell--admin">
@@ -5409,8 +5582,8 @@ function maintShell(me, content, opts={}){
       </div></aside>
       <main class="platform-main"><div class="pageAnim">${content}</div></main>
     </div>
-    <nav class="mobileBottomNav" style="--mobile-nav-count:5" aria-label="${lang==='ar'?'تنقل الصيانة':'Maintenance navigation'}">
-      ${[['dashboard',tr('dashboard'),'dashboard'],['orders',tr('maintOrders'),'tickets'],['schedules',tr('maintSchedules'),'clock'],['assets',tr('maintAssets'),'building'],['team',tr('maintTeam'),'users']].map(([v,l,i])=>`<button class="mobileBottomNav-item${maintView===v?' active':''}" onclick="maintView='${v}';${renderFn}()"><span class="mobileBottomNav-icon">${ic(i,18)}</span><span class="mobileBottomNav-label">${l}</span></button>`).join('')}
+    <nav class="mobileBottomNav mobileBottomNav--count-5" aria-label="${lang==='ar'?'تنقل الصيانة':'Maintenance navigation'}">
+      ${[['dashboard',tr('dashboard'),'dashboard'],['orders',tr('maintOrders'),'tickets'],['schedules',tr('maintSchedules'),'clock'],['assets',tr('maintAssets'),'building'],['team',tr('maintTeam'),'users']].map(([v,l,i])=>`<button class="mobileBottomNav-item${maintView===v?' active':''}" ${uiAction('runUiFlow',['navigate','maintView',v,null,renderFn])}><span class="mobileBottomNav-icon">${ic(i,18)}</span><span class="mobileBottomNav-label">${l}</span></button>`).join('')}
     </nav>
   </div>`;
 }
@@ -5434,12 +5607,12 @@ function maintTicketsList(tickets, opts={}){
       ? `<span class="badge bad">🔴 ${lang==='ar'?'تصعيد':'Escalated'}</span>`
       : t.escalationLevel===1
         ? `<span class="badge warn">⚠️ ${lang==='ar'?'تصعيد':'Escalated'}</span>` : '';
-    return `<div class="card ticketCard${t.escalationLevel>0?' ticketCard--escalated':''}" onclick="openTicketDetail('${t.id}')">
+    return `<div class="card ticketCard${t.escalationLevel>0?' ticketCard--escalated':''}" ${uiAction('openTicketDetail',[(t.id)])}>
       <div class="ticketCard-header">
         <span class="badge badge-info">${ic(MAINT_CAT_ICONS[t.category]||'tool',12)} ${maintCatLabel(t.category)}</span>
         ${maintStatusBadge(t.status)} ${escBadge}
         ${slaOver?`<span class="badge bad">SLA</span>`:''}
-        <span style="margin-right:auto;font-size:11px;color:var(--ink-2)">#${esc(t.referenceNo)}</span>
+        <span class="meta-auto-11">#${esc(t.referenceNo)}</span>
       </div>
       <div class="ticketCard-title">${esc(t.title)}</div>
       <div class="ticketCard-meta">
@@ -5448,32 +5621,32 @@ function maintTicketsList(tickets, opts={}){
         · ${ic('clock',13)} ${fmtDate(t.createdAt)}
       </div>
       ${isWorker && t.status==='assigned'?`
-        <div class="ticketCard-actions" onclick="event.stopPropagation()">
-          <button class="btn btn-sm btn-primary" onclick="maintAcceptTicket('${t.id}','${renderFn}')">${lang==='ar'?'قبول':'Accept'}</button>
-          <button class="btn btn-sm btn-ghost" onclick="maintCompleteTicket('${t.id}','${renderFn}')">${lang==='ar'?'إغلاق':'Close'}</button>
+        <div class="ticketCard-actions" ${uiAction('runUiFlow',['stop-propagation'])}>
+          <button class="btn btn-sm btn-primary" ${uiAction('maintAcceptTicket',[(t.id),(renderFn)])}>${lang==='ar'?'قبول':'Accept'}</button>
+          <button class="btn btn-sm btn-ghost" ${uiAction('maintCompleteTicket',[(t.id),(renderFn)])}>${lang==='ar'?'إغلاق':'Close'}</button>
         </div>` : isWorker && t.status==='accepted'?`
-        <div class="ticketCard-actions" onclick="event.stopPropagation()">
-          <button class="btn btn-sm btn-primary" onclick="maintStartTicket('${t.id}','${renderFn}')">${lang==='ar'?'بدء العمل':'Start'}</button>
-          <button class="btn btn-sm btn-ghost" onclick="maintCompleteTicket('${t.id}','${renderFn}')">${lang==='ar'?'إغلاق':'Close'}</button>
+        <div class="ticketCard-actions" ${uiAction('runUiFlow',['stop-propagation'])}>
+          <button class="btn btn-sm btn-primary" ${uiAction('maintStartTicket',[(t.id),(renderFn)])}>${lang==='ar'?'بدء العمل':'Start'}</button>
+          <button class="btn btn-sm btn-ghost" ${uiAction('maintCompleteTicket',[(t.id),(renderFn)])}>${lang==='ar'?'إغلاق':'Close'}</button>
         </div>` : isWorker && t.status==='in_progress'?`
-        <div class="ticketCard-actions" onclick="event.stopPropagation()">
-          <button class="btn btn-sm btn-primary" onclick="maintCompleteTicket('${t.id}','${renderFn}')">${lang==='ar'?'إغلاق البلاغ':'Close Ticket'}</button>
+        <div class="ticketCard-actions" ${uiAction('runUiFlow',['stop-propagation'])}>
+          <button class="btn btn-sm btn-primary" ${uiAction('maintCompleteTicket',[(t.id),(renderFn)])}>${lang==='ar'?'إغلاق البلاغ':'Close Ticket'}</button>
         </div>` : canAssign && t.status==='waiting_verification'?`
-        <div class="ticketCard-actions" onclick="event.stopPropagation()">
-          <button class="btn btn-sm btn-success" onclick="maintVerifyTicket('${t.id}','completed','${renderFn}')">${lang==='ar'?'اعتماد':'Approve'}</button>
-          <button class="btn btn-sm btn-warn" onclick="maintVerifyTicket('${t.id}','reclean_required','${renderFn}')">${lang==='ar'?'إعادة':'Redo'}</button>
-          <button class="btn btn-sm btn-danger-ghost" onclick="maintVerifyTicket('${t.id}','rejected','${renderFn}')">${lang==='ar'?'رفض':'Reject'}</button>
+        <div class="ticketCard-actions" ${uiAction('runUiFlow',['stop-propagation'])}>
+          <button class="btn btn-sm btn-success" ${uiAction('maintVerifyTicket',[(t.id),'completed',(renderFn)])}>${lang==='ar'?'اعتماد':'Approve'}</button>
+          <button class="btn btn-sm btn-warn" ${uiAction('maintVerifyTicket',[(t.id),'reclean_required',(renderFn)])}>${lang==='ar'?'إعادة':'Redo'}</button>
+          <button class="btn btn-sm btn-danger-ghost" ${uiAction('maintVerifyTicket',[(t.id),'rejected',(renderFn)])}>${lang==='ar'?'رفض':'Reject'}</button>
         </div>` : canAssign && t.status==='submitted'?`
-        <div class="ticketCard-actions" onclick="event.stopPropagation()">
-          <button class="btn btn-sm btn-primary" onclick="maintAssignTicket('${t.id}','${renderFn}')">${lang==='ar'?'تعيين فني':'Assign'}</button>
+        <div class="ticketCard-actions" ${uiAction('runUiFlow',['stop-propagation'])}>
+          <button class="btn btn-sm btn-primary" ${uiAction('maintAssignTicket',[(t.id),(renderFn)])}>${lang==='ar'?'تعيين فني':'Assign'}</button>
         </div>` : ''}
     </div>`;
   };
   return `
-    ${canCreate?`<div style="margin-bottom:16px"><button class="btn btn-primary" onclick="maintOpenTicketCreate('${renderFn}')">${ic('plus',16)} ${tr('maintTicketCreate')}</button></div>`:''}
+    ${canCreate?`<div class="u-mb-16"><button class="btn btn-primary" ${uiAction('maintOpenTicketCreate',[(renderFn)])}>${ic('plus',16)} ${tr('maintTicketCreate')}</button></div>`:''}
     ${open.length===0&&done.length===0?`<p class="empty-state">${tr('noData')}</p>`:''}
-    ${open.length?`<h4 style="font-size:13px;font-weight:700;margin-bottom:8px">${lang==='ar'?'مفتوحة':'Open'} (${open.length})</h4>${open.map(card).join('')}`:''}
-    ${done.length?`<details style="margin-top:16px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--ink-2)">${lang==='ar'?'مغلقة':'Closed'} (${done.length})</summary><div style="margin-top:8px">${done.map(card).join('')}</div></details>`:''}
+    ${open.length?`<h4 class="heading-13-mb-8">${lang==='ar'?'مفتوحة':'Open'} (${open.length})</h4>${open.map(card).join('')}`:''}
+    ${done.length?`<details class="u-mt-16"><summary class="summary-standard">${lang==='ar'?'مغلقة':'Closed'} (${done.length})</summary><div class="u-mt-8">${done.map(card).join('')}</div></details>`:''}
   `;
 }
 
@@ -5484,22 +5657,22 @@ function maintReportsList(reports, opts={}){
   return reports.map(r=>{
     const statusMap = {pending:lang==='ar'?'بانتظار الاعتماد':'Pending',approved:lang==='ar'?'معتمد':'Approved',rejected:lang==='ar'?'مرفوض':'Rejected',needs_recleaning:lang==='ar'?'إعادة العمل':'Redo'};
     const statusCls = {pending:'badge-warn',approved:'badge-done',rejected:'badge-bad',needs_recleaning:'badge-warn'};
-    return `<div class="card reportCard" onclick="openReportDetail('${r.id}')">
-      <div class="reportCard-header" onclick="event.stopPropagation()">
+    return `<div class="card reportCard" ${uiAction('openReportDetail',[(r.id)])}>
+      <div class="reportCard-header" ${uiAction('runUiFlow',['stop-propagation'])}>
         <span class="badge ${statusCls[r.approvalStatus]||'badge-info'}">${statusMap[r.approvalStatus]||r.approvalStatus}</span>
-        <span style="margin-right:auto;font-size:11px;color:var(--ink-2)">${ic('clock',12)} ${fmtDate(r.createdAt)}</span>
+        <span class="meta-auto-11">${ic('clock',12)} ${fmtDate(r.createdAt)}</span>
         ${r.photos.length?`<span class="badge badge-info">${ic('camera',12)} ${r.photos.length}</span>`:''}
       </div>
       <div class="reportCard-worker">${ic('user',13)} ${esc(r.workerName)} — ${esc(r.locationNameAr)}</div>
       ${r.tasks.length?`<div class="reportCard-tasks">${ic('check',12)} ${r.tasks.length} ${lang==='ar'?'مهمة':'tasks'}</div>`:''}
       ${canReview && r.approvalStatus==='pending'?`
-        <div class="reportCard-actions" onclick="event.stopPropagation()">
-          <button class="btn btn-sm btn-success" onclick="maintReviewReport('${r.id}','approved','${renderFn}')">${lang==='ar'?'اعتماد':'Approve'}</button>
-          <button class="btn btn-sm btn-warn" onclick="maintReviewReport('${r.id}','needs_recleaning','${renderFn}')">${lang==='ar'?'إعادة':'Redo'}</button>
-          <button class="btn btn-sm btn-danger-ghost" onclick="maintReviewReport('${r.id}','rejected','${renderFn}')">${lang==='ar'?'رفض':'Reject'}</button>
+        <div class="reportCard-actions" ${uiAction('runUiFlow',['stop-propagation'])}>
+          <button class="btn btn-sm btn-success" ${uiAction('maintReviewReport',[(r.id),'approved',(renderFn)])}>${lang==='ar'?'اعتماد':'Approve'}</button>
+          <button class="btn btn-sm btn-warn" ${uiAction('maintReviewReport',[(r.id),'needs_recleaning',(renderFn)])}>${lang==='ar'?'إعادة':'Redo'}</button>
+          <button class="btn btn-sm btn-danger-ghost" ${uiAction('maintReviewReport',[(r.id),'rejected',(renderFn)])}>${lang==='ar'?'رفض':'Reject'}</button>
         </div>` : ''}
       ${canRate && r.approvalStatus==='approved'?`
-        <div class="ratingRow" onclick="event.stopPropagation()">
+        <div class="ratingRow" ${uiAction('runUiFlow',['stop-propagation'])}>
           <div class="ratingGroup"><span class="ratingLabel">${lang==='ar'?'تقييم المدير':'Mgr Rating'}</span>${maintStarWidget(r.id,'manager',r.ratingManager)}</div>
           <div class="ratingGroup"><span class="ratingLabel">${lang==='ar'?'تقييم المشرف':'Sup Rating'}</span>${maintStarWidget(r.id,'supervisor',r.ratingSupervisor)}</div>
         </div>` : ''}
@@ -5514,21 +5687,21 @@ function maintDashboard(tickets, reports, opts={}){
   const completed= tickets.filter(t=>t.status==='completed');
   const pending  = reports.filter(r=>r.approvalStatus==='pending');
   return `
-    <div class="stats-grid" style="margin-bottom:20px">
+    <div class="stats-grid u-mb-20">
       <div class="stat-card"><div class="value">${open.length}</div><div class="label">${lang==='ar'?'طلبات مفتوحة':'Open Tickets'}</div></div>
       <div class="stat-card"><div class="value ${breached.length?'text-danger':''}">${breached.length}</div><div class="label">SLA ${lang==='ar'?'متجاوز':'Breached'}</div></div>
       <div class="stat-card"><div class="value">${completed.length}</div><div class="label">${lang==='ar'?'مكتملة':'Completed'}</div></div>
       <div class="stat-card"><div class="value">${pending.length}</div><div class="label">${lang==='ar'?'تقارير معلقة':'Pending Reports'}</div></div>
     </div>
-    <div style="margin-bottom:16px">
-      <h4 style="font-size:13px;font-weight:700;margin-bottom:8px">${lang==='ar'?'حسب التصنيف':'By Category'}</h4>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <div class="u-mb-16">
+      <h4 class="heading-13-mb-8">${lang==='ar'?'حسب التصنيف':'By Category'}</h4>
+      <div class="u-flex-wrap-gap-8">
         ${MAINT_CATS.map(c=>{
           const cnt = open.filter(t=>t.category===c).length;
-          return `<div class="card" style="flex:1;min-width:80px;text-align:center;padding:10px 8px">
+          return `<div class="card metric-card-compact">
             ${ic(MAINT_CAT_ICONS[c]||'tool',20)}<br>
-            <span style="font-size:11px">${maintCatLabel(c)}</span><br>
-            <strong style="font-size:18px">${cnt}</strong>
+            <span class="text-11">${maintCatLabel(c)}</span><br>
+            <strong class="text-18">${cnt}</strong>
           </div>`;
         }).join('')}
       </div>
@@ -5591,7 +5764,7 @@ function maintenancePerformancePage(){
   </div>
 </div>
 ${scored.length>=1?`
-<div class="card" style="margin-bottom:20px">
+<div class="card u-mb-20">
   <div class="card-head">
     <span class="card-title">${ic('award',16)} ${tr('monthlyRecognition')}</span>
     <span class="badge gold">${currentMonthLabel(lang)}</span>
@@ -5631,7 +5804,7 @@ ${scored.length>=1?`
             <div class="perfWorkerCell"><div>
               <div class="perfWorkerName">${esc(w.name)}</div>
               <div class="perfWorkerUser">${esc(w.username)}</div>
-              <button class="linkBtn" onclick="showOperationsWorkerProfile('${w.id}','maintenance')">${lang==='ar'?'ملف الأداء':'Performance profile'}</button>
+              <button class="linkBtn" ${uiAction('showOperationsWorkerProfile',[(w.id),'maintenance'])}>${lang==='ar'?'ملف الأداء':'Performance profile'}</button>
             </div></div>
           </td>
           <td><span class="perfRowLabel">${lang==='ar'?'التقارير (30ي)':'Reports (30d)'}</span><span class="perfMetricStrong">${w.reportsLast30}</span>${w.thisMonth?` <span class="perfMetricHint">(${w.thisMonth} ${lang==='ar'?'هذا الشهر':'this mo.'})</span>`:''}</td>
@@ -5657,14 +5830,14 @@ function maintenanceWorkerMyReports(){
       const stColor=st==='approved'?'ok':st==='rejected'?'bad':st==='needs_recleaning'?'warn':'brand';
       const actionable=st==='rejected'||st==='needs_recleaning';
       const ticket=(data.tickets||[]).find(t=>t.id===r.ticketId);
-      return `<div class="workerReportItem ${actionable?'actionable':''}" style="background:var(--${stColor}-bg)">
-        <div class="workerReportItem-icon" style="background:var(--${stColor}-bg)">${ic(st==='approved'?'check':st==='rejected'?'x':'flip',16)}</div>
+      return `<div class="workerReportItem status-surface-${stColor} ${actionable?'actionable':''}">
+        <div class="workerReportItem-icon status-surface-${stColor}">${ic(st==='approved'?'check':st==='rejected'?'x':'flip',16)}</div>
         <div class="workerReportItem-body">
           <div class="workerReportItem-name">${ticket?esc(ticket.title):esc(r.ticketId||'—')}</div>
           <div class="workerReportItem-meta">${fmt(r.approvedAt||r.createdAt)}${r.reviewNote?' · '+esc(r.reviewNote):''}</div>
-          <span class="badge ${stColor}" style="margin-top:6px">${stLabel}</span>
+          <span class="badge ${stColor} u-mt-6">${stLabel}</span>
         </div>
-        ${actionable?`<div class="workerReportItem-action" style="color:var(--${stColor})">${lang==='ar'?'إعادة':'Redo'} ${ic('arrow',14)}</div>`:''}
+        ${actionable?`<div class="workerReportItem-action status-text-${stColor}">${lang==='ar'?'إعادة':'Redo'} ${ic('arrow',14)}</div>`:''}
       </div>`;
     }).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('reports',24)}</div><div class="empty-title">${lang==='ar'?'لا توجد تقارير':'No reports yet'}</div></div>`}
   </div>`;
@@ -5694,23 +5867,23 @@ function maintenanceSupervisorDashboard(){
       <div class="supervisorDashboardAlert-sub">${breached.length
         ?(lang==='ar'?`${num(breached.length)} أمر عمل تجاوز اتفاقية الخدمة`:`${breached.length} work orders breached SLA`)
         :(lang==='ar'?'لا توجد تجاوزات SLA حالياً':'No active SLA breaches')}</div></div>
-      <button class="btn secondary sm" onclick="supervisorView='requests';mobileNavActive='supervisor-requests';renderMaintenanceSupervisor()">${lang==='ar'?'أوامر العمل':'Work Orders'}</button>
+      <button class="btn secondary sm" ${uiAction('runUiFlow',['navigate','supervisorView','requests','supervisor-requests','renderMaintenanceSupervisor'])}>${lang==='ar'?'أوامر العمل':'Work Orders'}</button>
     </div>
     <div class="wCard">
       <div class="wCard-title">${ic('dashboard',16)} ${lang==='ar'?'اختصارات التشغيل':'Operational shortcuts'}</div>
       <div class="quickActionGrid quickActionGrid--supervisor">
-        <button class="quickAction" onclick="supervisorView='requests';mobileNavActive='supervisor-requests';renderMaintenanceSupervisor()"><span>${ic('tickets',18)}</span><b>${tr('maintOrders')}</b><small>${num(submitted.length+waiting.length+inProgress.length)}</small></button>
-        <button class="quickAction" onclick="supervisorView='schedules';mobileNavActive='supervisor-schedules';renderMaintenanceSupervisor()"><span>${ic('clock',18)}</span><b>${tr('maintSchedules')}</b><small>${num(upcoming.length)}</small></button>
-        <button class="quickAction" onclick="supervisorView='team';mobileNavActive='supervisor-team';renderMaintenanceSupervisor()"><span>${ic('users',18)}</span><b>${tr('maintTeam')}</b><small>${num(workers.length)}</small></button>
-        <button class="quickAction" onclick="supervisorView='reports';mobileNavActive='supervisor-reports';renderMaintenanceSupervisor()"><span>${ic('reports',18)}</span><b>${tr('reports')}</b><small>${num(pendingReports.length)}</small></button>
+        <button class="quickAction" ${uiAction('runUiFlow',['navigate','supervisorView','requests','supervisor-requests','renderMaintenanceSupervisor'])}><span>${ic('tickets',18)}</span><b>${tr('maintOrders')}</b><small>${num(submitted.length+waiting.length+inProgress.length)}</small></button>
+        <button class="quickAction" ${uiAction('runUiFlow',['navigate','supervisorView','schedules','supervisor-schedules','renderMaintenanceSupervisor'])}><span>${ic('clock',18)}</span><b>${tr('maintSchedules')}</b><small>${num(upcoming.length)}</small></button>
+        <button class="quickAction" ${uiAction('runUiFlow',['navigate','supervisorView','team','supervisor-team','renderMaintenanceSupervisor'])}><span>${ic('users',18)}</span><b>${tr('maintTeam')}</b><small>${num(workers.length)}</small></button>
+        <button class="quickAction" ${uiAction('runUiFlow',['navigate','supervisorView','reports','supervisor-reports','renderMaintenanceSupervisor'])}><span>${ic('reports',18)}</span><b>${tr('reports')}</b><small>${num(pendingReports.length)}</small></button>
       </div>
     </div>
     <div class="supSectionsGrid">
       <div class="wCard${attention.length&&!upcoming.length?' wCard--full':''}"><div class="wCard-title">${ic('bell',16)} ${lang==='ar'?'تحتاج متابعة':'Needs Attention'} ${countBubble(attention.length,'warn')}</div>
-        ${attention.length?`<div class="wCard-list">${maintenanceOrderMini(attention)}</div>`:`<div style="padding:10px 0;color:var(--muted);font-size:var(--fs-sm);display:flex;align-items:center;gap:6px">${ic('check',14)} ${lang==='ar'?'لا توجد أوامر حرجة':'No critical orders'}</div>`}
+        ${attention.length?`<div class="wCard-list">${maintenanceOrderMini(attention)}</div>`:`<div class="u-meta-row">${ic('check',14)} ${lang==='ar'?'لا توجد أوامر حرجة':'No critical orders'}</div>`}
       </div>
       <div class="wCard${upcoming.length&&!attention.length?' wCard--full':''}"><div class="wCard-title">${ic('clock',16)} ${tr('maintUpcoming')} ${countBubble(upcoming.length)}</div>
-        ${upcoming.length?maintenanceScheduleMini(upcoming.slice(0,5)):`<div style="padding:10px 0;color:var(--muted);font-size:var(--fs-sm);display:flex;align-items:center;gap:6px">${ic('check',14)} ${lang==='ar'?'لا توجد جداول قادمة':'No upcoming schedules'}</div>`}
+        ${upcoming.length?maintenanceScheduleMini(upcoming.slice(0,5)):`<div class="u-meta-row">${ic('check',14)} ${lang==='ar'?'لا توجد جداول قادمة':'No upcoming schedules'}</div>`}
       </div>
     </div>
   </div>`;
@@ -5722,7 +5895,7 @@ function maintenanceSupervisorRequests(){
   const waiting=tickets.filter(t=>t.status==='waiting_verification');
   const active=tickets.filter(t=>['assigned','accepted','diagnosing','in_progress','awaiting_parts','awaiting_vendor','awaiting_permit','on_hold','reclean_required'].includes(t.status));
   const closed=tickets.filter(t=>['completed','rejected','cancelled'].includes(t.status));
-  const maintEmptyCompact=(msg)=>`<div style="padding:10px 0;color:var(--muted);font-size:var(--fs-sm);display:flex;align-items:center;gap:6px">${ic('check',14)} ${msg}</div>`;
+  const maintEmptyCompact=(msg)=>`<div class="u-meta-row">${ic('check',14)} ${msg}</div>`;
   const group=(title,icon,items,color='',partnerLen=0)=>{
     const full=items.length>2||(items.length>0&&partnerLen===0);
     return `<div class="wCard${full?' wCard--full':''}">
@@ -5731,7 +5904,7 @@ function maintenanceSupervisorRequests(){
   </div>`;
   };
   return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintOrders')}</div><div class="pageSub">${tickets.length} ${lang==='ar'?'أمر عمل':'work orders'}</div></div>
-    <button class="btn" onclick="showMaintenanceOrderForm()">${ic('plus',15)} ${tr('maintTicketCreate')}</button></div>
+    <button class="btn" ${uiAction('showMaintenanceOrderForm',[])}>${ic('plus',15)} ${tr('maintTicketCreate')}</button></div>
     <div class="supSectionsGrid">
       ${group(lang==='ar'?'أوامر جديدة':'New Orders','tickets',submitted,'bad',waiting.length)}
       ${group(lang==='ar'?'بانتظار التحقق':'Pending Verification','check',waiting,'warn',submitted.length)}
@@ -5749,7 +5922,7 @@ function maintenanceSupervisorTeam(){
   const assignees=maintenanceData().assignees||[];
   return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintTeam')}</div><div class="pageSub">${workers.length} ${lang==='ar'?'فني':'technicians'}</div></div></div>
     <div class="wCard"><div class="wCard-title">${ic('users',16)} ${lang==='ar'?'حالة فريق الصيانة':'Maintenance Team Status'} ${countBubble(workers.length)}</div>
-    ${workers.length?`<div class="supTeamGrid">${workers.map(w=>{const assigned=assignees.filter(a=>a.technicianId===w.id&&!['completed','cancelled'].includes(a.status));const lead=assigned.filter(a=>a.isLead).length;const supervisorRating=maintenanceWorkerRating(w.id,'ratingSupervisor'),managerRating=maintenanceWorkerRating(w.id,'ratingManager');return `<div class="supTeamCard"><div class="supTeamCard-info"><div class="supTeamCard-name">${esc(w.name)}</div><div class="supTeamCard-meta">${assigned.length} ${lang==='ar'?'أوامر نشطة':'active orders'}${lead?` · ${lead} ${tr('leadTechnician')}`:''}</div><div class="supTeamCard-meta">${ic('star',12)} ${tr('ratingBySupervisor')}: ${supervisorRating!=null?supervisorRating.toFixed(1):tr('noRating')} · ${tr('ratingByManager')}: ${managerRating!=null?managerRating.toFixed(1):tr('noRating')}</div></div>${assigned.length?`<span class="badge warn">${assigned.length}</span>`:`<span class="badge ok">${lang==='ar'?'متاح':'Free'}</span>`}<button class="btn secondary sm" onclick="showOperationsWorkerProfile('${w.id}','maintenance')">${lang==='ar'?'ملف الأداء':'Profile'}</button></div>`}).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('users',24)}</div><div class="empty-title">${lang==='ar'?'لا يوجد فنيون':'No technicians'}</div></div>`}
+    ${workers.length?`<div class="supTeamGrid">${workers.map(w=>{const assigned=assignees.filter(a=>a.technicianId===w.id&&!['completed','cancelled'].includes(a.status));const lead=assigned.filter(a=>a.isLead).length;const supervisorRating=maintenanceWorkerRating(w.id,'ratingSupervisor'),managerRating=maintenanceWorkerRating(w.id,'ratingManager');return `<div class="supTeamCard"><div class="supTeamCard-info"><div class="supTeamCard-name">${esc(w.name)}</div><div class="supTeamCard-meta">${assigned.length} ${lang==='ar'?'أوامر نشطة':'active orders'}${lead?` · ${lead} ${tr('leadTechnician')}`:''}</div><div class="supTeamCard-meta">${ic('star',12)} ${tr('ratingBySupervisor')}: ${supervisorRating!=null?supervisorRating.toFixed(1):tr('noRating')} · ${tr('ratingByManager')}: ${managerRating!=null?managerRating.toFixed(1):tr('noRating')}</div></div>${assigned.length?`<span class="badge warn">${assigned.length}</span>`:`<span class="badge ok">${lang==='ar'?'متاح':'Free'}</span>`}<button class="btn secondary sm" ${uiAction('showOperationsWorkerProfile',[(w.id),'maintenance'])}>${lang==='ar'?'ملف الأداء':'Profile'}</button></div>`}).join('')}</div>`:`<div class="empty-state"><div class="empty-icon">${ic('users',24)}</div><div class="empty-title">${lang==='ar'?'لا يوجد فنيون':'No technicians'}</div></div>`}
     </div>`;
 }
 
@@ -5807,10 +5980,10 @@ function maintenanceOperationsDashboard(){
   const greeting=lang==='ar'?(new Date().getHours()<12?'صباح الخير':'مساء الخير'):(new Date().getHours()<12?'Good morning':'Good afternoon');
   return `<div class="dashHero"><div class="dashHero-left"><span class="dashHero-greeting">${tr(me.role)} · ${tr('maintenanceModuleLabel')}</span>
     <div class="dashHero-title">${greeting}، ${esc(me.name.split(' ')[0])}</div><p class="dashHero-sub">${active.length} ${tr('maintOrders')} · ${upcoming} ${tr('maintUpcoming')} · ${fmtDate(new Date())}</p>
-    <div class="dashHero-actions"><button class="dashHero-action" onclick="maintView='orders';render()">${ic('tickets',14)} ${tr('maintOrders')}</button><button class="dashHero-action" onclick="maintView='schedules';render()">${ic('clock',14)} ${tr('maintSchedules')}</button></div></div>
+    <div class="dashHero-actions"><button class="dashHero-action" ${uiAction('runUiFlow',['navigate','maintView','orders',null,'render'])}>${ic('tickets',14)} ${tr('maintOrders')}</button><button class="dashHero-action" ${uiAction('runUiFlow',['navigate','maintView','schedules',null,'render'])}>${ic('clock',14)} ${tr('maintSchedules')}</button></div></div>
     <div class="dashHero-right"><div class="dashHero-stat"><div class="dashHero-stat-val">${active.length}</div><div class="dashHero-stat-lbl">${tr('openTickets')}</div></div><div class="dashHero-stat"><div class="dashHero-stat-val">${upcoming}</div><div class="dashHero-stat-lbl">${tr('maintUpcoming')}</div></div><div class="dashHero-stat"><div class="dashHero-stat-val">${mttr||'—'}</div><div class="dashHero-stat-lbl">MTTR ${tr('mins')}</div></div></div></div>
     <div class="kpiGrid">${kpiCard(active.length,tr('maintOrders'),'tickets','brand')}${kpiCard(breached.length,tr('slaBreached'),'bell',breached.length?'bad':'ok')}${kpiCard(down.length,lang==='ar'?'أصول متوقفة':'Assets Down','building',down.length?'bad':'ok')}${kpiCard(low.length,lang==='ar'?'مخزون منخفض':'Low Stock','tool',low.length?'warn':'ok')}</div>
-    <div class="contentGrid"><div class="card"><div class="card-head"><span class="card-title">${tr('maintUpcoming')}</span><button class="btn secondary sm" onclick="maintView='schedules';render()">${tr('maintSchedules')}</button></div>${maintenanceScheduleMini((md.schedules||[]).filter(s=>s.active).slice(0,5))}</div>
+    <div class="contentGrid"><div class="card"><div class="card-head"><span class="card-title">${tr('maintUpcoming')}</span><button class="btn secondary sm" ${uiAction('runUiFlow',['navigate','maintView','schedules',null,'render'])}>${tr('maintSchedules')}</button></div>${maintenanceScheduleMini((md.schedules||[]).filter(s=>s.active).slice(0,5))}</div>
     <div class="card"><div class="card-head"><span class="card-title">${lang==='ar'?'أوامر تحتاج متابعة':'Orders needing attention'}</span></div>${maintenanceOrderMini(active.slice(0,5))}</div></div>`;
 }
 
@@ -5821,9 +5994,9 @@ function maintenanceOrdersPage(){
   const tickets=data.tickets||[]; const canCreate=['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role);
   const active=tickets.filter(t=>!['completed','rejected','cancelled'].includes(t.status));
   const closed=tickets.filter(t=>['completed','rejected','cancelled'].includes(t.status));
-  return `<div class="pageHeader"><div class="pageHeader-left"><div class="pageTitle">${tr('maintOrders')}</div><div class="pageSub">${active.length} ${lang==='ar'?'نشط':'active'} · ${closed.length} ${lang==='ar'?'مغلق':'closed'}</div></div>${canCreate?`<button class="btn" onclick="showMaintenanceOrderForm()">${ic('plus',15)} ${tr('maintTicketCreate')}</button>`:''}</div>
+  return `<div class="pageHeader"><div class="pageHeader-left"><div class="pageTitle">${tr('maintOrders')}</div><div class="pageSub">${active.length} ${lang==='ar'?'نشط':'active'} · ${closed.length} ${lang==='ar'?'مغلق':'closed'}</div></div>${canCreate?`<button class="btn" ${uiAction('showMaintenanceOrderForm',[])}>${ic('plus',15)} ${tr('maintTicketCreate')}</button>`:''}</div>
     <div class="wCard"><div class="wCard-title">${ic('sync',16)} ${lang==='ar'?'أوامر العمل النشطة':'Active Work Orders'} ${countBubble(active.length)}</div><div class="ticketGrid">${active.length?active.map(maintenanceOrderCard).join(''):`<div class="empty-state"><div class="empty-title">${lang==='ar'?'لا توجد أوامر نشطة':'No active work orders'}</div></div>`}</div></div>
-    <div class="wCard" style="margin-top:16px"><div class="wCard-title">${ic('check',16)} ${lang==='ar'?'سجل الأوامر المغلقة':'Closed Work Order History'} ${countBubble(closed.length,'ok')}</div><div class="ticketGrid">${closed.length?closed.map(maintenanceOrderCard).join(''):`<div class="empty-state"><div class="empty-title">${lang==='ar'?'لا توجد أوامر مغلقة':'No closed work orders'}</div></div>`}</div></div>`;
+    <div class="wCard u-mt-16"><div class="wCard-title">${ic('check',16)} ${lang==='ar'?'سجل الأوامر المغلقة':'Closed Work Order History'} ${countBubble(closed.length,'ok')}</div><div class="ticketGrid">${closed.length?closed.map(maintenanceOrderCard).join(''):`<div class="empty-state"><div class="empty-title">${lang==='ar'?'لا توجد أوامر مغلقة':'No closed work orders'}</div></div>`}</div></div>`;
 }
 
 function maintenanceOrderCard(t){
@@ -5846,15 +6019,15 @@ function maintenanceOrderCard(t){
       ${parts.length?`<span class="badge gold">${ic('tool',11)} ${parts.length}</span>`:''}
     </div>
     <div class="ticketCard-actions">
-      <button class="btn secondary sm" onclick="openTicketDetail('${t.id}')">${lang==='ar'?'التفاصيل':'Details'}</button>
-      <button class="btn secondary sm" onclick="openComments('${t.id}')">${ic('chat',13)} ${lang==='ar'?'تعليقات':'Comments'}</button>
-      ${!terminal&&canManageOrder?`<button class="btn secondary sm" onclick="showMaintenanceTeamForm('${t.id}')">${ic('users',13)} ${lang==='ar'?'إسناد':'Assign'}</button>`:''}
-      ${!terminal?`<button class="btn secondary sm" onclick="showMaintenanceUsePart('${t.id}')">${ic('tool',13)} ${lang==='ar'?'قطعة':'Part'}</button>`:''}
+      <button class="btn secondary sm" ${uiAction('openTicketDetail',[(t.id)])}>${lang==='ar'?'التفاصيل':'Details'}</button>
+      <button class="btn secondary sm" ${uiAction('openComments',[(t.id)])}>${ic('chat',13)} ${lang==='ar'?'تعليقات':'Comments'}</button>
+      ${!terminal&&canManageOrder?`<button class="btn secondary sm" ${uiAction('showMaintenanceTeamForm',[(t.id)])}>${ic('users',13)} ${lang==='ar'?'إسناد':'Assign'}</button>`:''}
+      ${!terminal?`<button class="btn secondary sm" ${uiAction('showMaintenanceUsePart',[(t.id)])}>${ic('tool',13)} ${lang==='ar'?'قطعة':'Part'}</button>`:''}
       ${t.status==='waiting_verification'&&canManageOrder?`
-        <button class="btn ok sm" onclick="maintUpdateTicket('${t.id}',{status:'completed'},'${renderFn}')">${ic('check',13)} ${lang==='ar'?'اعتماد':'Approve'}</button>
-        <button class="btn warn sm" onclick="maintUpdateTicket('${t.id}',{status:'reclean_required'},'${renderFn}')">${lang==='ar'?'إعادة':'Rework'}</button>
-        <button class="btn danger sm" onclick="maintUpdateTicket('${t.id}',{status:'rejected'},'${renderFn}')">${ic('x',13)}</button>`:''}
-      ${canDel?`<button class="btn danger sm iconOnlyBtn" onclick="deleteMaintTicketConfirm('${t.id}')" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button>`:''}
+        <button class="btn ok sm" ${uiAction('maintUpdateTicket',[(t.id),{status:'completed'},(renderFn)])}>${ic('check',13)} ${lang==='ar'?'اعتماد':'Approve'}</button>
+        <button class="btn warn sm" ${uiAction('maintUpdateTicket',[(t.id),{status:'reclean_required'},(renderFn)])}>${lang==='ar'?'إعادة':'Rework'}</button>
+        <button class="btn danger sm" ${uiAction('maintUpdateTicket',[(t.id),{status:'rejected'},(renderFn)])}>${ic('x',13)}</button>`:''}
+      ${canDel?`<button class="btn danger sm iconOnlyBtn" ${uiAction('deleteMaintTicketConfirm',[(t.id)])} title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button>`:''}
     </div>
   </div>`;
 }
@@ -5869,10 +6042,10 @@ async function deleteMaintTicketConfirm(id){
 function maintenanceSchedulesPage(){
   const items=maintenanceData().schedules||[]; const canEdit=['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role);
   const canDel=['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role);
-  return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintSchedules')}</div><div class="pageSub">${items.length} ${lang==='ar'?'خطة':'plans'}</div></div>${canEdit?`<button class="btn" onclick="showMaintenanceScheduleForm()">${ic('plus',15)} ${lang==='ar'?'خطة دورية':'New Plan'}</button>`:''}</div>
+  return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintSchedules')}</div><div class="pageSub">${items.length} ${lang==='ar'?'خطة':'plans'}</div></div>${canEdit?`<button class="btn" ${uiAction('showMaintenanceScheduleForm',[])}>${ic('plus',15)} ${lang==='ar'?'خطة دورية':'New Plan'}</button>`:''}</div>
     <div class="contentGrid">${items.length?items.map(s=>`<div class="card"><div class="card-head"><span class="card-title">${ic('clock',16)} ${esc(lang==='ar'?s.titleAr:s.titleEn||s.titleAr)}</span><span class="badge ${s.active?'ok':'bad'}">${s.active?tr('activeUser'):tr('inactive')}</span></div>
     <div class="perfStatGrid"><div class="perfStatRow"><span>${lang==='ar'?'التكرار':'Frequency'}</span><b>${scheduleFrequencyLabel(s)}</b></div><div class="perfStatRow"><span>${lang==='ar'?'التنفيذ القادم':'Next run'}</span><b>${fmt(s.nextRunAt)}</b></div><div class="perfStatRow"><span>${tr('maintAssets')}</span><b>${(s.assetIds||[]).length}</b></div><div class="perfStatRow"><span>${tr('maintTeam')}</span><b>${(s.defaultTechnicianIds||[]).length}</b></div></div>
-    ${canEdit?`<div class="ticketCard-actions"><button class="btn secondary sm" onclick="showMaintenanceScheduleTeamForm('${s.id}')">${ic('users',13)} ${lang==='ar'?'إسناد الفنيين':'Assign Technicians'}</button><button class="btn secondary sm" onclick="runMaintenanceSchedule('${s.id}')">${lang==='ar'?'إنشاء أمر الآن':'Run now'}</button>${canDel?`<button class="btn danger sm iconOnlyBtn" onclick="deleteMaintenanceSchedule('${s.id}')" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button>`:''}</div>`:''}</div>`).join(''):`<div class="card"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}</div>`;
+    ${canEdit?`<div class="ticketCard-actions"><button class="btn secondary sm" ${uiAction('showMaintenanceScheduleTeamForm',[(s.id)])}>${ic('users',13)} ${lang==='ar'?'إسناد الفنيين':'Assign Technicians'}</button><button class="btn secondary sm" ${uiAction('runMaintenanceSchedule',[(s.id)])}>${lang==='ar'?'إنشاء أمر الآن':'Run now'}</button>${canDel?`<button class="btn danger sm iconOnlyBtn" ${uiAction('deleteMaintenanceSchedule',[(s.id)])} title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button>`:''}</div>`:''}</div>`).join(''):`<div class="card"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}</div>`;
 }
 async function deleteMaintenanceSchedule(id){
   if(!confirm(lang==='ar'?'حذف هذه الخطة الدورية؟':'Delete this schedule?'))return;
@@ -5882,8 +6055,8 @@ function scheduleFrequencyLabel(s){const unit={daily:lang==='ar'?'يوم':'day',
 
 function maintenanceAssetsPage(){
   const items=maintenanceData().assets||[]; const canEdit=['system_admin','facility_manager','maintenance_manager'].includes(me.role);
-  return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintAssets')}</div><div class="pageSub">${items.length} ${lang==='ar'?'أصل':'assets'}</div></div>${canEdit?`<button class="btn" onclick="showMaintenanceAssetForm()">${ic('plus',15)} ${lang==='ar'?'إضافة أصل':'Add Asset'}</button>`:''}</div>
-    <div class="productGrid">${items.length?items.map(a=>`<div class="productCard productCard--admin"><div class="productCard-img">${ic('building',28)}</div><div class="productCard-body"><div class="productCard-title">${esc(lang==='ar'?a.nameAr:a.nameEn||a.nameAr)}</div><div class="productCard-desc">${esc(a.code)} · ${esc(a.serialNo||'—')}</div><div class="productCard-badges"><span class="badge ${a.status==='operational'?'ok':a.status==='down'?'bad':'warn'}">${assetStatusLabel(a.status)}</span><span class="badge">${maintCatLabel(a.category)}</span><span class="badge ${a.criticality==='critical'?'bad':''}">${a.criticality}</span></div></div>${canEdit?`<div class="productCard-actions"><button class="btn danger sm iconOnlyBtn" onclick="deleteMaintenanceAsset('${a.id}')" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button></div>`:''}</div>`).join(''):`<div class="card"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}</div>`;
+  return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintAssets')}</div><div class="pageSub">${items.length} ${lang==='ar'?'أصل':'assets'}</div></div>${canEdit?`<button class="btn" ${uiAction('showMaintenanceAssetForm',[])}>${ic('plus',15)} ${lang==='ar'?'إضافة أصل':'Add Asset'}</button>`:''}</div>
+    <div class="productGrid">${items.length?items.map(a=>`<div class="productCard productCard--admin"><div class="productCard-img">${ic('building',28)}</div><div class="productCard-body"><div class="productCard-title">${esc(lang==='ar'?a.nameAr:a.nameEn||a.nameAr)}</div><div class="productCard-desc">${esc(a.code)} · ${esc(a.serialNo||'—')}</div><div class="productCard-badges"><span class="badge ${a.status==='operational'?'ok':a.status==='down'?'bad':'warn'}">${assetStatusLabel(a.status)}</span><span class="badge">${maintCatLabel(a.category)}</span><span class="badge ${a.criticality==='critical'?'bad':''}">${a.criticality}</span></div></div>${canEdit?`<div class="productCard-actions"><button class="btn danger sm iconOnlyBtn" ${uiAction('deleteMaintenanceAsset',[(a.id)])} title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button></div>`:''}</div>`).join(''):`<div class="card"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}</div>`;
 }
 async function deleteMaintenanceAsset(id){
   const a=(maintenanceData().assets||[]).find(x=>x.id===id);
@@ -5894,18 +6067,18 @@ function assetStatusLabel(s){return ({operational:lang==='ar'?'يعمل':'Operat
 
 function maintenanceTeamPage(){
   const workers=(data.users||[]).filter(u=>(u.roles||[u.role]).includes('maintenance_worker')), tickets=data.tickets||[];
-  return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintTeam')}</div><div class="pageSub">${workers.length} ${lang==='ar'?'فني':'technicians'}</div></div></div><div class="supTeamGrid">${workers.map(w=>{const assigned=(maintenanceData().assignees||[]).filter(a=>a.technicianId===w.id&&!['completed'].includes(a.status));const lead=assigned.filter(a=>a.isLead).length;const supervisorRating=maintenanceWorkerRating(w.id,'ratingSupervisor'),managerRating=maintenanceWorkerRating(w.id,'ratingManager');return `<div class="supTeamCard"><div class="supTeamCard-info"><div class="supTeamCard-name">${esc(w.name)}</div><div class="supTeamCard-meta">${assigned.length} ${tr('openTasks')} · ${lead} ${tr('leadTechnician')}</div><div class="supTeamCard-meta">${ic('star',12)} ${tr('ratingBySupervisor')}: ${supervisorRating!=null?supervisorRating.toFixed(1):tr('noRating')} · ${tr('ratingByManager')}: ${managerRating!=null?managerRating.toFixed(1):tr('noRating')}</div></div><span class="badge ${assigned.length?'warn':'ok'}">${assigned.length?assigned.length:(lang==='ar'?'متاح':'Free')}</span><button class="btn secondary sm" onclick="showOperationsWorkerProfile('${w.id}','maintenance')">${lang==='ar'?'ملف الأداء':'Profile'}</button></div>`}).join('')}</div>`;
+  return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintTeam')}</div><div class="pageSub">${workers.length} ${lang==='ar'?'فني':'technicians'}</div></div></div><div class="supTeamGrid">${workers.map(w=>{const assigned=(maintenanceData().assignees||[]).filter(a=>a.technicianId===w.id&&!['completed'].includes(a.status));const lead=assigned.filter(a=>a.isLead).length;const supervisorRating=maintenanceWorkerRating(w.id,'ratingSupervisor'),managerRating=maintenanceWorkerRating(w.id,'ratingManager');return `<div class="supTeamCard"><div class="supTeamCard-info"><div class="supTeamCard-name">${esc(w.name)}</div><div class="supTeamCard-meta">${assigned.length} ${tr('openTasks')} · ${lead} ${tr('leadTechnician')}</div><div class="supTeamCard-meta">${ic('star',12)} ${tr('ratingBySupervisor')}: ${supervisorRating!=null?supervisorRating.toFixed(1):tr('noRating')} · ${tr('ratingByManager')}: ${managerRating!=null?managerRating.toFixed(1):tr('noRating')}</div></div><span class="badge ${assigned.length?'warn':'ok'}">${assigned.length?assigned.length:(lang==='ar'?'متاح':'Free')}</span><button class="btn secondary sm" ${uiAction('showOperationsWorkerProfile',[(w.id),'maintenance'])}>${lang==='ar'?'ملف الأداء':'Profile'}</button></div>`}).join('')}</div>`;
 }
 
 function maintenancePartsPage(){
   const items=maintenanceData().parts||[];const canEdit=['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role);
   const canDel=['system_admin','facility_manager','maintenance_manager'].includes(me.role);
-  return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintParts')}</div><div class="pageSub">${items.length} ${lang==='ar'?'صنف':'items'}</div></div>${canEdit?`<button class="btn" onclick="showMaintenancePartForm()">${ic('plus',15)} ${lang==='ar'?'إضافة قطعة':'Add Part'}</button>`:''}</div><div class="contentGrid">${items.map(p=>`<div class="card"><div class="card-head"><span class="card-title">${esc(lang==='ar'?p.nameAr:p.nameEn||p.nameAr)}</span><span class="badge ${p.lowStock?'bad':'ok'}">${p.quantity} ${esc(p.unit)}</span></div><div class="pageSub">${esc(p.sku)} · ${lang==='ar'?'حد الطلب':'Reorder'}: ${p.reorderLevel} · ${p.unitCost}</div>${canEdit?`<div class="ticketCard-actions"><button class="btn secondary sm" onclick="showMaintenancePartEditForm('${p.id}')">${ic('edit',13)} ${lang==='ar'?'تعديل':'Edit'}</button>${canDel?`<button class="btn danger sm iconOnlyBtn" onclick="deleteMaintenancePart('${p.id}')" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button>`:''}</div>`:''}</div>`).join('')||`<div class="card"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}</div>`;
+  return `<div class="pageHeader"><div><div class="pageTitle">${tr('maintParts')}</div><div class="pageSub">${items.length} ${lang==='ar'?'صنف':'items'}</div></div>${canEdit?`<button class="btn" ${uiAction('showMaintenancePartForm',[])}>${ic('plus',15)} ${lang==='ar'?'إضافة قطعة':'Add Part'}</button>`:''}</div><div class="contentGrid">${items.map(p=>`<div class="card"><div class="card-head"><span class="card-title">${esc(lang==='ar'?p.nameAr:p.nameEn||p.nameAr)}</span><span class="badge ${p.lowStock?'bad':'ok'}">${p.quantity} ${esc(p.unit)}</span></div><div class="pageSub">${esc(p.sku)} · ${lang==='ar'?'حد الطلب':'Reorder'}: ${p.reorderLevel} · ${p.unitCost}</div>${canEdit?`<div class="ticketCard-actions"><button class="btn secondary sm" ${uiAction('showMaintenancePartEditForm',[(p.id)])}>${ic('edit',13)} ${lang==='ar'?'تعديل':'Edit'}</button>${canDel?`<button class="btn danger sm iconOnlyBtn" ${uiAction('deleteMaintenancePart',[(p.id)])} title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button>`:''}</div>`:''}</div>`).join('')||`<div class="card"><div class="empty-state"><div class="empty-title">${tr('noData')}</div></div></div>`}</div>`;
 }
 function showMaintenancePartEditForm(id){
   const p=(maintenanceData().parts||[]).find(x=>x.id===id); if(!p)return;
   const body=`<div class="formGrid">${fc('SKU',inp('mpt-sku',{value:esc(p.sku),disabled:true}))}${fc(lang==='ar'?'اسم القطعة':'Part Name',inp('mpt-name',{value:esc(lang==='ar'?p.nameAr:p.nameEn||p.nameAr)}))}${fc(lang==='ar'?'الوحدة':'Unit',inp('mpt-unit',{value:esc(p.unit)}))}${fc(lang==='ar'?'الكمية':'Quantity',inp('mpt-qty',{type:'number',value:p.quantity}))}${fc(lang==='ar'?'حد إعادة الطلب':'Reorder Level',inp('mpt-reorder',{type:'number',value:p.reorderLevel}))}${fc(lang==='ar'?'تكلفة الوحدة':'Unit Cost',inp('mpt-cost',{type:'number',value:p.unitCost}))}${fc(tr('location'),inp('mpt-location',{value:esc(p.location||'')}))}</div>`;
-  showModal('maintenancePartModal',lang==='ar'?'تعديل قطعة':'Edit Part',body,`<button class="btn" onclick="saveMaintenancePartEdit('${id}')">${tr('save')}</button><button class="btn secondary" onclick="document.getElementById('maintenancePartModal').remove()">${tr('cancel')}</button>`);
+  showModal('maintenancePartModal',lang==='ar'?'تعديل قطعة':'Edit Part',body,`<button class="btn" ${uiAction('saveMaintenancePartEdit',[(id)])}>${tr('save')}</button><button class="btn secondary" ${uiAction('runUiFlow',['close-element','maintenancePartModal'])}>${tr('cancel')}</button>`);
 }
 async function saveMaintenancePartEdit(id){
   try{await api('/maintenance/parts/'+id,{method:'PUT',body:JSON.stringify({nameAr:document.getElementById('mpt-name').value,unit:document.getElementById('mpt-unit').value,quantity:Number(document.getElementById('mpt-qty').value),reorderLevel:Number(document.getElementById('mpt-reorder').value),unitCost:Number(document.getElementById('mpt-cost').value),location:document.getElementById('mpt-location').value})});document.getElementById('maintenancePartModal')?.remove();toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad');}
@@ -5929,10 +6102,10 @@ function maintenanceWorkerOrderCard(t,isHistory){
   if(isHistory){
     return `<div class="wCard"><div class="ticketCard-top"><div><div class="ticketCard-title">${esc(t.title)}</div><div class="ticketCard-ref">${esc(t.referenceNo)}</div></div>${maintStatusBadge(t.status)}</div><div class="ticketCard-meta"><span>${esc(t.locationNameAr)}</span><span>${maintTypeLabel(t.maintenanceType)}</span></div>${teamLine}</div>`;
   }
-  return `<button class="assignedItem" onclick="startMaintenanceForm('${t.id}')"><div><div class="assignedItem-name">${esc(t.title)}</div><div class="assignedItem-sub">${esc(t.locationNameAr)} · ${maintTypeLabel(t.maintenanceType)} · ${esc(t.referenceNo)}</div>${teamLine}</div><div style="display:flex;align-items:center;gap:8px">${maintStatusBadge(t.status)}<span>${ic('arrow',16)}</span></div></button>`;
+  return `<button class="assignedItem" ${uiAction('startMaintenanceForm',[(t.id)])}><div><div class="assignedItem-name">${esc(t.title)}</div><div class="assignedItem-sub">${esc(t.locationNameAr)} · ${maintTypeLabel(t.maintenanceType)} · ${esc(t.referenceNo)}</div>${teamLine}</div><div class="u-flex-center-gap-8">${maintStatusBadge(t.status)}<span>${ic('arrow',16)}</span></div></button>`;
 }
 function maintenanceWorkerActions(t){
-  const action=(status,label,cls='secondary')=>`<button class="btn ${cls} sm" onclick="maintWorkerStatus('${t.id}','${status}')">${label}</button>`;
+  const action=(status,label,cls='secondary')=>`<button class="btn ${cls} sm" ${uiAction('maintWorkerStatus',[(t.id),(status)])}>${label}</button>`;
   const waiting=['awaiting_parts','awaiting_vendor','awaiting_permit','on_hold'].includes(t.status);
   return `<div class="ticketCard-actions">
     ${t.status==='assigned'?action('accepted',lang==='ar'?'قبول':'Accept','ok'):''}
@@ -5941,8 +6114,8 @@ function maintenanceWorkerActions(t){
     ${t.status==='diagnosing'?action('in_progress',lang==='ar'?'بدء الإصلاح':'Start Repair','ok'):''}
     ${waiting?action('in_progress',lang==='ar'?'استئناف العمل':'Resume Work','ok'):''}
     ${['diagnosing','in_progress'].includes(t.status)?`${action('awaiting_parts',tr('awaiting_parts'),'warn')}${action('awaiting_vendor',tr('awaiting_vendor'),'warn')}${action('awaiting_permit',tr('awaiting_permit'),'warn')}`:''}
-    <button class="btn secondary sm" onclick="showMaintenanceUsePart('${t.id}')">${ic('tool',12)} ${lang==='ar'?'صرف قطعة':'Use Part'}</button>
-    ${['in_progress','diagnosing'].includes(t.status)?`<button class="btn ok sm" onclick="showMaintenanceCloseForm('${t.id}')">${lang==='ar'?'طلب الإغلاق':'Request Close'}</button>`:''}
+    <button class="btn secondary sm" ${uiAction('showMaintenanceUsePart',[(t.id)])}>${ic('tool',12)} ${lang==='ar'?'صرف قطعة':'Use Part'}</button>
+    ${['in_progress','diagnosing'].includes(t.status)?`<button class="btn ok sm" ${uiAction('showMaintenanceCloseForm',[(t.id)])}>${lang==='ar'?'طلب الإغلاق':'Request Close'}</button>`:''}
   </div>`;
 }
 function maintenanceWorkerSchedules(items){return `<div class="pageHeader"><div class="pageTitle">${tr('maintUpcoming')}</div></div><div>${maintenanceScheduleMini(items)}</div>`}
@@ -5968,37 +6141,37 @@ function startMaintenanceForm(ticketId){
   setTopbarBackButton(true,'maintWorkerGoBack()');
   document.getElementById('maintWorkerForm').innerHTML=`
     <div class="wCard">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:4px">
+      <div class="layout-between-start-mb-4">
         <div>
-          <div style="font-family:var(--font-head);font-size:var(--fs-lg);font-weight:800;color:var(--ink);line-height:1.35">${esc(t.title)}</div>
-          <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:4px">${ic('tickets',12)} ${esc(t.locationNameAr)} · ${esc(t.referenceNo)}</div>
+          <div class="text-heading-lg">${esc(t.title)}</div>
+          <div class="text-muted-xs-mt-4">${ic('tickets',12)} ${esc(t.locationNameAr)} · ${esc(t.referenceNo)}</div>
         </div>
         ${maintStatusBadge(t.status)}
       </div>
     </div>
     <div class="wCard">
       <div class="wCard-title">${ic('camera',16)} ${lang==='ar'?'صور قبل الصيانة':'Before Photos'}</div>
-      <p style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:12px">${tr('beforePhotoHint')}</p>
-      <button class="cameraBtn" onclick="openCamera('before')">${ic('camera',22)}<span>${tr('addPhoto')} — ${lang==='ar'?'قبل الصيانة':'Before Maintenance'}</span></button>
-      <div id="beforePreviews" class="photoGrid" style="margin-top:12px"></div>
+      <p class="text-muted-xs-mb-12">${tr('beforePhotoHint')}</p>
+      <button class="cameraBtn" ${uiAction('openCamera',['before'])}>${ic('camera',22)}<span>${tr('addPhoto')} — ${lang==='ar'?'قبل الصيانة':'Before Maintenance'}</span></button>
+      <div id="beforePreviews" class="photoGrid u-mt-12"></div>
     </div>
     <div class="wCard">
       <div class="wCard-title">${ic('check',16)} ${lang==='ar'?'قائمة التحقق':'Checklist'}</div>
       <div class="taskChecklist">
-        ${MAINT_TASKS.map((p,i)=>`<label class="taskItem" id="mti_${i}"><input class="taskCheck" type="checkbox" checked value="${esc(lang==='ar'?p[0]:p[1])}" onchange="this.closest('.taskItem').classList.toggle('checked',this.checked)"><span class="taskItem-label">${esc(lang==='ar'?p[0]:p[1])}</span></label>`).join('')}
+        ${MAINT_TASKS.map((p,i)=>`<label class="taskItem" id="mti_${i}"><input class="taskCheck" type="checkbox" checked value="${esc(lang==='ar'?p[0]:p[1])}" data-ui-change="toggle-task"><span class="taskItem-label">${esc(lang==='ar'?p[0]:p[1])}</span></label>`).join('')}
       </div>
-      <div class="field" style="margin-top:16px"><label>${lang==='ar'?'التشخيص':'Diagnosis'}</label>${ta('mwDiagnosis','',{rows:2,placeholder:lang==='ar'?'ما تم تشخيصه وإصلاحه...':'What was diagnosed and repaired...'})}</div>
+      <div class="field u-mt-16"><label>${lang==='ar'?'التشخيص':'Diagnosis'}</label>${ta('mwDiagnosis','',{rows:2,placeholder:lang==='ar'?'ما تم تشخيصه وإصلاحه...':'What was diagnosed and repaired...'})}</div>
       <div class="field"><label>${tr('notes')}</label>${ta('mwNotes','',{rows:2,placeholder:lang==='ar'?'ملاحظات اختيارية...':'Optional notes...'})}</div>
     </div>
     <div class="wCard">
       <div class="wCard-title">${ic('camera',16)} ${lang==='ar'?'صور بعد الصيانة':'After Photos'}</div>
-      <p style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:12px">${tr('afterPhotoHint')}</p>
-      <button class="cameraBtn" onclick="openCamera('after')">${ic('camera',22)}<span>${tr('addPhoto')} — ${lang==='ar'?'بعد الصيانة':'After Maintenance'}</span></button>
-      <div id="afterPreviews" class="photoGrid" style="margin-top:12px"></div>
+      <p class="text-muted-xs-mb-12">${tr('afterPhotoHint')}</p>
+      <button class="cameraBtn" ${uiAction('openCamera',['after'])}>${ic('camera',22)}<span>${tr('addPhoto')} — ${lang==='ar'?'بعد الصيانة':'After Maintenance'}</span></button>
+      <div id="afterPreviews" class="photoGrid u-mt-12"></div>
     </div>
-    <div style="height:80px"></div>
+    <div class="u-h-80"></div>
     <div class="stickySubmit">
-      <button class="submitBtn" onclick="submitMaintenanceWorkerReport('${ticketId}')">${ic('check',20)} ${tr('submit')}</button>
+      <button class="submitBtn" ${uiAction('submitMaintenanceWorkerReport',[(ticketId)])}>${ic('check',20)} ${tr('submit')}</button>
     </div>`;
   document.querySelectorAll('#maintWorkerForm .taskItem').forEach(el=>el.classList.add('checked'));
   document.getElementById('maintWorkerForm').scrollIntoView({behavior:'smooth',block:'start'});
@@ -6008,7 +6181,7 @@ async function submitMaintenanceWorkerReport(ticketId){
   const hasPhotos=currentBeforePhotos.length||currentAfterPhotos.length;
   if(!hasPhotos) return toast(tr('photoRequired'),'bad');
   const btn=document.querySelector('.submitBtn');
-  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner" style="width:24px;height:24px;border-width:2.5px"></div>`}
+  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner u-spinner-24"></div>`}
   const t=(data.tickets||[]).find(x=>x.id===ticketId);
   const locationId=t?.locationId;
   const diagnosis=document.getElementById('mwDiagnosis')?.value||'';
@@ -6032,11 +6205,11 @@ async function submitMaintenanceWorkerReport(ticketId){
     toast(tr('reportSent'),'ok');
     currentBeforePhotos=[]; currentAfterPhotos=[];
     document.getElementById('maintWorkerForm').innerHTML=`
-      <div class="wCard" style="text-align:center;padding:32px">
-        <div style="width:64px;height:64px;border-radius:50%;background:var(--ok-bg);margin:0 auto 16px;display:grid;place-items:center;color:var(--ok)">${ic('check',28)}</div>
-        <div style="font-family:var(--font-head);font-size:var(--fs-xl);font-weight:800;color:var(--ink)">${tr('reportSent')}</div>
-        <p style="color:var(--muted);margin-top:8px;font-size:var(--fs-sm)">${fmt(new Date())}</p>
-        <button class="btn wide" style="margin-top:20px" onclick="maintWorkerGoBack()">${lang==='ar'?'العودة للأوامر':'Back to Orders'}</button>
+      <div class="wCard u-text-center-p-32">
+        <div class="u-success-icon-64">${ic('check',28)}</div>
+        <div class="text-heading-xl">${tr('reportSent')}</div>
+        <p class="text-muted-sm-mt-8">${fmt(new Date())}</p>
+        <button class="btn wide u-mt-20" ${uiAction('maintWorkerGoBack',[])}>${lang==='ar'?'العودة للأوامر':'Back to Orders'}</button>
       </div>`;
     setTopbarBackButton(false);
     await load();
@@ -6055,7 +6228,7 @@ function selectedMaintenanceTechnicians(){return [...document.querySelectorAll('
 function showMaintenanceOrderForm(){
   const md=maintenanceData(), workers=(data.users||[]).filter(u=>u.role==='maintenance_worker');
   const body=`<div class="formGrid">${fc(tr('title'),inp('mwo-title',{value:lang==='ar'?'أمر صيانة جديد':'New maintenance order'}))}${fc(tr('location'),sel('mwo-location',(data.locations||[]).map(l=>({v:l.id,l:locName(l)}))))}${fc(lang==='ar'?'نوع الصيانة':'Maintenance Type',sel('mwo-type',[{v:'corrective',l:tr('corrective')},{v:'emergency',l:tr('emergency_maintenance')},{v:'preventive',l:tr('preventive')}]))}${fc(tr('reqCategory'),sel('mwo-category',MAINT_CATS.map(c=>({v:c,l:maintCatLabel(c)}))))}${fc(tr('maintAssets'),sel('mwo-asset',[{v:'',l:'—'},...(md.assets||[]).map(a=>({v:a.id,l:lang==='ar'?a.nameAr:a.nameEn||a.nameAr}))]))}${fc(tr('priority'),sel('mwo-priority',[{v:'high',l:tr('high')},{v:'medium',l:tr('medium'),sel:true},{v:'low',l:tr('low')}]))}</div>${fc(tr('description'),ta('mwo-desc','',{rows:3}))}<div class="field"><label>${tr('maintTeam')}</label><div class="taskChecklist">${maintenanceWorkerChecks()}</div></div>${fc(tr('leadTechnician'),sel('mwo-lead',[{v:'',l:'—'},...workers.map(w=>({v:w.id,l:w.name}))]))}`;
-  const foot=`<button class="btn" onclick="saveMaintenanceOrder()">${ic('check',15)} ${tr('save')}</button><button class="btn secondary" onclick="document.getElementById('maintenanceOrderModal').remove()">${tr('cancel')}</button>`;
+  const foot=`<button class="btn" ${uiAction('saveMaintenanceOrder',[])}>${ic('check',15)} ${tr('save')}</button><button class="btn secondary" ${uiAction('runUiFlow',['close-element','maintenanceOrderModal'])}>${tr('cancel')}</button>`;
   showModal('maintenanceOrderModal',tr('maintTicketCreate'),body,foot,{wide:true});
 }
 async function saveMaintenanceOrder(){
@@ -6065,7 +6238,7 @@ async function saveMaintenanceOrder(){
 function showMaintenanceTeamForm(orderId){
   const current=maintenanceAssignees(orderId), selected=current.map(a=>a.technicianId), workers=(data.users||[]).filter(u=>u.role==='maintenance_worker');
   const body=`<div class="taskChecklist">${maintenanceWorkerChecks(selected)}</div>${fc(tr('leadTechnician'),sel('maint-team-lead',[{v:'',l:'—'},...workers.map(w=>({v:w.id,l:w.name,sel:current.some(a=>a.isLead&&a.technicianId===w.id)}))]))}`;
-  const foot=`<button class="btn" onclick="saveMaintenanceTeam('${orderId}')">${tr('save')}</button><button class="btn secondary" onclick="document.getElementById('maintenanceTeamModal').remove()">${tr('cancel')}</button>`;
+  const foot=`<button class="btn" ${uiAction('saveMaintenanceTeam',[(orderId)])}>${tr('save')}</button><button class="btn secondary" ${uiAction('runUiFlow',['close-element','maintenanceTeamModal'])}>${tr('cancel')}</button>`;
   showModal('maintenanceTeamModal',lang==='ar'?'إسناد فريق الصيانة':'Assign Maintenance Team',body,foot);
 }
 async function saveMaintenanceTeam(orderId){try{await api(`/maintenance-tickets/${orderId}/team`,{method:'POST',body:JSON.stringify({technicianIds:selectedMaintenanceTechnicians(),leadTechnicianId:document.getElementById('maint-team-lead').value})});document.getElementById('maintenanceTeamModal')?.remove();toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}}
@@ -6073,14 +6246,14 @@ async function saveMaintenanceTeam(orderId){try{await api(`/maintenance-tickets/
 function showMaintenanceScheduleForm(){
   const md=maintenanceData(), workers=(data.users||[]).filter(u=>u.role==='maintenance_worker');const tomorrow=new Date(Date.now()+86400000).toISOString().slice(0,16);
   const body=`<div class="formGrid">${fc(lang==='ar'?'اسم الخطة':'Plan Name',inp('mps-title',{value:lang==='ar'?'صيانة دورية':'Preventive maintenance'}))}${fc(tr('location'),sel('mps-location',(data.locations||[]).map(l=>({v:l.id,l:locName(l)}))))}${fc(tr('maintAssets'),sel('mps-asset',[{v:'',l:'—'},...(md.assets||[]).map(a=>({v:a.id,l:lang==='ar'?a.nameAr:a.nameEn||a.nameAr}))]))}${fc(tr('reqCategory'),sel('mps-category',MAINT_CATS.map(c=>({v:c,l:maintCatLabel(c)}))))}${fc(lang==='ar'?'التكرار':'Frequency',sel('mps-frequency',[{v:'daily',l:lang==='ar'?'يومي':'Daily'},{v:'weekly',l:lang==='ar'?'أسبوعي':'Weekly'},{v:'monthly',l:lang==='ar'?'شهري':'Monthly'},{v:'quarterly',l:lang==='ar'?'ربع سنوي':'Quarterly'},{v:'yearly',l:lang==='ar'?'سنوي':'Yearly'}]))}${fc(lang==='ar'?'التنفيذ القادم':'Next Run',inp('mps-next',{type:'datetime-local',value:tomorrow}))}${fc(lang==='ar'?'المدة المتوقعة بالدقائق':'Estimated Minutes',inp('mps-mins',{type:'number',value:60}))}</div>${fc(lang==='ar'?'قائمة الفحص — بند في كل سطر':'Checklist — one item per line',ta('mps-checklist',MAINT_TASKS.map(x=>lang==='ar'?x[0]:x[1]).join('\n'),{rows:5}))}<div class="field"><label>${tr('maintTeam')}</label><div class="taskChecklist">${maintenanceWorkerChecks()}</div></div>${fc(tr('leadTechnician'),sel('mps-lead',[{v:'',l:'—'},...workers.map(w=>({v:w.id,l:w.name}))]))}`;
-  const foot=`<button class="btn" onclick="saveMaintenanceSchedule()">${tr('save')}</button><button class="btn secondary" onclick="document.getElementById('maintenanceScheduleModal').remove()">${tr('cancel')}</button>`;showModal('maintenanceScheduleModal',tr('maintSchedules'),body,foot,{wide:true});
+  const foot=`<button class="btn" ${uiAction('saveMaintenanceSchedule',[])}>${tr('save')}</button><button class="btn secondary" ${uiAction('runUiFlow',['close-element','maintenanceScheduleModal'])}>${tr('cancel')}</button>`;showModal('maintenanceScheduleModal',tr('maintSchedules'),body,foot,{wide:true});
 }
 async function saveMaintenanceSchedule(){try{await api('/maintenance/schedules',{method:'POST',body:JSON.stringify({titleAr:document.getElementById('mps-title').value,locationId:document.getElementById('mps-location').value,assetIds:[document.getElementById('mps-asset').value].filter(Boolean),category:document.getElementById('mps-category').value,frequencyUnit:document.getElementById('mps-frequency').value,frequencyValue:1,nextRunAt:new Date(document.getElementById('mps-next').value).toISOString(),estimatedMins:Number(document.getElementById('mps-mins').value),checklist:document.getElementById('mps-checklist').value.split('\n').map(x=>x.trim()).filter(Boolean),defaultTechnicianIds:selectedMaintenanceTechnicians(),leadTechnicianId:document.getElementById('mps-lead').value})});document.getElementById('maintenanceScheduleModal')?.remove();toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}}
 function showMaintenanceScheduleTeamForm(id){
   const schedule=(maintenanceData().schedules||[]).find(s=>s.id===id);if(!schedule)return;
   const workers=(data.users||[]).filter(u=>u.role==='maintenance_worker');
   const body=`<div class="field"><label>${tr('maintTeam')}</label><div class="taskChecklist">${maintenanceWorkerChecks(schedule.defaultTechnicianIds||[])}</div></div>${fc(tr('leadTechnician'),sel('mps-team-lead',[{v:'',l:'—'},...workers.map(w=>({v:w.id,l:w.name,sel:w.id===schedule.leadTechnicianId}))]))}`;
-  const foot=`<button class="btn" onclick="saveMaintenanceScheduleTeam('${id}')">${tr('save')}</button><button class="btn secondary" onclick="document.getElementById('maintenanceScheduleTeamModal').remove()">${tr('cancel')}</button>`;
+  const foot=`<button class="btn" ${uiAction('saveMaintenanceScheduleTeam',[(id)])}>${tr('save')}</button><button class="btn secondary" ${uiAction('runUiFlow',['close-element','maintenanceScheduleTeamModal'])}>${tr('cancel')}</button>`;
   showModal('maintenanceScheduleTeamModal',lang==='ar'?'إسناد الصيانة الدورية':'Assign Preventive Maintenance',body,foot);
 }
 async function saveMaintenanceScheduleTeam(id){
@@ -6088,16 +6261,16 @@ async function saveMaintenanceScheduleTeam(id){
 }
 async function runMaintenanceSchedule(id){try{await api(`/maintenance/schedules/${id}/run`,{method:'POST'});toast(lang==='ar'?'تم إنشاء أمر العمل':'Work order created','ok');await load();}catch(e){toast(e.message,'bad')}}
 
-function showMaintenanceAssetForm(){const body=`<div class="formGrid">${fc(lang==='ar'?'رمز الأصل':'Asset Code',inp('mas-code'))}${fc(lang==='ar'?'اسم الأصل':'Asset Name',inp('mas-name'))}${fc(tr('reqCategory'),sel('mas-category',MAINT_CATS.map(c=>({v:c,l:maintCatLabel(c)}))))}${fc(tr('location'),sel('mas-location',(data.locations||[]).map(l=>({v:l.id,l:locName(l)}))))}${fc(lang==='ar'?'الرقم التسلسلي':'Serial Number',inp('mas-serial'))}${fc(lang==='ar'?'الشركة المصنعة':'Manufacturer',inp('mas-maker'))}${fc(lang==='ar'?'الموديل':'Model',inp('mas-model'))}${fc(lang==='ar'?'الأهمية':'Criticality',sel('mas-critical',[{v:'low',l:'Low'},{v:'medium',l:'Medium'},{v:'high',l:'High'},{v:'critical',l:'Critical'}]))}${fc(lang==='ar'?'الضمان حتى':'Warranty Until',inp('mas-warranty',{type:'date'}))}</div>`;showModal('maintenanceAssetModal',tr('maintAssets'),body,`<button class="btn" onclick="saveMaintenanceAsset()">${tr('save')}</button><button class="btn secondary" onclick="document.getElementById('maintenanceAssetModal').remove()">${tr('cancel')}</button>`)}
+function showMaintenanceAssetForm(){const body=`<div class="formGrid">${fc(lang==='ar'?'رمز الأصل':'Asset Code',inp('mas-code'))}${fc(lang==='ar'?'اسم الأصل':'Asset Name',inp('mas-name'))}${fc(tr('reqCategory'),sel('mas-category',MAINT_CATS.map(c=>({v:c,l:maintCatLabel(c)}))))}${fc(tr('location'),sel('mas-location',(data.locations||[]).map(l=>({v:l.id,l:locName(l)}))))}${fc(lang==='ar'?'الرقم التسلسلي':'Serial Number',inp('mas-serial'))}${fc(lang==='ar'?'الشركة المصنعة':'Manufacturer',inp('mas-maker'))}${fc(lang==='ar'?'الموديل':'Model',inp('mas-model'))}${fc(lang==='ar'?'الأهمية':'Criticality',sel('mas-critical',[{v:'low',l:'Low'},{v:'medium',l:'Medium'},{v:'high',l:'High'},{v:'critical',l:'Critical'}]))}${fc(lang==='ar'?'الضمان حتى':'Warranty Until',inp('mas-warranty',{type:'date'}))}</div>`;showModal('maintenanceAssetModal',tr('maintAssets'),body,`<button class="btn" ${uiAction('saveMaintenanceAsset',[])}>${tr('save')}</button><button class="btn secondary" ${uiAction('runUiFlow',['close-element','maintenanceAssetModal'])}>${tr('cancel')}</button>`)}
 async function saveMaintenanceAsset(){try{await api('/maintenance/assets',{method:'POST',body:JSON.stringify({code:document.getElementById('mas-code').value,nameAr:document.getElementById('mas-name').value,category:document.getElementById('mas-category').value,locationId:document.getElementById('mas-location').value,serialNo:document.getElementById('mas-serial').value,manufacturer:document.getElementById('mas-maker').value,model:document.getElementById('mas-model').value,criticality:document.getElementById('mas-critical').value,warrantyUntil:document.getElementById('mas-warranty').value})});document.getElementById('maintenanceAssetModal')?.remove();toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}}
 
-function showMaintenancePartForm(){const body=`<div class="formGrid">${fc('SKU',inp('mpt-sku'))}${fc(lang==='ar'?'اسم القطعة':'Part Name',inp('mpt-name'))}${fc(lang==='ar'?'الوحدة':'Unit',inp('mpt-unit',{value:lang==='ar'?'قطعة':'piece'}))}${fc(lang==='ar'?'الكمية':'Quantity',inp('mpt-qty',{type:'number',value:0}))}${fc(lang==='ar'?'حد إعادة الطلب':'Reorder Level',inp('mpt-reorder',{type:'number',value:0}))}${fc(lang==='ar'?'تكلفة الوحدة':'Unit Cost',inp('mpt-cost',{type:'number',value:0}))}${fc(tr('location'),inp('mpt-location'))}</div>`;showModal('maintenancePartModal',tr('maintParts'),body,`<button class="btn" onclick="saveMaintenancePart()">${tr('save')}</button><button class="btn secondary" onclick="document.getElementById('maintenancePartModal').remove()">${tr('cancel')}</button>`)}
+function showMaintenancePartForm(){const body=`<div class="formGrid">${fc('SKU',inp('mpt-sku'))}${fc(lang==='ar'?'اسم القطعة':'Part Name',inp('mpt-name'))}${fc(lang==='ar'?'الوحدة':'Unit',inp('mpt-unit',{value:lang==='ar'?'قطعة':'piece'}))}${fc(lang==='ar'?'الكمية':'Quantity',inp('mpt-qty',{type:'number',value:0}))}${fc(lang==='ar'?'حد إعادة الطلب':'Reorder Level',inp('mpt-reorder',{type:'number',value:0}))}${fc(lang==='ar'?'تكلفة الوحدة':'Unit Cost',inp('mpt-cost',{type:'number',value:0}))}${fc(tr('location'),inp('mpt-location'))}</div>`;showModal('maintenancePartModal',tr('maintParts'),body,`<button class="btn" ${uiAction('saveMaintenancePart',[])}>${tr('save')}</button><button class="btn secondary" ${uiAction('runUiFlow',['close-element','maintenancePartModal'])}>${tr('cancel')}</button>`)}
 async function saveMaintenancePart(){try{await api('/maintenance/parts',{method:'POST',body:JSON.stringify({sku:document.getElementById('mpt-sku').value,nameAr:document.getElementById('mpt-name').value,unit:document.getElementById('mpt-unit').value,quantity:Number(document.getElementById('mpt-qty').value),reorderLevel:Number(document.getElementById('mpt-reorder').value),unitCost:Number(document.getElementById('mpt-cost').value),location:document.getElementById('mpt-location').value})});document.getElementById('maintenancePartModal')?.remove();toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}}
 function showMaintenanceUsePart(orderId){
   const parts=(maintenanceData().parts||[]).filter(p=>p.active&&p.quantity>0);
   const options=parts.map(p=>({v:p.id,l:`${lang==='ar'?p.nameAr:p.nameEn||p.nameAr} (${p.quantity})`}));
   const body=`${fc(tr('maintParts'),sel('muse-part',options))}${fc(lang==='ar'?'الكمية':'Quantity',inp('muse-qty',{type:'number',value:1}))}`;
-  showModal('maintenanceUsePartModal',lang==='ar'?'صرف قطعة غيار':'Use Spare Part',body,`<button class="btn" onclick="saveMaintenanceUsePart('${orderId}')">${tr('save')}</button><button class="btn secondary" onclick="document.getElementById('maintenanceUsePartModal').remove()">${tr('cancel')}</button>`);
+  showModal('maintenanceUsePartModal',lang==='ar'?'صرف قطعة غيار':'Use Spare Part',body,`<button class="btn" ${uiAction('saveMaintenanceUsePart',[(orderId)])}>${tr('save')}</button><button class="btn secondary" ${uiAction('runUiFlow',['close-element','maintenanceUsePartModal'])}>${tr('cancel')}</button>`);
 }
 async function saveMaintenanceUsePart(orderId){try{await api(`/maintenance-tickets/${orderId}/parts`,{method:'POST',body:JSON.stringify({partId:document.getElementById('muse-part').value,quantity:Number(document.getElementById('muse-qty').value)})});document.getElementById('maintenanceUsePartModal')?.remove();toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}}
 
@@ -6108,10 +6281,10 @@ function showMaintenanceCloseForm(id){
     <div class="formGrid">${fc(lang==='ar'?'وقت التوقف بالدقائق':'Downtime Minutes',inp('mclose-down',{type:'number',value:0}))}${fc(lang==='ar'?'تكلفة العمل':'Labor Cost',inp('mclose-cost',{type:'number',value:0}))}${fc(lang==='ar'?'المورد':'Vendor',inp('mclose-vendor'))}</div>
     ${fc(tr('notes'),ta('mclose-notes','',{rows:2}))}
     <div class="formGrid">
-      <div class="field"><label>${lang==='ar'?'صور قبل الصيانة':'Before Maintenance Photos'} <span style="color:var(--muted);font-weight:400">(${lang==='ar'?'اختياري':'optional'})</span></label><button class="cameraBtn" onclick="openCamera('before')">${ic('camera',20)}<span>${tr('addPhoto')} — ${lang==='ar'?'قبل الصيانة':'Before Maintenance'}</span></button><div id="beforePreviews" class="photoGrid" style="margin-top:10px"></div></div>
-      <div class="field"><label>${lang==='ar'?'صور بعد الصيانة':'After Maintenance Photos'} <span style="color:var(--muted);font-weight:400">(${lang==='ar'?'اختياري':'optional'})</span></label><button class="cameraBtn" onclick="openCamera('after')">${ic('camera',20)}<span>${tr('addPhoto')} — ${lang==='ar'?'بعد الصيانة':'After Maintenance'}</span></button><div id="afterPreviews" class="photoGrid" style="margin-top:10px"></div></div>
+      <div class="field"><label>${lang==='ar'?'صور قبل الصيانة':'Before Maintenance Photos'} <span class="text-muted-normal">(${lang==='ar'?'اختياري':'optional'})</span></label><button class="cameraBtn" ${uiAction('openCamera',['before'])}>${ic('camera',20)}<span>${tr('addPhoto')} — ${lang==='ar'?'قبل الصيانة':'Before Maintenance'}</span></button><div id="beforePreviews" class="photoGrid u-mt-10"></div></div>
+      <div class="field"><label>${lang==='ar'?'صور بعد الصيانة':'After Maintenance Photos'} <span class="text-muted-normal">(${lang==='ar'?'اختياري':'optional'})</span></label><button class="cameraBtn" ${uiAction('openCamera',['after'])}>${ic('camera',20)}<span>${tr('addPhoto')} — ${lang==='ar'?'بعد الصيانة':'After Maintenance'}</span></button><div id="afterPreviews" class="photoGrid u-mt-10"></div></div>
     </div>`;
-  showModal('maintenanceCloseModal',lang==='ar'?'طلب إغلاق أمر العمل':'Request Work Order Closure',body,`<button class="btn ok" onclick="submitMaintenanceClose('${id}')">${tr('submit')}</button><button class="btn secondary" onclick="document.getElementById('maintenanceCloseModal').remove();currentBeforePhotos=[];currentAfterPhotos=[]">${tr('cancel')}</button>`,{wide:true});
+  showModal('maintenanceCloseModal',lang==='ar'?'طلب إغلاق أمر العمل':'Request Work Order Closure',body,`<button class="btn ok" ${uiAction('submitMaintenanceClose',[(id)])}>${tr('submit')}</button><button class="btn secondary" ${uiAction('runUiFlow',['maintenance-close-reset','maintenanceCloseModal'])}>${tr('cancel')}</button>`,{wide:true});
 }
 async function submitMaintenanceClose(id){
   try{
@@ -6227,7 +6400,7 @@ function maintOpenReportCreate(renderFn){
     `<div class="form-group"><label>${lang==='ar'?'الموقع':'Location'}</label><select id="mrLoc" class="form-control">${locOpts}</select></div>
      <div class="form-group"><label>${lang==='ar'?'المهام المنجزة':'Completed Tasks'}</label>
        <div id="mrTasks"></div>
-       <button class="btn btn-ghost btn-sm" type="button" onclick="addMaintTask()">${ic('plus',14)} ${lang==='ar'?'إضافة مهمة':'Add Task'}</button>
+       <button class="btn btn-ghost btn-sm" type="button" ${uiAction('addMaintTask',[])}>${ic('plus',14)} ${lang==='ar'?'إضافة مهمة':'Add Task'}</button>
      </div>
      <div class="form-group"><label>${lang==='ar'?'ملاحظات':'Notes'}</label><textarea id="mrNotes" class="form-control" rows="2"></textarea></div>`,
     async ()=>{
@@ -6246,15 +6419,15 @@ function addMaintTask(){
   const el = document.getElementById('mrTasks');
   if(!el) return;
   const row = document.createElement('div');
-  row.style.cssText='display:flex;gap:6px;margin-bottom:6px';
-  row.innerHTML=`<input class="ctrl" style="flex:1" placeholder="${lang==='ar'?'المهمة':'Task'}"><button class="btn secondary sm iconOnlyBtn" type="button" onclick="this.parentNode.remove()">${ic('trash',14)}</button>`;
+  row.className='maintenance-task-row';
+  row.innerHTML=`<input class="ctrl u-flex-1" placeholder="${lang==='ar'?'المهمة':'Task'}"><button class="btn secondary sm iconOnlyBtn" type="button" ${uiAction('runUiFlow',['remove-parent'])}>${ic('trash',14)}</button>`;
   el.appendChild(row);
 }
 
 /* ── star rating widget for maintenance ───────────────────────── */
 function maintStarWidget(reportId, ratingType, currentVal){
   return [1,2,3,4,5].map(i=>`
-    <button class="star-btn${currentVal>=i?' active':''}" onclick="event.stopPropagation();setMaintRating('${reportId}','${ratingType}',${i})">★</button>
+    <button class="star-btn${currentVal>=i?' active':''}" ${uiAction('runUiFlow',['maintenance-rating',reportId,ratingType,i])}>★</button>
   `).join('');
 }
 
@@ -6311,7 +6484,7 @@ function hospitalityProductsView(){
     <div class="pageTitle">${tr('productsTitle')}</div>
   </div>
   <div class="pageHeader-actions">
-    <button class="btn sm" onclick="showMenuItemFormModal()">${ic('plus',16)} ${tr('addProduct')}</button>
+    <button class="btn sm" ${uiAction('showMenuItemFormModal',[])}>${ic('plus',16)} ${tr('addProduct')}</button>
   </div>
 </div>
 ${items.length ? `<div class="productGrid">${items.map(i=>adminProductCardHtml(i)).join('')}</div>`
@@ -6330,8 +6503,8 @@ function adminProductCardHtml(item){
       </div>
     </div>
     <div class="productCard-actions">
-      <button class="btn secondary sm" onclick="showMenuItemFormModal('${item.id}')">${ic('edit',13)} ${tr('edit')}</button>
-      <button class="btn ${item.isActive?'danger':''} sm" onclick="toggleMenuItemActive('${item.id}')">${item.isActive?tr('deactivateProduct'):tr('activateProduct')}</button>
+      <button class="btn secondary sm" ${uiAction('showMenuItemFormModal',[(item.id)])}>${ic('edit',13)} ${tr('edit')}</button>
+      <button class="btn ${item.isActive?'danger':''} sm" ${uiAction('toggleMenuItemActive',[(item.id)])}>${item.isActive?tr('deactivateProduct'):tr('activateProduct')}</button>
     </div>
   </div>`;
 }
@@ -6352,13 +6525,13 @@ function showMenuItemFormModal(id){
     ${fc(tr('productSortOrder'), inp('miSort',{type:'number', value:item?.sortOrder ?? 0}))}
     ${fc(tr('productImage'), `
       <div id="miImagePreview" class="productCard-img productCard-img--form">${item?.imagePath?`<img src="${esc(item.imagePath)}" alt="">`:ic('image',28)}</div>
-      <input type="file" id="miImageFile" accept="image/png,image/jpeg,image/webp" onchange="onMenuItemImageSelected(event)">
-      ${item?.imagePath?`<button class="btn secondary sm" type="button" style="margin-top:6px" onclick="removeMenuItemImage()">${tr('removeImage')}</button>`:''}
+      <input type="file" id="miImageFile" accept="image/png,image/jpeg,image/webp" data-ui-change="menu-item-image">
+      ${item?.imagePath?`<button class="btn secondary sm" type="button" class="u-mt-6" ${uiAction('removeMenuItemImage',[])}>${tr('removeImage')}</button>`:''}
     `)}
     ${fc(tr('status'), sel('miActive',[{v:'true',l:tr('productActive'),sel:!item||item.isActive!==false},{v:'false',l:tr('productInactive'),sel:item&&!item.isActive}]))}
   </div>`;
-  const foot = `<button class="btn" onclick="saveMenuItem()">${ic('check',16)} ${tr('saveProduct')}</button>
-    <button class="btn secondary" onclick="document.getElementById('menuItemFormModal').remove()">${tr('cancel')}</button>`;
+  const foot = `<button class="btn" ${uiAction('saveMenuItem',[])}>${ic('check',16)} ${tr('saveProduct')}</button>
+    <button class="btn secondary" ${uiAction('runUiFlow',['close-element','menuItemFormModal'])}>${tr('cancel')}</button>`;
   showModal('menuItemFormModal', titleHtml, body, foot);
 }
 
@@ -6442,7 +6615,7 @@ function hospitalityCategoriesView(){
     <div class="pageTitle">${tr('categoriesTitle')}</div>
   </div>
   <div class="pageHeader-actions">
-    <button class="btn sm" onclick="showCategoryFormModal()">${ic('plus',16)} ${tr('addCategory')}</button>
+    <button class="btn sm" ${uiAction('showCategoryFormModal',[])}>${ic('plus',16)} ${tr('addCategory')}</button>
   </div>
 </div>
 ${cats.length ? `<div class="productGrid">${cats.map(c=>categoryCardHtml(c)).join('')}</div>`
@@ -6460,8 +6633,8 @@ function categoryCardHtml(cat){
       </div>
     </div>
     <div class="productCard-actions">
-      <button class="btn secondary sm" onclick="showCategoryFormModal('${cat.id}')">${ic('edit',13)} ${tr('edit')}</button>
-      <button class="btn ${cat.isActive?'danger':''} sm" onclick="toggleCategoryStatus('${cat.id}')">${cat.isActive?tr('deactivateCategory'):tr('activateCategory')}</button>
+      <button class="btn secondary sm" ${uiAction('showCategoryFormModal',[(cat.id)])}>${ic('edit',13)} ${tr('edit')}</button>
+      <button class="btn ${cat.isActive?'danger':''} sm" ${uiAction('toggleCategoryStatus',[(cat.id)])}>${cat.isActive?tr('deactivateCategory'):tr('activateCategory')}</button>
     </div>
   </div>`;
 }
@@ -6478,8 +6651,8 @@ function showCategoryFormModal(id){
     ${fc(tr('categorySortOrder'), inp('mcSort',{type:'number', value:cat?.sortOrder ?? 0}))}
     ${cat?fc(tr('status'), sel('mcActive',[{v:'true',l:tr('categoryActive'),sel:cat.isActive!==false},{v:'false',l:tr('categoryInactive'),sel:cat.isActive===false}])):''}
   </div>`;
-  const foot = `<button class="btn" onclick="saveCategoryForm()">${ic('check',16)} ${tr('saveCategory')}</button>
-    <button class="btn secondary" onclick="document.getElementById('categoryFormModal').remove()">${tr('cancel')}</button>`;
+  const foot = `<button class="btn" ${uiAction('saveCategoryForm',[])}>${ic('check',16)} ${tr('saveCategory')}</button>
+    <button class="btn secondary" ${uiAction('runUiFlow',['close-element','categoryFormModal'])}>${tr('cancel')}</button>`;
   showModal('categoryFormModal', titleHtml, body, foot);
 }
 
@@ -6537,7 +6710,7 @@ function hospitalityKitchensView(){
     <div class="pageTitle">${tr('kitchensTitle')}</div>
   </div>
   <div class="pageHeader-actions">
-    <button class="btn sm" onclick="showKitchenFormModal()">${ic('plus',16)} ${tr('addKitchen')}</button>
+    <button class="btn sm" ${uiAction('showKitchenFormModal',[])}>${ic('plus',16)} ${tr('addKitchen')}</button>
   </div>
 </div>
 ${kitchens.length ? `<div class="productGrid">${kitchens.map(k=>kitchenCardHtml(k)).join('')}</div>`
@@ -6559,8 +6732,8 @@ function kitchenCardHtml(kitchen){
       </div>
     </div>
     <div class="productCard-actions">
-      <button class="btn secondary sm" onclick="showKitchenFormModal('${kitchen.id}')">${ic('edit',13)} ${tr('edit')}</button>
-      <button class="btn ${kitchen.isActive?'danger':''} sm" onclick="toggleKitchenActive('${kitchen.id}')">${kitchen.isActive?tr('deactivateKitchen'):tr('activateKitchen')}</button>
+      <button class="btn secondary sm" ${uiAction('showKitchenFormModal',[(kitchen.id)])}>${ic('edit',13)} ${tr('edit')}</button>
+      <button class="btn ${kitchen.isActive?'danger':''} sm" ${uiAction('toggleKitchenActive',[(kitchen.id)])}>${kitchen.isActive?tr('deactivateKitchen'):tr('activateKitchen')}</button>
     </div>
   </div>`;
 }
@@ -6583,8 +6756,8 @@ function showKitchenFormModal(id){
     ${fc(tr('kitchenSortOrder'), inp('kitSort',{type:'number', value:kitchen?.sortOrder ?? 0}))}
     ${fc(tr('status'), sel('kitActive',[{v:'true',l:tr('kitchenActive'),sel:!kitchen||kitchen.isActive!==false},{v:'false',l:tr('kitchenInactive'),sel:kitchen&&!kitchen.isActive}]))}
   </div>`;
-  const foot = `<button class="btn" onclick="saveKitchen()">${ic('check',16)} ${tr('saveKitchen')}</button>
-    <button class="btn secondary" onclick="document.getElementById('kitchenFormModal').remove()">${tr('cancel')}</button>`;
+  const foot = `<button class="btn" ${uiAction('saveKitchen',[])}>${ic('check',16)} ${tr('saveKitchen')}</button>
+    <button class="btn secondary" ${uiAction('runUiFlow',['close-element','kitchenFormModal'])}>${tr('cancel')}</button>`;
   showModal('kitchenFormModal', titleHtml, body, foot);
 }
 
@@ -6644,13 +6817,13 @@ async function performance(){
     <div class="pageSub">${metrics.length} ${lang==='ar'?'عامل — آخر 30 يوم':'workers — last 30 days'}</div>
   </div>
   <div class="pageActions">
-    <button class="btn secondary sm" onclick="exportPerformancePDF()">${ic('reports',14)} ${lang==='ar'?'تصدير PDF':'PDF'}</button>
+    <button class="btn secondary sm" ${uiAction('exportPerformancePDF',[])}>${ic('reports',14)} ${lang==='ar'?'تصدير PDF':'PDF'}</button>
   </div>
 </div>
 
 <!-- MONTHLY RECOGNITION -->
 ${scored.length>=1?`
-<div class="card" style="margin-bottom:20px">
+<div class="card u-mb-20">
   <div class="card-head">
     <span class="card-title">${ic('award',16)} ${tr('monthlyRecognition')}</span>
     <span class="badge gold">${currentMonthLabel(lang)}</span>
@@ -6697,7 +6870,7 @@ ${scored.length>=1?`
                 <div>
                   <div class="perfWorkerName">${esc(w.name)}</div>
                   <div class="perfWorkerUser">${esc(w.username)}</div>
-                  <button class="linkBtn" onclick="showOperationsWorkerProfile('${w.id}','cleaning')">${lang==='ar'?'ملف الأداء':'Performance profile'}</button>
+                  <button class="linkBtn" ${uiAction('showOperationsWorkerProfile',[(w.id),'cleaning'])}>${lang==='ar'?'ملف الأداء':'Performance profile'}</button>
                 </div>
               </div>
             </td>
@@ -6709,7 +6882,7 @@ ${scored.length>=1?`
             <td>
               <span class="perfRowLabel">${tr('workloadScore')}</span>
               <div class="perfWorkload progress-track">
-                <div class="progress-fill ${w.workloadScore>80?'bad':w.workloadScore>40?'gold':'ok'}" style="width:${Math.min(100,w.workloadScore)}%"></div>
+                <div class="progress-fill ${w.workloadScore>80?'bad':w.workloadScore>40?'gold':'ok'} ${metricClass('w',w.workloadScore)}"></div>
               </div>
             </td>
             <td><span class="perfRowLabel">${lang==='ar'?'النقاط':'Score'}</span><span class="perfScore ${rank===0?'top':rank<3?'high':''}">${w.weighted}</span></td>
@@ -6730,26 +6903,7 @@ async function exportPerformancePDF(){
   const dir=lang==='ar'?'rtl':'ltr';
   const html=`<!DOCTYPE html><html lang="${lang}" dir="${dir}"><head><meta charset="utf-8">
 <title>MRFQ — ${tr('performance')}</title>
-<style>
-@font-face{font-family:'IBMPlexArabic';src:url('/assets/fonts/IBMPlexSansArabic-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
-@font-face{font-family:'IBMPlexArabic';src:url('/assets/fonts/IBMPlexSansArabic-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
-*{box-sizing:border-box;margin:0;padding:0}body{font-family:'IBMPlexArabic',Arial,sans-serif;padding:24px;color:#123238;direction:${dir}}
-.header{display:flex;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #005257}
-.brand{font-family:'IBMPlexArabic',Arial,sans-serif;color:#005257;font-size:20px;font-weight:800}.meta{font-size:11px;color:#6F787F;margin-top:4px}
-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:16px}
-th{background:#005257;color:#fff;padding:9px 10px;text-align:${lang==='ar'?'right':'left'};font-weight:700}
-td{padding:8px 10px;border-bottom:1px solid #E1E9E6;vertical-align:top}
-tr:nth-child(even) td{background:#F8FAF9}
-.ok{color:#00A488;font-weight:700}.bad{color:#DE7559;font-weight:700}.warn{color:#E69E33;font-weight:700}
-.footer{margin-top:16px;font-size:10px;color:#8A989C;text-align:center}
-.pdfActions{display:flex;gap:10px;justify-content:flex-end;align-items:center;margin-bottom:18px}
-.pdfBtn{border:1px solid #D8E6E2;background:#fff;color:#005257;border-radius:14px;padding:9px 16px;font:700 13px 'IBMPlexArabic',Arial,sans-serif;cursor:pointer}
-.pdfBtn.primary{background:#00848D;border-color:#00848D;color:#fff}
-@media print{body{padding:12px}.pdfActions{display:none!important}@page{margin:15mm}}</style></head><body>
-<div class="pdfActions">
-  <button class="pdfBtn" onclick="window.opener&&window.opener.focus();window.close();">${lang==='ar'?'رجوع':'Back'}</button>
-  <button class="pdfBtn primary" onclick="window.print()">${lang==='ar'?'طباعة PDF':'Print PDF'}</button>
-</div>
+<link rel="stylesheet" href="/css/print.css"></head><body>
 <div class="header">
   <div><div class="brand">MRFQ — ${tr('performance')}</div><div class="meta">${new Date().toISOString().slice(0,10)} · ${lang==='ar'?'آخر 30 يوم':'Last 30 days'}</div></div>
   <div class="meta">${lang==='ar'?'مُصدَّر بواسطة: ':'Exported by: '}${esc(me.name)}</div>
@@ -6800,7 +6954,7 @@ function renderSupervisor(){
     <div class="wCard supervisorSlaCard">
       <div class="supervisorSlaHead">
         <div class="wCard-title supervisorSlaTitle">${ic('bell',16)} ${lang==='ar'?'تنبيهات SLA':'SLA Alerts'} ${countBubble(breached.length,'bad')}</div>
-        <button class="linkBtn supervisorSlaLink" onclick="supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()">${lang==='ar'?'عرض الكل في الطلبات':'View all in requests'}</button>
+        <button class="linkBtn supervisorSlaLink" ${uiAction('runUiFlow',['navigate','supervisorView','requests','supervisor-requests','renderSupervisor'])}>${lang==='ar'?'عرض الكل في الطلبات':'View all in requests'}</button>
       </div>
       <div class="wCard-list supTicketList">${breached.map(t=>supTicketCard(t,'sla')).join('')}</div>
     </div>`:'';
@@ -6812,10 +6966,10 @@ function renderSupervisor(){
         ? (lang==='ar'?`${num(breached.length)} بلاغ يحتاج متابعة عاجلة`:`${breached.length} requests need urgent follow-up`)
         : (lang==='ar'?'لا توجد تجاوزات SLA حالياً':'No active SLA breaches')}</div>
     </div>
-    <button class="btn secondary sm" onclick="supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()">${lang==='ar'?'الطلبات':'Requests'}</button>
+    <button class="btn secondary sm" ${uiAction('runUiFlow',['navigate','supervisorView','requests','supervisor-requests','renderSupervisor'])}>${lang==='ar'?'الطلبات':'Requests'}</button>
   </div>`;
 
-  const supEmptyCompact=(msg)=>`<div style="padding:10px 0;color:var(--muted);font-size:var(--fs-sm);display:flex;align-items:center;gap:6px">${ic('check',14)} ${msg}</div>`;
+  const supEmptyCompact=(msg)=>`<div class="u-meta-row">${ic('check',14)} ${msg}</div>`;
   const subCls = submitted.length&&!waitingVerif.length?'wCard wCard--full':'wCard';
   const verifCls = waitingVerif.length&&!submitted.length?'wCard wCard--full':'wCard';
   const requestsHtml=`
@@ -6853,9 +7007,9 @@ function renderSupervisor(){
       <div class="wCard">
         <div class="wCard-title">${ic('dashboard',16)} ${lang==='ar'?'اختصارات التشغيل':'Operational shortcuts'}</div>
         <div class="quickActionGrid quickActionGrid--supervisor">
-          <button class="quickAction" onclick="supervisorView='requests';mobileNavActive='supervisor-requests';renderSupervisor()"><span>${ic('tickets',18)}</span><b>${lang==='ar'?'الطلبات':'Requests'}</b><small>${num(submitted.length+waitingVerif.length+inProgress.length)}</small></button>
-          <button class="quickAction" onclick="supervisorView='team';mobileNavActive='supervisor-team';renderSupervisor()"><span>${ic('users',18)}</span><b>${lang==='ar'?'الفريق':'Team'}</b><small>${num(workers.length)}</small></button>
-          <button class="quickAction" onclick="supervisorView='reports';mobileNavActive='supervisor-reports';renderSupervisor()"><span>${ic('reports',18)}</span><b>${tr('reports')}</b><small>${num(pendingRpts.length)}</small></button>
+          <button class="quickAction" ${uiAction('runUiFlow',['navigate','supervisorView','requests','supervisor-requests','renderSupervisor'])}><span>${ic('tickets',18)}</span><b>${lang==='ar'?'الطلبات':'Requests'}</b><small>${num(submitted.length+waitingVerif.length+inProgress.length)}</small></button>
+          <button class="quickAction" ${uiAction('runUiFlow',['navigate','supervisorView','team','supervisor-team','renderSupervisor'])}><span>${ic('users',18)}</span><b>${lang==='ar'?'الفريق':'Team'}</b><small>${num(workers.length)}</small></button>
+          <button class="quickAction" ${uiAction('runUiFlow',['navigate','supervisorView','reports','supervisor-reports','renderSupervisor'])}><span>${ic('reports',18)}</span><b>${tr('reports')}</b><small>${num(pendingRpts.length)}</small></button>
         </div>
       </div>
     </div>`;
@@ -6912,11 +7066,11 @@ function supTicketCard(t, mode, workers){
     ${mode==='assign'&&workers?`
     <div class="ticketCard-actions supTicketCard-actions">
       ${sel(`sas-${t.id}`,[{v:'',l:lang==='ar'?'اختر عامل...':'Assign to...'},...workers.map(w=>({v:w.id,l:w.name}))], {cls:'ctrl-sm'})}
-      <button class="btn sm ok" onclick="supAssign('${t.id}',document.getElementById('sas-${t.id}').value)">${lang==='ar'?'تعيين':'Assign'}</button>
+      <button class="btn sm ok" ${uiAction('runUiFlow',['assign-selected','supervisor',t.id,`sas-${t.id}`])}>${lang==='ar'?'تعيين':'Assign'}</button>
     </div>`:mode==='verify'?`
     <div class="ticketCard-actions supTicketCard-actions">
-      <button class="btn sm ok" onclick="supVerify('${t.id}','completed')">${ic('check',14)} ${lang==='ar'?'تحقق':'Verify'}</button>
-      <button class="btn sm warn" onclick="supVerify('${t.id}','reclean_required')">${ic('flip',14)} ${lang==='ar'?'إعادة تنظيف':'Reclean'}</button>
+      <button class="btn sm ok" ${uiAction('supVerify',[(t.id),'completed'])}>${ic('check',14)} ${lang==='ar'?'تحقق':'Verify'}</button>
+      <button class="btn sm warn" ${uiAction('supVerify',[(t.id),'reclean_required'])}>${ic('flip',14)} ${lang==='ar'?'إعادة تنظيف':'Reclean'}</button>
     </div>`:''}
   </div>`;
 }
@@ -6924,7 +7078,7 @@ function supTicketCard(t, mode, workers){
 function supReportCard(r){
   const imgs = imgList(r);
   return`<div class="ticketCard supTicketCard">
-    <div style="cursor:pointer" onclick="openReportDetail('${r.id}')">
+    <div class="u-cursor-pointer" ${uiAction('openReportDetail',[(r.id)])}>
       <div class="ticketCard-top">
         <div class="ticketCard-main">
           <div class="ticketCard-title">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</div>
@@ -6932,22 +7086,22 @@ function supReportCard(r){
         </div>
         <span class="badge ${r.status==='completed'?'ok':'brand'}">${tr(r.status)||r.status}</span>
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+      <div class="layout-wrap-gap-6-mt-6">
         ${imgs.length?`<span class="badge brand">${ic('camera',10)} ${num(imgs.length)}</span>`:''}
-        ${r.notes?`<span class="badge" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.notes)}</span>`:''}
-        <span class="badge" style="margin-inline-start:auto">${ic('arrow',11)} ${lang==='ar'?'تفاصيل':'Details'}</span>
+        ${r.notes?`<span class="badge truncate-200">${esc(r.notes)}</span>`:''}
+        <span class="badge u-inline-auto">${ic('arrow',11)} ${lang==='ar'?'تفاصيل':'Details'}</span>
       </div>
     </div>
-    ${['cleaning_supervisor','maintenance_supervisor'].includes(me.role)?`<div class="ratingRow" style="padding:6px 0 0" onclick="event.stopPropagation()">
+    ${['cleaning_supervisor','maintenance_supervisor'].includes(me.role)?`<div class="ratingRow rating-row-compact" ${uiAction('runUiFlow',['stop-propagation'])}>
       <div class="ratingGroup">
         <span class="ratingLabel">${tr('ratingBySupervisor')}</span>
         ${starRatingWidget(r.id,'supervisor',r.ratingSupervisor)}
       </div>
     </div>`:''}
-    <div class="ticketCard-actions supTicketCard-actions" onclick="event.stopPropagation()">
-      <button class="btn sm ok" onclick="supReview('${r.id}','approved','')">${ic('check',14)} ${lang==='ar'?'اعتماد':'Approve'}</button>
-      <button class="btn sm warn" onclick="supReviewPrompt('${r.id}','needs_recleaning')">${lang==='ar'?'إعادة تنظيف':'Reclean'}</button>
-      <button class="btn sm danger" onclick="supReviewPrompt('${r.id}','rejected')">${lang==='ar'?'رفض':'Reject'}</button>
+    <div class="ticketCard-actions supTicketCard-actions" ${uiAction('runUiFlow',['stop-propagation'])}>
+      <button class="btn sm ok" ${uiAction('supReview',[(r.id),'approved',''])}>${ic('check',14)} ${lang==='ar'?'اعتماد':'Approve'}</button>
+      <button class="btn sm warn" ${uiAction('supReviewPrompt',[(r.id),'needs_recleaning'])}>${lang==='ar'?'إعادة تنظيف':'Reclean'}</button>
+      <button class="btn sm danger" ${uiAction('supReviewPrompt',[(r.id),'rejected'])}>${lang==='ar'?'رفض':'Reject'}</button>
     </div>
   </div>`;
 }
@@ -6997,12 +7151,12 @@ function renderWorkspaceSelector(){
       <p class="wsCard-hint">${tr('workspaceHint')}</p>
       <div class="wsGrid">
         ${roles.map(r=>`
-          <button class="wsBtn${r===me.role?' active':''}" onclick="switchWorkspace('${r}')">
+          <button class="wsBtn${r===me.role?' active':''}" ${uiAction('switchWorkspace',[(r)])}>
             <div class="wsBtn-icon">${ic(r==='system_admin'?'shield':r.includes('manager')||r==='facility_manager'?'building':r==='cleaner'?'check':'assignments',22)}</div>
             <div class="wsBtn-label">${roleLabel(r)}</div>
           </button>`).join('')}
       </div>
-      <button class="btn secondary" style="margin-top:16px;width:100%" onclick="workspaceSelected=true;sessionStorage.setItem('wsSelected','1');render()">
+      <button class="btn secondary u-mt-16-full" ${uiAction('runUiFlow',['workspace-confirm'])}>
         ${lang==='ar'?'المتابعة بالصلاحية الحالية':'Continue with current role'} (${roleLabel(me.role)})
       </button>
     </div>
@@ -7015,7 +7169,7 @@ function renderWorkspaceSwitcher(){
   if(document.getElementById('wsModal')){document.getElementById('wsModal').remove();return;}
   const wsIcon = r => r==='system_admin'?'shield':r.includes('manager')||r==='facility_manager'?'building':r==='cleaner'?'check':'assignments';
   const body = `<div class="wsGrid">
-    ${roles.map(r=>`<button class="wsBtn${r===me.role?' active':''}" onclick="document.getElementById('wsModal').remove();switchWorkspace('${r}')">
+    ${roles.map(r=>`<button class="wsBtn${r===me.role?' active':''}" ${uiAction('runUiFlow',['workspace-switch',r])}>
       <div class="wsBtn-icon">${ic(wsIcon(r),20)}</div>
       <div class="wsBtn-label">${roleLabel(r)}</div>
     </button>`).join('')}
@@ -7056,5 +7210,3 @@ function renderWorkspaceSwitcher(){
     }
   }catch(e){ loginPage(); }
 })();
-
-

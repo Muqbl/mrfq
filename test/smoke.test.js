@@ -108,11 +108,65 @@ test('login: admin succeeds and sets cookie', async () => {
 test('health endpoint reports database and storage checks', async () => {
   const res = await fetch(BASE + '/health');
   assert.equal(res.status, 200);
+  const csp = res.headers.get('content-security-policy') || '';
+  assert.match(csp, /default-src 'self'/);
+  assert.match(csp, /script-src 'self'/);
+  assert.match(csp, /script-src-attr 'none'/);
+  assert.match(csp, /style-src 'self'/);
+  assert.match(csp, /style-src-elem 'self'/);
+  assert.match(csp, /style-src-attr 'none'/);
+  assert.doesNotMatch(csp, /unsafe-inline/);
+  assert.match(csp, /object-src 'none'/);
+  assert.match(csp, /form-action 'self'/);
+  assert.match(csp, /frame-ancestors 'none'/);
+  assert.match(csp, /font-src 'self'/);
+  assert.match(csp, /connect-src 'self'/);
+  assert.doesNotMatch(csp, /fonts\.googleapis\.com|fonts\.gstatic\.com/);
+  assert.doesNotMatch(csp, /script-src[^;]*https?:/);
   const health = await res.json();
   assert.equal(health.status, 'ok');
   assert.equal(health.checks.database, 'ok');
   assert.equal(health.checks.storage, 'ok');
   assert.ok(Number.isInteger(health.uptimeSeconds));
+});
+
+test('platform exposes facilities, spaces, module registry and operational heatmap', async () => {
+  const admin = await login('admin', PASSWORDS.admin);
+  const facilities = await admin('/api/facilities');
+  assert.equal(facilities.status, 200);
+  assert.ok(Array.isArray(facilities.body.facilities));
+  assert.ok(facilities.body.facilities.length >= 1);
+
+  const modules = await admin('/api/modules');
+  assert.equal(modules.status, 200);
+  assert.equal(modules.body.modules.find(m => m.id === 'security').status, 'planned');
+
+  const heatmap = await admin('/api/facilities/heatmap');
+  assert.equal(heatmap.status, 200);
+  assert.ok(Array.isArray(heatmap.body.locations));
+  assert.ok(heatmap.body.locations.length >= 1);
+  assert.deepEqual(Object.keys(heatmap.body.summary), ['normal','watch','hot','critical']);
+});
+
+test('facility manager executive report is data-backed and role protected', async () => {
+  const fm = await login('fm', PASSWORDS.fm);
+  const report = await fm('/api/reports/facility-manager/executive');
+  assert.equal(report.status, 200);
+  assert.equal(report.body.modules.length, 3);
+  const worker = await login('worker3', PASSWORDS.worker);
+  const denied = await worker('/api/reports/facility-manager/executive');
+  assert.equal(denied.status, 403);
+});
+
+test('cross-site authenticated mutation is rejected by CSRF boundary', async () => {
+  const admin = await login('admin', PASSWORDS.admin);
+  const response = await admin('/api/settings', {
+    method: 'POST',
+    headers: { Origin: 'https://attacker.invalid', 'Sec-Fetch-Site': 'cross-site' },
+    body: JSON.stringify({ require_photo: 1 })
+  });
+  assert.equal(response.status, 403);
+  assert.equal(response.body.error, 'CSRF_REJECTED');
 });
 
 test('login: wrong password rejected with 401', async () => {

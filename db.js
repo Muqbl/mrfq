@@ -614,6 +614,114 @@ const MIGRATIONS = {
   `
 ,
 
+  /* ── v22: facilities & spaces platform layer ─────────────── */
+  22: `
+    CREATE TABLE IF NOT EXISTS floors (
+      id TEXT PRIMARY KEY, building_id TEXT NOT NULL REFERENCES buildings(id),
+      name_ar TEXT NOT NULL DEFAULT '', name_en TEXT NOT NULL DEFAULT '',
+      level_no INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_floors_building ON floors(building_id);
+
+    CREATE TABLE IF NOT EXISTS facility_zones (
+      id TEXT PRIMARY KEY, floor_id TEXT NOT NULL REFERENCES floors(id),
+      name_ar TEXT NOT NULL DEFAULT '', name_en TEXT NOT NULL DEFAULT '',
+      active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL, deleted_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_facility_zones_floor ON facility_zones(floor_id);
+
+    CREATE TABLE IF NOT EXISTS spaces (
+      id TEXT PRIMARY KEY, zone_id TEXT NOT NULL REFERENCES facility_zones(id),
+      legacy_location_id TEXT, code TEXT NOT NULL DEFAULT '',
+      name_ar TEXT NOT NULL DEFAULT '', name_en TEXT NOT NULL DEFAULT '',
+      space_type TEXT NOT NULL DEFAULT 'other', capacity INTEGER NOT NULL DEFAULT 0,
+      active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL, deleted_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_spaces_zone ON spaces(zone_id);
+    CREATE INDEX IF NOT EXISTS idx_spaces_legacy ON spaces(legacy_location_id);
+
+    CREATE TABLE IF NOT EXISTS location_space_map (
+      location_id TEXT PRIMARY KEY REFERENCES locations(id),
+      space_id TEXT NOT NULL REFERENCES spaces(id), created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS space_assignments (
+      id TEXT PRIMARY KEY, space_id TEXT NOT NULL REFERENCES spaces(id),
+      user_id TEXT NOT NULL REFERENCES users(id),
+      assignment_type TEXT NOT NULL DEFAULT 'employee', module TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL, deleted_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_space_assignments_space ON space_assignments(space_id);
+    CREATE INDEX IF NOT EXISTS idx_space_assignments_user ON space_assignments(user_id);
+    CREATE TABLE IF NOT EXISTS location_metrics (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, space_id TEXT NOT NULL REFERENCES spaces(id),
+      module TEXT NOT NULL DEFAULT 'cleaning', metric_key TEXT NOT NULL,
+      metric_value REAL NOT NULL DEFAULT 0, measured_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_location_metrics_space ON location_metrics(space_id, measured_at);
+
+    ALTER TABLE tickets ADD COLUMN space_id TEXT NOT NULL DEFAULT '';
+    ALTER TABLE reports ADD COLUMN space_id TEXT NOT NULL DEFAULT '';
+    ALTER TABLE hospitality_orders ADD COLUMN space_id TEXT NOT NULL DEFAULT '';
+    ALTER TABLE maintenance_assets ADD COLUMN space_id TEXT NOT NULL DEFAULT '';
+    ALTER TABLE users ADD COLUMN space_id TEXT NOT NULL DEFAULT '';
+
+    CREATE TABLE IF NOT EXISTS module_registry (
+      id TEXT PRIMARY KEY, name_ar TEXT NOT NULL, name_en TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'planned', completion INTEGER NOT NULL DEFAULT 0,
+      scope_ar TEXT NOT NULL DEFAULT '', scope_en TEXT NOT NULL DEFAULT '',
+      facility_linked INTEGER NOT NULL DEFAULT 1
+    );
+    INSERT OR REPLACE INTO module_registry VALUES
+      ('cleaning','النظافة','Cleaning','operational',95,'إدارة دورة النظافة','Cleaning operations lifecycle',1),
+      ('maintenance','الصيانة','Maintenance','operational',90,'أوامر العمل والأصول والصيانة الوقائية','Work orders, assets and preventive maintenance',1),
+      ('hospitality','الضيافة','Hospitality','operational',90,'طلبات الضيافة والمطابخ','Hospitality orders and kitchens',1),
+      ('security','الأمن','Security','planned',0,'الحوادث والدوريات الأمنية','Security incidents and patrols',1),
+      ('safety','السلامة','Safety','planned',0,'حوادث السلامة والتصاريح','Safety incidents and permits',1),
+      ('visitors','خدمة العملاء والزوار','Customer Service / Visitors','planned',0,'الزوار وتجربة المستفيد','Visitors and customer experience',1),
+      ('projects','المشاريع','Projects','planned',0,'متابعة مشاريع المرافق','Facilities projects tracking',1),
+      ('contracts','العقود','Contracts','planned',0,'إدارة عقود التشغيل','Operations contracts management',1);
+
+    INSERT OR IGNORE INTO facilities VALUES ('fac-demo','مرفق تجريبي','Demo Facility',1,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z',NULL);
+    INSERT OR IGNORE INTO buildings VALUES ('bld-demo','fac-demo','المبنى التجريبي','Demo Building',1,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z',NULL);
+    INSERT OR IGNORE INTO floors VALUES ('flr-demo','bld-demo','الدور العام','General Floor',0,1,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z',NULL);
+    INSERT OR IGNORE INTO facility_zones VALUES ('fzn-demo','flr-demo','المنطقة العامة','General Zone',1,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z',NULL);
+    INSERT OR IGNORE INTO spaces
+      SELECT 'sp-' || id,'fzn-demo',id,id,name_ar,name_en,type,0,active,created_at,updated_at,NULL
+      FROM locations WHERE deleted_at IS NULL;
+    INSERT OR IGNORE INTO location_space_map
+      SELECT id,'sp-' || id,'2026-01-01T00:00:00.000Z' FROM locations WHERE deleted_at IS NULL;
+    UPDATE tickets SET space_id=COALESCE((SELECT space_id FROM location_space_map m WHERE m.location_id=tickets.location_id),'') WHERE space_id='';
+    UPDATE reports SET space_id=COALESCE((SELECT space_id FROM location_space_map m WHERE m.location_id=reports.location_id),'') WHERE space_id='';
+    UPDATE hospitality_orders SET space_id=COALESCE((SELECT space_id FROM location_space_map m WHERE m.location_id=hospitality_orders.location_id),'') WHERE space_id='';
+    UPDATE maintenance_assets SET space_id=COALESCE((SELECT space_id FROM location_space_map m WHERE m.location_id=maintenance_assets.location_id),'') WHERE space_id='';
+  `,
+  /* ── v23: keep legacy locations and spaces synchronized ───── */
+  23: `
+    INSERT OR IGNORE INTO spaces
+      SELECT 'sp-' || id,'fzn-demo',id,id,name_ar,name_en,type,0,active,created_at,updated_at,NULL
+      FROM locations WHERE deleted_at IS NULL;
+    INSERT OR IGNORE INTO location_space_map
+      SELECT id,'sp-' || id,'2026-01-01T00:00:00.000Z' FROM locations WHERE deleted_at IS NULL;
+
+    CREATE TRIGGER IF NOT EXISTS trg_location_create_space AFTER INSERT ON locations
+    BEGIN
+      INSERT OR IGNORE INTO spaces (id,zone_id,legacy_location_id,code,name_ar,name_en,space_type,capacity,active,created_at,updated_at)
+        VALUES ('sp-' || NEW.id,'fzn-demo',NEW.id,NEW.id,NEW.name_ar,NEW.name_en,NEW.type,0,NEW.active,NEW.created_at,NEW.updated_at);
+      INSERT OR IGNORE INTO location_space_map (location_id,space_id,created_at)
+        VALUES (NEW.id,'sp-' || NEW.id,NEW.created_at);
+    END;
+    CREATE TRIGGER IF NOT EXISTS trg_ticket_space AFTER INSERT ON tickets WHEN NEW.space_id=''
+    BEGIN UPDATE tickets SET space_id=COALESCE((SELECT space_id FROM location_space_map WHERE location_id=NEW.location_id),'') WHERE id=NEW.id; END;
+    CREATE TRIGGER IF NOT EXISTS trg_report_space AFTER INSERT ON reports WHEN NEW.space_id=''
+    BEGIN UPDATE reports SET space_id=COALESCE((SELECT space_id FROM location_space_map WHERE location_id=NEW.location_id),'') WHERE id=NEW.id; END;
+    CREATE TRIGGER IF NOT EXISTS trg_hospitality_space AFTER INSERT ON hospitality_orders WHEN NEW.space_id=''
+    BEGIN UPDATE hospitality_orders SET space_id=COALESCE((SELECT space_id FROM location_space_map WHERE location_id=NEW.location_id),'') WHERE id=NEW.id; END;
+    CREATE TRIGGER IF NOT EXISTS trg_asset_space AFTER INSERT ON maintenance_assets WHEN NEW.space_id=''
+    BEGIN UPDATE maintenance_assets SET space_id=COALESCE((SELECT space_id FROM location_space_map WHERE location_id=NEW.location_id),'') WHERE id=NEW.id; END;
+  `,
 };
 
 module.exports = { getDb };

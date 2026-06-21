@@ -1,0 +1,23 @@
+Phase 4 event attribute inventory — 2026-06-21
+
+Command scope:
+grep -Rni --exclude-dir=node_modules --exclude-dir=.git "onclick=\|onchange=\|onsubmit=\|oninput=\|onkeyup=\|onload=" public server
+
+Raw repository matching-line count: 115.
+
+First-party actionable attributes:
+- public/app.js: 117 `onclick` attributes.
+- onchange/onsubmit/oninput/onkeyup/onload attributes: 0.
+- server/: 0.
+
+Non-actionable vendor result:
+- public/html5-qrcode.min.js: one minified matching source line. The self-hosted
+  third-party implementation is not modified.
+
+Clarification: the two `img.onload = ...` property assignments counted by the
+Phase 3 occurrence scanner are explicit DOM property listeners, not HTML event
+attributes and do not require `script-src-attr`.
+
+Primary remaining first-party groups: compound view/state transitions, modal
+closures, propagation controls, galleries, photo removal, print-window actions,
+notification routing, assignment controls, and dynamically rendered navigation.
