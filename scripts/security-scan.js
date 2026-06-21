@@ -44,6 +44,8 @@ if (!/data-ui-args="\$\{esc\(JSON\.stringify\(args\)\)\}/.test(appSource)) failu
 if (inlineHandlers) failures.push(`first-party inline event attributes remain: ${inlineHandlers}`);
 if (inlineStyles) failures.push(`first-party inline style attributes remain: ${inlineStyles}`);
 if (cssomStyles) failures.push(`first-party CSSOM inline style assignments remain: ${cssomStyles}`);
+if (/<script(?:\s|>)/i.test(appSource)) failures.push('public/app.js: generated inline script element remains');
+if (/<style(?:\s|>)/i.test(appSource)) failures.push('public/app.js: generated inline style element remains');
 
 const result = { innerHtmlWrites, innerHtmlReads, inlineHandlers, inlineStyles, cssomStyles, failures };
 process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);

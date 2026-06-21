@@ -94,22 +94,26 @@ function setSecurityHeaders(res) {
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(self), microphone=(), geolocation=()');
-  res.setHeader('Content-Security-Policy', [
+  const csp = [
     "default-src 'self'",
     "script-src 'self'",
     "script-src-elem 'self'",
-    "script-src-attr 'unsafe-inline'", // 119 first-party legacy attributes remain after Phase 3 batch
-    "style-src 'self' 'unsafe-inline'",
-    "style-src-elem 'self' 'unsafe-inline'",
-    "style-src-attr 'unsafe-inline'", // 91 first-party legacy attributes remain after Phase 3 batch
+    "script-src-attr 'none'",
+    "style-src 'self'",
+    "style-src-elem 'self'",
+    "style-src-attr 'none'",
+    "object-src 'none'",
     "img-src 'self' data: blob: https://api.qrserver.com",
     "font-src 'self'",
     "connect-src 'self'",
     "media-src 'self' blob:",
     "worker-src 'self' blob:",
+    "form-action 'self'",
     "frame-ancestors 'none'",
     "base-uri 'self'"
-  ].join('; '));
+  ];
+  if (IS_HTTPS) csp.push('upgrade-insecure-requests');
+  res.setHeader('Content-Security-Policy', csp.join('; '));
   if (IS_HTTPS) {
     res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
   }

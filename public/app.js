@@ -788,6 +788,19 @@ document.addEventListener('input',event=>{
     usersSearch=event.target.value;
     render();
   }
+  if(action==='employee-location'){
+    const id=parseLoc(event.target.value);
+    const location=(data?.locations||[]).find(item=>item.id===id);
+    const label=document.getElementById('empLocName');
+    if(label) label.textContent=location?(lang==='ar'?location.nameAr:location.nameEn):'';
+  }
+  if(action==='hospitality-location'){
+    empHospLocId=parseLoc(event.target.value);
+    const location=(data?.locations||[]).find(item=>item.id===empHospLocId);
+    const label=document.getElementById('empHospLocName');
+    if(label) label.textContent=location?(lang==='ar'?location.nameAr:location.nameEn):'';
+    if(empHospLocId) localStorage.setItem('mrfq_hosp_loc',empHospLocId);
+  }
 });
 document.addEventListener('keydown',event=>{
   if(event.target.dataset.uiKeydown==='submit-comment' && event.key==='Enter' && !event.shiftKey){
@@ -2987,29 +3000,7 @@ function exportPDFReports(){
   const dir=lang==='ar'?'rtl':'ltr';
   const html=`<!DOCTYPE html><html lang="${lang}" dir="${dir}"><head><meta charset="utf-8">
 <title>MRFQ — ${tr('reports')}</title>
-<style>
-  @font-face{font-family:'IBMPlexArabic';src:url('/assets/fonts/IBMPlexSansArabic-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
-  @font-face{font-family:'IBMPlexArabic';src:url('/assets/fonts/IBMPlexSansArabic-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'IBMPlexArabic',Tahoma,Arial,sans-serif;padding:24px;color:#123238;direction:${dir}}
-  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #005257}
-  .brand{font-family:'IBMPlexArabic',Tahoma,Arial,sans-serif;color:#005257;font-size:20px;font-weight:800}
-  .meta{font-size:11px;color:#6F787F;margin-top:4px}
-  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:16px}
-  th{background:#005257;color:#fff;padding:9px 10px;text-align:${lang==='ar'?'right':'left'};font-weight:700}
-  td{padding:8px 10px;border-bottom:1px solid #E1E9E6;vertical-align:top}
-  tr:nth-child(even) td{background:#F8FAF9}
-  .ok{color:#00A488;font-weight:700} .bad{color:#DE7559;font-weight:700} .warn{color:#E69E33;font-weight:700}
-  .footer{margin-top:16px;font-size:10px;color:#8A989C;text-align:center}
-  .pdfActions{display:flex;gap:10px;justify-content:flex-end;align-items:center;margin-bottom:18px}
-  .pdfBtn{border:1px solid #D8E6E2;background:#fff;color:#005257;border-radius:14px;padding:9px 16px;font:700 13px 'IBMPlexArabic',Tahoma,Arial,sans-serif;cursor:pointer}
-  .pdfBtn.primary{background:#00848D;border-color:#00848D;color:#fff}
-  @media print{body{padding:12px}.pdfActions{display:none!important}@page{margin:15mm}}
-</style></head><body>
-<div class="pdfActions">
-  <button class="pdfBtn" ${uiAction('runUiFlow',['close-print'])}>${lang==='ar'?'رجوع':'Back'}</button>
-  <button class="pdfBtn primary" ${uiAction('runUiFlow',['print'])}>${lang==='ar'?'طباعة PDF':'Print PDF'}</button>
-</div>
+<link rel="stylesheet" href="/css/print.css"></head><body>
 <div class="header">
   <div><div class="brand">مِرفق — MRFQ</div><div class="meta">${tr('reports')} · ${fmtDate(new Date())} · ${items.length} ${lang==='ar'?'تقرير':'records'}</div></div>
   <div class="meta">${lang==='ar'?'مُصدَّر بواسطة: ':'Exported by: '}${esc(me.name)}</div>
@@ -4770,16 +4761,10 @@ function employeeSubmitForm(){
     <label>${lang==='ar'?'كود الموقع':'Location Code'}</label>
     <div class="locInput-row">
       <button class="locInput-scan" ${uiAction('openQRScanner',[])} title="${tr('scanQR')}" aria-label="${tr('scanQR')}">${ic('qr',18)}</button>
-      <div class="locInput-field">${inp('empLocCode',{cls:'ltr', placeholder:'wc-gf-a'})}</div>
+      <div class="locInput-field">${inp('empLocCode',{cls:'ltr', placeholder:'wc-gf-a',inputAction:'employee-location'})}</div>
     </div>
   </div>
   <div id="empLocName" class="u-status-help"></div>
-  <script>document.getElementById('empLocCode')?.addEventListener('input',function(){
-    const id=parseLoc(this.value);
-    const loc=(data&&data.locations||[]).find(l=>l.id===id);
-    const el=document.getElementById('empLocName');
-    if(el)el.textContent=loc?(lang==='ar'?loc.nameAr:loc.nameEn):'';
-  });<\/script>
 </div>
 
 <div class="wCard">
@@ -4855,16 +4840,10 @@ function employeeHospForm(){
     <label>${lang==='ar'?'كود الموقع':'Location Code'}</label>
     <div class="locInput-row">
       <button class="locInput-scan" ${uiAction('openQRScanner',[])} title="${tr('scanQR')}">${ic('qr',18)}</button>
-      <div class="locInput-field">${inp('empHospLocInput',{cls:'ltr',placeholder:'wc-gf-a',value:empHospLocId||localStorage.getItem('mrfq_hosp_loc')||me.defaultLocationId||''})}</div>
+      <div class="locInput-field">${inp('empHospLocInput',{cls:'ltr',placeholder:'wc-gf-a',value:empHospLocId||localStorage.getItem('mrfq_hosp_loc')||me.defaultLocationId||'',inputAction:'hospitality-location'})}</div>
     </div>
   </div>
   <div id="empHospLocName" class="u-status-help">${locName?(lang==='ar'?locName.nameAr:locName.nameEn):''}</div>
-  <script>document.getElementById('empHospLocInput')?.addEventListener('input',function(){
-    empHospLocId=parseLoc(this.value);
-    const l=(data.locations||[]).find(x=>x.id===empHospLocId);
-    document.getElementById('empHospLocName').textContent=l?(lang==='ar'?l.nameAr:l.nameEn):'';
-    if(empHospLocId)localStorage.setItem('mrfq_hosp_loc',empHospLocId);
-  });<\/script>
 </div>
 
 <div class="wCard">
@@ -6924,26 +6903,7 @@ async function exportPerformancePDF(){
   const dir=lang==='ar'?'rtl':'ltr';
   const html=`<!DOCTYPE html><html lang="${lang}" dir="${dir}"><head><meta charset="utf-8">
 <title>MRFQ — ${tr('performance')}</title>
-<style>
-@font-face{font-family:'IBMPlexArabic';src:url('/assets/fonts/IBMPlexSansArabic-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
-@font-face{font-family:'IBMPlexArabic';src:url('/assets/fonts/IBMPlexSansArabic-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
-*{box-sizing:border-box;margin:0;padding:0}body{font-family:'IBMPlexArabic',Arial,sans-serif;padding:24px;color:#123238;direction:${dir}}
-.header{display:flex;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #005257}
-.brand{font-family:'IBMPlexArabic',Arial,sans-serif;color:#005257;font-size:20px;font-weight:800}.meta{font-size:11px;color:#6F787F;margin-top:4px}
-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:16px}
-th{background:#005257;color:#fff;padding:9px 10px;text-align:${lang==='ar'?'right':'left'};font-weight:700}
-td{padding:8px 10px;border-bottom:1px solid #E1E9E6;vertical-align:top}
-tr:nth-child(even) td{background:#F8FAF9}
-.ok{color:#00A488;font-weight:700}.bad{color:#DE7559;font-weight:700}.warn{color:#E69E33;font-weight:700}
-.footer{margin-top:16px;font-size:10px;color:#8A989C;text-align:center}
-.pdfActions{display:flex;gap:10px;justify-content:flex-end;align-items:center;margin-bottom:18px}
-.pdfBtn{border:1px solid #D8E6E2;background:#fff;color:#005257;border-radius:14px;padding:9px 16px;font:700 13px 'IBMPlexArabic',Arial,sans-serif;cursor:pointer}
-.pdfBtn.primary{background:#00848D;border-color:#00848D;color:#fff}
-@media print{body{padding:12px}.pdfActions{display:none!important}@page{margin:15mm}}</style></head><body>
-<div class="pdfActions">
-  <button class="pdfBtn" ${uiAction('runUiFlow',['close-print'])}>${lang==='ar'?'رجوع':'Back'}</button>
-  <button class="pdfBtn primary" ${uiAction('runUiFlow',['print'])}>${lang==='ar'?'طباعة PDF':'Print PDF'}</button>
-</div>
+<link rel="stylesheet" href="/css/print.css"></head><body>
 <div class="header">
   <div><div class="brand">MRFQ — ${tr('performance')}</div><div class="meta">${new Date().toISOString().slice(0,10)} · ${lang==='ar'?'آخر 30 يوم':'Last 30 days'}</div></div>
   <div class="meta">${lang==='ar'?'مُصدَّر بواسطة: ':'Exported by: '}${esc(me.name)}</div>
