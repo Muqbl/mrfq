@@ -52,10 +52,30 @@
   --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;
 
   --brand-dark:var(--mrfq-dark-teal);
-  --brand:var(--mrfq-green);
+  --brand:var(--mrfq-teal);
   --brand-mid:var(--mrfq-teal);
   --brand-bright:var(--mrfq-aqua);
   --gold:var(--mrfq-brown);
+
+  /* ── Semantic UI tokens ── */
+  --ui-primary:var(--mrfq-teal);
+  --ui-success:var(--mrfq-green);
+  --ui-dark:var(--mrfq-dark-teal);
+  --ui-aqua:var(--mrfq-aqua);
+  --ui-navy:var(--mrfq-navy);
+  --qr-bg:var(--ui-primary);
+  --counter-bg:var(--ui-primary);
+  --counter-color:#fff;
+  --tab-active-color:var(--ui-primary);
+  --chip-active-color:var(--ui-primary);
+  --active-soft-bg:rgba(117,206,200,.18);
+  --hero-start:var(--ui-dark);
+  --hero-end:var(--ui-primary);
+  --surface-raised:var(--surface-2);
+  --accent:var(--ui-primary);
+  --danger:var(--mrfq-coral);
+  --warning:var(--mrfq-orange);
+  --success:var(--ui-success);
   --gold-light:#F6EADB;
   --gold-mid:var(--mrfq-orange);
 
@@ -183,8 +203,8 @@ img{max-width:100%;display:block}
 .btn:hover{filter:brightness(.90);background:var(--btn-primary-bg);box-shadow:none}
 .btn:active{filter:brightness(.98)!important;box-shadow:none!important}
 .btn svg{flex-shrink:0}
-.btn.secondary{background:var(--surface);color:var(--mrfq-dark-teal);border:1px solid var(--mrfq-green);box-shadow:none;min-height:52px;border-radius:16px}
-.btn.secondary:hover{background:var(--surface-2);border-color:var(--mrfq-green)}
+.btn.secondary{background:var(--surface);color:var(--ui-primary);border:1px solid var(--ui-primary);box-shadow:none;min-height:52px;border-radius:16px}
+.btn.secondary:hover{background:var(--surface-2);border-color:var(--ui-primary)}
 .btn.ghost{background:var(--surface-2);color:var(--ink);border:1px solid var(--line);box-shadow:none;min-height:52px;border-radius:16px}
 .btn.ghost:hover{background:rgba(14,111,104,.06);border-color:var(--brand-mid)}
 .btn.ok{background:var(--btn-primary-bg);box-shadow:none}
@@ -297,13 +317,13 @@ label{
 .badge.warn{background:var(--warn-bg);color:var(--warn);border-color:rgba(230,158,51,.18)}
 .badge.bad{background:var(--bad-bg);color:var(--bad);border-color:rgba(222,117,89,.18)}
 .badge.info{background:var(--info-bg);color:var(--info);border-color:rgba(0,132,141,.16)}
-.badge.brand{background:rgba(0,82,87,.08);color:var(--brand);border-color:rgba(0,82,87,.12)}
+.badge.brand{background:rgba(0,132,141,.08);color:var(--brand);border-color:rgba(0,132,141,.12)}
 .badge.gold{background:rgba(168,111,42,.10);color:var(--mrfq-brown);border-color:rgba(168,111,42,.18)}
 .countBubble{
   width:24px;height:24px;min-width:24px;min-height:24px;padding:0;
   border-radius:50%;display:inline-grid;place-items:center;
   font-family:var(--font-body);font-size:12px;font-weight:800;line-height:1;
-  background:var(--brand);color:#fff;border:1px solid rgba(0,82,87,.12);
+  background:var(--counter-bg);color:var(--counter-color);border:1px solid rgba(0,132,141,.12);
 }
 .countBubble.bad{background:var(--bad-bg);color:var(--bad);border-color:rgba(222,117,89,.18)}
 .countBubble.warn{background:var(--warn-bg);color:var(--warn);border-color:rgba(230,158,51,.18)}
@@ -311,9 +331,9 @@ label{
 .countBubble.info{background:var(--info-bg);color:var(--info);border-color:rgba(0,132,141,.16)}
 
 /* ─── ROLE BADGES ────────────────────────────────────────────── */
-.badge.role-admin{background:rgba(0,82,87,.08);color:var(--mrfq-dark-teal);border-color:rgba(0,82,87,.16)}
-.badge.role-fm{background:rgba(0,82,87,.08);color:var(--brand);border-color:rgba(0,82,87,.14)}
-.badge.role-cm,.badge.role-cleaning-manager{background:rgba(111,79,152,.10);color:var(--mrfq-purple);border-color:rgba(111,79,152,.18)}
+.badge.role-admin{background:rgba(0,132,141,.08);color:var(--ui-primary);border-color:rgba(0,132,141,.16)}
+.badge.role-fm{background:rgba(0,132,141,.08);color:var(--brand);border-color:rgba(0,132,141,.14)}
+.badge.role-cm,.badge.role-cleaning-manager{background:rgba(117,206,200,.15);color:var(--ui-primary);border-color:rgba(0,132,141,.20)}
 .badge.role-cs{background:rgba(0,132,141,.10);color:var(--info);border-color:rgba(0,132,141,.16)}
 .badge.role-cleaner{background:rgba(0,164,136,.08);color:var(--ok);border-color:rgba(0,164,136,.14)}
 
@@ -498,7 +518,7 @@ tbody tr:hover td{background:var(--surface-2)}
   transition:all var(--t-fast);
 }
 .filterChip:hover{border-color:rgba(14,111,104,.25);color:var(--brand)}
-.filterChip.active{background:var(--bg-soft);color:var(--mrfq-green);border-color:rgba(0,164,136,.22)}
+.filterChip.active{background:var(--active-soft-bg);color:var(--chip-active-color);border-color:rgba(0,132,141,.28)}
 
 /* ═══════════════════════════════════════════════════════════════
    LOGIN PAGE
@@ -1019,7 +1039,7 @@ tbody tr:hover td{background:var(--surface-2)}
 /* ─── DASHBOARD HERO ─────────────────────────────────────────── */
 .dashHero{
   border-radius:var(--r);padding:18px 20px;margin-bottom:16px;
-  background:linear-gradient(135deg,var(--brand-dark) 0%,var(--brand) 48%,var(--brand-mid) 100%);
+  background:linear-gradient(135deg,var(--hero-start) 0%,var(--hero-end) 100%);
   color:#fff;position:relative;overflow:hidden;
   display:flex;justify-content:space-between;align-items:center;gap:16px;
 }
@@ -2168,7 +2188,7 @@ tbody tr:hover td{background:var(--surface-2)}
 #qr-reader__dashboard{padding:10px 14px!important}
 #qr-reader__dashboard button{
   min-height:38px;padding:8px 16px;border-radius:var(--r-sm)!important;
-  background:linear-gradient(135deg,var(--brand),var(--brand-mid))!important;
+  background:var(--qr-bg)!important;
   color:#fff!important;font-family:var(--font-ui)!important;font-weight:700!important;
   font-size:var(--fs-sm)!important;border:none!important;cursor:pointer;
 }
@@ -2278,7 +2298,7 @@ tbody tr:hover td{background:var(--surface-2)}
   transition:all var(--t-fast);
 }
 .hospCatChip:hover{border-color:rgba(14,111,104,.25);color:var(--brand)}
-.hospCatChip.active{background:var(--bg-soft);color:var(--mrfq-green);border-color:rgba(0,164,136,.22)}
+.hospCatChip.active{background:var(--active-soft-bg);color:var(--chip-active-color);border-color:rgba(0,132,141,.28)}
 .hospCatChip .empCatBtn-icon{width:14px;height:14px;background:transparent;color:currentColor;display:inline-flex}
 
 /* ── Employee order history cards ───────────────────────────── */
