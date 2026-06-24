@@ -859,11 +859,6 @@ function runUiFlow(flow,...values){
     if(active){if(!isLast) removeUserRole(String(userId),String(role))}else addUserRole(String(userId),String(role));
     return;
   }
-  if(flow==='qr-file-pick'){
-    event.stopPropagation();
-    document.getElementById('qr-file-input')?.click();
-    return;
-  }
   if(flow==='close-notifications-reports'){goView('reports');document.getElementById('notifPanel')?.remove();return}
   if(flow==='notification-route'){
     const route=String(values[0]);
@@ -905,7 +900,6 @@ document.addEventListener('keydown',event=>{
 document.addEventListener('change',event=>{
   const action=event.target.dataset.uiChange;
   if(action==='fill-assignment') fillAssign();
-  if(action==='scan-qr-file') scanQRImageFile(event.target);
   if(action==='filter-user-role'){
     usersRoleFilter=event.target.value;
     render();
@@ -5137,96 +5131,6 @@ async function startJsQRScanner(onDecoded){
   return true;
 }
 
-function decodeQRWithJsQRFile(file){
-  return new Promise((resolve,reject)=>{
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = ()=>{
-      try{
-        const max = 1600;
-        const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
-        const width = Math.max(1, Math.round(img.naturalWidth * scale));
-        const height = Math.max(1, Math.round(img.naturalHeight * scale));
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d', { willReadFrequently:true });
-        ctx.drawImage(img, 0, 0, width, height);
-        const imageData = ctx.getImageData(0, 0, width, height);
-        const result = jsQR(imageData.data, width, height, { inversionAttempts:'attemptBoth' });
-        URL.revokeObjectURL(url);
-        resolve(result?.data || '');
-      }catch(e){
-        URL.revokeObjectURL(url);
-        reject(e);
-      }
-    };
-    img.onerror = ()=>{
-      URL.revokeObjectURL(url);
-      reject(new Error('IMAGE_LOAD_FAILED'));
-    };
-    img.src = url;
-  });
-}
-
-async function scanQRImageFile(input){
-  const file = input?.files?.[0];
-  if(input) input.value = '';
-  if(!file) return;
-  if(typeof jsQR !== 'function' && typeof Html5Qrcode === 'undefined'){
-    toast(lang==='ar'?'قارئ الصور غير متوفر':'Image QR reader is not available','bad');
-    return;
-  }
-  const liveScanner = qrScannerInstance;
-  const liveNative = qrNativeStream;
-  const liveJs = qrJsStream;
-  try{
-    if(liveScanner){
-      qrScannerInstance = null;
-      await liveScanner.stop().catch(()=>{});
-      try{ liveScanner.clear(); }catch(_e){}
-    }
-    if(liveNative){
-      liveNative.getTracks().forEach(track=>track.stop());
-      qrNativeStream = null;
-    }
-    if(liveJs){
-      liveJs.getTracks().forEach(track=>track.stop());
-      qrJsStream = null;
-    }
-    if(qrJsTimer){
-      clearTimeout(qrJsTimer);
-      qrJsTimer = null;
-    }
-    const reader = document.getElementById('qr-reader');
-    if(reader) reader.innerHTML = `<div class="qr-file-loading">${ic('sync',20)} ${lang==='ar'?'جارٍ قراءة الصورة...':'Reading image...'}</div>`;
-    let decoded = '';
-    if(typeof jsQR === 'function'){
-      decoded = await decodeQRWithJsQRFile(file);
-    }
-    if(!decoded && typeof Html5Qrcode !== 'undefined'){
-      const holder = document.getElementById('qr-file-reader') || document.createElement('div');
-      holder.id = 'qr-file-reader';
-      holder.className = 'qr-file-reader';
-      if(!holder.parentElement) document.getElementById('qr-overlay')?.appendChild(holder);
-      const scanner = new Html5Qrcode('qr-file-reader');
-      if(typeof scanner.scanFileV2 === 'function'){
-        const result = await scanner.scanFileV2(file, false);
-        decoded = result?.decodedText || result?.text || '';
-      }else{
-        decoded = await scanner.scanFile(file, false);
-      }
-      try{ scanner.clear(); }catch(_e){}
-    }
-    if(decoded) handleQrDecoded(decoded);
-    else throw new Error('NO_QR_FOUND');
-  }catch(e){
-    toast(lang==='ar'?'لم أتمكن من قراءة QR من الصورة. قرّب الصورة من الرمز وحاول مرة أخرى.':'Could not read QR from image. Move closer and try again.','bad');
-    console.warn('[qr-file]', e && e.message ? e.message : e);
-    closeQRScanner();
-  }
-}
-
 async function openQRScanner(){
   if(typeof jsQR !== 'function' && typeof Html5Qrcode === 'undefined' && !('BarcodeDetector' in window)){
     toast(lang==='ar'?'مكتبة الماسح غير متوفرة':'QR scanner library not available','bad');
@@ -5256,11 +5160,7 @@ async function openQRScanner(){
         <button class="qr-scanner-close" ${uiAction('closeQRScanner',[])}>${ic('x',22)}</button>
       </div>
       <div id="qr-reader"></div>
-      <div class="qr-scanner-actions">
-        <input id="qr-file-input" class="is-hidden" type="file" accept="image/*" capture="environment" data-ui-change="scan-qr-file">
-        <button type="button" class="btn secondary sm" ${uiAction('runUiFlow',['qr-file-pick'])}>${ic('camera',14)} ${lang==='ar'?'قراءة من صورة':'Read from photo'}</button>
-      </div>
-      <p class="qr-scanner-hint">${lang==='ar'?'وجّه الكاميرا نحو رمز QR. إذا لم يقرأ خلال ثوانٍ استخدم قراءة من صورة.':'Point the camera at the QR. If it does not scan in a few seconds, use Read from photo.'}</p>
+      <p class="qr-scanner-hint">${lang==='ar'?'وجّه الكاميرا نحو رمز QR الخاص بالمرفق':'Point the camera at the facility QR code'}</p>
     </div>`;
   document.body.appendChild(overlay);
 
