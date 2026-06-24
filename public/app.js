@@ -1294,7 +1294,10 @@ function moduleForCurrentRole(){
   return 'cleaning';
 }
 function activeAssignModule(){
-  return ['system_admin','facility_manager'].includes(me?.role) ? assignModule : moduleForCurrentRole();
+  if(['system_admin','facility_manager'].includes(me?.role)){
+    return adminModuleContext || assignModule;
+  }
+  return moduleForCurrentRole();
 }
 
 function locationOperationalStatus(locationId){
@@ -4187,7 +4190,7 @@ function assignments(){
   };
   const workers = (data.users||[]).filter(u=>u.role===workerRoles[module]);
   const supervisors = (data.users||[]).filter(u=>u.role===supervisorRoles[module]);
-  const canSwitchModule = ['system_admin','facility_manager'].includes(me.role);
+  const canSwitchModule = ['system_admin','facility_manager'].includes(me.role) && !adminModuleContext;
   const noWorkersMsg = lang==='ar'
     ? `لا يوجد عمال في قسم ${moduleLabels[module]} حالياً. أضف عامل من المستخدمين أولاً.`
     : `No ${moduleLabels[module]} workers yet. Add a worker from Users first.`;
@@ -4960,6 +4963,9 @@ function renderPhotoPreviews(mode='general'){
 
 let qrScannerInstance = null;
 let qrVisibilityHandler = null;
+let qrNativeStream = null;
+let qrNativeTimer = null;
+let qrScanHandled = false;
 
 function qrErrorMessage(err){
   const name = err && err.name;
@@ -5015,8 +5021,66 @@ function applyScannedLocation(facility){
   return true;
 }
 
+function handleQrDecoded(decodedText){
+  if(qrScanHandled) return;
+  qrScanHandled = true;
+  const raw = String(decodedText||'').trim();
+  closeQRScanner();
+
+  const parsed = parseLoc(raw);
+  if(!parsed){
+    invalidLocationToast(raw);
+    return;
+  }
+  const facility = findLocationByCode(parsed);
+  if(!facility){
+    toast(lang==='ar'?`تمت قراءة QR لكن الموقع "${parsed}" غير موجود في النظام`:`QR read, but location "${parsed}" was not found`,'bad');
+    return;
+  }
+  applyScannedLocation(facility);
+}
+
+async function startNativeQRScanner(onDecoded){
+  if(!('BarcodeDetector' in window)) return false;
+  let formats = [];
+  try{ formats = await BarcodeDetector.getSupportedFormats(); }catch(_e){}
+  if(formats.length && !formats.includes('qr_code')) return false;
+
+  const reader = document.getElementById('qr-reader');
+  if(!reader) return false;
+  reader.innerHTML = `<video id="qr-native-video" autoplay playsinline muted></video>`;
+  const video = document.getElementById('qr-native-video');
+  const detector = new BarcodeDetector({formats:['qr_code']});
+  qrNativeStream = await navigator.mediaDevices.getUserMedia({
+    video:{
+      facingMode:{ideal:'environment'},
+      width:{ideal:1280},
+      height:{ideal:720}
+    },
+    audio:false
+  });
+  video.srcObject = qrNativeStream;
+  video.muted = true;
+  await video.play();
+
+  const scan = async()=>{
+    if(!qrNativeStream || qrScanHandled || document.hidden) return;
+    try{
+      const codes = await detector.detect(video);
+      const value = codes?.[0]?.rawValue;
+      if(value){
+        onDecoded(value);
+        return;
+      }
+    }catch(_e){}
+    qrNativeTimer = setTimeout(scan, 180);
+  };
+  scan();
+  return true;
+}
+
 async function openQRScanner(){
-  if(typeof Html5Qrcode === 'undefined'){
+  if(typeof Html5Qrcode === 'undefined' && !('BarcodeDetector' in window)){
     toast(lang==='ar'?'مكتبة الماسح غير متوفرة':'QR scanner library not available','bad');
     return;
   }
@@ -5032,7 +5096,8 @@ async function openQRScanner(){
   }
 
   // Prevent opening more than one camera stream
-  if(document.getElementById('qr-overlay') || qrScannerInstance) return;
+  if(document.getElementById('qr-overlay') || qrScannerInstance || qrNativeStream) return;
+  qrScanHandled = false;
 
   const overlay = document.createElement('div');
   overlay.id = 'qr-overlay';
@@ -5048,40 +5113,39 @@ async function openQRScanner(){
   document.body.appendChild(overlay);
 
   const config = {
-    fps: 10,
-    qrbox: { width: 220, height: 220 },
-    aspectRatio: 1.0,
+    fps: 15,
+    qrbox: { width: 260, height: 260 },
     showTorchButtonIfSupported: true,
-    showZoomSliderIfSupported: true
+    showZoomSliderIfSupported: true,
+    videoConstraints:{
+      facingMode:{ideal:'environment'},
+      width:{ideal:1280},
+      height:{ideal:720}
+    }
   };
 
-  const onDecoded = (decodedText) => {
-    const raw = String(decodedText||'').trim();
-    closeQRScanner();
-
-    const parsed = parseLoc(raw);
-    if(!parsed){
-      invalidLocationToast(raw);
-      return;
-    }
-    const facility = findLocationByCode(parsed);
-    if(!facility){
-      toast(lang==='ar'?`تمت قراءة QR لكن الموقع "${parsed}" غير موجود في النظام`:`QR read, but location "${parsed}" was not found`,'bad');
-      return;
-    }
-    applyScannedLocation(facility);
-  };
-
-  qrScannerInstance = new Html5Qrcode('qr-reader');
+  const onDecoded = (decodedText) => handleQrDecoded(decodedText);
 
   // Stop the camera if the tab/app is backgrounded while the scanner is open
   qrVisibilityHandler = () => { if(document.hidden) closeQRScanner(); };
   document.addEventListener('visibilitychange', qrVisibilityHandler);
 
   try{
+    const nativeStarted = await startNativeQRScanner(onDecoded);
+    if(nativeStarted) return;
+
+    const qrCtorConfig = { useBarCodeDetectorIfSupported: true };
+    if(typeof Html5QrcodeSupportedFormats !== 'undefined' && Html5QrcodeSupportedFormats.QR_CODE){
+      qrCtorConfig.formatsToSupport = [Html5QrcodeSupportedFormats.QR_CODE];
+    }
+    qrScannerInstance = new Html5Qrcode('qr-reader', qrCtorConfig);
     // Prefer the rear camera
     await qrScannerInstance.start({ facingMode: 'environment' }, config, onDecoded, ()=>{});
   }catch(envErr){
+    if(qrNativeStream){
+      qrNativeStream.getTracks().forEach(track=>track.stop());
+      qrNativeStream = null;
+    }
     console.warn('[qr] environment camera failed:', envErr && envErr.name, envErr && envErr.message);
     // Fallback 1: any available camera by facingMode
     try{
@@ -5108,6 +5172,14 @@ async function closeQRScanner(){
   }
 
   try{
+    if(qrNativeTimer){
+      clearTimeout(qrNativeTimer);
+      qrNativeTimer = null;
+    }
+    if(qrNativeStream){
+      qrNativeStream.getTracks().forEach(track=>track.stop());
+      qrNativeStream = null;
+    }
     if(qrScannerInstance){
       const instance = qrScannerInstance;
       qrScannerInstance = null;
