@@ -3880,8 +3880,7 @@ ${showLocCreate?`
     return locsFloorFilter==='all' || (l.floor||'')=== locsFloorFilter;
   }).map(l=>{
     const status = locationOperationalStatus(l.id);
-    const locQrPayload = `${location.origin}${location.pathname}?loc=${encodeURIComponent(l.id)}`;
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(locQrPayload)}`;
+    const qrUrl = locationQrUrl(l.id);
     return`<div class="locCard">
       <div class="locCard-head">
         <div>
@@ -3902,7 +3901,7 @@ ${showLocCreate?`
         <details class="u-flex-1">
           <summary class="summary-link">${ic('qr',13)} ${lang==='ar'?'عرض QR':'Show QR'}</summary>
           <div class="locCard-qr qr-actions">
-            <img width="120" height="120" src="${qrUrl}" alt="QR ${esc(l.id)}" loading="lazy">
+            <img width="150" height="150" src="${qrUrl}" alt="QR ${esc(l.id)}" loading="lazy">
             <a class="btn secondary sm" href="${qrUrl}&format=png" download="QR-${esc(l.id)}.png" class="no-decoration">${ic('download',13)} ${lang==='ar'?'تحميل QR':'Download QR'}</a>
           </div>
         </details>
@@ -3975,8 +3974,7 @@ function _operationalTabContent(){
 <div class="locGrid">
   ${(data.locations||[]).filter(l=>locsFloorFilter==='all'||(l.floor||'')===locsFloorFilter).map(l=>{
     const status=locationOperationalStatus(l.id);
-    const locQrPayload=`${location.origin}${location.pathname}?loc=${encodeURIComponent(l.id)}`;
-    const qrUrl=`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(locQrPayload)}`;
+    const qrUrl=locationQrUrl(l.id);
     return`<div class="locCard">
       <div class="locCard-head">
         <div><div class="locCard-name">${esc(locName(l))}</div><div class="locCard-id">${esc(l.id)}</div></div>
@@ -3994,7 +3992,7 @@ function _operationalTabContent(){
         <details class="u-flex-1">
           <summary class="summary-link">${ic('qr',13)} ${lang==='ar'?'عرض QR':'Show QR'}</summary>
           <div class="locCard-qr qr-actions">
-            <img width="120" height="120" src="${qrUrl}" alt="QR ${esc(l.id)}" loading="lazy">
+            <img width="150" height="150" src="${qrUrl}" alt="QR ${esc(l.id)}" loading="lazy">
             <a class="btn secondary sm" href="${qrUrl}&format=png" download="QR-${esc(l.id)}.png">${ic('download',13)} ${lang==='ar'?'تحميل QR':'Download QR'}</a>
           </div>
         </details>
@@ -4579,18 +4577,18 @@ function parseLoc(raw){
   raw = String(raw||'').trim();
   if(!raw) return '';
 
-  // Full URL support: ...?loc=wc-gf-a, ...?location=wc-gf-a, ...?code=wc-gf-a.
+  // Full URL support: ...?q=wc-gf-a, ...?loc=wc-gf-a, ...?location=wc-gf-a, ...?code=wc-gf-a.
   // A plain app URL is not a location code and should not be written back into the field.
   try{
     const u = new URL(raw);
-    const param = u.searchParams.get('loc') || u.searchParams.get('location') || u.searchParams.get('code');
+    const param = u.searchParams.get('q') || u.searchParams.get('loc') || u.searchParams.get('location') || u.searchParams.get('code');
     if(param) return String(decodeURIComponent(param)).trim();
     const last = u.pathname.split('/').filter(Boolean).pop();
     if(last && !/\.(html?|php|aspx?)$/i.test(last)) return String(decodeURIComponent(last)).trim();
     return '';
   }catch(e){
     // Direct code support or string with ?loc= somewhere inside
-    const m = raw.match(/[?&](?:loc|location|code)=([^&#]+)/);
+    const m = raw.match(/[?&](?:q|loc|location|code)=([^&#]+)/);
     if(m && m[1]) return String(decodeURIComponent(m[1])).trim();
     return raw.replace(/^loc:/i,'').replace(/^location:/i,'').trim();
   }
@@ -4616,6 +4614,15 @@ function findLocationByCode(code){
       || null;
 }
 
+function locationQrPayload(locationId){
+  return `${location.origin}/?q=${encodeURIComponent(locationId)}`;
+}
+
+function locationQrUrl(locationId,size=220){
+  const payload = locationQrPayload(locationId);
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&ecc=L&margin=20&data=${encodeURIComponent(payload)}`;
+}
+
 function invalidLocationToast(raw){
   const msg = isLikelyUrl(raw)
     ? (lang==='ar'?'رمز QR أو الرابط لا يحتوي على كود موقع صالح':'The QR code or link does not contain a valid location code')
@@ -4629,7 +4636,7 @@ function renderWorker(){
   const assigned = ((data.assignments||[]).find(a=>a.workerId===me.id)?.locationIds)||[];
   const locs = (data.locations||[]).filter(l=>!assigned.length||assigned.includes(l.id));
   const myTickets = (data.tickets||[]).filter(t=>t.assignedTo===me.id&&!['completed','rejected','cancelled'].includes(t.status));
-  const qrFromUrl = new URL(location.href).searchParams.get('loc')||'';
+  const qrFromUrl = new URL(location.href).searchParams.get('q')||new URL(location.href).searchParams.get('loc')||'';
   const qrFromStorage = sessionStorage.getItem('qr_loc')||'';
   const param = parseLoc(qrFromUrl || qrFromStorage);
   if(param) sessionStorage.removeItem('qr_loc');
@@ -4971,6 +4978,8 @@ let qrScannerInstance = null;
 let qrVisibilityHandler = null;
 let qrNativeStream = null;
 let qrNativeTimer = null;
+let qrJsStream = null;
+let qrJsTimer = null;
 let qrScanHandled = false;
 
 function qrErrorMessage(err){
@@ -5085,16 +5094,92 @@ async function startNativeQRScanner(onDecoded){
   return true;
 }
 
+async function startJsQRScanner(onDecoded){
+  if(typeof jsQR !== 'function') return false;
+  const reader = document.getElementById('qr-reader');
+  if(!reader) return false;
+  reader.innerHTML = `<video id="qr-js-video" autoplay playsinline muted></video><canvas id="qr-js-canvas" class="is-hidden"></canvas>`;
+  const video = document.getElementById('qr-js-video');
+  const canvas = document.getElementById('qr-js-canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently:true });
+  qrJsStream = await navigator.mediaDevices.getUserMedia({
+    video:{
+      facingMode:{ideal:'environment'},
+      width:{ideal:1280},
+      height:{ideal:720}
+    },
+    audio:false
+  });
+  video.srcObject = qrJsStream;
+  video.muted = true;
+  await video.play();
+
+  const scan = ()=>{
+    if(!qrJsStream || qrScanHandled || document.hidden) return;
+    if(video.readyState >= 2 && video.videoWidth && video.videoHeight){
+      const width = video.videoWidth;
+      const height = video.videoHeight;
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(video, 0, 0, width, height);
+      try{
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const result = jsQR(imageData.data, width, height, { inversionAttempts:'attemptBoth' });
+        if(result?.data){
+          onDecoded(result.data);
+          return;
+        }
+      }catch(_e){}
+    }
+    qrJsTimer = setTimeout(scan, 120);
+  };
+  scan();
+  return true;
+}
+
+function decodeQRWithJsQRFile(file){
+  return new Promise((resolve,reject)=>{
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = ()=>{
+      try{
+        const max = 1600;
+        const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+        const width = Math.max(1, Math.round(img.naturalWidth * scale));
+        const height = Math.max(1, Math.round(img.naturalHeight * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d', { willReadFrequently:true });
+        ctx.drawImage(img, 0, 0, width, height);
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const result = jsQR(imageData.data, width, height, { inversionAttempts:'attemptBoth' });
+        URL.revokeObjectURL(url);
+        resolve(result?.data || '');
+      }catch(e){
+        URL.revokeObjectURL(url);
+        reject(e);
+      }
+    };
+    img.onerror = ()=>{
+      URL.revokeObjectURL(url);
+      reject(new Error('IMAGE_LOAD_FAILED'));
+    };
+    img.src = url;
+  });
+}
+
 async function scanQRImageFile(input){
   const file = input?.files?.[0];
   if(input) input.value = '';
   if(!file) return;
-  if(typeof Html5Qrcode === 'undefined'){
+  if(typeof jsQR !== 'function' && typeof Html5Qrcode === 'undefined'){
     toast(lang==='ar'?'قارئ الصور غير متوفر':'Image QR reader is not available','bad');
     return;
   }
   const liveScanner = qrScannerInstance;
   const liveNative = qrNativeStream;
+  const liveJs = qrJsStream;
   try{
     if(liveScanner){
       qrScannerInstance = null;
@@ -5105,21 +5190,34 @@ async function scanQRImageFile(input){
       liveNative.getTracks().forEach(track=>track.stop());
       qrNativeStream = null;
     }
+    if(liveJs){
+      liveJs.getTracks().forEach(track=>track.stop());
+      qrJsStream = null;
+    }
+    if(qrJsTimer){
+      clearTimeout(qrJsTimer);
+      qrJsTimer = null;
+    }
     const reader = document.getElementById('qr-reader');
     if(reader) reader.innerHTML = `<div class="qr-file-loading">${ic('sync',20)} ${lang==='ar'?'جارٍ قراءة الصورة...':'Reading image...'}</div>`;
-    const holder = document.getElementById('qr-file-reader') || document.createElement('div');
-    holder.id = 'qr-file-reader';
-    holder.className = 'qr-file-reader';
-    if(!holder.parentElement) document.getElementById('qr-overlay')?.appendChild(holder);
-    const scanner = new Html5Qrcode('qr-file-reader');
     let decoded = '';
-    if(typeof scanner.scanFileV2 === 'function'){
-      const result = await scanner.scanFileV2(file, false);
-      decoded = result?.decodedText || result?.text || '';
-    }else{
-      decoded = await scanner.scanFile(file, false);
+    if(typeof jsQR === 'function'){
+      decoded = await decodeQRWithJsQRFile(file);
     }
-    try{ scanner.clear(); }catch(_e){}
+    if(!decoded && typeof Html5Qrcode !== 'undefined'){
+      const holder = document.getElementById('qr-file-reader') || document.createElement('div');
+      holder.id = 'qr-file-reader';
+      holder.className = 'qr-file-reader';
+      if(!holder.parentElement) document.getElementById('qr-overlay')?.appendChild(holder);
+      const scanner = new Html5Qrcode('qr-file-reader');
+      if(typeof scanner.scanFileV2 === 'function'){
+        const result = await scanner.scanFileV2(file, false);
+        decoded = result?.decodedText || result?.text || '';
+      }else{
+        decoded = await scanner.scanFile(file, false);
+      }
+      try{ scanner.clear(); }catch(_e){}
+    }
     if(decoded) handleQrDecoded(decoded);
     else throw new Error('NO_QR_FOUND');
   }catch(e){
@@ -5130,7 +5228,7 @@ async function scanQRImageFile(input){
 }
 
 async function openQRScanner(){
-  if(typeof Html5Qrcode === 'undefined' && !('BarcodeDetector' in window)){
+  if(typeof jsQR !== 'function' && typeof Html5Qrcode === 'undefined' && !('BarcodeDetector' in window)){
     toast(lang==='ar'?'مكتبة الماسح غير متوفرة':'QR scanner library not available','bad');
     return;
   }
@@ -5185,6 +5283,9 @@ async function openQRScanner(){
   document.addEventListener('visibilitychange', qrVisibilityHandler);
 
   try{
+    const jsStarted = await startJsQRScanner(onDecoded);
+    if(jsStarted) return;
+
     const nativeStarted = await startNativeQRScanner(onDecoded);
     if(nativeStarted) return;
 
@@ -5196,6 +5297,14 @@ async function openQRScanner(){
     // Prefer the rear camera
     await qrScannerInstance.start({ facingMode: 'environment' }, config, onDecoded, ()=>{});
   }catch(envErr){
+    if(qrJsTimer){
+      clearTimeout(qrJsTimer);
+      qrJsTimer = null;
+    }
+    if(qrJsStream){
+      qrJsStream.getTracks().forEach(track=>track.stop());
+      qrJsStream = null;
+    }
     if(qrNativeStream){
       qrNativeStream.getTracks().forEach(track=>track.stop());
       qrNativeStream = null;
@@ -5241,6 +5350,14 @@ async function closeQRScanner(){
     if(qrNativeStream){
       qrNativeStream.getTracks().forEach(track=>track.stop());
       qrNativeStream = null;
+    }
+    if(qrJsTimer){
+      clearTimeout(qrJsTimer);
+      qrJsTimer = null;
+    }
+    if(qrJsStream){
+      qrJsStream.getTracks().forEach(track=>track.stop());
+      qrJsStream = null;
     }
     if(qrScannerInstance){
       const instance = qrScannerInstance;
@@ -8333,7 +8450,7 @@ async function refreshInventory(){
 (function(){
   try{
     const u = new URL(location.href);
-    const loc = u.searchParams.get('loc') || u.searchParams.get('location') || u.searchParams.get('code');
+    const loc = u.searchParams.get('q') || u.searchParams.get('loc') || u.searchParams.get('location') || u.searchParams.get('code');
     if(loc){
       const parsed = parseLoc(loc);
       if(parsed) sessionStorage.setItem('qr_loc', parsed);

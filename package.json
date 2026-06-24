@@ -14,7 +14,8 @@
     "test:load:endurance": "node scripts/load-test-endurance.js"
   },
   "dependencies": {
-    "better-sqlite3": "^12.10.0"
+    "better-sqlite3": "^12.10.0",
+    "jsqr": "^1.4.0"
   },
   "engines": {
     "node": ">=20"
