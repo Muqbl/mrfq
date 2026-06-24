@@ -730,6 +730,9 @@ function uiAction(name,args=[]){
 }
 document.addEventListener('click',event=>{
   const target=event.target.closest('[data-ui-action]');
+  if(!event.target.closest('.choicePicker')){
+    document.querySelectorAll('.choicePicker.open').forEach(el=>el.classList.remove('open'));
+  }
   if(!target || target.disabled) return;
   const name=target.dataset.uiAction;
   if(!UI_ACTION_NAMES.has(name)) return;
@@ -777,6 +780,30 @@ function runUiFlow(flow,...values){
   if(flow==='app-back'){appBack();return}
   if(flow==='exit-module'){exitModule();return}
   if(flow==='navigate'){navigate(...values);return}
+  if(flow==='picker-toggle'){
+    event.stopPropagation();
+    const id = String(values[0]||'');
+    const picker = document.getElementById(`${id}Picker`);
+    if(!picker) return;
+    document.querySelectorAll('.choicePicker.open').forEach(el=>{ if(el!==picker) el.classList.remove('open'); });
+    picker.classList.toggle('open');
+    return;
+  }
+  if(flow==='picker-select'){
+    event.stopPropagation();
+    const [id,value,label,changeAction] = values.map(v=>String(v||''));
+    const input = document.getElementById(id);
+    const picker = document.getElementById(`${id}Picker`);
+    const labelEl = document.getElementById(`${id}PickerLabel`);
+    if(input) input.value = value;
+    if(labelEl) labelEl.textContent = label;
+    if(picker){
+      picker.classList.remove('open');
+      picker.querySelectorAll('.choicePicker-option').forEach(option=>option.classList.toggle('active', option.dataset.value===value));
+    }
+    if(changeAction==='fill-assignment') fillAssign();
+    return;
+  }
   if(flow==='navigate-main'){mobileNavActive=String(values[0]);navigateTo(String(values[0]));return}
   if(flow==='close-mobile-navigate'){document.getElementById('mobileNavModal')?.remove();navigateTo(String(values[0]));return}
   if(flow==='close-mobile-admin'){document.getElementById('mobileNavModal')?.remove();adminNavigateTo(String(values[0]));return}
@@ -1277,6 +1304,14 @@ function locationOperationalStatus(locationId){
     .sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
   const lastCleaning = cleaningReports[0] || null;
   const cleaningDue = !lastCleaning || nowTs-new Date(lastCleaning.createdAt||0).getTime()>(data.settings.frequencyMinutes||120)*60000;
+  const openTickets = (data.tickets||[]).filter(t=>
+    t.locationId===locationId &&
+    !['completed','rejected','cancelled'].includes(t.status)
+  );
+  const openHospitalityOrders = (data.hospitalityOrders||[]).filter(o=>
+    o.locationId===locationId &&
+    !['completed','cancelled','rejected'].includes(o.status)
+  );
   const openTicketBreaches = (data.tickets||[]).filter(t=>
     t.locationId===locationId &&
     t.slaBreached &&
@@ -1288,19 +1323,21 @@ function locationOperationalStatus(locationId){
     !['completed','cancelled','rejected'].includes(o.status)
   );
   const slaBreaches = openTicketBreaches.length + openHospitalityBreaches.length;
+  const activeRequests = openTickets.length + openHospitalityOrders.length;
   const badge = slaBreaches
     ? {cls:'bad', label:lang==='ar'?'SLA متأخر':'SLA overdue', icon:'bell'}
-    : cleaningDue
-      ? {cls:'warn', label:lang==='ar'?'تنظيف مستحق':'Cleaning due', icon:'bell'}
+    : activeRequests
+      ? {cls:'brand', label:lang==='ar'?'طلبات نشطة':'Active requests', icon:'sync'}
       : {cls:'ok', label:tr('good'), icon:'check'};
-  return { lastCleaning, cleaningDue, slaBreaches, badge };
+  return { lastCleaning, cleaningDue, slaBreaches, activeRequests, badge };
 }
 
 function locationStatusCardMeta(status){
   return `<div class="text-muted-xs-flex">
     ${ic(status.badge.icon,12)}
-    ${lang==='ar'?'آخر تقرير تنظيف':'Last cleaning report'}: <strong>${status.lastCleaning?fmt(status.lastCleaning.createdAt):tr('none')}</strong>
-    ${status.lastCleaning?`· ${esc(status.lastCleaning.workerName||'')}`:''}
+    ${status.activeRequests
+      ? `${status.activeRequests} ${lang==='ar'?'طلب مفتوح':'open request(s)'}`
+      : (lang==='ar'?'لا توجد طلبات مفتوحة':'No open requests')}
   </div>${status.slaBreaches?`<div class="text-muted-xs-flex">${ic('alert',12)} ${status.slaBreaches} ${lang==='ar'?'طلب متجاوز SLA':'SLA breached request(s)'}</div>`:''}`;
 }
 
@@ -1366,6 +1403,48 @@ function sel(id, items, opts={}){
     return `<option value="${esc(String(v))}"${s}>${esc(String(l))}</option>`;
   }).join('');
   return `<select id="${esc(id)}" class="${classes}"${ev}>${options}</select>`;
+}
+
+function choicePicker(id, items, opts={}){
+  const normalized = (items||[]).map(it=>({
+    v:String(typeof it==='object'?it.v:it),
+    l:String(typeof it==='object'?it.l:it)
+  }));
+  const selectedValue = opts.value!==undefined
+    ? String(opts.value)
+    : (normalized[0]?.v || '');
+  const selected = normalized.find(it=>it.v===selectedValue) || normalized[0] || null;
+  const label = selected?.l || opts.placeholder || (lang==='ar'?'اختر':'Select');
+  const disabled = opts.disabled || !normalized.length;
+  const changeAction = opts.changeAction || '';
+  return `<div class="choicePicker${disabled?' disabled':''}" id="${esc(id)}Picker" data-picker-id="${esc(id)}">
+    <input type="hidden" id="${esc(id)}" value="${esc(selected?.v||'')}">
+    <button type="button" class="choicePicker-control" ${disabled?'disabled':''} ${uiAction('runUiFlow',['picker-toggle',id])}>
+      <span class="choicePicker-label" id="${esc(id)}PickerLabel">${esc(label)}</span>
+      <span class="choicePicker-chevron">${ic('arrow',14)}</span>
+    </button>
+    <div class="choicePicker-menu" id="${esc(id)}PickerMenu">
+      ${normalized.map(it=>`<button type="button" class="choicePicker-option${it.v===(selected?.v||'')?' active':''}" data-value="${esc(it.v)}" ${uiAction('runUiFlow',['picker-select',id,it.v,it.l,changeAction])}>
+        ${esc(it.l)}
+      </button>`).join('')}
+    </div>
+  </div>`;
+}
+
+function setChoicePickerValue(id,value){
+  const input = document.getElementById(id);
+  const picker = document.getElementById(`${id}Picker`);
+  if(!input || !picker) return;
+  const next = String(value||'');
+  input.value = next;
+  let label = '';
+  picker.querySelectorAll('.choicePicker-option').forEach(option=>{
+    const active = option.dataset.value === next;
+    option.classList.toggle('active', active);
+    if(active) label = option.textContent.trim();
+  });
+  const labelEl = document.getElementById(`${id}PickerLabel`);
+  if(labelEl) labelEl.textContent = label || (lang==='ar'?'بدون تحديد':'Unscoped');
 }
 
 /* ── textarea ───────────────────────────────────────────────── */
@@ -4109,6 +4188,9 @@ function assignments(){
   const workers = (data.users||[]).filter(u=>u.role===workerRoles[module]);
   const supervisors = (data.users||[]).filter(u=>u.role===supervisorRoles[module]);
   const canSwitchModule = ['system_admin','facility_manager'].includes(me.role);
+  const noWorkersMsg = lang==='ar'
+    ? `لا يوجد عمال في قسم ${moduleLabels[module]} حالياً. أضف عامل من المستخدمين أولاً.`
+    : `No ${moduleLabels[module]} workers yet. Add a worker from Users first.`;
   return`
 <div class="pageHeader">
   <div class="pageHeader-left">
@@ -4124,11 +4206,13 @@ function assignments(){
   </div></div>`:''}
   <div class="field">
     <label>${tr('selectWorker')}</label>
-    ${sel('aw', workers.map(w=>({v:w.id,l:`${w.name} - ${w.username}`})), {changeAction:'fill-assignment'})}
+    ${workers.length
+      ? choicePicker('aw', workers.map(w=>({v:w.id,l:`${w.name} - ${w.username}`})), {changeAction:'fill-assignment'})
+      : `<div class="empty-inline">${ic('users',16)} ${noWorkersMsg}</div><input type="hidden" id="aw" value="">`}
   </div>
   <div class="field">
     <label>${lang==='ar'?'المشرف المسؤول':'Responsible Supervisor'}</label>
-    ${sel('asup',[{v:'',l:lang==='ar'?'بدون تحديد':'Unscoped'},...supervisors.map(s=>({v:s.id,l:s.name}))])}
+    ${choicePicker('asup',[{v:'',l:lang==='ar'?'بدون تحديد':'Unscoped'},...supervisors.map(s=>({v:s.id,l:s.name}))])}
   </div>
   <!-- FLOOR FILTER -->
   <div class="filterBar u-mb-16">
@@ -4153,7 +4237,7 @@ function assignments(){
       </label>`).join('')}
   </div>
   <div class="assignActions">
-    <button class="btn" ${uiAction('saveAssign',[])}>${ic('check',16)} ${tr('save')}</button>
+    <button class="btn" ${workers.length?'':'disabled'} ${uiAction('saveAssign',[])}>${ic('check',16)} ${tr('save')}</button>
   </div>
 </div>`;
 }
@@ -4176,13 +4260,13 @@ function fillAssign(){
   const module = activeAssignModule();
   const a = (data.assignments||[]).find(x=>x.workerId===aw.value && (x.module||'cleaning')===module);
   document.querySelectorAll('.asgCheck').forEach(c=>c.checked=!!(a?.locationIds?.includes(c.value)));
-  const sup = document.getElementById('asup');
-  if(sup) sup.value = a?.supervisorId || '';
+  setChoicePickerValue('asup', a?.supervisorId || '');
 }
 
 async function saveAssign(){
   const aw = document.getElementById('aw');
   if(!aw) return;
+  if(!aw.value) return toast(lang==='ar'?'اختر العامل أولاً':'Select a worker first','bad');
   await api('/assignments',{method:'POST',body:JSON.stringify({
     workerId:aw.value,
     module:activeAssignModule(),
@@ -4894,6 +4978,43 @@ function qrErrorMessage(err){
   return lang==='ar'?'تعذر فتح الكاميرا. تأكد من منح الإذن واستخدام HTTPS':'Camera access denied. Ensure permission is granted and using HTTPS';
 }
 
+function applyScannedLocation(facility){
+  const fields = [
+    {id:'empLocCode', after:()=>{}},
+    {id:'empHospLocInput', after:()=>{ empHospLocId = facility.id; localStorage.setItem('mrfq_hosp_loc', facility.id); }},
+    {id:'locCode', after:()=>setTimeout(()=>startForm(), 200)}
+  ];
+  for(const field of fields){
+    const el = document.getElementById(field.id);
+    if(el){
+      el.value = facility.id;
+      el.dispatchEvent(new Event('input',{bubbles:true}));
+      field.after();
+      toast(lang==='ar'?`تم فتح المرفق: ${locName(facility)}`:`Opened facility: ${locName(facility)}`,'ok');
+      return true;
+    }
+  }
+
+  sessionStorage.setItem('qr_loc', facility.id);
+  if(me?.role==='cleaner'){
+    workerStartLocation(facility.id);
+  }else if(me?.role==='employee'){
+    employeeView='new';
+    toast(lang==='ar'?'تم قراءة المرفق. اختر نوع الخدمة لإكمال الطلب.':'Facility scanned. Choose a service to continue.','ok');
+    renderEmployee();
+  }else if(['system_admin','facility_manager','cleaning_manager','maintenance_manager','hospitality_manager'].includes(me?.role)){
+    view='locations';
+    adminView='locations';
+    facilitiesSubView='locations';
+    mobileNavActive='locations';
+    toast(lang==='ar'?`تم قراءة المرفق: ${locName(facility)}`:`Scanned facility: ${locName(facility)}`,'ok');
+    render();
+  }else{
+    toast(lang==='ar'?`تم قراءة المرفق: ${locName(facility)}`:`Scanned facility: ${locName(facility)}`,'ok');
+  }
+  return true;
+}
+
 async function openQRScanner(){
   if(typeof Html5Qrcode === 'undefined'){
     toast(lang==='ar'?'مكتبة الماسح غير متوفرة':'QR scanner library not available','bad');
@@ -4935,35 +5056,20 @@ async function openQRScanner(){
   };
 
   const onDecoded = (decodedText) => {
-    let loc = decodedText.trim();
-    try {
-      const url = new URL(decodedText);
-      const param = url.searchParams.get('loc');
-      if(param) loc = param;
-    } catch(e){}
-
+    const raw = String(decodedText||'').trim();
     closeQRScanner();
 
-    const parsed = parseLoc(loc);
+    const parsed = parseLoc(raw);
     if(!parsed){
-      invalidLocationToast(loc);
+      invalidLocationToast(raw);
       return;
     }
     const facility = findLocationByCode(parsed);
     if(!facility){
-      toast(lang==='ar'?`الموقع "${parsed}" غير موجود في النظام`:`Location "${parsed}" not found`,'bad');
+      toast(lang==='ar'?`تمت قراءة QR لكن الموقع "${parsed}" غير موجود في النظام`:`QR read, but location "${parsed}" was not found`,'bad');
       return;
     }
-    const empInput = document.getElementById('empLocCode');
-    const locInput = document.getElementById('locCode');
-    const isEmployee = !!empInput;
-    const targetInput = isEmployee ? empInput : locInput;
-    if(targetInput){
-      targetInput.value = facility.id;
-      targetInput.dispatchEvent(new Event('input',{bubbles:true}));
-    }
-    toast(lang==='ar'?`تم التعرف على: ${locName(facility)}`:`Found: ${locName(facility)}`,'ok');
-    if(!isEmployee) setTimeout(()=>startForm(), 200);
+    applyScannedLocation(facility);
   };
 
   qrScannerInstance = new Html5Qrcode('qr-reader');
@@ -5171,6 +5277,9 @@ function employeeSubmitForm(){
   if(employeeServiceType==='hospitality') return employeeHospForm();
 
   const isMaintenance=employeeServiceType==='maintenance';
+  const queuedQrLoc = parseLoc(sessionStorage.getItem('qr_loc')||'');
+  const queuedFacility = queuedQrLoc ? findLocationByCode(queuedQrLoc) : null;
+  if(queuedFacility) sessionStorage.removeItem('qr_loc');
   const CATS = isMaintenance?['general','electrical','plumbing','hvac','civil']:['general','spill','restroom','meeting_room','emergency'];
   const CAT_ICONS = {general:'locations',spill:'alert-circle',restroom:'locations',meeting_room:'users',emergency:'bell',electrical:'alert',plumbing:'locations',hvac:'sync',civil:'building'};
   const catLabel=c=>isMaintenance?maintCatLabel(c):tr('cat_'+c);
@@ -5186,10 +5295,10 @@ function employeeSubmitForm(){
     <label>${lang==='ar'?'كود الموقع':'Location Code'}</label>
     <div class="locInput-row">
       <button class="locInput-scan" ${uiAction('openQRScanner',[])} title="${tr('scanQR')}" aria-label="${tr('scanQR')}">${ic('qr',18)}</button>
-      <div class="locInput-field">${inp('empLocCode',{cls:'ltr', placeholder:'wc-gf-a',inputAction:'employee-location'})}</div>
+      <div class="locInput-field">${inp('empLocCode',{cls:'ltr', value:queuedFacility?.id||'', placeholder:'wc-gf-a',inputAction:'employee-location'})}</div>
     </div>
   </div>
-  <div id="empLocName" class="u-status-help"></div>
+  <div id="empLocName" class="u-status-help">${queuedFacility?esc(lang==='ar'?queuedFacility.nameAr:queuedFacility.nameEn):''}</div>
 </div>
 
 <div class="wCard">
@@ -5226,6 +5335,13 @@ function employeeSubmitForm(){
 }
 
 function employeeHospForm(){
+  const queuedQrLoc = parseLoc(sessionStorage.getItem('qr_loc')||'');
+  const queuedFacility = queuedQrLoc ? findLocationByCode(queuedQrLoc) : null;
+  if(queuedFacility){
+    empHospLocId = queuedFacility.id;
+    localStorage.setItem('mrfq_hosp_loc', queuedFacility.id);
+    sessionStorage.removeItem('qr_loc');
+  }
   // Load menu data lazily
   if(!empHospMenuItems){
     Promise.all([
