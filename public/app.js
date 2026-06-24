@@ -2923,7 +2923,7 @@ function reportRatingControls(r){
   if(canResetRatings()) return `<div class="ratingRow">
     <div class="ratingGroup"><span class="ratingLabel">${tr('ratingBySupervisor')}</span>${starRatingWidget(r.id,'supervisor',r.ratingSupervisor)}</div>
     <div class="ratingGroup"><span class="ratingLabel">${tr('ratingByManager')}</span>${starRatingWidget(r.id,'manager',r.ratingManager)}</div>
-    ${(r.ratingSupervisor!=null||r.ratingManager!=null)?`<button class="btn secondary sm iconOnlyBtn ratingResetBtn" ${uiAction('resetReportRating',[(r.id)])} title="${lang==='ar'?'تصفير التقييم':'Reset rating'}" aria-label="${lang==='ar'?'تصفير التقييم':'Reset rating'}">${ic('trash',13)}</button>`:''}
+    ${(r.ratingSupervisor!=null||r.ratingManager!=null)?`<button class="btn secondary sm ratingResetBtn" ${uiAction('resetReportRating',[(r.id)])} title="${lang==='ar'?'تصفير التقييم':'Reset rating'}" aria-label="${lang==='ar'?'تصفير التقييم':'Reset rating'}">${ic('refresh',13)} ${lang==='ar'?'تصفير التقييم':'Reset rating'}</button>`:''}
   </div>`;
   return '';
 }
@@ -5166,7 +5166,7 @@ function employeeSubmitForm(){
     ${ta('empDesc','',{rows:3, placeholder:lang==='ar'?'صف المشكلة بالتفصيل...':'Describe the issue in detail...'})}
   </div>
   <div class="field">
-    <label>${lang==='ar'?'صورة (اختياري)':'Photo (optional)'}</label>
+    <label>${lang==='ar'?'صورة':'Photo'} <span class="${employeeServiceType==='maintenance'?'text-muted-normal':'status-text-bad'}">(${employeeServiceType==='maintenance'?(lang==='ar'?'اختياري':'optional'):(lang==='ar'?'إلزامي':'required')})</span></label>
     <button class="cameraBtn" ${uiAction('runUiFlow',['employee-camera'])}>
       ${ic('camera',20)}<span>${lang==='ar'?'إضافة صورة':'Add Photo'}</span>
     </button>
