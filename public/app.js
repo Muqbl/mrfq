@@ -589,6 +589,7 @@ let empHospLocId = '';
 let usersSearch = '', usersRoleFilter = 'all', usersStatusFilter = 'all';
 let locsFloorFilter = 'all';
 let facilitiesSubView = 'locations';
+let assignModule = 'cleaning';
 let assignFloorFilter = 'all';
 let showTicketCreate = false, showLocCreate = false, showZoneCreate = false;
 let mobileNavActive = '';
@@ -1260,6 +1261,48 @@ function canManageHospitalityMenu(){return ['system_admin','hospitality_manager'
 function canHospitalityAssign(){return ['system_admin','facility_manager','hospitality_manager','hospitality_supervisor'].includes(me.role)}
 function canHospitalityDelete(){return ['system_admin','facility_manager','hospitality_manager'].includes(me.role)}
 function locName(l){return lang==='ar'?(l.nameAr||l.nameEn):(l.nameEn||l.nameAr)}
+function moduleForCurrentRole(){
+  if(String(me?.role||'').startsWith('maintenance_')) return 'maintenance';
+  if(String(me?.role||'').startsWith('hospitality_')) return 'hospitality';
+  return 'cleaning';
+}
+function activeAssignModule(){
+  return ['system_admin','facility_manager'].includes(me?.role) ? assignModule : moduleForCurrentRole();
+}
+
+function locationOperationalStatus(locationId){
+  const nowTs = Date.now();
+  const cleaningReports = (data.reports||[])
+    .filter(r=>r.locationId===locationId && (r.module||'cleaning')==='cleaning')
+    .sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+  const lastCleaning = cleaningReports[0] || null;
+  const cleaningDue = !lastCleaning || nowTs-new Date(lastCleaning.createdAt||0).getTime()>(data.settings.frequencyMinutes||120)*60000;
+  const openTicketBreaches = (data.tickets||[]).filter(t=>
+    t.locationId===locationId &&
+    t.slaBreached &&
+    !['completed','rejected','cancelled'].includes(t.status)
+  );
+  const openHospitalityBreaches = (data.hospitalityOrders||[]).filter(o=>
+    o.locationId===locationId &&
+    (o.slaBreached || (o.slaDeadline && new Date(o.slaDeadline)<new Date())) &&
+    !['completed','cancelled','rejected'].includes(o.status)
+  );
+  const slaBreaches = openTicketBreaches.length + openHospitalityBreaches.length;
+  const badge = slaBreaches
+    ? {cls:'bad', label:lang==='ar'?'SLA متأخر':'SLA overdue', icon:'bell'}
+    : cleaningDue
+      ? {cls:'warn', label:lang==='ar'?'تنظيف مستحق':'Cleaning due', icon:'bell'}
+      : {cls:'ok', label:tr('good'), icon:'check'};
+  return { lastCleaning, cleaningDue, slaBreaches, badge };
+}
+
+function locationStatusCardMeta(status){
+  return `<div class="text-muted-xs-flex">
+    ${ic(status.badge.icon,12)}
+    ${lang==='ar'?'آخر تقرير تنظيف':'Last cleaning report'}: <strong>${status.lastCleaning?fmt(status.lastCleaning.createdAt):tr('none')}</strong>
+    ${status.lastCleaning?`· ${esc(status.lastCleaning.workerName||'')}`:''}
+  </div>${status.slaBreaches?`<div class="text-muted-xs-flex">${ic('alert',12)} ${status.slaBreaches} ${lang==='ar'?'طلب متجاوز SLA':'SLA breached request(s)'}</div>`:''}`;
+}
 
 function roleBadgeClass(role){
   return {system_admin:'role-admin',facility_manager:'role-fm',cleaning_manager:'role-cleaning-manager',cleaning_supervisor:'role-cs',cleaner:'role-cleaner',hospitality_manager:'role-cleaning-manager',hospitality_supervisor:'role-cs',hospitality_worker:'role-cleaner',maintenance_manager:'role-cleaning-manager',maintenance_supervisor:'role-cs',maintenance_worker:'role-cleaner'}[role]||'';
@@ -3748,8 +3791,7 @@ ${showLocCreate?`
   ${(data.locations||[]).filter(l=>{
     return locsFloorFilter==='all' || (l.floor||'')=== locsFloorFilter;
   }).map(l=>{
-    const last = data.reports.find(r=>r.locationId===l.id);
-    const late = !last||Date.now()-new Date(last.createdAt).getTime()>(data.settings.frequencyMinutes||120)*60000;
+    const status = locationOperationalStatus(l.id);
     const locQrPayload = `${location.origin}${location.pathname}?loc=${encodeURIComponent(l.id)}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(locQrPayload)}`;
     return`<div class="locCard">
@@ -3758,7 +3800,7 @@ ${showLocCreate?`
           <div class="locCard-name">${esc(locName(l))}</div>
           <div class="locCard-id">${esc(l.id)}</div>
         </div>
-        <span class="badge ${late?'bad':'ok'}">${late?tr('late'):tr('good')}</span>
+        <span class="badge ${status.badge.cls}">${status.badge.label}</span>
       </div>
       <div class="u-flex-wrap-gap-6">
         <span class="badge brand">${tr(l.type)}</span>
@@ -3766,11 +3808,7 @@ ${showLocCreate?`
         ${l.zone?`<span class="badge">${l.zone}</span>`:''}
         <span class="badge ${l.priority==='high'?'bad':l.priority==='low'?'info':'warn'}">${tr(l.priority||'medium')}</span>
       </div>
-      <div class="text-muted-xs-flex">
-        ${ic(late?'bell':'check',12)}
-        ${lang==='ar'?'آخر تقرير':'Last report'}: <strong>${last?fmt(last.createdAt):tr('none')}</strong>
-        ${last?`· ${esc(last.workerName||'')}`:'' }
-      </div>
+      ${locationStatusCardMeta(status)}
       <div class="locCard-actions">
         ${canManage()?`<button class="btn danger sm" ${uiAction('deleteLocConfirm',[(esc(l.id))])}>${ic('trash',13)} ${lang==='ar'?'حذف':'Delete'}</button>`:''}
         <details class="u-flex-1">
@@ -3848,14 +3886,13 @@ function _operationalTabContent(){
 </div></div>
 <div class="locGrid">
   ${(data.locations||[]).filter(l=>locsFloorFilter==='all'||(l.floor||'')===locsFloorFilter).map(l=>{
-    const last=data.reports.find(r=>r.locationId===l.id);
-    const late=!last||Date.now()-new Date(last.createdAt).getTime()>(data.settings.frequencyMinutes||120)*60000;
+    const status=locationOperationalStatus(l.id);
     const locQrPayload=`${location.origin}${location.pathname}?loc=${encodeURIComponent(l.id)}`;
     const qrUrl=`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(locQrPayload)}`;
     return`<div class="locCard">
       <div class="locCard-head">
         <div><div class="locCard-name">${esc(locName(l))}</div><div class="locCard-id">${esc(l.id)}</div></div>
-        <span class="badge ${late?'bad':'ok'}">${late?tr('late'):tr('good')}</span>
+        <span class="badge ${status.badge.cls}">${status.badge.label}</span>
       </div>
       <div class="u-flex-wrap-gap-6">
         <span class="badge brand">${tr(l.type)}</span>
@@ -3863,10 +3900,7 @@ function _operationalTabContent(){
         ${l.zone?`<span class="badge">${l.zone}</span>`:''}
         <span class="badge ${l.priority==='high'?'bad':l.priority==='low'?'info':'warn'}">${tr(l.priority||'medium')}</span>
       </div>
-      <div class="text-muted-xs-flex">
-        ${ic(late?'bell':'check',12)}
-        ${lang==='ar'?'آخر تقرير':'Last report'}: <strong>${last?fmt(last.createdAt):tr('none')}</strong>
-        ${last?`· ${esc(last.workerName||'')}`:''}</div>
+      ${locationStatusCardMeta(status)}
       <div class="locCard-actions">
         ${canManage()?`<button class="btn danger sm" ${uiAction('deleteLocConfirm',[(esc(l.id))])}>${ic('trash',13)} ${lang==='ar'?'حذف':'Delete'}</button>`:''}
         <details class="u-flex-1">
@@ -4064,22 +4098,37 @@ async function deleteLocConfirm(id){
    ASSIGNMENTS PAGE
    ═══════════════════════════════════════════════════════════════ */
 function assignments(){
-  const workers = (data.users||[]).filter(u=>u.role==='cleaner');
+  const module = activeAssignModule();
+  const workerRoles = {cleaning:'cleaner', maintenance:'maintenance_worker', hospitality:'hospitality_worker'};
+  const supervisorRoles = {cleaning:'cleaning_supervisor', maintenance:'maintenance_supervisor', hospitality:'hospitality_supervisor'};
+  const moduleLabels = {
+    cleaning: lang==='ar'?'النظافة':'Cleaning',
+    maintenance: lang==='ar'?'الصيانة':'Maintenance',
+    hospitality: lang==='ar'?'الضيافة':'Hospitality'
+  };
+  const workers = (data.users||[]).filter(u=>u.role===workerRoles[module]);
+  const supervisors = (data.users||[]).filter(u=>u.role===supervisorRoles[module]);
+  const canSwitchModule = ['system_admin','facility_manager'].includes(me.role);
   return`
 <div class="pageHeader">
   <div class="pageHeader-left">
     <div class="pageTitle">${tr('assignments')}</div>
-    <div class="pageSub">${(data.users||[]).filter(u=>u.role==='cleaner').length} ${lang==='ar'?'عامل':'workers'}</div>
+    <div class="pageSub">${moduleLabels[module]} · ${workers.length} ${lang==='ar'?'عضو فريق':'team members'}</div>
   </div>
 </div>
 <div class="card">
+  ${canSwitchModule?`<div class="filterBar u-mb-16"><div class="filterChips">
+    ${['cleaning','maintenance','hospitality'].map(m=>`
+      <button class="filterChip${module===m?' active':''}" ${uiAction('runUiFlow',['navigate','assignModule',m,null,'render'])}>${moduleLabels[m]}</button>
+    `).join('')}
+  </div></div>`:''}
   <div class="field">
     <label>${tr('selectWorker')}</label>
     ${sel('aw', workers.map(w=>({v:w.id,l:`${w.name} - ${w.username}`})), {changeAction:'fill-assignment'})}
   </div>
   <div class="field">
     <label>${lang==='ar'?'المشرف المسؤول':'Responsible Supervisor'}</label>
-    ${sel('asup',[{v:'',l:lang==='ar'?'بدون تحديد':'Unscoped'},...(data.users||[]).filter(u=>u.role==='cleaning_supervisor').map(s=>({v:s.id,l:s.name}))])}
+    ${sel('asup',[{v:'',l:lang==='ar'?'بدون تحديد':'Unscoped'},...supervisors.map(s=>({v:s.id,l:s.name}))])}
   </div>
   <!-- FLOOR FILTER -->
   <div class="filterBar u-mb-16">
@@ -4124,7 +4173,8 @@ function filterAssignFloor(floor){
 function fillAssign(){
   const aw = document.getElementById('aw');
   if(!aw) return;
-  const a = (data.assignments||[]).find(x=>x.workerId===aw.value);
+  const module = activeAssignModule();
+  const a = (data.assignments||[]).find(x=>x.workerId===aw.value && (x.module||'cleaning')===module);
   document.querySelectorAll('.asgCheck').forEach(c=>c.checked=!!(a?.locationIds?.includes(c.value)));
   const sup = document.getElementById('asup');
   if(sup) sup.value = a?.supervisorId || '';
@@ -4135,6 +4185,7 @@ async function saveAssign(){
   if(!aw) return;
   await api('/assignments',{method:'POST',body:JSON.stringify({
     workerId:aw.value,
+    module:activeAssignModule(),
     supervisorId:document.getElementById('asup')?.value||'',
     locationIds:[...document.querySelectorAll('.asgCheck:checked')].map(x=>x.value)
   })});
@@ -4987,7 +5038,8 @@ async function submitReport(locationId){
       : { photos: currentPhotos })
   };
   if(currentTicketId){
-    try{await api(maintenanceTicketApi('/complete'),{method:'POST',body:JSON.stringify({id:currentTicketId,photos:currentPhotos,notes:payload.notes})})}
+    const ticketPhotos = [...currentPhotos, ...currentBeforePhotos, ...currentAfterPhotos];
+    try{await api(maintenanceTicketApi('/complete'),{method:'POST',body:JSON.stringify({id:currentTicketId,photos:ticketPhotos,notes:payload.notes})})}
     catch(e){}
     currentTicketId = null;
   }

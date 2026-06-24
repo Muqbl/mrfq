@@ -303,6 +303,9 @@ test('non-cleaner roles cannot use /api/tickets/complete (403)', async () => {
 
 test('worker completes ticket -> waiting_verification', async () => {
   const worker4 = await login('worker4', PASSWORDS.worker);
+  const missingPhoto = await worker4('/api/tickets/complete', { method: 'POST', body: JSON.stringify({ id: ticketId, notes: 'بدون صورة' }) });
+  assert.equal(missingPhoto.status, 400);
+  assert.equal(missingPhoto.body.error, 'PHOTO_REQUIRED');
   const r = await worker4('/api/tickets/complete', { method: 'POST', body: JSON.stringify({ id: ticketId, notes: 'تم التنظيف', photos: [TINY_PNG] }) });
   assert.equal(r.status, 200);
   assert.equal(r.body.ticket.status, 'waiting_verification');
@@ -709,6 +712,42 @@ test('cleaning supervisor scope can be limited to assigned workers', async () =>
   assert.equal(visibleUserIds.has('u-s1'), true);
   assert.equal(visibleUserIds.has('u-w4'), true);
   assert.equal(visibleUserIds.has('u-w5'), false);
+
+  const perf = await supervisor('/api/performance');
+  assert.equal(perf.status, 200);
+  const perfIds = new Set(perf.body.metrics.map(w => w.id));
+  assert.equal(perfIds.has('u-w4'), true);
+  assert.equal(perfIds.has('u-w5'), false);
+});
+
+test('maintenance supervisor scope is isolated by assignment module', async () => {
+  const admin = await login('admin', PASSWORDS.admin);
+  const second = await admin('/api/users', { method:'POST', body:JSON.stringify({
+    username:'maint-worker-scope2', name:'فني صيانة نطاق ثاني', role:'maintenance_worker', password:PASSWORDS.worker
+  }) });
+  assert.equal(second.status, 200);
+
+  const manager = await login('maint-manager', PASSWORDS.worker);
+  const boot = await manager('/api/bootstrap');
+  const supervisor = boot.body.users.find(u => u.username === 'maint-supervisor');
+  assert.ok(supervisor);
+  const scoped = await manager('/api/assignments', { method:'POST', body:JSON.stringify({
+    module:'maintenance', workerId:maintenanceWorkerId, supervisorId:supervisor.id, locationIds:['lobby-gf']
+  }) });
+  assert.equal(scoped.status, 200);
+
+  const maintSupervisor = await login('maint-supervisor', PASSWORDS.worker);
+  const supervisorBoot = await maintSupervisor('/api/bootstrap');
+  const visibleUserIds = new Set(supervisorBoot.body.users.map(u => u.id));
+  assert.equal(visibleUserIds.has(supervisor.id), true);
+  assert.equal(visibleUserIds.has(maintenanceWorkerId), true);
+  assert.equal(visibleUserIds.has(second.body.user.id), false);
+  assert.ok(supervisorBoot.body.assignments.every(a => a.module === 'maintenance'));
+
+  const cleared = await manager('/api/assignments', { method:'POST', body:JSON.stringify({
+    module:'maintenance', workerId:maintenanceWorkerId, supervisorId:'', locationIds:[]
+  }) });
+  assert.equal(cleared.status, 200);
 });
 
 test('maintenance: worker can progress only own assigned ticket', async () => {

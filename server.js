@@ -438,9 +438,7 @@ function canReview(role)       { return ['system_admin','facility_manager','clea
 function canDelete(role)       { return ['system_admin','facility_manager','cleaning_manager'].includes(role); }
 function allowedRoleEditor(editorRole, targetRole) {
   if (editorRole === 'system_admin') return true;
-  if (editorRole === 'cleaning_manager') return ['cleaning_supervisor','cleaner'].includes(targetRole);
-  if (editorRole === 'maintenance_manager') return ['maintenance_supervisor','maintenance_worker'].includes(targetRole);
-  return false;
+  return permissions.canEditModuleRole(editorRole, targetRole);
 }
 
 function moduleForRole(role) {
@@ -512,12 +510,14 @@ function dbSettings() {
   };
 }
 function dbAssignments() {
-  const rows = getDb().prepare('SELECT worker_id, location_id, supervisor_id FROM assignments').all();
+  const rows = getDb().prepare('SELECT worker_id, location_id, supervisor_id, module FROM assignments').all();
   const map  = {};
   rows.forEach(r => {
-    if (!map[r.worker_id]) map[r.worker_id] = { workerId: r.worker_id, locationIds: [], supervisorId: r.supervisor_id || '' };
-    map[r.worker_id].locationIds.push(r.location_id);
-    if (r.supervisor_id) map[r.worker_id].supervisorId = r.supervisor_id;
+    const module = r.module || 'cleaning';
+    const key = `${module}:${r.worker_id}`;
+    if (!map[key]) map[key] = { workerId: r.worker_id, module, locationIds: [], supervisorId: r.supervisor_id || '' };
+    map[key].locationIds.push(r.location_id);
+    if (r.supervisor_id) map[key].supervisorId = r.supervisor_id;
   });
   return Object.values(map);
 }
@@ -970,13 +970,17 @@ function maintenanceTicketsForRole(me, allTickets) {
   return maintenanceTickets.filter(t => t.assignedTo === me.id || assignedIds.has(t.id));
 }
 
-function cleaningSupervisorScope(supervisorId, assignments = dbAssignments()) {
-  const scoped = assignments.filter(a => a.supervisorId === supervisorId);
+function supervisorScope(supervisorId, module, assignments = dbAssignments()) {
+  const scoped = assignments.filter(a => a.supervisorId === supervisorId && (a.module || 'cleaning') === module);
   return {
     enabled: scoped.length > 0,
     workerIds: new Set(scoped.map(a => a.workerId)),
     locationIds: new Set(scoped.flatMap(a => a.locationIds || []))
   };
+}
+
+function cleaningSupervisorScope(supervisorId, assignments = dbAssignments()) {
+  return supervisorScope(supervisorId, 'cleaning', assignments);
 }
 
 function cleaningTicketsForSupervisor(me, allTickets, assignments) {
@@ -1000,6 +1004,26 @@ function cleaningReportsForSupervisor(me, allReports, assignments) {
   return cleaningReports.filter(r => scope.workerIds.has(r.workerId) || scope.locationIds.has(r.locationId));
 }
 
+function moduleTicketsForSupervisor(me, allTickets, assignments, module) {
+  const tickets = allTickets.filter(t => t.module === module);
+  const scope = supervisorScope(me.id, module, assignments);
+  if (!scope.enabled) return tickets;
+  return tickets.filter(t => scope.workerIds.has(t.assignedTo) || scope.locationIds.has(t.locationId));
+}
+
+function moduleReportsForSupervisor(me, allReports, assignments, module) {
+  const reports = allReports.filter(r => r.module === module);
+  const scope = supervisorScope(me.id, module, assignments);
+  if (!scope.enabled) return reports;
+  return reports.filter(r => scope.workerIds.has(r.workerId) || scope.locationIds.has(r.locationId));
+}
+
+function hospitalityOrdersForSupervisor(me, allOrders, assignments) {
+  const scope = supervisorScope(me.id, 'hospitality', assignments);
+  if (!scope.enabled) return allOrders;
+  return allOrders.filter(o => scope.workerIds.has(o.assignedTo) || scope.locationIds.has(o.locationId));
+}
+
 function canActOnCleaningTicket(me, ticket) {
   if (['system_admin','facility_manager','cleaning_manager'].includes(me.role)) return true;
   if (me.role !== 'cleaning_supervisor') return false;
@@ -1020,13 +1044,16 @@ function buildBootstrap(me) {
   const allReports  = dbReports();
   const visibleMaintenanceTickets = maintenanceTicketsForRole(me, allTickets);
   const allHospitalityOrders = dbHospitalityOrders();
+  const visibleHospitalityOrders = me.role === 'hospitality_supervisor'
+    ? hospitalityOrdersForSupervisor(me, allHospitalityOrders, assignments)
+    : hospitalityOrdersForRole(me, allHospitalityOrders);
   const allRecurringTasks    = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(me.role)
     ? dbRecurringTasks() : [];
 
   const maintenance = ['system_admin','facility_manager','maintenance_manager','maintenance_supervisor','maintenance_worker'].includes(me.role)
     ? maintenancePayload(me, visibleMaintenanceTickets) : {};
   const base = { user: publicUser(me), locations, zones, settings, recurringTasks: allRecurringTasks, maintenance };
-  const hospitalityOrders = hospitalityOrdersForRole(me, allHospitalityOrders);
+  const hospitalityOrders = visibleHospitalityOrders;
 
   if (me.role === 'employee') {
     return {
@@ -1039,7 +1066,7 @@ function buildBootstrap(me) {
     };
   }
   if (me.role === 'cleaner') {
-    const myAssign = assignments.find(a => a.workerId === me.id);
+    const myAssign = assignments.find(a => a.workerId === me.id && (a.module || 'cleaning') === 'cleaning');
     return {
       ...base,
       users:       [publicUser(me)],
@@ -1064,7 +1091,7 @@ function buildBootstrap(me) {
     };
   }
   if (me.role === 'maintenance_worker') {
-    const myAssign = assignments.find(a => a.workerId === me.id);
+    const myAssign = assignments.find(a => a.workerId === me.id && a.module === 'maintenance');
     return {
       ...base,
       users:       [publicUser(me)],
@@ -1075,12 +1102,16 @@ function buildBootstrap(me) {
     };
   }
   if (me.role === 'maintenance_supervisor') {
+    const scope = supervisorScope(me.id, 'maintenance', assignments);
+    const usersForSupervisor = scope.enabled
+      ? users.filter(u => u.id === me.id || scope.workerIds.has(u.id))
+      : users.filter(u => ['maintenance_worker','maintenance_supervisor'].includes(u.role));
     return {
       ...base,
-      users:       users.filter(u => ['maintenance_worker','maintenance_supervisor'].includes(u.role)).map(publicUser),
-      assignments,
-      tickets:     allTickets.filter(t => t.module === 'maintenance'),
-      reports:     allReports.filter(r => r.module === 'maintenance'),
+      users:       usersForSupervisor.map(publicUser),
+      assignments: scope.enabled ? assignments.filter(a => a.supervisorId === me.id && a.module === 'maintenance') : assignments,
+      tickets:     moduleTicketsForSupervisor(me, allTickets, assignments, 'maintenance'),
+      reports:     moduleReportsForSupervisor(me, allReports, assignments, 'maintenance'),
       hospitalityOrders: []
     };
   }
@@ -1105,10 +1136,14 @@ function buildBootstrap(me) {
     };
   }
   if (me.role === 'hospitality_supervisor' || me.role === 'hospitality_manager') {
+    const scope = me.role === 'hospitality_supervisor' ? supervisorScope(me.id, 'hospitality', assignments) : { enabled: false, workerIds: new Set() };
+    const usersForHospitality = scope.enabled
+      ? users.filter(u => u.id === me.id || scope.workerIds.has(u.id))
+      : users.filter(u => ['hospitality_worker','hospitality_supervisor','hospitality_manager'].includes(u.role));
     return {
       ...base,
-      users:       users.filter(u => ['hospitality_worker','hospitality_supervisor','hospitality_manager'].includes(u.role)).map(publicUser),
-      assignments: [],
+      users:       usersForHospitality.map(publicUser),
+      assignments: scope.enabled ? assignments.filter(a => a.supervisorId === me.id && a.module === 'hospitality') : assignments,
       tickets:     [],
       reports:     [],
       hospitalityOrders
@@ -1387,6 +1422,7 @@ function autoAssign(locationId, db) {
     JOIN  users u ON u.id = a.worker_id
       AND u.active = 1 AND u.deleted_at IS NULL AND u.role = 'cleaner'
     WHERE a.location_id = ?
+      AND a.module = 'cleaning'
     ORDER BY open_count ASC
     LIMIT 1
   `).get(locationId) || null;
@@ -1747,23 +1783,28 @@ const server = http.createServer(async (req, res) => {
 
       /* ── ASSIGNMENTS ────────────────────────────────────────── */
       if (req.method === 'POST' && url.pathname === '/api/assignments') {
-        if (!canManageGlobalUsers(me.role) && !canManageModuleTeam(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const canManageAssignments = canManageGlobalUsers(me.role) || me.role === 'facility_manager' || canManageModuleTeam(me.role);
+        if (!canManageAssignments) return send(res, 403, { error: 'FORBIDDEN' });
         const b          = await bodyJSON(req);
         const workerId   = sanitize(b.workerId, 50);
+        const module = ['cleaning','maintenance','hospitality'].includes(b.module) ? b.module : moduleForRole(me.role);
+        const workerRoles = { cleaning:'cleaner', maintenance:'maintenance_worker', hospitality:'hospitality_worker' };
+        const supervisorRoles = { cleaning:'cleaning_supervisor', maintenance:'maintenance_supervisor', hospitality:'hospitality_supervisor' };
         const worker = db.prepare('SELECT role FROM users WHERE id=? AND deleted_at IS NULL').get(workerId);
         if (!worker) return send(res, 404, { error: 'USER_NOT_FOUND' });
-        if (!canManageGlobalUsers(me.role) && !allowedRoleEditor(me.role, worker.role)) return send(res, 403, { error: 'ROLE_NOT_ALLOWED' });
+        if (!canManageGlobalUsers(me.role) && me.role !== 'facility_manager' && !allowedRoleEditor(me.role, worker.role)) return send(res, 403, { error: 'ROLE_NOT_ALLOWED' });
+        if (worker.role !== workerRoles[module]) return send(res, 400, { error: 'WORKER_ROLE_MISMATCH' });
         const locationIds = Array.isArray(b.locationIds)
           ? b.locationIds.map(l => sanitize(l, 80)).filter(Boolean) : [];
         const supervisorId = sanitize(b.supervisorId || '', 50);
         if (supervisorId) {
-          const sup = db.prepare("SELECT role FROM users WHERE id=? AND role='cleaning_supervisor' AND active=1 AND deleted_at IS NULL").get(supervisorId);
+          const sup = db.prepare("SELECT role FROM users WHERE id=? AND role=? AND active=1 AND deleted_at IS NULL").get(supervisorId, supervisorRoles[module]);
           if (!sup) return send(res, 400, { error: 'SUPERVISOR_NOT_FOUND' });
         }
         db.transaction(() => {
-          db.prepare('DELETE FROM assignments WHERE worker_id = ?').run(workerId);
-          const ins = db.prepare('INSERT OR IGNORE INTO assignments (worker_id,location_id,created_at,supervisor_id) VALUES (?,?,?,?)');
-          locationIds.forEach(lid => ins.run(workerId, lid, now(), supervisorId));
+          db.prepare('DELETE FROM assignments WHERE worker_id = ? AND module = ?').run(workerId, module);
+          const ins = db.prepare('INSERT OR IGNORE INTO assignments (worker_id,location_id,created_at,supervisor_id,module) VALUES (?,?,?,?,?)');
+          locationIds.forEach(lid => ins.run(workerId, lid, now(), supervisorId, module));
         })();
         return send(res, 200, { ok: true });
       }
@@ -1823,7 +1864,8 @@ const server = http.createServer(async (req, res) => {
         if (!(TICKET_TRANSITIONS[t.status] || []).includes('waiting_verification')) {
           return send(res, 400, { error: 'INVALID_TRANSITION' });
         }
-        processPhotos(b.photos, me.id, null, t.id);
+        const savedPhotos = processPhotos(b.photos, me.id, null, t.id);
+        if (!savedPhotos.length) return send(res, 400, { error: 'PHOTO_REQUIRED' });
         const completionMins = Math.round((Date.now() - new Date(t.created_at).getTime()) / 60_000);
         const slaBreached    = t.sla_deadline && new Date(t.sla_deadline) < new Date() ? 1 : (t.sla_breached || 0);
         const completedTs    = now();
@@ -2750,9 +2792,13 @@ const server = http.createServer(async (req, res) => {
       /* ── PERFORMANCE METRICS (supervisor/manager) ────────────── */
       if (req.method === 'GET' && url.pathname === '/api/performance') {
         if (!canReview(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
-        const workers = db.prepare(
+        let workers = db.prepare(
           "SELECT * FROM users WHERE role='cleaner' AND active=1 AND deleted_at IS NULL"
         ).all();
+        if (me.role === 'cleaning_supervisor') {
+          const scope = cleaningSupervisorScope(me.id);
+          if (scope.enabled) workers = workers.filter(w => scope.workerIds.has(w.id));
+        }
         const now30 = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
         const nowStr = now();
         const metrics = workers.map(w => {
