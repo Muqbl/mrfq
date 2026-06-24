@@ -4905,7 +4905,7 @@ async function openQRScanner(){
       invalidLocationToast(loc);
       return;
     }
-    const facility = (data.locations||[]).find(l=>l.id===parsed);
+    const facility = findLocationByCode(parsed);
     if(!facility){
       toast(lang==='ar'?`الموقع "${parsed}" غير موجود في النظام`:`Location "${parsed}" not found`,'bad');
       return;
@@ -4915,7 +4915,7 @@ async function openQRScanner(){
     const isEmployee = !!empInput;
     const targetInput = isEmployee ? empInput : locInput;
     if(targetInput){
-      targetInput.value = parsed;
+      targetInput.value = facility.id;
       targetInput.dispatchEvent(new Event('input',{bubbles:true}));
     }
     toast(lang==='ar'?`تم التعرف على: ${locName(facility)}`:`Found: ${locName(facility)}`,'ok');
@@ -5279,10 +5279,11 @@ function empHospCartAdd(id, delta){
 }
 
 async function submitEmployeeHospOrder(){
-  const locId=empHospLocId||parseLoc(document.getElementById('empHospLocInput')?.value||'');
-  if(!locId)return toast(lang==='ar'?'أدخل كود الموقع':'Enter location code','bad');
-  const loc=(data.locations||[]).find(l=>l.id===locId);
-  if(!loc)return toast(lang==='ar'?`الموقع "${locId}" غير موجود`:`Location "${locId}" not found`,'bad');
+  const rawHospCode=empHospLocId||parseLoc(document.getElementById('empHospLocInput')?.value||'');
+  if(!rawHospCode)return toast(lang==='ar'?'أدخل كود الموقع':'Enter location code','bad');
+  const loc=findLocationByCode(rawHospCode);
+  if(!loc)return toast(lang==='ar'?`الموقع "${rawHospCode}" غير موجود`:`Location "${rawHospCode}" not found`,'bad');
+  const locId=loc.id;
   const kitchenId=document.getElementById('empHospKitchen')?.value;
   if(!kitchenId)return toast(lang==='ar'?'اختر المطبخ':'Select a kitchen','bad');
   const cartTotal=Object.values(empHospCart).reduce((s,v)=>s+v,0);
@@ -8052,12 +8053,12 @@ async function refreshInventory(){
     if(queued && me && (me.role==='cleaner'||me.role==='employee')){
       const id = parseLoc(queued);
       sessionStorage.removeItem('qr_loc');
-      const facility = (data && data.locations||[]).find(l=>l.id===id);
+      const facility = findLocationByCode(id);
       if(facility){
         setTimeout(()=>{
           const el = document.getElementById(me.role==='employee'?'empLocCode':'locCode');
           if(el){
-            el.value = id;
+            el.value = facility.id;
             el.dispatchEvent(new Event('input',{bubbles:true}));
             if(me.role==='cleaner') startForm();
           }
