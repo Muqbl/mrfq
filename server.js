@@ -2723,6 +2723,9 @@ const server = http.createServer(async (req, res) => {
           return send(res, 403, { error: 'SERVICE_DISABLED' });
         const loc = db.prepare('SELECT * FROM locations WHERE id = ? AND deleted_at IS NULL').get(sanitize(b.locationId, 80));
         if (!loc) return send(res, 404, { error: 'LOCATION_NOT_FOUND' });
+        // A cleaning request must include photo evidence of the issue.
+        if (serviceType === 'cleaning' && !(typeof b.photo === 'string' && b.photo.trim()))
+          return send(res, 400, { error: 'PHOTO_REQUIRED' });
         const VALID_CATS = serviceType === 'maintenance'
           ? ['electrical','plumbing','hvac','civil','general']
           : ['general','spill','restroom','meeting_room','emergency'];

@@ -637,9 +637,16 @@ test('employee creates a maintenance request from the unified order endpoint', a
 test('employee cleaning request is routed manager -> supervisor -> worker', async () => {
   const employee = await login('employee1', PASSWORDS.worker);
   const boot = await employee('/api/bootstrap');
+  // A cleaning request without photo evidence is rejected.
+  const noPhoto = await employee('/api/order', { method:'POST', body:JSON.stringify({
+    serviceType:'cleaning', locationId:boot.body.locations[0].id, category:'restroom', description:'بدون صورة'
+  }) });
+  assert.equal(noPhoto.status, 400);
+  assert.equal(noPhoto.body.error, 'PHOTO_REQUIRED');
+
   const created = await employee('/api/order', { method:'POST', body:JSON.stringify({
     serviceType:'cleaning', locationId:boot.body.locations[0].id, category:'restroom', description:'طلب تنظيف من موظف',
-    assignedTo:'u-w3'
+    assignedTo:'u-w3', photo: TINY_PNG
   }) });
   assert.equal(created.status, 200);
   assert.equal(created.body.ticket.module, 'cleaning');

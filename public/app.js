@@ -851,14 +851,13 @@ document.addEventListener('input',event=>{
     render();
   }
   if(action==='employee-location'){
-    const id=parseLoc(event.target.value);
-    const location=(data?.locations||[]).find(item=>item.id===id);
+    const location=findLocationByCode(parseLoc(event.target.value));
     const label=document.getElementById('empLocName');
     if(label) label.textContent=location?(lang==='ar'?location.nameAr:location.nameEn):'';
   }
   if(action==='hospitality-location'){
-    empHospLocId=parseLoc(event.target.value);
-    const location=(data?.locations||[]).find(item=>item.id===empHospLocId);
+    const location=findLocationByCode(parseLoc(event.target.value));
+    empHospLocId=location?location.id:'';
     const label=document.getElementById('empHospLocName');
     if(label) label.textContent=location?(lang==='ar'?location.nameAr:location.nameEn):'';
     if(empHospLocId) localStorage.setItem('mrfq_hosp_loc',empHospLocId);
@@ -2954,19 +2953,19 @@ function reportCard(r,full){
         <span class="badge u-inline-auto">${ic('arrow',11)} ${lang==='ar'?'تفاصيل':'Details'}</span>
       </div>
     </div>
-    ${full&&canReview()&&['pending','pending_approval'].includes(st)?`
-      <div class="reportCard-actions" ${uiAction('runUiFlow',['stop-propagation'])}>
-        <div class="reportCard-actions-primary">
-          <button class="btn ok sm action-btn" ${uiAction('reviewReport',[(r.id),'approved'])}>${ic('check',13)} ${tr('approve')}</button>
-        </div>
-        <div class="reportCard-actions-secondary${canDelete()?'':' reportCard-actions-secondary--full'}">
-          ${canSupervisorEscalateReport
-            ? `<button class="btn warn sm action-btn" ${uiAction('supReportEscalatePrompt',[(r.id)])}>${ic('camera',13)} ${lang==='ar'?'تصعيد':'Escalate'}</button>`
-            : `<button class="btn warn sm action-btn" ${uiAction('reviewReport',[(r.id),'needs_recleaning'])}>${ic('flip',13)} ${r.module==='maintenance'?(lang==='ar'?'إعادة العمل':'Rework'):tr('reclean')}</button>`}
-          ${r.module==='maintenance'?`<button class="btn danger sm action-btn" ${uiAction('reviewReport',[(r.id),'rejected'])}>${ic('x',13)} ${tr('reject')}</button>`:''}
-        </div>
-        ${canDelete()?`<div class="reportCard-actions-danger"><button class="btn secondary sm action-btn reportDeleteBtn" ${uiAction('deleteReport',[(r.id)])} aria-label="${lang==='ar'?'حذف التقرير':'Delete report'}" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button></div>`:''}
-      </div>`:''}
+    ${(()=>{
+      const showReview=full&&canReview()&&['pending','pending_approval'].includes(st);
+      const showDelete=full&&canDelete();
+      if(!showReview&&!showDelete) return '';
+      return `<div class="reportCard-actions" ${uiAction('runUiFlow',['stop-propagation'])}>
+        ${showReview?`<button class="btn ok sm action-btn" ${uiAction('reviewReport',[(r.id),'approved'])}>${ic('check',13)} ${tr('approve')}</button>
+        ${canSupervisorEscalateReport
+          ? `<button class="btn warn sm action-btn" ${uiAction('supReportEscalatePrompt',[(r.id)])}>${ic('camera',13)} ${lang==='ar'?'تصعيد':'Escalate'}</button>`
+          : `<button class="btn warn sm action-btn" ${uiAction('reviewReport',[(r.id),'needs_recleaning'])}>${ic('flip',13)} ${r.module==='maintenance'?(lang==='ar'?'إعادة العمل':'Rework'):tr('reclean')}</button>`}
+        ${r.module==='maintenance'?`<button class="btn danger sm action-btn" ${uiAction('reviewReport',[(r.id),'rejected'])}>${ic('x',13)} ${tr('reject')}</button>`:''}`:''}
+        ${showDelete?`<button class="btn secondary sm action-btn reportDeleteBtn" ${uiAction('deleteReport',[(r.id)])} aria-label="${lang==='ar'?'حذف التقرير':'Delete report'}" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button>`:''}
+      </div>`;
+    })()}
     ${full&&canReview()?`<div ${uiAction('runUiFlow',['stop-propagation'])}>${reportRatingControls(r)}</div>`:''}
   </article>`;
 }
@@ -4464,6 +4463,22 @@ function isLikelyUrl(raw){
   return /^https?:\/\//i.test(String(raw||'').trim());
 }
 
+// Normalize a facility code so printed labels with different zero-padding match
+// the stored code, e.g. "MF-WS-018" -> "MF-WS-18", "GF-WS-006" -> "GF-WS-6".
+function normalizeCode(s){
+  return String(s||'').trim().toUpperCase().replace(/\s+/g,'').replace(/\d+/g, d=>String(parseInt(d,10)));
+}
+// Resolve a typed/scanned code to a real location: exact match first, then a
+// zero-padding-tolerant match. Returns the location object or null.
+function findLocationByCode(code){
+  const locs = data.locations||[];
+  const c = String(code||'').trim();
+  if(!c) return null;
+  return locs.find(l=>l.id.toUpperCase()===c.toUpperCase())
+      || locs.find(l=>normalizeCode(l.id)===normalizeCode(c))
+      || null;
+}
+
 function invalidLocationToast(raw){
   const msg = isLikelyUrl(raw)
     ? (lang==='ar'?'رمز QR أو الرابط لا يحتوي على كود موقع صالح':'The QR code or link does not contain a valid location code')
@@ -4607,14 +4622,15 @@ function startForm(){
   const locCode = document.getElementById('locCode');
   if(!locCode) return;
   const raw = locCode.value;
-  const id = parseLoc(raw);
-  if(!id) return invalidLocationToast(raw);
-  locCode.value = id;
-  const loc = (data.locations||[]).find(l=>l.id===id);
+  const code = parseLoc(raw);
+  if(!code) return invalidLocationToast(raw);
+  const loc = findLocationByCode(code);
   if(!loc){
-    toast(lang==='ar'?`الموقع "${id}" غير موجود في النظام`:`Location "${id}" not found in system`,'bad');
+    toast(lang==='ar'?`الموقع "${code}" غير موجود في النظام`:`Location "${code}" not found in system`,'bad');
     return;
   }
+  const id = loc.id;
+  locCode.value = id;
   const asg = (data.assignments||[]).find(a=>a.workerId===me.id);
   if(asg&&asg.locationIds.length&&!asg.locationIds.includes(id)) return toast(tr('notAssigned'),'bad');
   currentBeforePhotos = []; currentAfterPhotos = [];
@@ -5385,17 +5401,19 @@ function employeeHistory(orders){
 async function submitEmployeeOrder(){
   const locInput = document.getElementById('empLocCode');
   const rawLoc = locInput?.value || '';
-  const locId = parseLoc(rawLoc);
+  const code = parseLoc(rawLoc);
   const category = document.getElementById('empCatVal')?.value || 'general';
   const serviceType = employeeServiceType==='maintenance'?'maintenance':'cleaning';
   const desc = document.getElementById('empDesc')?.value.trim() || '';
-  if(!locId) return invalidLocationToast(rawLoc);
+  if(!code) return invalidLocationToast(rawLoc);
+  const loc = findLocationByCode(code);
+  if(!loc) return toast(lang==='ar'?`الموقع "${code}" غير موجود`:`Location "${code}" not found`,'bad');
+  const locId = loc.id;
   if(locInput) locInput.value = locId;
-  const loc = (data.locations||[]).find(l=>l.id===locId);
-  if(!loc) return toast(lang==='ar'?`الموقع "${locId}" غير موجود`:`Location "${locId}" not found`,'bad');
+  const photo = currentPhotos[0] || null;
+  if(serviceType==='cleaning' && !photo) return toast(lang==='ar'?'إرفاق صورة إلزامي لطلب خدمة التنظيف':'A photo is required for a cleaning request','warn');
   const btn = document.querySelector('.submitBtn');
   if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner u-spinner-22"></div>`}
-  const photo = currentPhotos[0] || null;
   try{
     const res = await api('/order',{method:'POST',body:JSON.stringify({
       locationId:locId, category, description:desc, serviceType,

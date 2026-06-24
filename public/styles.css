@@ -1220,12 +1220,12 @@ tbody tr:hover td{background:var(--surface-2)}
 .reportCard-thumb:hover{opacity:.9}
 .reportCard-body{padding:16px;display:grid;gap:10px}
 .reportCard-actions{
-  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px;align-items:stretch;gap:10px;
+  display:flex;flex-wrap:wrap;align-items:stretch;gap:10px;
   padding:12px 16px 14px;border-top:1px solid var(--line-soft);
   background:transparent;
 }
 .reportCard-actions .action-btn{
-  width:100%;min-width:0;min-height:42px;
+  flex:1 1 0;width:auto;min-width:0;min-height:42px;
   padding:8px 14px;font-size:var(--fs-xs);font-weight:800;
   border-radius:14px;justify-content:center;gap:8px;
   letter-spacing:0;
@@ -1233,10 +1233,6 @@ tbody tr:hover td{background:var(--surface-2)}
 .reportCard-actions .action-btn svg{
   width:15px;height:15px;flex:0 0 15px;stroke-width:2.1;
 }
-.reportCard-actions-primary{grid-column:1/-1;display:grid;min-width:0}
-.reportCard-actions-secondary{grid-column:1/3;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:10px;min-width:0}
-.reportCard-actions-danger{grid-column:3;display:grid;min-width:0}
-.reportCard-actions-secondary--full{grid-column:1/-1}
 .reportCard-actions .btn.ok{
   background:var(--brand-mid);border-color:var(--brand-mid);color:#fff;
   box-shadow:none;
@@ -1248,7 +1244,7 @@ tbody tr:hover td{background:var(--surface-2)}
   background:#fff;border-color:var(--bad);color:var(--bad);
 }
 .reportCard-actions .reportDeleteBtn{
-  width:44px;min-width:44px;padding:0;color:var(--bad);
+  flex:0 0 44px;width:44px;min-width:44px;padding:0;color:var(--bad);
   border-color:rgba(222,117,89,.48);background:#fff;
 }
 .reportCard-loc{font-family:var(--font-head);font-weight:800;font-size:var(--fs-md);color:var(--ink);line-height:1.3}
@@ -2047,13 +2043,10 @@ tbody tr:hover td{background:var(--surface-2)}
   .reportCard-body{padding:14px;gap:8px}
   .reportCard-meta{white-space:normal;line-height:1.55}
   .reportCard-actions{
-    padding:10px;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 46px;gap:8px;
+    padding:10px;gap:8px;
   }
-  .reportCard-actions-primary{grid-column:1/-1}
-  .reportCard-actions-secondary{grid-column:1/3;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px}
-  .reportCard-actions-danger{grid-column:3}
   .reportCard-actions .action-btn{min-height:42px;padding:7px 10px}
-  .reportCard-actions .reportDeleteBtn{width:46px;min-width:46px}
+  .reportCard-actions .reportDeleteBtn{flex:0 0 46px;width:46px;min-width:46px}
   .ratingRow{grid-template-columns:1fr}
 
   .ticketCard,.locCard,.supTicketCard,.empOrderCard{
