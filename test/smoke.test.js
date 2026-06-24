@@ -31,12 +31,14 @@ const TINY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1
 let serverProc;
 let maintenanceWorkerId;
 let maintenanceTicketId;
+let crossModuleMaintenanceTicketId;
 let maintenanceWorker2Id;
 let maintenanceAssetId;
 let maintenancePartId;
 let maintenanceScheduleId;
 let maintenanceTeamOrderId;
 let employeeMaintenanceTicketId;
+let employeeCleaningTicketId;
 
 /* ── cookie-aware fetch helper ─────────────────────────────────── */
 function client() {
@@ -219,6 +221,14 @@ test('role: manager can manage users, supervisor cannot', async () => {
   tmpUserId = rMgr.body.user.id;
 });
 
+test('cleaning_manager bootstrap is scoped to cleaning users only', async () => {
+  const manager = await login('manager', PASSWORDS.manager);
+  const r = await manager('/api/bootstrap');
+  assert.equal(r.status, 200);
+  assert.ok(r.body.users.length >= 1);
+  assert.ok(r.body.users.every(u => ['cleaning_manager','cleaning_supervisor','cleaner'].includes(u.role)));
+});
+
 test('PUT /api/users/:id rejects invalid role (400 INVALID_ROLE)', async () => {
   const manager = await login('manager', PASSWORDS.manager);
   const r = await manager(`/api/users/${tmpUserId}`, { method: 'PUT', body: JSON.stringify({ role: 'super_admin' }) });
@@ -335,6 +345,38 @@ test('PUT ticket: transition out of a terminal state is rejected', async () => {
   assert.equal(r.body.error, 'INVALID_TRANSITION');
 });
 
+test('supervisor escalation replaces rejection and requires photo evidence', async () => {
+  const manager = await login('manager', PASSWORDS.manager);
+  const created = await manager('/api/tickets', { method: 'POST', body: JSON.stringify({
+    locationId: 'lobby-gf', title: 'بلاغ تصعيد', assignedTo: 'u-w4', priority: 'medium'
+  }) });
+  assert.equal(created.status, 200);
+  const escalationTicketId = created.body.ticket.id;
+
+  const worker4 = await login('worker4', PASSWORDS.worker);
+  const completed = await worker4('/api/tickets/complete', { method: 'POST', body: JSON.stringify({
+    id: escalationTicketId, notes: 'تم التنظيف', photos: [TINY_PNG]
+  }) });
+  assert.equal(completed.status, 200);
+  assert.equal(completed.body.ticket.status, 'waiting_verification');
+
+  const supervisor = await login('supervisor1', PASSWORDS.supervisor);
+  const rejected = await supervisor(`/api/tickets/${escalationTicketId}`, { method: 'PUT', body: JSON.stringify({ status: 'rejected' }) });
+  assert.equal(rejected.status, 403);
+  assert.equal(rejected.body.error, 'ESCALATION_REQUIRED');
+
+  const missingPhoto = await supervisor(`/api/tickets/${escalationTicketId}/escalate`, { method: 'POST', body: JSON.stringify({ note: 'الموقع يحتاج إعادة تنظيف' }) });
+  assert.equal(missingPhoto.status, 400);
+  assert.equal(missingPhoto.body.error, 'PHOTO_REQUIRED');
+
+  const escalated = await supervisor(`/api/tickets/${escalationTicketId}/escalate`, { method: 'POST', body: JSON.stringify({
+    note: 'صورة التصعيد مرفقة', photos: [TINY_PNG]
+  }) });
+  assert.equal(escalated.status, 200);
+  assert.equal(escalated.body.ticket.status, 'reclean_required');
+  assert.ok(escalated.body.ticket.photos.length >= 2);
+});
+
 /* ── Report review state machine ─────────────────────────────── */
 test('report review: rejects invalid status value (400 INVALID_STATUS)', async () => {
   const supervisor = await login('supervisor1', PASSWORDS.supervisor);
@@ -447,6 +489,14 @@ test('maintenance: admin can create maintenance ticket', async () => {
   assert.equal(r.status, 200);
   assert.equal(r.body.ticket.module, 'maintenance');
   assert.equal(r.body.ticket.category, 'electrical');
+  crossModuleMaintenanceTicketId = r.body.ticket.id;
+});
+
+test('cleaning supervisor cannot mutate maintenance ticket through cleaning endpoint', async () => {
+  const supervisor = await login('supervisor1', PASSWORDS.supervisor);
+  const r = await supervisor(`/api/tickets/${crossModuleMaintenanceTicketId}`, { method: 'PUT', body: JSON.stringify({ status: 'rejected' }) });
+  assert.equal(r.status, 404);
+  assert.equal(r.body.error, 'TICKET_NOT_FOUND');
 });
 
 test('maintenance: ticket visible in admin bootstrap but not in cleaner bootstrap', async () => {
@@ -554,6 +604,32 @@ test('employee creates a maintenance request from the unified order endpoint', a
   assert.ok(!cleaningBoot.body.tickets.some(t=>t.id===employeeMaintenanceTicketId));
 });
 
+test('employee cleaning request is routed manager -> supervisor -> worker', async () => {
+  const employee = await login('employee1', PASSWORDS.worker);
+  const boot = await employee('/api/bootstrap');
+  const created = await employee('/api/order', { method:'POST', body:JSON.stringify({
+    serviceType:'cleaning', locationId:boot.body.locations[0].id, category:'restroom', description:'طلب تنظيف من موظف',
+    assignedTo:'u-w3'
+  }) });
+  assert.equal(created.status, 200);
+  assert.equal(created.body.ticket.module, 'cleaning');
+  assert.equal(created.body.ticket.status, 'submitted');
+  assert.equal(created.body.ticket.assignedTo, null);
+  employeeCleaningTicketId = created.body.ticket.id;
+
+  const manager = await login('manager', PASSWORDS.manager);
+  const routedToSupervisor = await manager(`/api/tickets/${employeeCleaningTicketId}`, { method:'PUT', body:JSON.stringify({ supervisorId:'u-s1' }) });
+  assert.equal(routedToSupervisor.status, 200);
+  assert.equal(routedToSupervisor.body.ticket.supervisorId, 'u-s1');
+  assert.equal(routedToSupervisor.body.ticket.assignedTo, null);
+
+  const supervisor = await login('supervisor1', PASSWORDS.supervisor);
+  const routedToWorker = await supervisor(`/api/tickets/${employeeCleaningTicketId}`, { method:'PUT', body:JSON.stringify({ assignedTo:'u-w4', status:'assigned' }) });
+  assert.equal(routedToWorker.status, 200);
+  assert.equal(routedToWorker.body.ticket.assignedTo, 'u-w4');
+  assert.equal(routedToWorker.body.ticket.status, 'assigned');
+});
+
 test('disabled cleaning request channel rejects new employee cleaning orders', async () => {
   const admin = await login('admin', PASSWORDS.admin);
   const employee = await login('employee1', PASSWORDS.worker);
@@ -566,6 +642,25 @@ test('disabled cleaning request channel rejects new employee cleaning orders', a
   assert.equal(rejected.body.error, 'SERVICE_DISABLED');
   const restored = await admin('/api/settings', { method:'POST', body:JSON.stringify({ employee_cleaning_requests_enabled:1 }) });
   assert.equal(restored.status, 200);
+});
+
+test('cleaning supervisor scope can be limited to assigned workers', async () => {
+  const manager = await login('manager', PASSWORDS.manager);
+  const scoped = await manager('/api/assignments', { method:'POST', body:JSON.stringify({
+    workerId:'u-w4', supervisorId:'u-s1', locationIds:['lobby-gf']
+  }) });
+  assert.equal(scoped.status, 200);
+  const otherScoped = await manager('/api/assignments', { method:'POST', body:JSON.stringify({
+    workerId:'u-w5', supervisorId:'u-s2', locationIds:['lobby-gf']
+  }) });
+  assert.equal(otherScoped.status, 200);
+
+  const supervisor = await login('supervisor1', PASSWORDS.supervisor);
+  const boot = await supervisor('/api/bootstrap');
+  const visibleUserIds = new Set(boot.body.users.map(u => u.id));
+  assert.equal(visibleUserIds.has('u-s1'), true);
+  assert.equal(visibleUserIds.has('u-w4'), true);
+  assert.equal(visibleUserIds.has('u-w5'), false);
 });
 
 test('maintenance: worker can progress only own assigned ticket', async () => {
@@ -654,6 +749,12 @@ test('maintenance operations: technician workflow, parts and diagnostic close', 
   assert.equal(closed.beforePhotos.length,1);assert.equal(closed.afterPhotos.length,1);
   const createdReport=await worker('/api/maintenance-reports',{method:'POST',body:JSON.stringify({locationId:closed.locationId,tasks:['فحص التشغيل'],notes:'تقرير تقييم الفني'})});
   assert.equal(createdReport.status,200);const report=createdReport.body.report;
+  const cleaningSupervisor=await login('supervisor1',PASSWORDS.supervisor);
+  const blockedCleaningReview=await cleaningSupervisor('/api/reports/review',{method:'POST',body:JSON.stringify({id:report.id,status:'approved'})});
+  assert.equal(blockedCleaningReview.status,404);assert.equal(blockedCleaningReview.body.error,'REPORT_NOT_FOUND');
+  const cleaningManager=await login('manager',PASSWORDS.manager);
+  const blockedCleaningRate=await cleaningManager('/api/reports/rate',{method:'POST',body:JSON.stringify({id:report.id,ratingType:'manager',value:4})});
+  assert.equal(blockedCleaningRate.status,404);assert.equal(blockedCleaningRate.body.error,'REPORT_NOT_FOUND');
   const supervisor=await login('maint-supervisor',PASSWORDS.worker);
   const reviewed=await supervisor('/api/maintenance-reports/review',{method:'POST',body:JSON.stringify({id:report.id,status:'approved'})});
   assert.equal(reviewed.status,200);

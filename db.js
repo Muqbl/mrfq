@@ -795,6 +795,14 @@ const MIGRATIONS = {
     CREATE TRIGGER IF NOT EXISTS trg_asset_space AFTER INSERT ON maintenance_assets WHEN NEW.space_id=''
     BEGIN UPDATE maintenance_assets SET space_id=COALESCE((SELECT space_id FROM location_space_map WHERE location_id=NEW.location_id),'') WHERE id=NEW.id; END;
   `,
+  /* ── v25: cleaning supervisor routing and scoped assignments ── */
+  25: `
+    ALTER TABLE tickets ADD COLUMN supervisor_id TEXT NOT NULL DEFAULT '';
+    ALTER TABLE tickets ADD COLUMN supervisor_name TEXT NOT NULL DEFAULT '';
+    ALTER TABLE assignments ADD COLUMN supervisor_id TEXT NOT NULL DEFAULT '';
+    CREATE INDEX IF NOT EXISTS idx_tickets_supervisor ON tickets(supervisor_id);
+    CREATE INDEX IF NOT EXISTS idx_assignments_supervisor ON assignments(supervisor_id);
+  `,
 };
 
 module.exports = { getDb };

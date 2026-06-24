@@ -695,6 +695,7 @@ const UI_ACTION_NAMES = new Set([
   'flushOfflineQueue','switchLang','logout','showUserFormModal','workerStartLocation',
   'empHospCartAdd','openTicketDetail','showMaintenanceOrderForm','showMaintenanceUsePart',
   'showMenuItemFormModal','showCategoryFormModal','showKitchenFormModal','supVerify',
+  'supEscalatePrompt','submitSupEscalation',
   'supReviewPrompt','renderWorkspaceSwitcher','togglePwd','login','submitForcePassword',
   'exitModule','showMobileNavMore','showAdminNavMore','showFmNavMore',
   'setEmployeeRequestChannel','saveSlaSettings','load','exportExcelReports',
@@ -793,6 +794,7 @@ function runUiFlow(flow,...values){
   }
   if(flow==='camera-done'){closeCamera();doneCamera();return}
   if(flow==='employee-photo-delete'){currentPhotos.splice(Number(values[0]),1);renderEmpPhotoPrev();return}
+  if(flow==='escalation-photo-delete'){currentPhotos.splice(Number(values[0]),1);renderEscalationPhotoPrev();return}
   if(flow==='photo-delete'){
     const [collection,index,mode]=values;
     const photos=collection==='before'?currentBeforePhotos:collection==='after'?currentAfterPhotos:currentPhotos;
@@ -3255,6 +3257,7 @@ function editTicketModal(id){
   const t=(data.tickets||[]).find(x=>x.id===id);
   if(!t) return;
   const workers=(data.users||[]).filter(u=>u.role===operationalWorkerRole());
+  const supervisors=(data.users||[]).filter(u=>u.role==='cleaning_supervisor');
   const statuses=['submitted','assigned','accepted','in_progress','waiting_verification','completed','reclean_required','rejected','cancelled'];
   const body=`
   <div class="formGrid">
@@ -3265,6 +3268,7 @@ function editTicketModal(id){
       {v:'low',   l:tr('low'),    sel:t.priority==='low'}
     ]))}
     ${fc(tr('status'), sel('et-status', statuses.map(s=>({v:s,l:tr(s)||s,sel:t.status===s}))))}
+    ${!isMaintenanceRole()&&['system_admin','facility_manager','cleaning_manager'].includes(me.role)?fc(lang==='ar'?'المشرف':'Supervisor', sel('et-supervisor',[{v:'',l:tr('unassigned'),sel:!t.supervisorId},...supervisors.map(s=>({v:s.id,l:s.name,sel:t.supervisorId===s.id}))])):''}
     ${fc(tr('assignedTo'), sel('et-worker',[{v:'',l:tr('unassigned'),sel:!t.assignedTo},...workers.map(w=>({v:w.id,l:w.name,sel:t.assignedTo===w.id}))]))}
   </div>
   ${fc(tr('description'), ta('et-desc', t.description||'', {rows:3}))}`;
@@ -3281,6 +3285,8 @@ async function saveEditTicket(id){
     status:document.getElementById('et-status').value,
     assignedTo:document.getElementById('et-worker').value
   };
+  const supervisorEl=document.getElementById('et-supervisor');
+  if(supervisorEl) payload.supervisorId=supervisorEl.value;
   await api(maintenanceTicketApi('/'+id),{method:'PUT',body:JSON.stringify(payload)});
   document.getElementById('editTicketModal')?.remove();
   toast(tr('saved'),'ok');
@@ -4047,6 +4053,10 @@ function assignments(){
     <label>${tr('selectWorker')}</label>
     ${sel('aw', workers.map(w=>({v:w.id,l:`${w.name} - ${w.username}`})), {changeAction:'fill-assignment'})}
   </div>
+  <div class="field">
+    <label>${lang==='ar'?'المشرف المسؤول':'Responsible Supervisor'}</label>
+    ${sel('asup',[{v:'',l:lang==='ar'?'بدون تحديد':'Unscoped'},...(data.users||[]).filter(u=>u.role==='cleaning_supervisor').map(s=>({v:s.id,l:s.name}))])}
+  </div>
   <!-- FLOOR FILTER -->
   <div class="filterBar u-mb-16">
     <div class="filterChips">
@@ -4092,6 +4102,8 @@ function fillAssign(){
   if(!aw) return;
   const a = (data.assignments||[]).find(x=>x.workerId===aw.value);
   document.querySelectorAll('.asgCheck').forEach(c=>c.checked=!!(a?.locationIds?.includes(c.value)));
+  const sup = document.getElementById('asup');
+  if(sup) sup.value = a?.supervisorId || '';
 }
 
 async function saveAssign(){
@@ -4099,6 +4111,7 @@ async function saveAssign(){
   if(!aw) return;
   await api('/assignments',{method:'POST',body:JSON.stringify({
     workerId:aw.value,
+    supervisorId:document.getElementById('asup')?.value||'',
     locationIds:[...document.querySelectorAll('.asgCheck:checked')].map(x=>x.value)
   })});
   toast(tr('saved'),'ok');
@@ -4711,6 +4724,7 @@ function closeCamera(){
 function doneCamera(){
   renderPhotoPreviews(cameraMode);
   if(window._empPhotoMode){ renderEmpPhotoPrev(); window._empPhotoMode=false; }
+  if(window._ticketEscalationMode){ renderEscalationPhotoPrev(); }
 }
 function renderEmpPhotoPrev(){
   const el=document.getElementById('empPhotoPrev');
@@ -7388,7 +7402,7 @@ function supTicketCard(t, mode, workers){
     </div>`:mode==='verify'?`
     <div class="ticketCard-actions supTicketCard-actions">
       <button class="btn sm ok" ${uiAction('supVerify',[(t.id),'completed'])}>${ic('check',14)} ${lang==='ar'?'تحقق':'Verify'}</button>
-      <button class="btn sm warn" ${uiAction('supVerify',[(t.id),'reclean_required'])}>${ic('flip',14)} ${lang==='ar'?'إعادة تنظيف':'Reclean'}</button>
+      <button class="btn sm warn" ${uiAction('supEscalatePrompt',[(t.id)])}>${ic('camera',14)} ${lang==='ar'?'تصعيد':'Escalate'}</button>
     </div>`:''}
   </div>`;
 }
@@ -7439,6 +7453,47 @@ async function supVerify(ticketId, status){
     await load(); renderSupervisor();
     const msg = status==='completed'?(lang==='ar'?'تم التحقق':'Verified'):(lang==='ar'?'طلب إعادة تنظيف':'Reclean requested');
     toast(msg,'ok');
+  }catch(e){ toast(e.message,'bad'); }
+}
+
+function renderEscalationPhotoPrev(){
+  const el=document.getElementById('escalationPhotoPrev');
+  if(!el) return;
+  el.innerHTML=currentPhotos.map((p,i)=>`<div class="photoItem">
+    <img src="${p}" loading="lazy">
+    <button class="photoItem-del" ${uiAction('runUiFlow',['escalation-photo-delete',i])}>×</button>
+  </div>`).join('');
+}
+
+function supEscalatePrompt(ticketId){
+  currentPhotos=[];
+  window._ticketEscalationMode=true;
+  const body=`
+    <div class="field">
+      <label>${lang==='ar'?'ملاحظات التصعيد':'Escalation notes'}</label>
+      ${ta('esc-note','',{rows:3,placeholder:lang==='ar'?'اكتب سبب التصعيد أو الملاحظة...':'Write the escalation reason or note...'})}
+    </div>
+    <div class="field">
+      <label>${lang==='ar'?'صورة التصعيد إلزامية':'Escalation photo is required'}</label>
+      <button class="cameraBtn" ${uiAction('openCamera',['general'])}>${ic('camera',20)}<span>${lang==='ar'?'التقاط صورة':'Take Photo'}</span></button>
+      <div id="escalationPhotoPrev" class="photoGrid u-mt-10"></div>
+    </div>`;
+  const foot=`<button class="btn warn" ${uiAction('submitSupEscalation',[(ticketId)])}>${ic('camera',14)} ${lang==='ar'?'تصعيد':'Escalate'}</button>
+    <button class="btn secondary" ${uiAction('runUiFlow',['close-element','escalationModal'])}>${tr('cancel')}</button>`;
+  showModal('escalationModal', `${ic('camera',16)} ${lang==='ar'?'تصعيد البلاغ':'Escalate Ticket'}`, body, foot);
+}
+
+async function submitSupEscalation(ticketId){
+  if(!currentPhotos.length) return toast(lang==='ar'?'صورة التصعيد إلزامية':'Escalation photo is required','bad');
+  try{
+    await api(`/tickets/${ticketId}/escalate`,{method:'POST',body:JSON.stringify({
+      note:document.getElementById('esc-note')?.value||'',
+      photos:currentPhotos
+    })});
+    document.getElementById('escalationModal')?.remove();
+    currentPhotos=[]; window._ticketEscalationMode=false;
+    await load(); renderSupervisor();
+    toast(lang==='ar'?'تم التصعيد':'Escalated','ok');
   }catch(e){ toast(e.message,'bad'); }
 }
 

@@ -512,13 +512,14 @@ function dbSettings() {
   };
 }
 function dbAssignments() {
-  const rows = getDb().prepare('SELECT worker_id, location_id FROM assignments').all();
+  const rows = getDb().prepare('SELECT worker_id, location_id, supervisor_id FROM assignments').all();
   const map  = {};
   rows.forEach(r => {
-    if (!map[r.worker_id]) map[r.worker_id] = [];
-    map[r.worker_id].push(r.location_id);
+    if (!map[r.worker_id]) map[r.worker_id] = { workerId: r.worker_id, locationIds: [], supervisorId: r.supervisor_id || '' };
+    map[r.worker_id].locationIds.push(r.location_id);
+    if (r.supervisor_id) map[r.worker_id].supervisorId = r.supervisor_id;
   });
-  return Object.entries(map).map(([workerId, locationIds]) => ({ workerId, locationIds }));
+  return Object.values(map);
 }
 function dbTickets()  {
   return getDb().prepare(`
@@ -825,6 +826,8 @@ function ticketRow(r) {
     locationNameEn: r.location_name_en,
     assignedTo:     r.assigned_to,
     assignedToName: r.assigned_to_name,
+    supervisorId:   r.supervisor_id || '',
+    supervisorName: r.supervisor_name || '',
     createdBy:      r.created_by,
     createdById:    r.created_by_id || '',
     status:         r.status,
@@ -967,6 +970,40 @@ function maintenanceTicketsForRole(me, allTickets) {
   return maintenanceTickets.filter(t => t.assignedTo === me.id || assignedIds.has(t.id));
 }
 
+function cleaningSupervisorScope(supervisorId, assignments = dbAssignments()) {
+  const scoped = assignments.filter(a => a.supervisorId === supervisorId);
+  return {
+    enabled: scoped.length > 0,
+    workerIds: new Set(scoped.map(a => a.workerId)),
+    locationIds: new Set(scoped.flatMap(a => a.locationIds || []))
+  };
+}
+
+function cleaningTicketsForSupervisor(me, allTickets, assignments) {
+  const cleaningTickets = allTickets.filter(t => t.module === 'cleaning');
+  const scope = cleaningSupervisorScope(me.id, assignments);
+  if (!scope.enabled) return cleaningTickets;
+  return cleaningTickets.filter(t =>
+    t.supervisorId === me.id ||
+    scope.workerIds.has(t.assignedTo) ||
+    scope.locationIds.has(t.locationId)
+  );
+}
+
+function cleaningReportsForSupervisor(me, allReports, assignments) {
+  const cleaningReports = allReports.filter(r => r.module === 'cleaning');
+  const scope = cleaningSupervisorScope(me.id, assignments);
+  if (!scope.enabled) return cleaningReports;
+  return cleaningReports.filter(r => scope.workerIds.has(r.workerId) || scope.locationIds.has(r.locationId));
+}
+
+function canActOnCleaningTicket(me, ticket) {
+  if (['system_admin','facility_manager','cleaning_manager'].includes(me.role)) return true;
+  if (me.role !== 'cleaning_supervisor') return false;
+  if (!ticket.supervisor_id) return true;
+  return ticket.supervisor_id === me.id;
+}
+
 function buildBootstrap(me) {
   const users       = dbUsers();
   const locations   = dbLocs();
@@ -1007,12 +1044,16 @@ function buildBootstrap(me) {
     };
   }
   if (me.role === 'cleaning_supervisor') {
+    const scope = cleaningSupervisorScope(me.id, assignments);
+    const usersForSupervisor = scope.enabled
+      ? users.filter(u => u.id === me.id || scope.workerIds.has(u.id))
+      : users.filter(u => ['cleaner','cleaning_supervisor'].includes(u.role));
     return {
       ...base,
-      users:       users.filter(u => ['cleaner','cleaning_supervisor'].includes(u.role)).map(publicUser),
-      assignments,
-      tickets:     allTickets.filter(t => t.module === 'cleaning'),
-      reports:     allReports.filter(r => r.module === 'cleaning'),
+      users:       usersForSupervisor.map(publicUser),
+      assignments: scope.enabled ? assignments.filter(a => a.supervisorId === me.id) : assignments,
+      tickets:     cleaningTicketsForSupervisor(me, allTickets, assignments),
+      reports:     cleaningReportsForSupervisor(me, allReports, assignments),
       hospitalityOrders
     };
   }
@@ -1070,7 +1111,7 @@ function buildBootstrap(me) {
   if (me.role === 'cleaning_manager') {
     return {
       ...base,
-      users:       users.map(publicUser),
+      users:       users.filter(u => ['cleaner','cleaning_supervisor','cleaning_manager'].includes(u.role)).map(publicUser),
       assignments,
       tickets:     allTickets.filter(t => t.module === 'cleaning'),
       reports:     allReports.filter(r => r.module === 'cleaning'),
@@ -1107,8 +1148,9 @@ function canReceiveTicketEvent(user, ticket) {
       (user.role === 'maintenance_worker' && (ticket.assignedTo === user.id || !!getDb().prepare(
         'SELECT 1 FROM maintenance_work_order_assignees WHERE work_order_id=? AND technician_id=?'
       ).get(ticket.id,user.id)));
-  return ['cleaning_manager','cleaning_supervisor'].includes(user.role) ||
-    (user.role === 'cleaner' && ticket.assignedTo === user.id);
+  if (user.role === 'cleaning_manager') return true;
+  if (user.role === 'cleaning_supervisor') return !ticket.supervisorId || ticket.supervisorId === user.id;
+  return user.role === 'cleaner' && ticket.assignedTo === user.id;
 }
 function canReceiveReportEvent(user, report) {
   if (!report || !user) return false;
@@ -1707,10 +1749,15 @@ const server = http.createServer(async (req, res) => {
         if (!canManageGlobalUsers(me.role) && !allowedRoleEditor(me.role, worker.role)) return send(res, 403, { error: 'ROLE_NOT_ALLOWED' });
         const locationIds = Array.isArray(b.locationIds)
           ? b.locationIds.map(l => sanitize(l, 80)).filter(Boolean) : [];
+        const supervisorId = sanitize(b.supervisorId || '', 50);
+        if (supervisorId) {
+          const sup = db.prepare("SELECT role FROM users WHERE id=? AND role='cleaning_supervisor' AND active=1 AND deleted_at IS NULL").get(supervisorId);
+          if (!sup) return send(res, 400, { error: 'SUPERVISOR_NOT_FOUND' });
+        }
         db.transaction(() => {
           db.prepare('DELETE FROM assignments WHERE worker_id = ?').run(workerId);
-          const ins = db.prepare('INSERT OR IGNORE INTO assignments (worker_id,location_id,created_at) VALUES (?,?,?)');
-          locationIds.forEach(lid => ins.run(workerId, lid, now()));
+          const ins = db.prepare('INSERT OR IGNORE INTO assignments (worker_id,location_id,created_at,supervisor_id) VALUES (?,?,?,?)');
+          locationIds.forEach(lid => ins.run(workerId, lid, now(), supervisorId));
         })();
         return send(res, 200, { ok: true });
       }
@@ -1723,9 +1770,15 @@ const server = http.createServer(async (req, res) => {
         if (!loc) return send(res, 400, { error: 'MISSING_LOCATION' });
         // Worker is optional — auto-assign if not provided
         let worker = null;
+        let supervisor = null;
+        const supervisorId = sanitize(b.supervisorId || '', 50);
+        if (supervisorId) {
+          supervisor = db.prepare("SELECT * FROM users WHERE id = ? AND role='cleaning_supervisor' AND active = 1 AND deleted_at IS NULL").get(supervisorId);
+          if (!supervisor) return send(res, 400, { error: 'SUPERVISOR_NOT_FOUND' });
+        }
         if (b.assignedTo) {
           worker = db.prepare('SELECT * FROM users WHERE id = ? AND active = 1 AND deleted_at IS NULL').get(b.assignedTo);
-          if (!worker) return send(res, 400, { error: 'WORKER_NOT_FOUND' });
+          if (!worker || worker.role !== 'cleaner') return send(res, 400, { error: 'WORKER_NOT_FOUND' });
         } else {
           const auto = autoAssign(loc.id, db);
           if (auto) worker = db.prepare('SELECT * FROM users WHERE id = ?').get(auto.id);
@@ -1738,12 +1791,13 @@ const server = http.createServer(async (req, res) => {
         const initialStatus = worker ? 'assigned' : 'submitted';
         db.prepare(`
           INSERT INTO tickets (id,title,description,location_id,location_name_ar,location_name_en,
-            assigned_to,assigned_to_name,created_by,created_by_id,status,priority,
+            assigned_to,assigned_to_name,supervisor_id,supervisor_name,created_by,created_by_id,status,priority,
             category,reference_no,notes,sla_deadline,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `).run(id, sanitize(b.title, 200) || 'بلاغ نظافة',
                sanitize(b.description, 1000), loc.id, loc.name_ar, loc.name_en,
                worker?.id || null, worker?.name || '',
+               supervisor?.id || '', supervisor?.name || '',
                me.name, me.id, initialStatus, priority, category, '', '', slaDeadline, ts, ts);
         const ticket = ticketRow(db.prepare(`
           SELECT t.*, NULL AS photo_files FROM tickets t WHERE t.id = ?
@@ -1757,7 +1811,7 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'POST' && url.pathname === '/api/tickets/complete') {
         if (me.role !== 'cleaner') return send(res, 403, { error: 'FORBIDDEN' });
         const b = await bodyJSON(req);
-        const t = db.prepare('SELECT * FROM tickets WHERE id = ? AND deleted_at IS NULL').get(b.id);
+        const t = db.prepare("SELECT * FROM tickets WHERE id = ? AND module = 'cleaning' AND deleted_at IS NULL").get(b.id);
         if (!t) return send(res, 404, { error: 'TICKET_NOT_FOUND' });
         if (t.assigned_to !== me.id) return send(res, 403, { error: 'FORBIDDEN' });
         if (!(TICKET_TRANSITIONS[t.status] || []).includes('waiting_verification')) {
@@ -1781,19 +1835,55 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { ticket });
       }
 
+      /* ── TICKETS: SUPERVISOR ESCALATION ───────────────────── */
+      if (req.method === 'POST' && /^\/api\/tickets\/[^/]+\/escalate$/.test(url.pathname)) {
+        if (me.role !== 'cleaning_supervisor') return send(res, 403, { error: 'FORBIDDEN' });
+        const id = sanitize(url.pathname.split('/')[3], 50);
+        const b = await bodyJSON(req);
+        const t = db.prepare("SELECT * FROM tickets WHERE id = ? AND module = 'cleaning' AND deleted_at IS NULL").get(id);
+        if (!t) return send(res, 404, { error: 'TICKET_NOT_FOUND' });
+        if (!canActOnCleaningTicket(me, t)) return send(res, 403, { error: 'FORBIDDEN' });
+        if (t.status !== 'waiting_verification') return send(res, 400, { error: 'INVALID_TRANSITION' });
+        const savedPhotos = processPhotosTyped(Array.isArray(b.photos) ? b.photos : [], me.id, null, t.id, 'escalation');
+        if (!savedPhotos.length) return send(res, 400, { error: 'PHOTO_REQUIRED' });
+        const note = sanitize(b.note || b.notes || '', 1000).trim();
+        const ts = now();
+        db.prepare(`
+          UPDATE tickets
+          SET status='reclean_required', escalated_at=?, escalation_level=MAX(escalation_level, 1),
+              notes=?, updated_at=?
+          WHERE id=?
+        `).run(ts, note, ts, id);
+        if (note) {
+          db.prepare(
+            'INSERT INTO ticket_comments (id,ticket_id,user_id,user_name,user_role,body,created_at) VALUES (?,?,?,?,?,?,?)'
+          ).run(newId('c'), id, me.id, me.name, me.role, note, ts);
+        }
+        const ticket = ticketRow(db.prepare(`
+          SELECT t.*, GROUP_CONCAT(p.filename) AS photo_files, GROUP_CONCAT(p.photo_type) AS photo_types
+          FROM tickets t LEFT JOIN photos p ON p.ticket_id=t.id AND p.deleted_at IS NULL
+          WHERE t.id=? GROUP BY t.id
+        `).get(id));
+        broadcast('ticket_escalated', { ticket });
+        logEvent(db, 'ticket.escalated_by_supervisor', 'ticket', id, me, { note, photoCount: savedPhotos.length });
+        return send(res, 200, { ticket });
+      }
+
       /* ── TICKETS: UPDATE ────────────────────────────────────── */
       if (req.method === 'PUT' && url.pathname.startsWith('/api/tickets/')) {
         if (!canCreateTickets(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const id = sanitize(url.pathname.split('/').pop(), 50);
         const b  = await bodyJSON(req);
-        const t  = db.prepare('SELECT * FROM tickets WHERE id = ? AND deleted_at IS NULL').get(id);
+        const t  = db.prepare("SELECT * FROM tickets WHERE id = ? AND module = 'cleaning' AND deleted_at IS NULL").get(id);
         if (!t) return send(res, 404, { error: 'TICKET_NOT_FOUND' });
+        if (!canActOnCleaningTicket(me, t)) return send(res, 403, { error: 'FORBIDDEN' });
         const sets = []; const vals = [];
         if (b.title !== undefined)    { sets.push('title = ?');       vals.push(sanitize(b.title, 200)); }
         if (b.description !== undefined){ sets.push('description = ?'); vals.push(sanitize(b.description, 1000)); }
         if (['high','medium','low'].includes(b.priority)) { sets.push('priority = ?'); vals.push(b.priority); }
         if (b.status !== undefined) {
           if (!TICKET_STATUSES.includes(b.status)) return send(res, 400, { error: 'INVALID_STATUS' });
+          if (me.role === 'cleaning_supervisor' && b.status === 'rejected') return send(res, 403, { error: 'ESCALATION_REQUIRED' });
           if (b.status !== t.status) {
             if (!(TICKET_TRANSITIONS[t.status] || []).includes(b.status)) {
               return send(res, 400, { error: 'INVALID_TRANSITION' });
@@ -1808,7 +1898,22 @@ const server = http.createServer(async (req, res) => {
         }
         if (b.assignedTo) {
           const w = db.prepare('SELECT * FROM users WHERE id = ? AND active=1 AND deleted_at IS NULL').get(b.assignedTo);
-          if (w) { sets.push('assigned_to = ?', 'assigned_to_name = ?'); vals.push(w.id, w.name); }
+          if (!w || w.role !== 'cleaner') return send(res, 400, { error: 'WORKER_NOT_FOUND' });
+          if (me.role === 'cleaning_supervisor') {
+            const scope = cleaningSupervisorScope(me.id);
+            if (scope.enabled && !scope.workerIds.has(w.id)) return send(res, 403, { error: 'WORKER_OUT_OF_SCOPE' });
+          }
+          sets.push('assigned_to = ?', 'assigned_to_name = ?'); vals.push(w.id, w.name);
+        }
+        if (b.supervisorId !== undefined && ['system_admin','facility_manager','cleaning_manager'].includes(me.role)) {
+          const supervisorId = sanitize(b.supervisorId || '', 50);
+          if (!supervisorId) {
+            sets.push('supervisor_id = ?', 'supervisor_name = ?'); vals.push('', '');
+          } else {
+            const s = db.prepare("SELECT * FROM users WHERE id=? AND role='cleaning_supervisor' AND active=1 AND deleted_at IS NULL").get(supervisorId);
+            if (!s) return send(res, 400, { error: 'SUPERVISOR_NOT_FOUND' });
+            sets.push('supervisor_id = ?', 'supervisor_name = ?'); vals.push(s.id, s.name);
+          }
         }
         sets.push('updated_at = ?'); vals.push(now()); vals.push(id);
         if (sets.length > 1) db.prepare(`UPDATE tickets SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
@@ -1834,7 +1939,7 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'DELETE' && url.pathname.startsWith('/api/tickets/')) {
         if (!canDelete(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const id = sanitize(url.pathname.split('/').pop(), 50);
-        const t  = db.prepare('SELECT 1 FROM tickets WHERE id = ? AND deleted_at IS NULL').get(id);
+        const t  = db.prepare("SELECT 1 FROM tickets WHERE id = ? AND module = 'cleaning' AND deleted_at IS NULL").get(id);
         if (!t) return send(res, 404, { error: 'TICKET_NOT_FOUND' });
         db.prepare('UPDATE tickets SET deleted_at = ?, updated_at = ? WHERE id = ?').run(now(), now(), id);
         logEvent(db, 'ticket.deleted', 'ticket', id, me, { id });
@@ -1892,8 +1997,14 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'POST' && url.pathname === '/api/reports/review') {
         if (!canReview(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const b = await bodyJSON(req);
-        const r = db.prepare('SELECT * FROM reports WHERE id = ? AND deleted_at IS NULL').get(b.id);
+        const r = db.prepare("SELECT * FROM reports WHERE id = ? AND module = 'cleaning' AND deleted_at IS NULL").get(b.id);
         if (!r) return send(res, 404, { error: 'REPORT_NOT_FOUND' });
+        if (me.role === 'cleaning_supervisor') {
+          const scope = cleaningSupervisorScope(me.id);
+          if (scope.enabled && !scope.workerIds.has(r.worker_id) && !scope.locationIds.has(r.location_id)) {
+            return send(res, 403, { error: 'FORBIDDEN' });
+          }
+        }
         if (!REPORT_REVIEW_STATUSES.includes(b.status)) return send(res, 400, { error: 'INVALID_STATUS' });
         if (r.approval_status !== 'pending') return send(res, 400, { error: 'ALREADY_REVIEWED' });
         const status   = b.status;
@@ -1921,7 +2032,7 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'DELETE' && url.pathname.startsWith('/api/reports/')) {
         if (!canDelete(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const id = sanitize(url.pathname.split('/').pop(), 50);
-        const r  = db.prepare('SELECT 1 FROM reports WHERE id = ? AND deleted_at IS NULL').get(id);
+        const r  = db.prepare("SELECT 1 FROM reports WHERE id = ? AND module = 'cleaning' AND deleted_at IS NULL").get(id);
         if (!r) return send(res, 404, { error: 'REPORT_NOT_FOUND' });
         db.prepare('UPDATE reports SET deleted_at = ?, updated_at = ? WHERE id = ?').run(now(), now(), id);
         logEvent(db, 'report.deleted', 'report', id, me, { id });
@@ -2528,7 +2639,7 @@ const server = http.createServer(async (req, res) => {
             SUM(CASE WHEN sla_breached=1 THEN 1 ELSE 0 END) AS breached,
             AVG(CASE WHEN completion_time_mins IS NOT NULL THEN completion_time_mins ELSE NULL END) AS avg_completion_mins
           FROM tickets
-          WHERE created_at >= ? AND deleted_at IS NULL
+          WHERE created_at >= ? AND module = 'cleaning' AND deleted_at IS NULL
           GROUP BY category
         `).all(from);
         const categories = rows.map(r => ({
@@ -2567,8 +2678,8 @@ const server = http.createServer(async (req, res) => {
           ? { general:'طلب صيانة', electrical:'مشكلة كهرباء', plumbing:'مشكلة سباكة', hvac:'مشكلة تكييف', civil:'أعمال مدنية' }
           : { general:'طلب تنظيف', spill:'بلاغ انسكاب', restroom:'مشكلة دورة مياه', meeting_room:'تنظيف قاعة اجتماع', emergency:'تنظيف طارئ' };
         const title      = sanitize(b.title || '', 200) || CAT_TITLES[category] || (serviceType === 'maintenance' ? 'طلب صيانة' : 'طلب تنظيف');
-        const worker = serviceType === 'cleaning' ? autoAssign(loc.id, db) : null;
-        const workerUser = worker ? db.prepare('SELECT * FROM users WHERE id = ?').get(worker.id) : null;
+        const worker = null;
+        const workerUser = null;
         const id          = newId('t');
         const ts          = now();
         const slaDeadline = serviceType === 'maintenance' ? computeMaintSlaDeadline(category) : computeSlaDeadline(category);
@@ -2603,9 +2714,9 @@ const server = http.createServer(async (req, res) => {
         const nowStr = now();
         const metrics = workers.map(w => {
           const reports30 = db.prepare(
-            "SELECT * FROM reports WHERE worker_id=? AND created_at>=? AND deleted_at IS NULL ORDER BY created_at DESC"
+            "SELECT * FROM reports WHERE worker_id=? AND module='cleaning' AND created_at>=? AND deleted_at IS NULL ORDER BY created_at DESC"
           ).all(w.id, now30);
-          const total = db.prepare("SELECT COUNT(*) AS c FROM reports WHERE worker_id=? AND deleted_at IS NULL").get(w.id).c;
+          const total = db.prepare("SELECT COUNT(*) AS c FROM reports WHERE worker_id=? AND module='cleaning' AND deleted_at IS NULL").get(w.id).c;
           const reviewed = reports30.filter(r => r.approval_status !== 'pending');
           const approved = reviewed.filter(r => r.approval_status === 'approved').length;
           const approvalRate = reviewed.length > 0 ? Math.round(approved / reviewed.length * 100) : null;
@@ -2618,10 +2729,10 @@ const server = http.createServer(async (req, res) => {
             return rated.length ? Math.round(rated.reduce((s,r) => s + r.rating_manager, 0) / rated.length * 10) / 10 : null;
           })();
           const openTickets = db.prepare(
-            "SELECT COUNT(*) AS c FROM tickets WHERE assigned_to=? AND status NOT IN ('completed','rejected','cancelled') AND deleted_at IS NULL"
+            "SELECT COUNT(*) AS c FROM tickets WHERE assigned_to=? AND module='cleaning' AND status NOT IN ('completed','rejected','cancelled') AND deleted_at IS NULL"
           ).get(w.id).c;
           const locCount = db.prepare(
-            "SELECT COUNT(*) AS c FROM assignments WHERE worker_id=?"
+            "SELECT COUNT(*) AS c FROM assignments WHERE worker_id=? AND (module IS NULL OR module='cleaning')"
           ).get(w.id).c;
           // Quality score (client-side formula mirror)
           const avgQuality = reports30.length ? Math.round(
@@ -2657,7 +2768,7 @@ const server = http.createServer(async (req, res) => {
         };
         if (!(me.role in RATING_RULES)) return send(res, 403, { error: 'FORBIDDEN' });
         const b     = await bodyJSON(req);
-        const rpt   = db.prepare('SELECT 1 FROM reports WHERE id = ? AND deleted_at IS NULL').get(b.id);
+        const rpt   = db.prepare("SELECT 1 FROM reports WHERE id = ? AND module = 'cleaning' AND deleted_at IS NULL").get(b.id);
         if (!rpt) return send(res, 404, { error: 'REPORT_NOT_FOUND' });
         const value = parseFloat(b.value);
         if (isNaN(value) || value < 1 || value > 5) return send(res, 400, { error: 'INVALID_RATING' });

@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node server.js",
     "seed":  "node scripts/seed-demo.js",
+    "import:facilities": "node scripts/import-facilities-register.js",
     "backup": "node scripts/backup-db.js",
     "test":  "node --test test/*.test.js",
     "test:security": "node scripts/security-scan.js",
