@@ -700,7 +700,7 @@ const UI_ACTION_NAMES = new Set([
   'exitModule','showMobileNavMore','showAdminNavMore','showFmNavMore',
   'setEmployeeRequestChannel','saveSlaSettings','load','exportExcelReports',
   'exportPDFReports','submitRating','deleteReport','createTicket','editTicketModal',
-  'deleteTicketConfirm','saveEditTicket','submitComment','deleteComment',
+  'deleteTicketConfirm','forwardTicketToSupervisor','saveEditTicket','submitComment','deleteComment',
   'createRecurringTask','toggleRecurring','deleteRecurring','deleteZone','addZone','addLoc',
   'deleteLocConfirm','filterAssignFloor','saveAssign','showAddRoleModal',
   'showPasswordResetModal','deleteUserConfirm','saveUser','hideUserFormModal',
@@ -3224,6 +3224,8 @@ function ticketCards(items){
     const prCls = t.priority==='high'?'bad':t.priority==='low'?'info':'warn';
     const canEdit = canTicket();
     const canDel = ['system_admin','facility_manager','cleaning_manager','maintenance_manager'].includes(me.role);
+    const canRoute = !isMaintenanceRole() && (t.module||'cleaning')==='cleaning' && ['system_admin','facility_manager','cleaning_manager'].includes(me.role);
+    const cleaningSupervisors = canRoute ? (data.users||[]).filter(u=>(u.roles||[u.role]).includes('cleaning_supervisor')) : [];
     const catLabel = isMaintenanceRole() ? maintCatLabel(t.category||'general') : (tr('cat_'+(t.category||'general')) || (t.category||'general'));
     const catClr = t.category==='emergency'?'bad':t.category==='spill'?'warn':t.category==='meeting_room'?'brand':'';
     const statusCls = t.status==='completed'?'ok':['reclean_required','rejected','cancelled'].includes(t.status)?'bad':t.status==='waiting_verification'?'warn':'brand';
@@ -3246,6 +3248,7 @@ function ticketCards(items){
       <div class="ticketCard-meta">
         <span>${ic('locations',12)} ${esc(lang==='ar'?t.locationNameAr:t.locationNameEn)}</span>
         <span>${ic('users',12)} ${esc(t.assignedToName||tr('unassigned'))}</span>
+        ${(t.module||'cleaning')==='cleaning'?`<span>${ic('user',12)} ${lang==='ar'?'المشرف':'Supervisor'}: ${t.supervisorName?esc(t.supervisorName):`<span class="status-text-warn">${lang==='ar'?'لم يُحوَّل':'Not routed'}</span>`}</span>`:''}
       </div>
       ${t.createdBy?`<div class="ticketCard-requester">${ic('user',12)} <span class="ticketCard-requester-label">${tr('requester')}:</span> <span class="ticketCard-requester-name">${esc(t.createdBy)}</span>${requesterUsername?`<span class="ticketCard-requester-username">@${esc(requesterUsername)}</span>`:''}${requesterEmpNo?`<span class="ticketCard-requester-empno">${esc(requesterEmpNo)}</span>`:''}</div>`:''}
       ${t.description?`<p class="ticketCard-desc">${esc(t.description)}</p>`:''}
@@ -3258,6 +3261,10 @@ function ticketCards(items){
         ${!t.assignedToName?`<span class="badge warn">${tr('supervisorQueue')}</span>`:''}
         ${t.completionTimeMins!=null?`<span class="badge ok">${ic('check',11)} ${t.completionTimeMins<60?t.completionTimeMins+tr('mins'):Math.round(t.completionTimeMins/60)+tr('hours')}</span>`:''}
       </div>
+      ${canRoute&&cleaningSupervisors.length?`<div class="ticketCard-actions supTicketCard-actions">
+        ${sel(`route-${t.id}`,[{v:'',l:lang==='ar'?'اختر المشرف...':'Choose supervisor...'},...cleaningSupervisors.map(s=>({v:s.id,l:s.name,sel:t.supervisorId===s.id}))],{cls:'ctrl-sm'})}
+        <button class="btn sm ok" ${uiAction('forwardTicketToSupervisor',[(t.id),`route-${t.id}`])}>${ic('send',13)} ${t.supervisorId?(lang==='ar'?'إعادة التحويل':'Re-route'):(lang==='ar'?'تحويل للمشرف':'Forward')}</button>
+      </div>`:''}
       <div class="ticketCard-actions">
         <button class="btn secondary sm" ${uiAction('openComments',[(t.id)])}>${ic('chat',13)} ${lang==='ar'?'تعليقات':'Comments'}</button>
         ${canEdit?`<button class="btn secondary sm" ${uiAction('editTicketModal',[(t.id)])}>${ic('edit',13)} ${lang==='ar'?'تعديل':'Edit'}</button>`:''}
@@ -3307,6 +3314,15 @@ async function saveEditTicket(id){
   document.getElementById('editTicketModal')?.remove();
   toast(tr('saved'),'ok');
   showTicketCreate = false;
+  await load();
+}
+
+async function forwardTicketToSupervisor(id, selectId){
+  const sel=document.getElementById(selectId);
+  const supervisorId=sel?sel.value:'';
+  if(!supervisorId) return toast(lang==='ar'?'اختر المشرف أولاً':'Choose a supervisor first','warn');
+  await api('/tickets/'+id,{method:'PUT',body:JSON.stringify({supervisorId})});
+  toast(lang==='ar'?'تم التحويل للمشرف':'Forwarded to supervisor','ok');
   await load();
 }
 

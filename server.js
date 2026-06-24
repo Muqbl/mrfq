@@ -983,7 +983,10 @@ function cleaningSupervisorScope(supervisorId, assignments = dbAssignments()) {
 function cleaningTicketsForSupervisor(me, allTickets, assignments) {
   const cleaningTickets = allTickets.filter(t => t.module === 'cleaning');
   const scope = cleaningSupervisorScope(me.id, assignments);
-  if (!scope.enabled) return cleaningTickets;
+  // A supervisor only sees a ticket once a manager has routed it to them
+  // (supervisorId === me.id) or it falls within their assigned worker/location
+  // scope. Unrouted requests stay with the manager queue.
+  if (!scope.enabled) return cleaningTickets.filter(t => t.supervisorId === me.id);
   return cleaningTickets.filter(t =>
     t.supervisorId === me.id ||
     scope.workerIds.has(t.assignedTo) ||
@@ -1001,8 +1004,11 @@ function cleaningReportsForSupervisor(me, allReports, assignments) {
 function canActOnCleaningTicket(me, ticket) {
   if (['system_admin','facility_manager','cleaning_manager'].includes(me.role)) return true;
   if (me.role !== 'cleaning_supervisor') return false;
-  if (!ticket.supervisor_id) return true;
-  return ticket.supervisor_id === me.id;
+  // A supervisor acts only on tickets routed to them, or within their scope.
+  // Unrouted requests are handled by the manager until forwarded.
+  if (ticket.supervisor_id === me.id) return true;
+  const scope = cleaningSupervisorScope(me.id);
+  return scope.enabled && (scope.workerIds.has(ticket.assigned_to) || scope.locationIds.has(ticket.location_id));
 }
 
 function buildBootstrap(me) {
@@ -1150,7 +1156,7 @@ function canReceiveTicketEvent(user, ticket) {
         'SELECT 1 FROM maintenance_work_order_assignees WHERE work_order_id=? AND technician_id=?'
       ).get(ticket.id,user.id)));
   if (user.role === 'cleaning_manager') return true;
-  if (user.role === 'cleaning_supervisor') return !ticket.supervisorId || ticket.supervisorId === user.id;
+  if (user.role === 'cleaning_supervisor') return ticket.supervisorId === user.id;
   return user.role === 'cleaner' && ticket.assignedTo === user.id;
 }
 function canReceiveReportEvent(user, report) {

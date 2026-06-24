@@ -249,7 +249,7 @@ let ticketId, reportId, tmpUserId;
 test('create cleaning ticket (manager, with worker -> auto status assigned)', async () => {
   const manager = await login('manager', PASSWORDS.manager);
   const r = await manager('/api/tickets', { method: 'POST', body: JSON.stringify({
-    locationId: 'lobby-gf', title: 'بلاغ اختبار دخان', description: 'اختبار سموك', priority: 'high'
+    locationId: 'lobby-gf', title: 'بلاغ اختبار دخان', description: 'اختبار سموك', priority: 'high', supervisorId: 'u-s1'
   }) });
   assert.equal(r.status, 200);
   assert.ok(r.body.ticket.id);
@@ -348,7 +348,7 @@ test('PUT ticket: transition out of a terminal state is rejected', async () => {
 test('supervisor escalation replaces rejection and requires photo evidence', async () => {
   const manager = await login('manager', PASSWORDS.manager);
   const created = await manager('/api/tickets', { method: 'POST', body: JSON.stringify({
-    locationId: 'lobby-gf', title: 'بلاغ تصعيد', assignedTo: 'u-w4', priority: 'medium'
+    locationId: 'lobby-gf', title: 'بلاغ تصعيد', assignedTo: 'u-w4', priority: 'medium', supervisorId: 'u-s1'
   }) });
   assert.equal(created.status, 200);
   const escalationTicketId = created.body.ticket.id;
@@ -647,13 +647,24 @@ test('employee cleaning request is routed manager -> supervisor -> worker', asyn
   assert.equal(created.body.ticket.assignedTo, null);
   employeeCleaningTicketId = created.body.ticket.id;
 
+  // Before routing, the unrouted request must NOT reach the supervisor —
+  // it stays in the manager queue until forwarded.
+  const supBefore = await login('supervisor1', PASSWORDS.supervisor);
+  const bootBefore = await supBefore('/api/bootstrap');
+  assert.equal(bootBefore.body.tickets.some(t => t.id === employeeCleaningTicketId), false);
+  const grabAttempt = await supBefore(`/api/tickets/${employeeCleaningTicketId}`, { method:'PUT', body:JSON.stringify({ assignedTo:'u-w4', status:'assigned' }) });
+  assert.equal(grabAttempt.status, 403);
+
   const manager = await login('manager', PASSWORDS.manager);
   const routedToSupervisor = await manager(`/api/tickets/${employeeCleaningTicketId}`, { method:'PUT', body:JSON.stringify({ supervisorId:'u-s1' }) });
   assert.equal(routedToSupervisor.status, 200);
   assert.equal(routedToSupervisor.body.ticket.supervisorId, 'u-s1');
   assert.equal(routedToSupervisor.body.ticket.assignedTo, null);
 
+  // After routing, the assigned supervisor now sees it and can assign a worker.
   const supervisor = await login('supervisor1', PASSWORDS.supervisor);
+  const bootAfter = await supervisor('/api/bootstrap');
+  assert.equal(bootAfter.body.tickets.some(t => t.id === employeeCleaningTicketId), true);
   const routedToWorker = await supervisor(`/api/tickets/${employeeCleaningTicketId}`, { method:'PUT', body:JSON.stringify({ assignedTo:'u-w4', status:'assigned' }) });
   assert.equal(routedToWorker.status, 200);
   assert.equal(routedToWorker.body.ticket.assignedTo, 'u-w4');
