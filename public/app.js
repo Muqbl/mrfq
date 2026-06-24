@@ -859,6 +859,11 @@ function runUiFlow(flow,...values){
     if(active){if(!isLast) removeUserRole(String(userId),String(role))}else addUserRole(String(userId),String(role));
     return;
   }
+  if(flow==='qr-file-pick'){
+    event.stopPropagation();
+    document.getElementById('qr-file-input')?.click();
+    return;
+  }
   if(flow==='close-notifications-reports'){goView('reports');document.getElementById('notifPanel')?.remove();return}
   if(flow==='notification-route'){
     const route=String(values[0]);
@@ -900,6 +905,7 @@ document.addEventListener('keydown',event=>{
 document.addEventListener('change',event=>{
   const action=event.target.dataset.uiChange;
   if(action==='fill-assignment') fillAssign();
+  if(action==='scan-qr-file') scanQRImageFile(event.target);
   if(action==='filter-user-role'){
     usersRoleFilter=event.target.value;
     render();
@@ -5079,6 +5085,50 @@ async function startNativeQRScanner(onDecoded){
   return true;
 }
 
+async function scanQRImageFile(input){
+  const file = input?.files?.[0];
+  if(input) input.value = '';
+  if(!file) return;
+  if(typeof Html5Qrcode === 'undefined'){
+    toast(lang==='ar'?'قارئ الصور غير متوفر':'Image QR reader is not available','bad');
+    return;
+  }
+  const liveScanner = qrScannerInstance;
+  const liveNative = qrNativeStream;
+  try{
+    if(liveScanner){
+      qrScannerInstance = null;
+      await liveScanner.stop().catch(()=>{});
+      try{ liveScanner.clear(); }catch(_e){}
+    }
+    if(liveNative){
+      liveNative.getTracks().forEach(track=>track.stop());
+      qrNativeStream = null;
+    }
+    const reader = document.getElementById('qr-reader');
+    if(reader) reader.innerHTML = `<div class="qr-file-loading">${ic('sync',20)} ${lang==='ar'?'جارٍ قراءة الصورة...':'Reading image...'}</div>`;
+    const holder = document.getElementById('qr-file-reader') || document.createElement('div');
+    holder.id = 'qr-file-reader';
+    holder.className = 'qr-file-reader';
+    if(!holder.parentElement) document.getElementById('qr-overlay')?.appendChild(holder);
+    const scanner = new Html5Qrcode('qr-file-reader');
+    let decoded = '';
+    if(typeof scanner.scanFileV2 === 'function'){
+      const result = await scanner.scanFileV2(file, false);
+      decoded = result?.decodedText || result?.text || '';
+    }else{
+      decoded = await scanner.scanFile(file, false);
+    }
+    try{ scanner.clear(); }catch(_e){}
+    if(decoded) handleQrDecoded(decoded);
+    else throw new Error('NO_QR_FOUND');
+  }catch(e){
+    toast(lang==='ar'?'لم أتمكن من قراءة QR من الصورة. قرّب الصورة من الرمز وحاول مرة أخرى.':'Could not read QR from image. Move closer and try again.','bad');
+    console.warn('[qr-file]', e && e.message ? e.message : e);
+    closeQRScanner();
+  }
+}
+
 async function openQRScanner(){
   if(typeof Html5Qrcode === 'undefined' && !('BarcodeDetector' in window)){
     toast(lang==='ar'?'مكتبة الماسح غير متوفرة':'QR scanner library not available','bad');
@@ -5108,7 +5158,11 @@ async function openQRScanner(){
         <button class="qr-scanner-close" ${uiAction('closeQRScanner',[])}>${ic('x',22)}</button>
       </div>
       <div id="qr-reader"></div>
-      <p class="qr-scanner-hint">${lang==='ar'?'وجّه الكاميرا نحو رمز QR الخاص بالمرفق':'Point the camera at the facility QR code'}</p>
+      <div class="qr-scanner-actions">
+        <input id="qr-file-input" class="is-hidden" type="file" accept="image/*" capture="environment" data-ui-change="scan-qr-file">
+        <button type="button" class="btn secondary sm" ${uiAction('runUiFlow',['qr-file-pick'])}>${ic('camera',14)} ${lang==='ar'?'قراءة من صورة':'Read from photo'}</button>
+      </div>
+      <p class="qr-scanner-hint">${lang==='ar'?'وجّه الكاميرا نحو رمز QR. إذا لم يقرأ خلال ثوانٍ استخدم قراءة من صورة.':'Point the camera at the QR. If it does not scan in a few seconds, use Read from photo.'}</p>
     </div>`;
   document.body.appendChild(overlay);
 
@@ -5146,9 +5200,17 @@ async function openQRScanner(){
       qrNativeStream.getTracks().forEach(track=>track.stop());
       qrNativeStream = null;
     }
+    if(!qrScannerInstance && typeof Html5Qrcode !== 'undefined'){
+      const fallbackCtorConfig = { useBarCodeDetectorIfSupported: true };
+      if(typeof Html5QrcodeSupportedFormats !== 'undefined' && Html5QrcodeSupportedFormats.QR_CODE){
+        fallbackCtorConfig.formatsToSupport = [Html5QrcodeSupportedFormats.QR_CODE];
+      }
+      qrScannerInstance = new Html5Qrcode('qr-reader', fallbackCtorConfig);
+    }
     console.warn('[qr] environment camera failed:', envErr && envErr.name, envErr && envErr.message);
     // Fallback 1: any available camera by facingMode
     try{
+      if(!qrScannerInstance) throw envErr;
       await qrScannerInstance.start({ facingMode: 'user' }, config, onDecoded, ()=>{});
     }catch(userErr){
       // Fallback 2: enumerate devices and try the first available camera

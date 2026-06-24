@@ -2266,6 +2266,15 @@ tbody tr:hover td{background:var(--surface-2)}
   font-size:var(--fs-sm)!important;
 }
 #qr-reader__dashboard span{font-size:var(--fs-xs)!important;color:var(--muted)!important}
+.qr-scanner-actions{
+  display:flex;align-items:center;justify-content:center;
+  padding:12px 18px 0;
+}
+.qr-file-reader{position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden}
+.qr-file-loading{
+  min-height:280px;display:flex;align-items:center;justify-content:center;gap:8px;
+  color:#fff;font-size:var(--fs-sm);font-weight:800;
+}
 .qr-scanner-hint{
   padding:12px 18px 16px;text-align:center;
   font-size:var(--fs-sm);color:var(--muted);line-height:1.6;
