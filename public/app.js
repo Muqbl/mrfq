@@ -696,7 +696,7 @@ const UI_ACTION_NAMES = new Set([
   'empHospCartAdd','openTicketDetail','showMaintenanceOrderForm','showMaintenanceUsePart',
   'showMenuItemFormModal','showCategoryFormModal','showKitchenFormModal','supVerify',
   'supEscalatePrompt','submitSupEscalation',
-  'supReviewPrompt','renderWorkspaceSwitcher','togglePwd','login','submitForcePassword',
+  'supReportEscalatePrompt','submitSupReportEscalation','supReviewPrompt','renderWorkspaceSwitcher','togglePwd','login','submitForcePassword',
   'exitModule','showMobileNavMore','showAdminNavMore','showFmNavMore',
   'setEmployeeRequestChannel','saveSlaSettings','load','exportExcelReports',
   'exportPDFReports','submitRating','deleteReport','createTicket','editTicketModal',
@@ -2841,7 +2841,7 @@ function taskDone(tasks,pair){return (tasks||[]).includes(pair[0])||(tasks||[]).
 function reports(){
   const maintenanceContext=isMaintenanceRole()||adminModuleContext==='maintenance'||(data.reports||[]).some(r=>r.module==='maintenance')&&!(data.reports||[]).some(r=>r.module==='cleaning');
   const maintFilterKeys=['pending','approved','rejected','needs_recleaning','all'];
-  const cleaningFilterKeys=['new','pending','approved','rejected','needs_recleaning','all'];
+  const cleaningFilterKeys=['new','pending','approved','needs_recleaning','all'];
   // Reset filter if it belongs to the opposite context (e.g. 'new' chip doesn't exist in maintenance)
   if(maintenanceContext && !maintFilterKeys.includes(reportFilter)) reportFilter='all';
   if(!maintenanceContext && !cleaningFilterKeys.includes(reportFilter)) reportFilter='all';
@@ -2855,8 +2855,7 @@ function reports(){
     {key:'new',label:tr('filterNew')},
     {key:'pending',label:tr('filterPending')},
     {key:'approved',label:tr('filterApproved')},
-    {key:'rejected',label:lang==='ar'?'مرفوض':'Rejected'},
-    {key:'needs_recleaning',label:tr('reclean')},
+    {key:'needs_recleaning',label:lang==='ar'?'مصعد':'Escalated'},
     {key:'all',label:tr('filterAll')},
   ];
   const moduleFilter=maintenanceContext?'maintenance':'cleaning';
@@ -2935,6 +2934,8 @@ function reportCard(r,full){
   const rating = reportOverallRating(r);
   const tasks = taskSetFor(r.locationType);
   const totalPhotos = imgs.length;
+  const isCleaningReport=(r.module||'cleaning')==='cleaning';
+  const canSupervisorEscalateReport=isCleaningReport&&me.role==='cleaning_supervisor';
   return`<article class="reportCard">
     <div class="reportCard-body"  class="u-cursor-pointer" ${uiAction('openReportDetail',[(r.id)])} role="button" tabindex="0">
       <div>
@@ -2955,8 +2956,10 @@ function reportCard(r,full){
           <button class="btn ok sm action-btn" ${uiAction('reviewReport',[(r.id),'approved'])}>${ic('check',13)} ${tr('approve')}</button>
         </div>
         <div class="reportCard-actions-secondary${canDelete()?'':' reportCard-actions-secondary--full'}">
-          <button class="btn warn sm action-btn" ${uiAction('reviewReport',[(r.id),'needs_recleaning'])}>${ic('flip',13)} ${r.module==='maintenance'?(lang==='ar'?'إعادة العمل':'Rework'):tr('reclean')}</button>
-          <button class="btn danger sm action-btn" ${uiAction('reviewReport',[(r.id),'rejected'])}>${ic('x',13)} ${tr('reject')}</button>
+          ${canSupervisorEscalateReport
+            ? `<button class="btn warn sm action-btn" ${uiAction('supReportEscalatePrompt',[(r.id)])}>${ic('camera',13)} ${lang==='ar'?'تصعيد':'Escalate'}</button>`
+            : `<button class="btn warn sm action-btn" ${uiAction('reviewReport',[(r.id),'needs_recleaning'])}>${ic('flip',13)} ${r.module==='maintenance'?(lang==='ar'?'إعادة العمل':'Rework'):tr('reclean')}</button>`}
+          ${r.module==='maintenance'?`<button class="btn danger sm action-btn" ${uiAction('reviewReport',[(r.id),'rejected'])}>${ic('x',13)} ${tr('reject')}</button>`:''}
         </div>
         ${canDelete()?`<div class="reportCard-actions-danger"><button class="btn secondary sm action-btn reportDeleteBtn" ${uiAction('deleteReport',[(r.id)])} aria-label="${lang==='ar'?'حذف التقرير':'Delete report'}" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button></div>`:''}
       </div>`:''}
@@ -3258,7 +3261,9 @@ function editTicketModal(id){
   if(!t) return;
   const workers=(data.users||[]).filter(u=>u.role===operationalWorkerRole());
   const supervisors=(data.users||[]).filter(u=>u.role==='cleaning_supervisor');
-  const statuses=['submitted','assigned','accepted','in_progress','waiting_verification','completed','reclean_required','rejected','cancelled'];
+  const statuses=isMaintenanceRole()
+    ? ['submitted','assigned','accepted','in_progress','waiting_verification','completed','reclean_required','rejected','cancelled']
+    : ['submitted','assigned','accepted','in_progress','waiting_verification','completed','reclean_required','cancelled'];
   const body=`
   <div class="formGrid">
     ${fc(tr('title'), inp('et-title',{value:t.title}))}
@@ -7432,8 +7437,7 @@ function supReportCard(r){
     </div>`:''}
     <div class="ticketCard-actions supTicketCard-actions" ${uiAction('runUiFlow',['stop-propagation'])}>
       <button class="btn sm ok" ${uiAction('supReview',[(r.id),'approved',''])}>${ic('check',14)} ${lang==='ar'?'اعتماد':'Approve'}</button>
-      <button class="btn sm warn" ${uiAction('supReviewPrompt',[(r.id),'needs_recleaning'])}>${lang==='ar'?'إعادة تنظيف':'Reclean'}</button>
-      <button class="btn sm danger" ${uiAction('supReviewPrompt',[(r.id),'rejected'])}>${lang==='ar'?'رفض':'Reject'}</button>
+      <button class="btn sm warn" ${uiAction('supReportEscalatePrompt',[(r.id)])}>${ic('camera',14)} ${lang==='ar'?'تصعيد':'Escalate'}</button>
     </div>
   </div>`;
 }
@@ -7493,6 +7497,39 @@ async function submitSupEscalation(ticketId){
     document.getElementById('escalationModal')?.remove();
     currentPhotos=[]; window._ticketEscalationMode=false;
     await load(); renderSupervisor();
+    toast(lang==='ar'?'تم التصعيد':'Escalated','ok');
+  }catch(e){ toast(e.message,'bad'); }
+}
+
+function supReportEscalatePrompt(reportId){
+  currentPhotos=[];
+  window._ticketEscalationMode=true;
+  const body=`
+    <div class="field">
+      <label>${lang==='ar'?'ملاحظات التصعيد':'Escalation notes'}</label>
+      ${ta('rep-esc-note','',{rows:3,placeholder:lang==='ar'?'اكتب سبب تصعيد التقرير أو الملاحظة...':'Write the report escalation reason or note...'})}
+    </div>
+    <div class="field">
+      <label>${lang==='ar'?'صورة التصعيد إلزامية':'Escalation photo is required'}</label>
+      <button class="cameraBtn" ${uiAction('openCamera',['general'])}>${ic('camera',20)}<span>${lang==='ar'?'التقاط صورة':'Take Photo'}</span></button>
+      <div id="escalationPhotoPrev" class="photoGrid u-mt-10"></div>
+    </div>`;
+  const foot=`<button class="btn warn" ${uiAction('submitSupReportEscalation',[(reportId)])}>${ic('camera',14)} ${lang==='ar'?'تصعيد':'Escalate'}</button>
+    <button class="btn secondary" ${uiAction('runUiFlow',['close-element','reportEscalationModal'])}>${tr('cancel')}</button>`;
+  showModal('reportEscalationModal', `${ic('camera',16)} ${lang==='ar'?'تصعيد التقرير':'Escalate Report'}`, body, foot);
+}
+
+async function submitSupReportEscalation(reportId){
+  if(!currentPhotos.length) return toast(lang==='ar'?'صورة التصعيد إلزامية':'Escalation photo is required','bad');
+  try{
+    await api(`/reports/${reportId}/escalate`,{method:'POST',body:JSON.stringify({
+      note:document.getElementById('rep-esc-note')?.value||'',
+      photos:currentPhotos
+    })});
+    document.getElementById('reportEscalationModal')?.remove();
+    currentPhotos=[]; window._ticketEscalationMode=false;
+    await load();
+    if(me.role==='cleaning_supervisor') renderSupervisor(); else render();
     toast(lang==='ar'?'تم التصعيد':'Escalated','ok');
   }catch(e){ toast(e.message,'bad'); }
 }

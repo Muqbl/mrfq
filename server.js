@@ -1994,6 +1994,39 @@ const server = http.createServer(async (req, res) => {
       }
 
       /* ── REPORTS: REVIEW ────────────────────────────────────── */
+      if (req.method === 'POST' && /^\/api\/reports\/[^/]+\/escalate$/.test(url.pathname)) {
+        if (me.role !== 'cleaning_supervisor') return send(res, 403, { error: 'FORBIDDEN' });
+        const id = sanitize(url.pathname.split('/')[3], 50);
+        const b = await bodyJSON(req);
+        const r = db.prepare("SELECT * FROM reports WHERE id = ? AND module = 'cleaning' AND deleted_at IS NULL").get(id);
+        if (!r) return send(res, 404, { error: 'REPORT_NOT_FOUND' });
+        const scope = cleaningSupervisorScope(me.id);
+        if (scope.enabled && !scope.workerIds.has(r.worker_id) && !scope.locationIds.has(r.location_id)) {
+          return send(res, 403, { error: 'FORBIDDEN' });
+        }
+        if (r.approval_status !== 'pending') return send(res, 400, { error: 'ALREADY_REVIEWED' });
+        const savedPhotos = processPhotosTyped(Array.isArray(b.photos) ? b.photos : [], me.id, id, null, 'escalation');
+        if (!savedPhotos.length) return send(res, 400, { error: 'PHOTO_REQUIRED' });
+        const note = sanitize(b.note || b.notes || '', 500).trim();
+        const reviewTs = now();
+        db.prepare(`
+          UPDATE reports SET approval_status='needs_recleaning', approved_by=?, approved_at=?, review_note=?, updated_at=? WHERE id=?
+        `).run(me.name, reviewTs, note, reviewTs, id);
+        db.prepare(`
+          INSERT INTO approval_history
+            (entity_type, entity_id, level, approver_id, approver_role, action, notes, created_at)
+          VALUES ('report', ?, 1, ?, ?, 'needs_recleaning', ?, ?)
+        `).run(id, me.id, me.role, note, reviewTs);
+        const report = reportRow(db.prepare(`
+          SELECT r.*, GROUP_CONCAT(p.filename) AS photo_files, GROUP_CONCAT(p.photo_type) AS photo_types
+          FROM reports r LEFT JOIN photos p ON p.report_id=r.id AND p.deleted_at IS NULL
+          WHERE r.id=? GROUP BY r.id
+        `).get(id));
+        broadcast('report_reviewed', { report, reviewedBy: me.name });
+        logEvent(db, 'report.escalated_by_supervisor', 'report', id, me, { status: 'needs_recleaning', note, photoCount: savedPhotos.length });
+        return send(res, 200, { report });
+      }
+
       if (req.method === 'POST' && url.pathname === '/api/reports/review') {
         if (!canReview(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const b = await bodyJSON(req);
@@ -2005,8 +2038,9 @@ const server = http.createServer(async (req, res) => {
             return send(res, 403, { error: 'FORBIDDEN' });
           }
         }
-        if (!REPORT_REVIEW_STATUSES.includes(b.status)) return send(res, 400, { error: 'INVALID_STATUS' });
         if (r.approval_status !== 'pending') return send(res, 400, { error: 'ALREADY_REVIEWED' });
+        if (!REPORT_REVIEW_STATUSES.includes(b.status)) return send(res, 400, { error: 'INVALID_STATUS' });
+        if (me.role === 'cleaning_supervisor' && b.status === 'rejected') return send(res, 403, { error: 'ESCALATION_REQUIRED' });
         const status   = b.status;
         const reviewTs = now();
         db.prepare(`

@@ -399,6 +399,36 @@ test('report review: re-reviewing an already-reviewed report is rejected (400 AL
   assert.equal(r.body.error, 'ALREADY_REVIEWED');
 });
 
+test('supervisor report escalation replaces rejection and requires photo evidence', async () => {
+  const worker3 = await login('worker3', PASSWORDS.worker);
+  const created = await worker3('/api/reports', { method: 'POST', body: JSON.stringify({
+    locationId: 'lobby-gf', tasks: ['floor'], notes: 'تقرير يحتاج تصعيد',
+    beforePhotos: [TINY_PNG], afterPhotos: [TINY_PNG]
+  }) });
+  assert.equal(created.status, 200);
+  const escalationReportId = created.body.report.id;
+
+  const supervisor = await login('supervisor1', PASSWORDS.supervisor);
+  const rejected = await supervisor('/api/reports/review', { method: 'POST', body: JSON.stringify({
+    id: escalationReportId, status: 'rejected'
+  }) });
+  assert.equal(rejected.status, 403);
+  assert.equal(rejected.body.error, 'ESCALATION_REQUIRED');
+
+  const missingPhoto = await supervisor(`/api/reports/${escalationReportId}/escalate`, { method: 'POST', body: JSON.stringify({
+    note: 'التقرير يحتاج إعادة تنظيف'
+  }) });
+  assert.equal(missingPhoto.status, 400);
+  assert.equal(missingPhoto.body.error, 'PHOTO_REQUIRED');
+
+  const escalated = await supervisor(`/api/reports/${escalationReportId}/escalate`, { method: 'POST', body: JSON.stringify({
+    note: 'صورة تصعيد التقرير مرفقة', photos: [TINY_PNG]
+  }) });
+  assert.equal(escalated.status, 200);
+  assert.equal(escalated.body.report.approvalStatus, 'needs_recleaning');
+  assert.ok(escalated.body.report.photos.length >= 3);
+});
+
 /* ── 12b. Rating governance ─────────────────────────────────────── */
 test('cleaning_supervisor can rate supervisor type', async () => {
   const supervisor = await login('supervisor1', PASSWORDS.supervisor);
