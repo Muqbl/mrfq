@@ -32,17 +32,6 @@ function parseCsv(text) {
   return rows.filter(r => r.some(Boolean)).map(r => Object.fromEntries(headers.map((h, i) => [h, r[i] || ''])));
 }
 
-function slug(value) {
-  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'item';
-}
-
-function sourcePrefix(source) {
-  if (source === 'المساحات والمكاتب') return 'space';
-  if (source === 'الأبواب') return 'door';
-  if (source === 'طفايات الحريق') return 'ext';
-  return 'reg';
-}
-
 function floorLevel(code) {
   if (code === 'B2') return -2;
   if (code === 'B1') return -1;
@@ -76,6 +65,56 @@ function locationType(source, symbol, englishName) {
   return 'other';
 }
 
+function installLocationSpaceTrigger(db) {
+  db.exec(`
+    DROP TRIGGER IF EXISTS trg_location_create_space;
+    CREATE TRIGGER trg_location_create_space AFTER INSERT ON locations
+    BEGIN
+      INSERT OR IGNORE INTO spaces (id,zone_id,legacy_location_id,code,name_ar,name_en,space_type,capacity,active,created_at,updated_at)
+        VALUES (
+          'sp-' || NEW.id,
+          COALESCE(
+            (SELECT id FROM facility_zones WHERE id = NEW.building_id || '-' || NEW.floor || '-GEN'),
+            (SELECT id FROM facility_zones WHERE deleted_at IS NULL ORDER BY created_at LIMIT 1)
+          ),
+          NEW.id,
+          COALESCE(NULLIF(NEW.space,''), NEW.id),
+          NEW.name_ar,
+          NEW.name_en,
+          NEW.type,
+          0,
+          NEW.active,
+          NEW.created_at,
+          NEW.updated_at
+        );
+      INSERT OR IGNORE INTO location_space_map (location_id,space_id,created_at)
+        VALUES (NEW.id,'sp-' || NEW.id,NEW.created_at);
+    END;
+  `);
+}
+
+function dedupeByCode(rows) {
+  const byCode = new Map();
+  let duplicateRows = 0;
+
+  for (const row of rows) {
+    const code = String(row.code || '').trim();
+    if (!code) continue;
+    const existing = byCode.get(code);
+    if (!existing) {
+      byCode.set(code, { ...row, code });
+      continue;
+    }
+
+    duplicateRows += 1;
+    const existingIsDoor = existing.source_type === 'الأبواب';
+    const currentIsDoor = row.source_type === 'الأبواب';
+    if (existingIsDoor && !currentIsDoor) byCode.set(code, { ...row, code });
+  }
+
+  return { rows: [...byCode.values()], duplicateRows };
+}
+
 function main() {
   if (CSV_PATH !== '-' && !fs.existsSync(CSV_PATH)) {
     console.error(`CSV not found: ${CSV_PATH}`);
@@ -84,9 +123,11 @@ function main() {
   }
 
   const csvText = CSV_PATH === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(CSV_PATH, 'utf8');
-  const rows = parseCsv(csvText).filter(r => r.code);
+  const rawRows = parseCsv(csvText).filter(r => r.code);
+  const { rows, duplicateRows } = dedupeByCode(rawRows);
   const db = getDb();
   const ts = now();
+  installLocationSpaceTrigger(db);
 
   const upsertFacility = db.prepare(`
     INSERT INTO facilities (id,name_ar,name_en,active,created_at,updated_at,deleted_at)
@@ -140,8 +181,7 @@ function main() {
       const floorCode = row.floor_code || 'NA';
       const floorId = `${buildingId}-${floorCode}`;
       const zoneId = `${floorId}-GEN`;
-      const prefix = sourcePrefix(row.source_type);
-      const locationId = `reg-${prefix}-${slug(row.code)}`;
+      const locationId = row.code;
       const spaceId = `sp-${locationId}`;
       const type = locationType(row.source_type, row.symbol, row.english_name);
       const arBase = row.arabic_name || row.code;
@@ -160,9 +200,16 @@ function main() {
     }
   })();
 
-  const importedLocations = db.prepare("SELECT COUNT(*) AS c FROM locations WHERE id LIKE 'reg-%' AND deleted_at IS NULL").get().c;
-  const importedSpaces = db.prepare("SELECT COUNT(*) AS c FROM spaces WHERE id LIKE 'sp-reg-%' AND deleted_at IS NULL").get().c;
-  console.log(JSON.stringify({ source: CSV_PATH, csvRows: rows.length, importedLocations, importedSpaces }, null, 2));
+  const importedLocations = db.prepare(`SELECT COUNT(*) AS c FROM locations WHERE deleted_at IS NULL AND facility_id = 'MRFQ-FAC-001' AND building_id = 'MAIN-001'`).get().c;
+  const importedSpaces = db.prepare(`SELECT COUNT(*) AS c FROM spaces WHERE deleted_at IS NULL AND zone_id LIKE 'MAIN-001-%'`).get().c;
+  console.log(JSON.stringify({
+    source: CSV_PATH,
+    csvRows: rawRows.length,
+    uniqueCodes: rows.length,
+    duplicateRowsSkipped: duplicateRows,
+    importedLocations,
+    importedSpaces
+  }, null, 2));
 }
 
 main();
