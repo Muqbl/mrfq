@@ -436,6 +436,7 @@ function canManageFacilities(role){ return permissions.canManageFacilities(role)
 function canCreateTickets(role){ return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(role); }
 function canReview(role)       { return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(role); }
 function canDelete(role)       { return ['system_admin','facility_manager','cleaning_manager'].includes(role); }
+function canResetRatings(role) { return ['system_admin','facility_manager'].includes(role); }
 function allowedRoleEditor(editorRole, targetRole) {
   if (editorRole === 'system_admin') return true;
   if (editorRole === 'cleaning_manager') return ['cleaning_supervisor','cleaner'].includes(targetRole);
@@ -2063,7 +2064,24 @@ const server = http.createServer(async (req, res) => {
       }
 
       /* ── REPORTS: DELETE (soft) ─────────────────────────────── */
-      if (req.method === 'DELETE' && url.pathname.startsWith('/api/reports/')) {
+      /* ── REPORTS: RESET RATINGS (any module) ────────────────── */
+      if (req.method === 'DELETE' && /^\/api\/reports\/[^/]+\/rating$/.test(url.pathname)) {
+        if (!canResetRatings(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const id = sanitize(url.pathname.split('/')[3], 50);
+        const r  = db.prepare('SELECT * FROM reports WHERE id = ? AND deleted_at IS NULL').get(id);
+        if (!r) return send(res, 404, { error: 'REPORT_NOT_FOUND' });
+        db.prepare('UPDATE reports SET rating_supervisor=NULL, rating_manager=NULL, updated_at=? WHERE id=?').run(now(), id);
+        const report = reportRow(db.prepare(`
+          SELECT r.*, GROUP_CONCAT(p.filename) AS photo_files, GROUP_CONCAT(p.photo_type) AS photo_types
+          FROM reports r LEFT JOIN photos p ON p.report_id=r.id AND p.deleted_at IS NULL
+          WHERE r.id=? GROUP BY r.id
+        `).get(id));
+        broadcast('report_reviewed', { report, reviewedBy: me.name });
+        logEvent(db, 'report.rating_reset', 'report', id, me, { id }, r.module || 'cleaning');
+        return send(res, 200, { report });
+      }
+
+      if (req.method === 'DELETE' && /^\/api\/reports\/[^/]+$/.test(url.pathname)) {
         if (!canDelete(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const id = sanitize(url.pathname.split('/').pop(), 50);
         const r  = db.prepare("SELECT 1 FROM reports WHERE id = ? AND module = 'cleaning' AND deleted_at IS NULL").get(id);
@@ -2927,6 +2945,18 @@ const server = http.createServer(async (req, res) => {
         broadcast('hospitality_order_updated', { order: updated });
         logEvent(db, 'hospitality.status_changed', 'hospitality_order', id, me, { from: order.status, to: newStatus }, 'hospitality');
         return send(res, 200, { order: updated });
+      }
+
+      /* ── HOSPITALITY: DELETE ORDER (soft) ─────────────────────── */
+      if (req.method === 'DELETE' && /^\/api\/hospitality\/orders\/[^/]+$/.test(url.pathname)) {
+        if (!canHospitalityOverride(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const id    = sanitize(url.pathname.split('/')[4], 80);
+        const order = db.prepare('SELECT * FROM hospitality_orders WHERE id = ? AND deleted_at IS NULL').get(id);
+        if (!order) return send(res, 404, { error: 'NOT_FOUND' });
+        db.prepare('UPDATE hospitality_orders SET deleted_at=?, updated_at=? WHERE id=?').run(now(), now(), id);
+        broadcast('hospitality_order_deleted', { id });
+        logEvent(db, 'hospitality.deleted', 'hospitality_order', id, me, { id }, 'hospitality');
+        return send(res, 200, { ok: true });
       }
 
       /* ── HOSPITALITY: PERFORMANCE / SLA SUMMARY ───────────────── */

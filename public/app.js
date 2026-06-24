@@ -707,7 +707,7 @@ const UI_ACTION_NAMES = new Set([
   'savePasswordReset','hidePasswordResetModal','startTicketWorker','startForm','closeCamera',
   'toggleCameraFacing','capturePhoto','submitReport','closeQRScanner','renderWorker',
   'submitEmployeeOrder','submitEmployeeHospOrder','updateHospitalityOrderStatus',
-  'showHospitalityActivity','toggleAssignRow','maintAcceptTicket','maintStartTicket',
+  'showHospitalityActivity','toggleAssignRow','deleteHospitalityOrder','resetReportRating','maintAcceptTicket','maintStartTicket',
   'maintAssignTicket','maintOpenTicketCreate','showMaintenanceTeamForm',
   'deleteMaintTicketConfirm','showMaintenanceScheduleForm','showMaintenanceScheduleTeamForm',
   'runMaintenanceSchedule','deleteMaintenanceSchedule','showMaintenanceAssetForm',
@@ -1111,6 +1111,7 @@ function connectSSE(){
     }
     load();
   });
+  eventSource.addEventListener('hospitality_order_deleted',()=>{ load(); });
   eventSource.onerror=()=>{
     eventSource.close(); eventSource=null;
     setTimeout(connectSSE,5000);
@@ -1258,6 +1259,8 @@ function canManageFacilities(){return window.MRFQPermissions.canManageFacilities
 function canViewCleaningTeam(){return me.role==='cleaning_manager'}
 function canManageHospitalityMenu(){return ['system_admin','hospitality_manager'].includes(me.role)}
 function canHospitalityAssign(){return ['system_admin','facility_manager','hospitality_manager','hospitality_supervisor'].includes(me.role)}
+function canHospitalityDelete(){return ['system_admin','facility_manager','hospitality_manager'].includes(me.role)}
+function canResetRatings(){return ['system_admin','facility_manager'].includes(me.role)}
 function locName(l){return lang==='ar'?(l.nameAr||l.nameEn):(l.nameEn||l.nameAr)}
 
 function roleBadgeClass(role){
@@ -2918,9 +2921,10 @@ function reportRatingControls(r){
   if(['cleaning_supervisor','maintenance_supervisor'].includes(me.role)) return `<div class="ratingRow">
     <div class="ratingGroup"><span class="ratingLabel">${tr('ratingBySupervisor')}</span>${starRatingWidget(r.id,'supervisor',r.ratingSupervisor)}</div>
   </div>`;
-  if(me.role==='system_admin') return `<div class="ratingRow">
+  if(canResetRatings()) return `<div class="ratingRow">
     <div class="ratingGroup"><span class="ratingLabel">${tr('ratingBySupervisor')}</span>${starRatingWidget(r.id,'supervisor',r.ratingSupervisor)}</div>
     <div class="ratingGroup"><span class="ratingLabel">${tr('ratingByManager')}</span>${starRatingWidget(r.id,'manager',r.ratingManager)}</div>
+    ${(r.ratingSupervisor!=null||r.ratingManager!=null)?`<button class="btn secondary sm iconOnlyBtn ratingResetBtn" ${uiAction('resetReportRating',[(r.id)])} title="${lang==='ar'?'تصفير التقييم':'Reset rating'}" aria-label="${lang==='ar'?'تصفير التقييم':'Reset rating'}">${ic('trash',13)}</button>`:''}
   </div>`;
   return '';
 }
@@ -2970,6 +2974,13 @@ function reportCard(r,full){
 async function reviewReport(id,status){
   await api(maintenanceReportApi('/review'),{method:'POST',body:JSON.stringify({id,status})});
   toast(tr('saved'),'ok');
+  await load();
+}
+
+async function resetReportRating(id){
+  if(!confirm(lang==='ar'?'تصفير تقييم هذا التقرير؟':'Reset the rating for this report?')) return;
+  await api('/reports/'+id+'/rating',{method:'DELETE'});
+  toast(lang==='ar'?'تم تصفير التقييم':'Rating reset','ok');
   await load();
 }
 
@@ -5536,7 +5547,7 @@ function hospOrderCard(o, mode, workers){
       :(showAssign?`<div class="ticketCard-meta empOrderCard-meta"><span class="badge warn">${tr('pendingAssignmentBadge')}</span></div>`:'')}
     ${itemsHtml}
     ${o.notes?`<div class="empOrderCard-queue text-size-xs">${esc(o.notes)}</div>`:''}
-    <div class="ticketCard-actions supTicketCard-actions"><button class="btn sm secondary" ${uiAction('showHospitalityActivity',[(o.id)])}>${ic('list',13)} ${lang==='ar'?'سجل الطلب':'Activity'}</button></div>
+    <div class="ticketCard-actions supTicketCard-actions"><button class="btn sm secondary" ${uiAction('showHospitalityActivity',[(o.id)])}>${ic('list',13)} ${lang==='ar'?'سجل الطلب':'Activity'}</button>${canHospitalityDelete()?`<button class="btn sm danger iconOnlyBtn" ${uiAction('deleteHospitalityOrder',[(o.id)])} title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button>`:''}</div>
     ${mode==='new'?`
     <div class="ticketCard-actions supTicketCard-actions">
       <button class="btn sm ok" ${uiAction('hospSupervisorDecision',[(o.id),'accepted'])}>${ic('check',14)} ${tr('acceptOrder')}</button>
@@ -5565,6 +5576,15 @@ async function showHospitalityActivity(id){
     const rows=events.length?events.map(e=>`<div class="activityItem"><div class="activityItem-dot">${ic('circle',11)}</div><div class="activityItem-content"><span class="activityItem-label">${esc(_eventLabel(e.eventType))}${e.actorName?` — ${esc(e.actorName)}`:''}</span><span class="activityItem-time">${fmtFull(e.createdAt)}</span></div></div>`).join(''):`<div class="empty-state">${lang==='ar'?'لا يوجد نشاط مسجل':'No activity recorded'}</div>`;
     const el=modal.querySelector('#hospitality-activity-list');if(el)el.innerHTML=rows;
   }catch(e){const el=modal.querySelector('#hospitality-activity-list');if(el)el.innerHTML=`<div class="empty-state">${lang==='ar'?'تعذر تحميل السجل':'Could not load activity'}</div>`}
+}
+
+async function deleteHospitalityOrder(id){
+  const o=(data.hospitalityOrders||[]).find(x=>x.id===id);
+  const msg=lang==='ar'?`هل تريد حذف طلب الضيافة${o?.referenceNo?` "${o.referenceNo}"`:''}؟ لا يمكن التراجع.`:'Delete this hospitality order? This cannot be undone.';
+  if(!confirm(msg)) return;
+  await api('/hospitality/orders/'+id,{method:'DELETE'});
+  toast(lang==='ar'?'تم الحذف':'Deleted','ok');
+  await load();
 }
 
 function hospReassignRowHtml(o, workers){

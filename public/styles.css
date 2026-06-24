@@ -1234,7 +1234,7 @@ tbody tr:hover td{background:var(--surface-2)}
   width:15px;height:15px;flex:0 0 15px;stroke-width:2.1;
 }
 .reportCard-actions-primary{grid-column:1/-1;display:grid;min-width:0}
-.reportCard-actions-secondary{grid-column:1/3;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:0}
+.reportCard-actions-secondary{grid-column:1/3;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:10px;min-width:0}
 .reportCard-actions-danger{grid-column:3;display:grid;min-width:0}
 .reportCard-actions-secondary--full{grid-column:1/-1}
 .reportCard-actions .btn.ok{
@@ -2050,7 +2050,7 @@ tbody tr:hover td{background:var(--surface-2)}
     padding:10px;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 46px;gap:8px;
   }
   .reportCard-actions-primary{grid-column:1/-1}
-  .reportCard-actions-secondary{grid-column:1/3;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .reportCard-actions-secondary{grid-column:1/3;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px}
   .reportCard-actions-danger{grid-column:3}
   .reportCard-actions .action-btn{min-height:42px;padding:7px 10px}
   .reportCard-actions .reportDeleteBtn{width:46px;min-width:46px}
@@ -2423,6 +2423,7 @@ tbody tr:hover td{background:var(--surface-2)}
   padding:10px 16px 14px;border-top:1px solid var(--line);
 }
 .ratingGroup{display:grid;gap:6px;align-content:start}
+.ratingRow .ratingResetBtn{grid-column:1/-1;justify-self:end;width:40px;min-width:40px;padding:0;color:var(--bad);border-color:rgba(222,117,89,.48);background:#fff}
 .ratingLabel{font-size:var(--fs-xs);font-weight:700;color:var(--muted)}
 .starRating{display:flex;align-items:center;gap:4px;min-width:0}
 .starBtn{
