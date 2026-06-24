@@ -707,7 +707,7 @@ const UI_ACTION_NAMES = new Set([
   'savePasswordReset','hidePasswordResetModal','startTicketWorker','startForm','closeCamera',
   'toggleCameraFacing','capturePhoto','submitReport','closeQRScanner','renderWorker',
   'submitEmployeeOrder','submitEmployeeHospOrder','updateHospitalityOrderStatus',
-  'showHospitalityActivity','toggleAssignRow','deleteHospitalityOrder','resetReportRating','maintAcceptTicket','maintStartTicket',
+  'showHospitalityActivity','toggleAssignRow','deleteHospitalityOrder','maintAcceptTicket','maintStartTicket',
   'maintAssignTicket','maintOpenTicketCreate','showMaintenanceTeamForm',
   'deleteMaintTicketConfirm','showMaintenanceScheduleForm','showMaintenanceScheduleTeamForm',
   'runMaintenanceSchedule','deleteMaintenanceSchedule','showMaintenanceAssetForm',
@@ -1259,7 +1259,6 @@ function canViewCleaningTeam(){return me.role==='cleaning_manager'}
 function canManageHospitalityMenu(){return ['system_admin','hospitality_manager'].includes(me.role)}
 function canHospitalityAssign(){return ['system_admin','facility_manager','hospitality_manager','hospitality_supervisor'].includes(me.role)}
 function canHospitalityDelete(){return ['system_admin','facility_manager','hospitality_manager'].includes(me.role)}
-function canResetRatings(){return ['system_admin','facility_manager'].includes(me.role)}
 function locName(l){return lang==='ar'?(l.nameAr||l.nameEn):(l.nameEn||l.nameAr)}
 
 function roleBadgeClass(role){
@@ -1614,6 +1613,8 @@ function render(){
   if(_lastView==='locations' && view!=='locations'){ locsFloorFilter='all'; }
   if(_lastView==='assignments' && view!=='assignments'){ assignFloorFilter='all'; }
   _lastView = view;
+  // Facilities (locations) management is restricted to system admin / facility manager.
+  if(view==='locations' && !canManageFacilities()) view='dashboard';
   if(view==='performance'){
     shell(`<div class="u-text-center-p-40">${ic('clock',28)}</div>`);
     performance().then(html=>{
@@ -1765,7 +1766,7 @@ function shell(content){
         </div>
         <div class="nav-section">
           <span class="nav-section-label">${tr('management')}</span>
-          ${navItem('locations',tr('locations'),'locations',0)}
+          ${canManageFacilities()?navItem('locations',tr('locations'),'locations',0):''}
           ${navItem('assignments',tr('assignments'),'assignments',0)}
           ${canUsers()?navItem('users',canViewCleaningTeam()?tr('cleaningTeam'):tr('users'),'users',0):''}
           ${canReview()?navItem('performance',tr('performance'),'bar-chart',0):''}
@@ -1909,7 +1910,7 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
       {v:'dashboard', label:tr('dashboard'), icon:'dashboard', count:0},
       {v:'tickets', label:tr('tickets'), icon:'tickets', count:openTickets},
       {v:'reports', label:tr('reports'), icon:'reports', count:pendingReports},
-      {v:'locations', label:tr('locations'), icon:'locations', count:0}
+      ...(canManageFacilities()?[{v:'locations', label:tr('locations'), icon:'locations', count:0}]:[])
     ];
   }
   const moreActive = isAdmin ? !primary.some(item=>item.v===view)
@@ -1947,7 +1948,7 @@ function showMobileNavMore(){
       {v:'dashboard', label:tr('dashboard'), icon:'dashboard'},
       {v:'tickets', label:tr('tickets'), icon:'tickets'},
       {v:'reports', label:tr('reports'), icon:'reports'},
-      {v:'locations', label:tr('locations'), icon:'locations'},
+      ...(canManageFacilities()?[{v:'locations', label:tr('locations'), icon:'locations'}]:[]),
       {v:'assignments', label:tr('assignments'), icon:'assignments'},
       ...(canUsers()?[{v:'users', label:canViewCleaningTeam()?tr('cleaningTeam'):tr('users'), icon:'users'}]:[]),
       ...(canReview()?[{v:'performance', label:tr('performance'), icon:'bar-chart'}]:[])
@@ -2920,10 +2921,9 @@ function reportRatingControls(r){
   if(['cleaning_supervisor','maintenance_supervisor'].includes(me.role)) return `<div class="ratingRow">
     <div class="ratingGroup"><span class="ratingLabel">${tr('ratingBySupervisor')}</span>${starRatingWidget(r.id,'supervisor',r.ratingSupervisor)}</div>
   </div>`;
-  if(canResetRatings()) return `<div class="ratingRow">
+  if(['system_admin','facility_manager'].includes(me.role)) return `<div class="ratingRow">
     <div class="ratingGroup"><span class="ratingLabel">${tr('ratingBySupervisor')}</span>${starRatingWidget(r.id,'supervisor',r.ratingSupervisor)}</div>
     <div class="ratingGroup"><span class="ratingLabel">${tr('ratingByManager')}</span>${starRatingWidget(r.id,'manager',r.ratingManager)}</div>
-    ${(r.ratingSupervisor!=null||r.ratingManager!=null)?`<button class="btn secondary sm ratingResetBtn" ${uiAction('resetReportRating',[(r.id)])} title="${lang==='ar'?'تصفير التقييم':'Reset rating'}" aria-label="${lang==='ar'?'تصفير التقييم':'Reset rating'}">${ic('refresh',13)} ${lang==='ar'?'تصفير التقييم':'Reset rating'}</button>`:''}
   </div>`;
   return '';
 }
@@ -2963,7 +2963,7 @@ function reportCard(r,full){
           ? `<button class="btn warn sm action-btn" ${uiAction('supReportEscalatePrompt',[(r.id)])}>${ic('camera',13)} ${lang==='ar'?'تصعيد':'Escalate'}</button>`
           : `<button class="btn warn sm action-btn" ${uiAction('reviewReport',[(r.id),'needs_recleaning'])}>${ic('flip',13)} ${r.module==='maintenance'?(lang==='ar'?'إعادة العمل':'Rework'):tr('reclean')}</button>`}
         ${r.module==='maintenance'?`<button class="btn danger sm action-btn" ${uiAction('reviewReport',[(r.id),'rejected'])}>${ic('x',13)} ${tr('reject')}</button>`:''}`:''}
-        ${showDelete?`<button class="btn secondary sm action-btn reportDeleteBtn" ${uiAction('deleteReport',[(r.id)])} aria-label="${lang==='ar'?'حذف التقرير':'Delete report'}" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button>`:''}
+        ${showDelete?`<button class="btn danger sm action-btn" ${uiAction('deleteReport',[(r.id)])} aria-label="${lang==='ar'?'حذف التقرير':'Delete report'}" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)} ${lang==='ar'?'حذف':'Delete'}</button>`:''}
       </div>`;
     })()}
     ${full&&canReview()?`<div ${uiAction('runUiFlow',['stop-propagation'])}>${reportRatingControls(r)}</div>`:''}
@@ -2973,13 +2973,6 @@ function reportCard(r,full){
 async function reviewReport(id,status){
   await api(maintenanceReportApi('/review'),{method:'POST',body:JSON.stringify({id,status})});
   toast(tr('saved'),'ok');
-  await load();
-}
-
-async function resetReportRating(id){
-  if(!confirm(lang==='ar'?'تصفير تقييم هذا التقرير؟':'Reset the rating for this report?')) return;
-  await api('/reports/'+id+'/rating',{method:'DELETE'});
-  toast(lang==='ar'?'تم تصفير التقييم':'Rating reset','ok');
   await load();
 }
 

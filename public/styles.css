@@ -2416,7 +2416,6 @@ tbody tr:hover td{background:var(--surface-2)}
   padding:10px 16px 14px;border-top:1px solid var(--line);
 }
 .ratingGroup{display:grid;gap:6px;align-content:start}
-.ratingRow .ratingResetBtn{grid-column:1/-1;justify-self:end;width:auto;min-width:0;padding:6px 14px;gap:6px;color:var(--muted);border-color:var(--line);background:#fff;font-weight:700}
 .ratingLabel{font-size:var(--fs-xs);font-weight:700;color:var(--muted)}
 .starRating{display:flex;align-items:center;gap:4px;min-width:0}
 .starBtn{
