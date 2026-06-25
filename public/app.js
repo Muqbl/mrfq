@@ -592,7 +592,7 @@ let facilitiesSubView = 'locations';
 let assignModule = 'cleaning';
 let assignFloorFilter = 'all';
 let assignFloorFilters = ['all'];
-let showTicketCreate = false, showLocCreate = false, showZoneCreate = false;
+let showTicketCreate = false, showLocCreate = false, showZoneCreate = false, showGroupCreate = false;
 let mobileNavActive = '';
 let viewHistory = [];
 let eventSource = null;
@@ -1293,6 +1293,7 @@ function canManageHospitalityMenu(){return ['system_admin','hospitality_manager'
 function canHospitalityAssign(){return ['system_admin','facility_manager','hospitality_manager','hospitality_supervisor'].includes(me.role)}
 function canHospitalityDelete(){return ['system_admin','facility_manager','hospitality_manager'].includes(me.role)}
 function locName(l){return lang==='ar'?(l.nameAr||l.nameEn):(l.nameEn||l.nameAr)}
+function groupName(g){return lang==='ar'?(g.nameAr||g.nameEn||g.id):(g.nameEn||g.nameAr||g.id)}
 function moduleForCurrentRole(){
   if(String(me?.role||'').startsWith('maintenance_')) return 'maintenance';
   if(String(me?.role||'').startsWith('hospitality_')) return 'hospitality';
@@ -3917,6 +3918,7 @@ ${showLocCreate?`
 function _facTabBar(){
   const tabs=[
     {id:'locations',label:lang==='ar'?'المواقع التشغيلية':'Operational'},
+    {id:'groups',   label:lang==='ar'?'المجموعات':'Groups'},
     {id:'zones',    label:lang==='ar'?'المناطق':'Zones'},
     {id:'heatmap',  label:lang==='ar'?'الخريطة الحرارية':'Heatmap'},
     {id:'hierarchy',label:lang==='ar'?'التسلسل الهرمي':'Hierarchy'},
@@ -3942,6 +3944,7 @@ function locationsAdminView(){
 </div>`;
   const tabs=_facTabBar();
   if(facilitiesSubView==='zones')     return header+tabs+_zonesTabContent();
+  if(facilitiesSubView==='groups')    return header+tabs+_groupsTabContent();
   if(facilitiesSubView!=='locations') return header+tabs+`<div id="facSubViewHost" class="u-text-center-p-40">${ic('clock',28)}</div>`;
   return header+tabs+_operationalTabContent();
 }
@@ -4018,6 +4021,127 @@ function _zonesTabContent(){
     </div>`:''}
   </div>
 </div>`;
+}
+
+function _groupMemberSummary(g){
+  const ids = g.memberIds||[];
+  if(!ids.length) return lang==='ar'?'لا توجد مواقع مرتبطة':'No linked locations';
+  return ids.slice(0,8).join('، ')+(ids.length>8?' ...':'');
+}
+
+function _groupsTabContent(){
+  const groups = data.locationGroups||[];
+  const floors = ['all',...[...new Set([
+    ...(data.locations||[]).map(l=>l.floor).filter(Boolean),
+    ...groups.map(g=>g.floor).filter(Boolean)
+  ])].sort()];
+  const visibleGroups = groups.filter(g=>locsFloorFilter==='all'||(g.floor||'')===locsFloorFilter);
+  return`
+${canManageFacilities()?`<div class="card locationsZonesCard">
+  <div class="card-head">
+    <span class="card-title">${ic('layers',16)} ${lang==='ar'?'إدارة مجموعات QR':'QR Group Management'}</span>
+    <button class="btn secondary sm" ${uiAction('runUiFlow',['toggle-flag','showGroupCreate','toggle'])}>${ic('plus',13)} ${lang==='ar'?'مجموعة':'Group'}</button>
+  </div>
+  ${showGroupCreate?`
+  <div class="groupEditorInline">
+    <div class="formGrid-4">
+      ${fc('ID', inp('group-id',{cls:'ltr',placeholder:'MF-WS-G01'}))}
+      ${fc(lang==='ar'?'الاسم العربي':'Arabic name', inp('group-name-ar',{placeholder:lang==='ar'?'مجموعة مكاتب':'Workstation group'}))}
+      ${fc(lang==='ar'?'الاسم الإنجليزي':'English name', inp('group-name-en',{cls:'ltr',placeholder:'Workstation group'}))}
+      ${fc(tr('floor'), sel('group-floor', FACILITY_FLOORS.map(f=>({v:f,l:f}))))}
+      ${fc(tr('type'), sel('group-type', TYPES.map(t=>({v:t,l:tr(t)}))))}
+    </div>
+    <div class="groupMemberPicker">
+      ${(data.locations||[]).map(l=>`<label class="groupMemberOption">
+        <input type="checkbox" class="groupMemberCheck" value="${esc(l.id)}">
+        <span><strong>${esc(l.id)}</strong><small>${esc(locName(l))}${l.floor?` · ${esc(l.floor)}`:''}</small></span>
+      </label>`).join('')}
+    </div>
+    <div class="assignActions">
+      <button class="btn" ${uiAction('saveLocationGroup',[null])}>${ic('check',16)} ${tr('save')}</button>
+      <button class="btn secondary" ${uiAction('runUiFlow',['toggle-flag','showGroupCreate',false,'render'])}>${tr('cancel')}</button>
+    </div>
+  </div>`:''}
+</div>`:''}
+<div class="filterBar u-mb-16"><div class="filterChips">
+  ${floors.map(f=>`<button class="filterChip${locsFloorFilter===f?' active':''}" ${uiAction('runUiFlow',['navigate','locsFloorFilter',f,null,'render'])}>${f==='all'?(lang==='ar'?'الكل':'All'):f}</button>`).join('')}
+</div></div>
+<div class="groupGrid">
+  ${visibleGroups.length?visibleGroups.map(g=>`<div class="groupCard">
+    <div class="groupCard-head">
+      <div>
+        <div class="groupCard-name">${esc(groupName(g))}</div>
+        <div class="groupCard-id">${esc(g.id)}</div>
+      </div>
+      <span class="badge brand">${num((g.memberIds||[]).length)}</span>
+    </div>
+    <div class="u-flex-wrap-gap-6">
+      ${g.floor?`<span class="badge">${esc(g.floor)}</span>`:''}
+      ${g.type?`<span class="badge">${esc(tr(g.type)||g.type)}</span>`:''}
+      <span class="badge ${g.active?'ok':'bad'}">${g.active?(lang==='ar'?'نشطة':'Active'):(lang==='ar'?'معطلة':'Inactive')}</span>
+    </div>
+    <div class="groupMembersText">${esc(_groupMemberSummary(g))}</div>
+    <div class="locCard-actions">
+      ${canManageFacilities()?`<button class="btn secondary sm" ${uiAction('editLocationGroup',[(esc(g.id))])}>${ic('edit',13)} ${lang==='ar'?'تعديل':'Edit'}</button>
+      <button class="btn danger sm" ${uiAction('deleteLocationGroup',[(esc(g.id))])}>${ic('trash',13)} ${lang==='ar'?'حذف':'Delete'}</button>`:''}
+      <details class="u-flex-1">
+        <summary class="summary-link">${ic('qr',13)} ${lang==='ar'?'عرض QR':'Show QR'}</summary>
+        <div class="locCard-qr qr-actions">
+          <img width="150" height="150" src="${locationQrUrl(g.id)}" alt="QR ${esc(g.id)}" loading="lazy">
+          <div class="qr-code-label">${esc(g.id)}</div>
+        </div>
+      </details>
+    </div>
+  </div>`).join(''):`<div class="empty-state">${lang==='ar'?'لا توجد مجموعات':'No groups'}</div>`}
+</div>`;
+}
+
+function editLocationGroup(id){
+  const g = (data.locationGroups||[]).find(x=>x.id===id);
+  if(!g) return;
+  const memberSet = new Set(g.memberIds||[]);
+  const body = `<div class="groupEditorInline">
+    <div class="formGrid-4">
+      ${fc('ID', `<input id="group-id" class="ctrl ltr" value="${esc(g.id)}" disabled>`)}
+      ${fc(lang==='ar'?'الاسم العربي':'Arabic name', inp('group-name-ar',{value:g.nameAr||''}))}
+      ${fc(lang==='ar'?'الاسم الإنجليزي':'English name', inp('group-name-en',{cls:'ltr',value:g.nameEn||''}))}
+      ${fc(tr('floor'), sel('group-floor', FACILITY_FLOORS.map(f=>({v:f,l:f,sel:f===(g.floor||'')}))))}
+      ${fc(tr('type'), sel('group-type', TYPES.map(t=>({v:t,l:tr(t),sel:t===(g.type||'group')}))))}
+    </div>
+    <div class="groupMemberPicker">
+      ${(data.locations||[]).map(l=>`<label class="groupMemberOption">
+        <input type="checkbox" class="groupMemberCheck" value="${esc(l.id)}" ${memberSet.has(l.id)?'checked':''}>
+        <span><strong>${esc(l.id)}</strong><small>${esc(locName(l))}${l.floor?` · ${esc(l.floor)}`:''}</small></span>
+      </label>`).join('')}
+    </div>
+  </div>`;
+  const footer = `<button class="btn" ${uiAction('saveLocationGroup',[(esc(g.id))])}>${ic('check',16)} ${tr('save')}</button>
+    <button class="btn secondary" ${uiAction('runUiFlow',['close-element','groupEditModal'])}>${tr('cancel')}</button>`;
+  showModal('groupEditModal', `${ic('layers',16)} ${esc(g.id)}`, body, footer, {wide:true});
+}
+
+async function saveLocationGroup(id){
+  const payload = {
+    id: id || document.getElementById('group-id')?.value?.trim(),
+    nameAr: document.getElementById('group-name-ar')?.value?.trim() || '',
+    nameEn: document.getElementById('group-name-en')?.value?.trim() || '',
+    floor: document.getElementById('group-floor')?.value || '',
+    type: document.getElementById('group-type')?.value || 'group',
+    memberIds: [...document.querySelectorAll('.groupMemberCheck:checked')].map(x=>x.value)
+  };
+  if(!payload.id) return toast(lang==='ar'?'أدخل ترميز المجموعة':'Enter group code','bad');
+  await api(id?`/location-groups/${encodeURIComponent(id)}`:'/location-groups',{method:id?'PUT':'POST',body:JSON.stringify(payload)});
+  showGroupCreate = false;
+  document.getElementById('groupEditModal')?.remove();
+  toast(tr('saved'),'ok');
+  await load();
+}
+
+async function deleteLocationGroup(id){
+  if(!confirm(lang==='ar'?`حذف المجموعة "${id}"؟ لن يتم حذف المواقع الأصلية.`:`Delete group "${id}"? Original locations will stay.`)) return;
+  await api('/location-groups/'+encodeURIComponent(id),{method:'DELETE'});
+  toast(lang==='ar'?'تم حذف المجموعة':'Group deleted','ok');
+  await load();
 }
 
 async function loadFacilitiesHeatmap(){
@@ -4199,7 +4323,11 @@ function assignments(){
   const noWorkersMsg = lang==='ar'
     ? `لا يوجد عمال في قسم ${moduleLabels[module]} حالياً. أضف عامل من المستخدمين أولاً.`
     : `No ${moduleLabels[module]} workers yet. Add a worker from Users first.`;
-  const floors = [...new Set((data.locations||[]).map(l=>l.floor).filter(Boolean))].sort();
+  const groups = (data.locationGroups||[]).filter(g=>g.active!==false);
+  const floors = [...new Set([
+    ...(data.locations||[]).map(l=>l.floor).filter(Boolean),
+    ...groups.map(g=>g.floor).filter(Boolean)
+  ])].sort();
   const floorVisible = floor => assignFloorFilters.includes('all') || assignFloorFilters.includes(floor||'');
   return`
 <div class="pageHeader">
@@ -4244,6 +4372,21 @@ function assignments(){
     <div class="assignSelectedCount" id="assignSelectedCount">${lang==='ar'?'المحدد:':'Selected:'} 0</div>
   </div>
 
+  ${groups.length?`<div class="assignSectionTitle">${ic('layers',14)} ${lang==='ar'?'مجموعات من المخطط':'Plan groups'}</div>
+  <div class="assignGrid assignGrid--groups u-mt-0">
+    ${groups.map(g=>`
+      <label class="assignItem assignItem--group${!floorVisible(g.floor)?' is-hidden':''}" data-floor="${esc(g.floor||'')}">
+        <input class="asgGroupCheck" type="checkbox" value="${esc(g.id)}" data-ui-change="assign-count">
+        <div class="assignItem-body">
+          <div class="assignItem-label">${esc(groupName(g))}</div>
+          <div class="assignItem-id">${esc(g.id)}</div>
+          <span class="badge brand">${num((g.memberIds||[]).length)} ${lang==='ar'?'موقع':'locations'}</span>
+          ${g.floor?`<span class="badge">${esc(g.floor)}</span>`:''}
+        </div>
+      </label>`).join('')}
+  </div>`:''}
+
+  <div class="assignSectionTitle">${ic('locations',14)} ${lang==='ar'?'المواقع المفردة':'Individual locations'}</div>
   <div class="assignGrid u-mt-0">
     ${(data.locations||[]).map(l=>`
       <label class="assignItem${!floorVisible(l.floor)?' is-hidden':''}" data-floor="${esc(l.floor||'')}">
@@ -4301,7 +4444,7 @@ function applyAssignFloorFilters(){
 function setVisibleAssignChecks(checked){
   document.querySelectorAll('.assignItem[data-floor]').forEach(el=>{
     if(assignItemVisible(el)){
-      const input = el.querySelector('.asgCheck');
+      const input = el.querySelector('.asgCheck,.asgGroupCheck');
       if(input) input.checked = Boolean(checked);
     }
   });
@@ -4309,7 +4452,7 @@ function setVisibleAssignChecks(checked){
 }
 
 function setAllAssignChecks(checked){
-  document.querySelectorAll('.asgCheck').forEach(input=>{ input.checked = Boolean(checked); });
+  document.querySelectorAll('.asgCheck,.asgGroupCheck').forEach(input=>{ input.checked = Boolean(checked); });
   updateAssignSelectedCount();
 }
 
@@ -4317,10 +4460,11 @@ function updateAssignSelectedCount(){
   const el = document.getElementById('assignSelectedCount');
   if(!el) return;
   const selected = document.querySelectorAll('.asgCheck:checked').length;
+  const selectedGroups = document.querySelectorAll('.asgGroupCheck:checked').length;
   const visible = [...document.querySelectorAll('.assignItem[data-floor]')].filter(assignItemVisible).length;
   el.textContent = lang==='ar'
-    ? `المحدد: ${num(selected)} · الظاهر: ${num(visible)}`
-    : `Selected: ${num(selected)} · Visible: ${num(visible)}`;
+    ? `المحدد: ${num(selected)} موقع · ${num(selectedGroups)} مجموعة · الظاهر: ${num(visible)}`
+    : `Selected: ${num(selected)} locations · ${num(selectedGroups)} groups · Visible: ${num(visible)}`;
 }
 
 function fillAssign(){
@@ -4328,7 +4472,13 @@ function fillAssign(){
   if(!aw) return;
   const module = activeAssignModule();
   const a = (data.assignments||[]).find(x=>x.workerId===aw.value && (x.module||'cleaning')===module);
-  document.querySelectorAll('.asgCheck').forEach(c=>c.checked=!!(a?.locationIds?.includes(c.value)));
+  const assigned = new Set(a?.locationIds||[]);
+  document.querySelectorAll('.asgCheck').forEach(c=>c.checked=assigned.has(c.value));
+  document.querySelectorAll('.asgGroupCheck').forEach(c=>{
+    const g = (data.locationGroups||[]).find(x=>x.id===c.value);
+    const members = g?.memberIds||[];
+    c.checked = members.length>0 && members.every(id=>assigned.has(id));
+  });
   setChoicePickerValue('asup', a?.supervisorId || '');
   updateAssignSelectedCount();
 }
@@ -4341,7 +4491,8 @@ async function saveAssign(){
     workerId:aw.value,
     module:activeAssignModule(),
     supervisorId:document.getElementById('asup')?.value||'',
-    locationIds:[...document.querySelectorAll('.asgCheck:checked')].map(x=>x.value)
+    locationIds:[...document.querySelectorAll('.asgCheck:checked')].map(x=>x.value),
+    groupIds:[...document.querySelectorAll('.asgGroupCheck:checked')].map(x=>x.value)
   })});
   toast(tr('saved'),'ok');
   await load();
@@ -4687,22 +4838,28 @@ function locationQrUrl(locationId,size=220){
 }
 
 function qrPrintFloors(){
-  return [...new Set((data.locations||[]).map(l=>l.floor).filter(Boolean))].sort();
+  return [...new Set([
+    ...(data.locations||[]).map(l=>l.floor).filter(Boolean),
+    ...(data.locationGroups||[]).map(g=>g.floor).filter(Boolean)
+  ])].sort();
 }
 
-function qrPrintLocationCard(l){
+function qrPrintItemCard(l){
+  const isGroup = l.kind === 'group';
   return `<label class="qrPrintLocation">
     <input type="checkbox" class="qrPrintLocation-check" value="${esc(l.id)}" checked>
     <span>
-      <strong>${esc(locName(l))}</strong>
-      <small>${esc(l.id)}${l.floor?` · ${esc(l.floor)}`:''}${l.zone?` · ${esc(l.zone)}`:''}</small>
+      <strong>${esc(isGroup?groupName(l):locName(l))}</strong>
+      <small>${isGroup?(lang==='ar'?'مجموعة':'Group'):(lang==='ar'?'موقع':'Location')} · ${esc(l.id)}${l.floor?` · ${esc(l.floor)}`:''}${l.zone?` · ${esc(l.zone)}`:''}</small>
     </span>
   </label>`;
 }
 
 function showQRPrintModal(){
   const locs = data.locations||[];
-  if(!locs.length){
+  const groups = (data.locationGroups||[]).filter(g=>g.active!==false).map(g=>({...g,kind:'group'}));
+  const printItems = [...groups, ...locs.map(l=>({...l,kind:'location'}))];
+  if(!printItems.length){
     toast(lang==='ar'?'لا توجد مواقع لطباعة QR':'No locations to print','bad');
     return;
   }
@@ -4715,11 +4872,15 @@ function showQRPrintModal(){
       ${[
         ['all',lang==='ar'?'كل المواقع':'All locations'],
         ['floor',lang==='ar'?'دور كامل':'Whole floor'],
+        ['groups',lang==='ar'?'كل المجموعات':'All groups'],
         ['selected',lang==='ar'?'مواقع محددة':'Selected locations']
       ].map(([mode,label])=>`<button type="button" class="filterChip qrPrintModeBtn${defaultMode===mode?' active':''}" data-mode="${mode}" ${uiAction('setQrPrintMode',[mode])}>${label}</button>`).join('')}
     </div>
     <div class="qrPrintPanel qrPrintPanel--all">
       <div class="qrPrintSummary">${lang==='ar'?'سيتم طباعة جميع المواقع':'All locations will be printed'} <span class="badge brand">${num(locs.length)}</span></div>
+    </div>
+    <div class="qrPrintPanel qrPrintPanel--groups">
+      <div class="qrPrintSummary">${lang==='ar'?'سيتم طباعة QR للمجموعات فقط':'Only group QR labels will be printed'} <span class="badge brand">${num(groups.length)}</span></div>
     </div>
     <div class="qrPrintPanel qrPrintPanel--floor">
       ${fc(lang==='ar'?'اختر الدور':'Select floor', sel('qrPrintFloor', floors.map(f=>({v:f,l:f,sel:f===defaultFloor}))))}
@@ -4730,10 +4891,10 @@ function showQRPrintModal(){
         <button type="button" class="btn ghost sm" ${uiAction('toggleQrPrintLocations',[false])}>${lang==='ar'?'إلغاء التحديد':'Clear'}</button>
       </div>
       <div class="qrPrintLocationList">
-        ${locs.map(qrPrintLocationCard).join('')}
+        ${printItems.map(qrPrintItemCard).join('')}
       </div>
     </div>
-    <div class="qrPrintHint">${lang==='ar'?'سيظهر كود الموقع أسفل كل QR في صفحة الطباعة.':'The location code will appear below each QR label.'}</div>
+    <div class="qrPrintHint">${lang==='ar'?'سيظهر كود الموقع أو المجموعة أسفل كل QR في صفحة الطباعة.':'The location or group code will appear below each QR label.'}</div>
   </div>`;
   const footer = `<button class="btn" ${uiAction('printSelectedQrs',[])}>${ic('qr',14)} ${tr('printQR')}</button>
     <button class="btn secondary" ${uiAction('runUiFlow',['close-element','qrPrintModal'])}>${tr('cancel')}</button>`;
@@ -4741,7 +4902,7 @@ function showQRPrintModal(){
 }
 
 function setQrPrintMode(mode){
-  const next = ['all','floor','selected'].includes(mode) ? mode : 'all';
+  const next = ['all','floor','groups','selected'].includes(mode) ? mode : 'all';
   const scope = document.getElementById('qrPrintScope');
   const input = document.getElementById('qrPrintMode');
   if(scope) scope.dataset.mode = next;
@@ -4759,16 +4920,21 @@ function toggleQrPrintLocations(checked){
 
 function qrPrintSelectedLocations(){
   const locs = data.locations||[];
+  const groups = (data.locationGroups||[]).filter(g=>g.active!==false).map(g=>({...g,kind:'group'}));
+  const locationItems = locs.map(l=>({...l,kind:'location'}));
   const mode = document.getElementById('qrPrintMode')?.value || 'all';
   if(mode==='floor'){
     const floor = document.getElementById('qrPrintFloor')?.value || '';
-    return locs.filter(l=>(l.floor||'')===floor);
+    return [...groups, ...locationItems].filter(l=>(l.floor||'')===floor);
+  }
+  if(mode==='groups'){
+    return groups;
   }
   if(mode==='selected'){
     const ids = new Set([...document.querySelectorAll('.qrPrintLocation-check:checked')].map(input=>input.value));
-    return locs.filter(l=>ids.has(l.id));
+    return [...groups, ...locationItems].filter(l=>ids.has(l.id));
   }
-  return locs;
+  return locationItems;
 }
 
 function qrPrintLabelsHtml(items){

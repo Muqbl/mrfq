@@ -24,6 +24,7 @@ function _open() {
   db.pragma('synchronous = NORMAL');
 
   _migrate(db);
+  _seedPlanLocationGroups(db);
   return db;
 }
 
@@ -803,6 +804,119 @@ const MIGRATIONS = {
     CREATE INDEX IF NOT EXISTS idx_tickets_supervisor ON tickets(supervisor_id);
     CREATE INDEX IF NOT EXISTS idx_assignments_supervisor ON assignments(supervisor_id);
   `,
+  /* ── v26: editable location groups for plan-based QR/assignment ─ */
+  26: `
+    CREATE TABLE IF NOT EXISTS location_groups (
+      id         TEXT PRIMARY KEY,
+      name_ar    TEXT NOT NULL DEFAULT '',
+      name_en    TEXT NOT NULL DEFAULT '',
+      floor      TEXT NOT NULL DEFAULT '',
+      type       TEXT NOT NULL DEFAULT 'group',
+      active     INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_location_groups_floor ON location_groups(floor);
+    CREATE INDEX IF NOT EXISTS idx_location_groups_deleted ON location_groups(deleted_at);
+
+    CREATE TABLE IF NOT EXISTS location_group_members (
+      group_id    TEXT NOT NULL REFERENCES location_groups(id) ON DELETE CASCADE,
+      location_id TEXT NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+      created_at  TEXT NOT NULL,
+      PRIMARY KEY (group_id, location_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_location_group_members_location ON location_group_members(location_id);
+  `,
 };
+
+function _range(prefix, start, end) {
+  const width = String(end).length;
+  const out = [];
+  for (let i = start; i <= end; i += 1) out.push(`${prefix}${String(i).padStart(width, '0')}`);
+  return out;
+}
+
+function _seedPlanLocationGroups(db) {
+  const seeded = db.prepare("SELECT value FROM settings WHERE key='plan_location_groups_seeded'").get();
+  if (seeded?.value === '1') return;
+  const ts = '2026-06-25T00:00:00.000Z';
+  const groups = [
+    ['GF-WS-G01','مجموعة مكاتب GF 01','Ground floor workstation group 01','GF','workstation',_range('GF-WS-',1,4)],
+    ['GF-WS-G02','مجموعة مكاتب GF 02','Ground floor workstation group 02','GF','workstation',_range('GF-WS-',5,12)],
+    ['GF-WS-G03','مجموعة مكاتب GF 03','Ground floor workstation group 03','GF','workstation',_range('GF-WS-',13,20)],
+    ['GF-BR-01','دورة مياه GF 01','Ground floor bathroom 01','GF','bathroom',['GF-BR-01','GF-BR-01-A','GF-BR-01-B']],
+    ['GF-BR-02','دورة مياه GF 02','Ground floor bathroom 02','GF','bathroom',['GF-BR-02','GF-BR-02-A','GF-BR-02-B','GF-BR-02-C']],
+    ['GF-K-G01','مطابخ الدور الأرضي','Ground floor kitchens','GF','kitchen',['GF-K-01','GF-K-02']],
+    ['GF-CS-G01','خدمة العملاء الدور الأرضي','Ground floor customer service','GF','service',_range('GF-CS-',1,5)],
+    ['GF-MR-G01','غرف اجتماع GF 01','Ground floor meeting rooms 01','GF','meeting_room',_range('GF-MR-',1,4)],
+    ['GF-MR-G02','غرف اجتماع GF 02','Ground floor meeting rooms 02','GF','meeting_room',['GF-MR-05','GF-MR-6A','GF-MR-6B']],
+
+    ['MF-WS-G01','مجموعة مكاتب MF 01','Mezzanine workstation group 01','MF','workstation',_range('MF-WS-',1,6)],
+    ['MF-WS-G02','مجموعة مكاتب MF 02','Mezzanine workstation group 02','MF','workstation',_range('MF-WS-',7,12)],
+    ['MF-WS-G03','مجموعة مكاتب MF 03','Mezzanine workstation group 03','MF','workstation',_range('MF-WS-',13,18)],
+    ['MF-WS-G04','مجموعة مكاتب MF 04','Mezzanine workstation group 04','MF','workstation',_range('MF-WS-',19,24)],
+    ['MF-WS-G05','مجموعة مكاتب MF 05','Mezzanine workstation group 05','MF','workstation',_range('MF-WS-',25,32)],
+    ['MF-WS-G06','مجموعة مكاتب MF 06','Mezzanine workstation group 06','MF','workstation',_range('MF-WS-',33,40)],
+
+    ['1F-WS-G01','مجموعة مكاتب 1F 01','First floor workstation group 01','1F','workstation',[..._range('1F-WS-',1,4),..._range('1F-WS-',9,12)]],
+    ['1F-WS-G02','مجموعة مكاتب 1F 02','First floor workstation group 02','1F','workstation',[..._range('1F-WS-',5,8),..._range('1F-WS-',13,16)]],
+    ['1F-WS-G03','مجموعة مكاتب 1F 03','First floor workstation group 03','1F','workstation',_range('1F-WS-',17,24)],
+    ['1F-WS-G04','مجموعة مكاتب 1F 04','First floor workstation group 04','1F','workstation',_range('1F-WS-',25,28)],
+    ['1F-WS-G05','مجموعة مكاتب 1F 05','First floor workstation group 05','1F','workstation',_range('1F-WS-',29,32)],
+    ['1F-WS-G06','مجموعة مكاتب 1F 06','First floor workstation group 06','1F','workstation',_range('1F-WS-',33,36)],
+    ['1F-WS-G07','مجموعة مكاتب 1F 07','First floor workstation group 07','1F','workstation',_range('1F-WS-',37,40)],
+
+    ['2F-WS-G01','مجموعة مكاتب 2F 01','Second floor workstation group 01','2F','workstation',_range('2F-WS-',1,6)],
+    ['2F-WS-G02','مجموعة مكاتب 2F 02','Second floor workstation group 02','2F','workstation',_range('2F-WS-',7,12)],
+    ['2F-WS-G03','مجموعة مكاتب 2F 03','Second floor workstation group 03','2F','workstation',_range('2F-WS-',13,18)],
+    ['2F-WS-G04','مجموعة مكاتب 2F 04','Second floor workstation group 04','2F','workstation',_range('2F-WS-',19,23)],
+
+    ['3F-WS-G01','مجموعة مكاتب 3F 01','Third floor workstation group 01','3F','workstation',_range('3F-WS-',1,4)],
+    ['3F-WS-G02','مجموعة مكاتب 3F 02','Third floor workstation group 02','3F','workstation',_range('3F-WS-',5,8)],
+    ['3F-WS-G03','مجموعة مكاتب 3F 03','Third floor workstation group 03','3F','workstation',_range('3F-WS-',9,12)],
+    ['3F-WS-G04','مجموعة مكاتب 3F 04','Third floor workstation group 04','3F','workstation',_range('3F-WS-',13,20)],
+    ['3F-WS-G05','مجموعة مكاتب 3F 05','Third floor workstation group 05','3F','workstation',_range('3F-WS-',21,24)],
+    ['3F-WS-G06','مجموعة مكاتب 3F 06','Third floor workstation group 06','3F','workstation',_range('3F-WS-',25,30)],
+    ['3F-WS-G07','مجموعة مكاتب 3F 07','Third floor workstation group 07','3F','workstation',_range('3F-WS-',31,34)],
+    ['3F-WS-G08','مجموعة مكاتب 3F 08','Third floor workstation group 08','3F','workstation',_range('3F-WS-',35,38)],
+
+    ...Array.from({ length: 9 }, (_, i) => {
+      const start = i * 6 + 1;
+      const end = start + 5;
+      return [`4F-WS-G${String(i + 1).padStart(2, '0')}`,`مجموعة مكاتب 4F ${String(i + 1).padStart(2, '0')}`,`Fourth floor workstation group ${String(i + 1).padStart(2, '0')}`,'4F','workstation',_range('4F-WS-',start,end)];
+    }),
+
+    ['5F-WS-G01','مجموعة مكاتب 5F 01','Fifth floor workstation group 01','5F','workstation',_range('5F-WS-',62,67)],
+    ['5F-WS-G02','مجموعة مكاتب 5F 02','Fifth floor workstation group 02','5F','workstation',_range('5F-WS-',68,73)],
+
+    ['6F-WS-A','منطقة مكاتب 6F A','Sixth floor workstation zone A','6F','workstation',[]],
+    ['6F-WS-B','منطقة مكاتب 6F B','Sixth floor workstation zone B','6F','workstation',[]],
+
+    ['7F-WS-G01','مجموعة مكاتب 7F 01','Seventh floor workstation group 01','7F','workstation',_range('7F-WS-',23,30)],
+    ['7F-WS-G02','مجموعة مكاتب 7F 02','Seventh floor workstation group 02','7F','workstation',_range('7F-WS-',41,44)],
+
+    ['8F-WA-G01','منطقة انتظار الدور الثامن','Eighth floor waiting area','8F','waiting',['8F-WA','8F-WA-A','8F-WA-B']],
+    ['8F-CEO-G01','جناح الرئيس التنفيذي','CEO suite','8F','office',['8F-CEO','8F-CEO-B','8F-CEO-C','8F-CEO-D']],
+    ['8F-MR-G01','غرف اجتماع 8F 01','Eighth floor meeting rooms 01','8F','meeting_room',['8F-MR-01','8F-MR-1','8F-MR-1/A','8F-MR-1/B']],
+    ['8F-MR-G02','غرف اجتماع 8F 02','Eighth floor meeting rooms 02','8F','meeting_room',['8F-MR-02','8F-MR-2','8F-MR-2/A','8F-MR-2/B']]
+  ];
+
+  const insertGroup = db.prepare(`
+    INSERT OR IGNORE INTO location_groups (id,name_ar,name_en,floor,type,active,created_at,updated_at)
+    VALUES (?,?,?,?,?,?,?,?)
+  `);
+  const insertMember = db.prepare(`
+    INSERT OR IGNORE INTO location_group_members (group_id,location_id,created_at)
+    SELECT ?, id, ? FROM locations WHERE id = ? AND deleted_at IS NULL
+  `);
+  db.transaction(() => {
+    for (const [id, nameAr, nameEn, floor, type, members] of groups) {
+      insertGroup.run(id, nameAr, nameEn, floor, type, 1, ts, ts);
+      for (const locationId of members) insertMember.run(id, ts, locationId);
+    }
+    db.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES ('plan_location_groups_seeded','1')").run();
+  })();
+}
 
 module.exports = { getDb };
