@@ -4208,7 +4208,7 @@ function assignments(){
     <div class="pageSub">${moduleLabels[module]} · ${workers.length} ${lang==='ar'?'عضو فريق':'team members'}</div>
   </div>
 </div>
-<div class="card">
+<div class="card assignmentCard">
   ${canSwitchModule?`<div class="filterBar u-mb-16"><div class="filterChips">
     ${['cleaning','maintenance','hospitality'].map(m=>`
       <button class="filterChip${module===m?' active':''}" ${uiAction('runUiFlow',['navigate','assignModule',m,null,'render'])}>${moduleLabels[m]}</button>
