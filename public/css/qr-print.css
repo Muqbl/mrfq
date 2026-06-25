@@ -10,8 +10,6 @@ body{margin:0;padding:16px;font-family:IBMPlexArabic,Tahoma,Arial,sans-serif;col
 .qrLabel{min-height:240px;padding:12px;border:1px solid #d8e4e1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;break-inside:avoid;page-break-inside:avoid}
 .qrLabel img{width:150px;height:150px;object-fit:contain;display:block}
 .qrLabel-code{margin-top:8px;padding:3px 8px;border:1px solid #d8e4e1;border-radius:6px;font-family:Consolas,'Courier New',monospace;font-size:14px;font-weight:800;direction:ltr;letter-spacing:.02em;color:#0b3034}
-.qrLabel-name{margin-top:6px;font-size:11px;font-weight:700;line-height:1.35;color:#123238}
-.qrLabel-meta{margin-top:2px;font-size:9px;color:#6f787f;min-height:13px}
 @media print{
   body{padding:8mm}
   .qrPrintHeader{margin-bottom:8mm}

@@ -4709,8 +4709,6 @@ function qrPrintLabelsHtml(items){
   return items.map(l=>`<article class="qrLabel">
     <img src="${locationQrUrl(l.id,260)}" alt="QR ${esc(l.id)}">
     <div class="qrLabel-code">${esc(l.id)}</div>
-    <div class="qrLabel-name">${esc(locName(l))}</div>
-    <div class="qrLabel-meta">${[l.floor,l.zone].filter(Boolean).map(esc).join(' · ')}</div>
   </article>`).join('');
 }
 
