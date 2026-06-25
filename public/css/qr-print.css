@@ -1,0 +1,22 @@
+@font-face{font-family:IBMPlexArabic;src:url('/assets/fonts/IBMPlexSansArabic-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
+@font-face{font-family:IBMPlexArabic;src:url('/assets/fonts/IBMPlexSansArabic-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
+*{box-sizing:border-box}
+body{margin:0;padding:16px;font-family:IBMPlexArabic,Tahoma,Arial,sans-serif;color:#123238;background:#fff}
+.qrPrintHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #005257}
+.qrPrintHeader strong{display:block;color:#005257;font-size:18px;font-weight:800}
+.qrPrintHeader span{display:block;color:#56666a;font-size:11px;margin-top:2px}
+.qrPrintHeader small{color:#6f787f;font-size:10px;white-space:nowrap}
+.qrLabelGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.qrLabel{min-height:240px;padding:12px;border:1px solid #d8e4e1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;break-inside:avoid;page-break-inside:avoid}
+.qrLabel img{width:150px;height:150px;object-fit:contain;display:block}
+.qrLabel-code{margin-top:8px;padding:3px 8px;border:1px solid #d8e4e1;border-radius:6px;font-family:Consolas,'Courier New',monospace;font-size:14px;font-weight:800;direction:ltr;letter-spacing:.02em;color:#0b3034}
+.qrLabel-name{margin-top:6px;font-size:11px;font-weight:700;line-height:1.35;color:#123238}
+.qrLabel-meta{margin-top:2px;font-size:9px;color:#6f787f;min-height:13px}
+@media print{
+  body{padding:8mm}
+  .qrPrintHeader{margin-bottom:8mm}
+  .qrLabelGrid{gap:6mm;grid-template-columns:repeat(3,1fr)}
+  .qrLabel{border-color:#cfdcd9;min-height:62mm;padding:5mm}
+  .qrLabel img{width:38mm;height:38mm}
+}
+@page{size:A4;margin:10mm}

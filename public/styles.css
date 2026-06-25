@@ -1347,6 +1347,36 @@ tbody tr:hover td{background:var(--surface-2)}
 .locCard-id{font-family:ui-monospace,Consolas,monospace;font-size:10px;color:var(--muted);margin-top:3px;background:var(--surface-3);padding:2px 6px;border-radius:4px;display:inline-block}
 .locCard-qr{display:flex;justify-content:center;padding:10px;background:var(--surface-2);border-radius:var(--r-sm)}
 .locCard-qr img{border-radius:8px}
+.qr-code-label{
+  font-family:ui-monospace,Consolas,monospace;font-size:12px;font-weight:800;
+  color:var(--ink);background:var(--surface);border:1px solid var(--line);
+  border-radius:6px;padding:4px 8px;direction:ltr;text-align:center;
+}
+.qrPrintModal{display:grid;gap:14px}
+.qrPrintModeRow{display:flex;gap:8px;flex-wrap:wrap}
+.qrPrintModeBtn{cursor:pointer}
+.qrPrintPanel{display:none}
+.qrPrintModal[data-mode="all"] .qrPrintPanel--all,
+.qrPrintModal[data-mode="floor"] .qrPrintPanel--floor,
+.qrPrintModal[data-mode="selected"] .qrPrintPanel--selected{display:block}
+.qrPrintSummary{
+  padding:12px;border:1px solid var(--line);border-radius:var(--r-sm);
+  background:var(--surface-2);font-size:var(--fs-sm);color:var(--ink);
+}
+.qrPrintToolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.qrPrintLocationList{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
+  gap:8px;max-height:360px;overflow:auto;padding:2px;
+}
+.qrPrintLocation{
+  display:flex;align-items:flex-start;gap:8px;padding:10px;border:1px solid var(--line);
+  border-radius:var(--r-sm);background:var(--surface);cursor:pointer;
+}
+.qrPrintLocation:has(input:checked){background:var(--ok-bg);border-color:rgba(22,136,77,.24)}
+.qrPrintLocation input{width:18px;height:18px;min-width:18px;margin-top:2px;accent-color:var(--brand-mid)}
+.qrPrintLocation strong{display:block;font-size:var(--fs-xs);line-height:1.4;color:var(--ink)}
+.qrPrintLocation small{display:block;font-size:10px;color:var(--muted);direction:ltr;text-align:start;margin-top:2px}
+.qrPrintHint{font-size:var(--fs-xs);color:var(--muted);line-height:1.6}
 .zone-chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .zone-chip{
   min-height:34px;border-radius:var(--r-full);padding:5px 8px 5px 12px;

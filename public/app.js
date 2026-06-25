@@ -720,6 +720,7 @@ const UI_ACTION_NAMES = new Set([
   'saveMaintenanceUsePart','submitMaintenanceClose','addMaintTask','toggleMenuItemActive',
   'removeMenuItemImage','saveMenuItem','toggleCategoryStatus','saveCategoryForm',
   'toggleKitchenActive','saveKitchen','exportPerformancePDF','supReview','switchWorkspace',
+  'showQRPrintModal','setQrPrintMode','toggleQrPrintLocations','printSelectedQrs',
   'runUiFlow','openGallery',
   'invSetTab','invShowWarehouseForm','invSaveWarehouse','invShowItemForm','invSaveItem',
   'invShowMovementForm','invSaveMovement'
@@ -3822,7 +3823,7 @@ function locations(){
   </div>
   <div class="pageActions">
     ${canManage()?`<button class="btn sm" ${uiAction('runUiFlow',['toggle-flag','showLocCreate','toggle'])}>${ic('plus',14)} ${lang==='ar'?'إضافة مرفق':'Add Facility'}</button>`:''}
-    <button class="btn secondary sm" ${uiAction('runUiFlow',['print'])}>${ic('qr',14)} ${tr('printQR')}</button>
+    <button class="btn secondary sm" ${uiAction('showQRPrintModal',[])}>${ic('qr',14)} ${tr('printQR')}</button>
   </div>
 </div>
 ${canManage()?`
@@ -3896,6 +3897,7 @@ ${showLocCreate?`
           <summary class="summary-link">${ic('qr',13)} ${lang==='ar'?'عرض QR':'Show QR'}</summary>
           <div class="locCard-qr qr-actions">
             <img width="150" height="150" src="${qrUrl}" alt="QR ${esc(l.id)}" loading="lazy">
+            <div class="qr-code-label">${esc(l.id)}</div>
             <a class="btn secondary sm" href="${qrUrl}&format=png" download="QR-${esc(l.id)}.png" class="no-decoration">${ic('download',13)} ${lang==='ar'?'تحميل QR':'Download QR'}</a>
           </div>
         </details>
@@ -3931,7 +3933,7 @@ function locationsAdminView(){
   </div>
   ${isOp&&canManage()?`<div class="pageActions">
     <button class="btn sm" ${uiAction('runUiFlow',['toggle-flag','showLocCreate','toggle'])}>${ic('plus',14)} ${lang==='ar'?'إضافة مرفق':'Add Facility'}</button>
-    <button class="btn secondary sm" ${uiAction('runUiFlow',['print'])}>${ic('qr',14)} ${tr('printQR')}</button>
+    <button class="btn secondary sm" ${uiAction('showQRPrintModal',[])}>${ic('qr',14)} ${tr('printQR')}</button>
   </div>`:''}
 </div>`;
   const tabs=_facTabBar();
@@ -3987,6 +3989,7 @@ function _operationalTabContent(){
           <summary class="summary-link">${ic('qr',13)} ${lang==='ar'?'عرض QR':'Show QR'}</summary>
           <div class="locCard-qr qr-actions">
             <img width="150" height="150" src="${qrUrl}" alt="QR ${esc(l.id)}" loading="lazy">
+            <div class="qr-code-label">${esc(l.id)}</div>
             <a class="btn secondary sm" href="${qrUrl}&format=png" download="QR-${esc(l.id)}.png">${ic('download',13)} ${lang==='ar'?'تحميل QR':'Download QR'}</a>
           </div>
         </details>
@@ -4615,6 +4618,150 @@ function locationQrPayload(locationId){
 function locationQrUrl(locationId,size=220){
   const payload = locationQrPayload(locationId);
   return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&ecc=L&margin=20&data=${encodeURIComponent(payload)}`;
+}
+
+function qrPrintFloors(){
+  return [...new Set((data.locations||[]).map(l=>l.floor).filter(Boolean))].sort();
+}
+
+function qrPrintLocationCard(l){
+  return `<label class="qrPrintLocation">
+    <input type="checkbox" class="qrPrintLocation-check" value="${esc(l.id)}" checked>
+    <span>
+      <strong>${esc(locName(l))}</strong>
+      <small>${esc(l.id)}${l.floor?` · ${esc(l.floor)}`:''}${l.zone?` · ${esc(l.zone)}`:''}</small>
+    </span>
+  </label>`;
+}
+
+function showQRPrintModal(){
+  const locs = data.locations||[];
+  if(!locs.length){
+    toast(lang==='ar'?'لا توجد مواقع لطباعة QR':'No locations to print','bad');
+    return;
+  }
+  const floors = qrPrintFloors();
+  const defaultMode = locsFloorFilter && locsFloorFilter!=='all' ? 'floor' : 'all';
+  const defaultFloor = locsFloorFilter && locsFloorFilter!=='all' ? locsFloorFilter : (floors[0]||'');
+  const body = `<div class="qrPrintModal" id="qrPrintScope" data-mode="${defaultMode}">
+    <input type="hidden" id="qrPrintMode" value="${defaultMode}">
+    <div class="qrPrintModeRow">
+      ${[
+        ['all',lang==='ar'?'كل المواقع':'All locations'],
+        ['floor',lang==='ar'?'دور كامل':'Whole floor'],
+        ['selected',lang==='ar'?'مواقع محددة':'Selected locations']
+      ].map(([mode,label])=>`<button type="button" class="filterChip qrPrintModeBtn${defaultMode===mode?' active':''}" data-mode="${mode}" ${uiAction('setQrPrintMode',[mode])}>${label}</button>`).join('')}
+    </div>
+    <div class="qrPrintPanel qrPrintPanel--all">
+      <div class="qrPrintSummary">${lang==='ar'?'سيتم طباعة جميع المواقع':'All locations will be printed'} <span class="badge brand">${num(locs.length)}</span></div>
+    </div>
+    <div class="qrPrintPanel qrPrintPanel--floor">
+      ${fc(lang==='ar'?'اختر الدور':'Select floor', sel('qrPrintFloor', floors.map(f=>({v:f,l:f,sel:f===defaultFloor}))))}
+    </div>
+    <div class="qrPrintPanel qrPrintPanel--selected">
+      <div class="qrPrintToolbar">
+        <button type="button" class="btn secondary sm" ${uiAction('toggleQrPrintLocations',[true])}>${lang==='ar'?'تحديد الكل':'Select all'}</button>
+        <button type="button" class="btn ghost sm" ${uiAction('toggleQrPrintLocations',[false])}>${lang==='ar'?'إلغاء التحديد':'Clear'}</button>
+      </div>
+      <div class="qrPrintLocationList">
+        ${locs.map(qrPrintLocationCard).join('')}
+      </div>
+    </div>
+    <div class="qrPrintHint">${lang==='ar'?'سيظهر كود الموقع أسفل كل QR في صفحة الطباعة.':'The location code will appear below each QR label.'}</div>
+  </div>`;
+  const footer = `<button class="btn" ${uiAction('printSelectedQrs',[])}>${ic('qr',14)} ${tr('printQR')}</button>
+    <button class="btn secondary" ${uiAction('runUiFlow',['close-element','qrPrintModal'])}>${tr('cancel')}</button>`;
+  showModal('qrPrintModal', `${ic('qr',16)} ${tr('printQR')}`, body, footer, {wide:true});
+}
+
+function setQrPrintMode(mode){
+  const next = ['all','floor','selected'].includes(mode) ? mode : 'all';
+  const scope = document.getElementById('qrPrintScope');
+  const input = document.getElementById('qrPrintMode');
+  if(scope) scope.dataset.mode = next;
+  if(input) input.value = next;
+  document.querySelectorAll('.qrPrintModeBtn').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.mode===next);
+  });
+}
+
+function toggleQrPrintLocations(checked){
+  document.querySelectorAll('.qrPrintLocation-check').forEach(input=>{
+    input.checked = Boolean(checked);
+  });
+}
+
+function qrPrintSelectedLocations(){
+  const locs = data.locations||[];
+  const mode = document.getElementById('qrPrintMode')?.value || 'all';
+  if(mode==='floor'){
+    const floor = document.getElementById('qrPrintFloor')?.value || '';
+    return locs.filter(l=>(l.floor||'')===floor);
+  }
+  if(mode==='selected'){
+    const ids = new Set([...document.querySelectorAll('.qrPrintLocation-check:checked')].map(input=>input.value));
+    return locs.filter(l=>ids.has(l.id));
+  }
+  return locs;
+}
+
+function qrPrintLabelsHtml(items){
+  return items.map(l=>`<article class="qrLabel">
+    <img src="${locationQrUrl(l.id,260)}" alt="QR ${esc(l.id)}">
+    <div class="qrLabel-code">${esc(l.id)}</div>
+    <div class="qrLabel-name">${esc(locName(l))}</div>
+    <div class="qrLabel-meta">${[l.floor,l.zone].filter(Boolean).map(esc).join(' · ')}</div>
+  </article>`).join('');
+}
+
+function printQrWindowWhenReady(w){
+  const run = () => {
+    const images = [...(w.document.images||[])];
+    const pending = images.map(img=>{
+      if(img.complete) return Promise.resolve();
+      return new Promise(resolve=>{
+        img.addEventListener('load', resolve, {once:true});
+        img.addEventListener('error', resolve, {once:true});
+      });
+    });
+    Promise.all(pending).then(()=>{
+      setTimeout(()=>{
+        w.focus();
+        w.print();
+      }, 150);
+    });
+  };
+  if(w.document.readyState==='complete') run();
+  else w.addEventListener('load', run, {once:true});
+}
+
+function printSelectedQrs(){
+  const items = qrPrintSelectedLocations();
+  if(!items.length){
+    toast(lang==='ar'?'اختر موقعاً واحداً على الأقل':'Select at least one location','bad');
+    return;
+  }
+  const dir = lang==='ar'?'rtl':'ltr';
+  const title = lang==='ar'?'طباعة رموز QR للمواقع':'Print location QR codes';
+  const html = `<!doctype html><html lang="${lang}" dir="${dir}"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MRFQ - QR Labels</title>
+<link rel="stylesheet" href="/css/qr-print.css"></head><body>
+<header class="qrPrintHeader">
+  <div><strong>مِرفق - MRFQ</strong><span>${esc(title)}</span></div>
+  <small>${items.length} ${lang==='ar'?'موقع':'locations'} · ${new Date().toISOString().slice(0,10)}</small>
+</header>
+<main class="qrLabelGrid">${qrPrintLabelsHtml(items)}</main>
+</body></html>`;
+  const w = window.open('', '_blank', 'width=1000,height=800');
+  if(!w){
+    toast(lang==='ar'?'تعذر فتح نافذة الطباعة. تحقق من السماح بالنوافذ المنبثقة.':'Could not open print window. Check popup permissions.','bad');
+    return;
+  }
+  w.document.write(html);
+  w.document.close();
+  printQrWindowWhenReady(w);
+  document.getElementById('qrPrintModal')?.remove();
 }
 
 function invalidLocationToast(raw){
