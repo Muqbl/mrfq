@@ -705,7 +705,8 @@ const UI_ACTION_NAMES = new Set([
   'deleteTicketConfirm','forwardTicketToSupervisor','saveEditTicket','submitComment','deleteComment',
   'createRecurringTask','toggleRecurring','deleteRecurring','deleteZone','addZone','addLoc',
   'deleteLocConfirm','filterAssignFloor','toggleAssignFloorFilter','setVisibleAssignChecks',
-  'setAllAssignChecks','updateAssignSelectedCount','saveAssign','showAddRoleModal',
+  'setAllAssignChecks','updateAssignSelectedCount','saveAssign','editLocationGroup',
+  'saveLocationGroup','deleteLocationGroup','showAddRoleModal',
   'showPasswordResetModal','deleteUserConfirm','saveUser','hideUserFormModal',
   'savePasswordReset','hidePasswordResetModal','startTicketWorker','startForm','closeCamera',
   'toggleCameraFacing','capturePhoto','submitReport','closeQRScanner','renderWorker',
@@ -822,6 +823,7 @@ function runUiFlow(flow,...values){
     else if(flag==='showRecurringCreate') showRecurringCreate=values[1]==='toggle'?!showRecurringCreate:Boolean(values[1]);
     else if(flag==='showLocCreate') showLocCreate=values[1]==='toggle'?!showLocCreate:Boolean(values[1]);
     else if(flag==='showZoneCreate') showZoneCreate=values[1]==='toggle'?!showZoneCreate:Boolean(values[1]);
+    else if(flag==='showGroupCreate') showGroupCreate=values[1]==='toggle'?!showGroupCreate:Boolean(values[1]);
     render();return;
   }
   if(flow==='camera-done'){closeCamera();doneCamera();return}
@@ -882,6 +884,7 @@ document.addEventListener('input',event=>{
     usersSearch=event.target.value;
     render();
   }
+  if(action==='group-member-filter') refreshGroupMemberPicker();
   if(action==='employee-location'){
     const location=findLocationByCode(parseLoc(event.target.value));
     const label=document.getElementById('empLocName');
@@ -905,6 +908,7 @@ document.addEventListener('change',event=>{
   const action=event.target.dataset.uiChange;
   if(action==='fill-assignment') fillAssign();
   if(action==='assign-count') updateAssignSelectedCount();
+  if(action==='group-member-filter') refreshGroupMemberPicker();
   if(action==='filter-user-role'){
     usersRoleFilter=event.target.value;
     render();
@@ -4029,8 +4033,76 @@ function _groupMemberSummary(g){
   return ids.slice(0,8).join('، ')+(ids.length>8?' ...':'');
 }
 
+function groupFloorOptions(selected=''){
+  const floors = [...new Set([
+    selected,
+    locsFloorFilter!=='all'?locsFloorFilter:'',
+    ...(data.locations||[]).map(l=>l.floor).filter(Boolean),
+    ...(data.locationGroups||[]).map(g=>g.floor).filter(Boolean)
+  ].filter(Boolean))].sort();
+  return floors.map(f=>({v:f,l:f,sel:f===selected}));
+}
+
+function defaultGroupFloor(){
+  if(locsFloorFilter && locsFloorFilter!=='all') return locsFloorFilter;
+  return (data.locations||[]).find(l=>l.floor)?.floor || '';
+}
+
+function groupTypeOptions(selected=''){
+  const preferred = ['workstation','bathroom','meeting_room','kitchen','office','service','waiting','group'];
+  const types = [...new Set([selected, ...preferred, ...TYPES].filter(Boolean))];
+  return types.map(t=>({v:t,l:tr(t)||t,sel:t===selected}));
+}
+
+function groupMemberOptionsHtml(selectedIds=[], floor='', query=''){
+  const selected = new Set(selectedIds);
+  const q = String(query||'').trim().toLowerCase();
+  const matches = l => {
+    const text = `${l.id} ${l.nameAr||''} ${l.nameEn||''}`.toLowerCase();
+    return (!floor || (l.floor||'')===floor) && (!q || text.includes(q));
+  };
+  const locs = (data.locations||[])
+    .filter(l=>selected.has(l.id) || matches(l))
+    .sort((a,b)=>{
+      const sa = selected.has(a.id) ? 0 : 1;
+      const sb = selected.has(b.id) ? 0 : 1;
+      if(sa!==sb) return sa-sb;
+      return String(a.id).localeCompare(String(b.id));
+    });
+  if(!locs.length) return `<div class="empty-inline">${lang==='ar'?'لا توجد مواقع مطابقة':'No matching locations'}</div>`;
+  return locs.map(l=>`<label class="groupMemberOption">
+    <input type="checkbox" class="groupMemberCheck" value="${esc(l.id)}" ${selected.has(l.id)?'checked':''}>
+    <span><strong>${esc(l.id)}</strong><small>${esc(locName(l))}${l.floor?` · ${esc(l.floor)}`:''}</small></span>
+  </label>`).join('');
+}
+
+function currentGroupMemberIds(){
+  return [...document.querySelectorAll('.groupMemberCheck:checked')].map(input=>input.value);
+}
+
+function groupMemberEditorHtml(memberIds=[], floor=''){
+  const selectedFloor = floor || defaultGroupFloor();
+  return `<div class="groupMemberTools">
+    ${fc(lang==='ar'?'فلترة الدور':'Floor filter', sel('group-member-floor', groupFloorOptions(selectedFloor), {changeAction:'group-member-filter'}))}
+    ${fc(lang==='ar'?'بحث داخل المواقع':'Search locations', inp('group-member-search',{placeholder:lang==='ar'?'ابحث بالترميز أو الاسم':'Search by code or name', inputAction:'group-member-filter'}))}
+  </div>
+  <div class="groupMemberPicker" id="groupMemberPicker">
+    ${groupMemberOptionsHtml(memberIds, selectedFloor, '')}
+  </div>`;
+}
+
+function refreshGroupMemberPicker(){
+  const host = document.getElementById('groupMemberPicker');
+  if(!host) return;
+  const selected = currentGroupMemberIds();
+  const floor = document.getElementById('group-member-floor')?.value || '';
+  const query = document.getElementById('group-member-search')?.value || '';
+  host.innerHTML = groupMemberOptionsHtml(selected, floor, query);
+}
+
 function _groupsTabContent(){
   const groups = data.locationGroups||[];
+  const createFloor = defaultGroupFloor();
   const floors = ['all',...[...new Set([
     ...(data.locations||[]).map(l=>l.floor).filter(Boolean),
     ...groups.map(g=>g.floor).filter(Boolean)
@@ -4048,15 +4120,10 @@ ${canManageFacilities()?`<div class="card locationsZonesCard">
       ${fc('ID', inp('group-id',{cls:'ltr',placeholder:'MF-WS-G01'}))}
       ${fc(lang==='ar'?'الاسم العربي':'Arabic name', inp('group-name-ar',{placeholder:lang==='ar'?'مجموعة مكاتب':'Workstation group'}))}
       ${fc(lang==='ar'?'الاسم الإنجليزي':'English name', inp('group-name-en',{cls:'ltr',placeholder:'Workstation group'}))}
-      ${fc(tr('floor'), sel('group-floor', FACILITY_FLOORS.map(f=>({v:f,l:f}))))}
-      ${fc(tr('type'), sel('group-type', TYPES.map(t=>({v:t,l:tr(t)}))))}
+      ${fc(tr('floor'), sel('group-floor', groupFloorOptions(createFloor)))}
+      ${fc(tr('type'), sel('group-type', groupTypeOptions('workstation')))}
     </div>
-    <div class="groupMemberPicker">
-      ${(data.locations||[]).map(l=>`<label class="groupMemberOption">
-        <input type="checkbox" class="groupMemberCheck" value="${esc(l.id)}">
-        <span><strong>${esc(l.id)}</strong><small>${esc(locName(l))}${l.floor?` · ${esc(l.floor)}`:''}</small></span>
-      </label>`).join('')}
-    </div>
+    ${groupMemberEditorHtml([], createFloor)}
     <div class="assignActions">
       <button class="btn" ${uiAction('saveLocationGroup',[null])}>${ic('check',16)} ${tr('save')}</button>
       <button class="btn secondary" ${uiAction('runUiFlow',['toggle-flag','showGroupCreate',false,'render'])}>${tr('cancel')}</button>
@@ -4105,15 +4172,10 @@ function editLocationGroup(id){
       ${fc('ID', `<input id="group-id" class="ctrl ltr" value="${esc(g.id)}" disabled>`)}
       ${fc(lang==='ar'?'الاسم العربي':'Arabic name', inp('group-name-ar',{value:g.nameAr||''}))}
       ${fc(lang==='ar'?'الاسم الإنجليزي':'English name', inp('group-name-en',{cls:'ltr',value:g.nameEn||''}))}
-      ${fc(tr('floor'), sel('group-floor', FACILITY_FLOORS.map(f=>({v:f,l:f,sel:f===(g.floor||'')}))))}
-      ${fc(tr('type'), sel('group-type', TYPES.map(t=>({v:t,l:tr(t),sel:t===(g.type||'group')}))))}
+      ${fc(tr('floor'), sel('group-floor', groupFloorOptions(g.floor||'')))}
+      ${fc(tr('type'), sel('group-type', groupTypeOptions(g.type||'group')))}
     </div>
-    <div class="groupMemberPicker">
-      ${(data.locations||[]).map(l=>`<label class="groupMemberOption">
-        <input type="checkbox" class="groupMemberCheck" value="${esc(l.id)}" ${memberSet.has(l.id)?'checked':''}>
-        <span><strong>${esc(l.id)}</strong><small>${esc(locName(l))}${l.floor?` · ${esc(l.floor)}`:''}</small></span>
-      </label>`).join('')}
-    </div>
+    ${groupMemberEditorHtml([...memberSet], g.floor||'')}
   </div>`;
   const footer = `<button class="btn" ${uiAction('saveLocationGroup',[(esc(g.id))])}>${ic('check',16)} ${tr('save')}</button>
     <button class="btn secondary" ${uiAction('runUiFlow',['close-element','groupEditModal'])}>${tr('cancel')}</button>`;
