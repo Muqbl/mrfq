@@ -387,6 +387,7 @@ label{
 .reportCard,
 .ticketCard,
 .locCard,
+.groupCard,
 .empOrderCard,
 .workerTicketItem,
 .workerReportItem,
@@ -413,6 +414,7 @@ label{
 .reportCard,
 .ticketCard,
 .locCard,
+.groupCard,
 .empOrderCard,
 .workerTicketItem,
 .workerReportItem,
@@ -427,6 +429,7 @@ label{
 .reportCard:hover,
 .ticketCard:hover,
 .locCard:hover,
+.groupCard:hover,
 .empOrderCard:hover,
 .workerTicketItem:hover,
 .workerReportItem:hover,
@@ -1340,11 +1343,24 @@ tbody tr:hover td{background:var(--surface-2)}
    LOCATIONS
    ═══════════════════════════════════════════════════════════════ */
 .locGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.groupGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
 .locationsZonesCard{margin-bottom:16px}
 .locCard{padding:16px;display:grid;gap:10px}
+.groupCard{padding:16px;display:grid;gap:10px}
 .locCard-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.groupCard-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
 .locCard-name{font-family:var(--font-head);font-weight:800;font-size:var(--fs-sm);color:var(--ink);line-height:1.35}
+.groupCard-name{font-family:var(--font-head);font-weight:800;font-size:var(--fs-sm);color:var(--ink);line-height:1.35}
 .locCard-id{font-family:ui-monospace,Consolas,monospace;font-size:10px;color:var(--muted);margin-top:3px;background:var(--surface-3);padding:2px 6px;border-radius:4px;display:inline-block}
+.groupCard-id{font-family:ui-monospace,Consolas,monospace;font-size:10px;color:var(--muted);margin-top:3px;background:var(--surface-3);padding:2px 6px;border-radius:4px;display:inline-block}
+.groupMembersText{font-size:var(--fs-xs);line-height:1.7;color:var(--muted);direction:ltr;text-align:start;background:var(--surface-2);border-radius:var(--r-sm);padding:8px}
+.groupEditorInline{display:grid;gap:12px}
+.groupMemberPicker{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;max-height:360px;overflow:auto;padding:2px}
+.groupMemberOption{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:var(--r-sm);padding:9px;background:var(--surface);cursor:pointer}
+.groupMemberOption:has(input:checked){background:var(--ok-bg);border-color:rgba(22,136,77,.24)}
+.groupMemberOption input{width:18px;height:18px;min-width:18px;margin-top:2px;accent-color:var(--brand-mid)}
+.groupMemberOption strong{display:block;font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--ink)}
+.groupMemberOption small{display:block;font-size:10px;color:var(--muted);line-height:1.4}
 .locCard-qr{display:flex;justify-content:center;padding:10px;background:var(--surface-2);border-radius:var(--r-sm)}
 .locCard-qr img{border-radius:8px}
 .qr-code-label{
@@ -1358,6 +1374,7 @@ tbody tr:hover td{background:var(--surface-2)}
 .qrPrintPanel{display:none}
 .qrPrintModal[data-mode="all"] .qrPrintPanel--all,
 .qrPrintModal[data-mode="floor"] .qrPrintPanel--floor,
+.qrPrintModal[data-mode="groups"] .qrPrintPanel--groups,
 .qrPrintModal[data-mode="selected"] .qrPrintPanel--selected{display:block}
 .qrPrintSummary{
   padding:12px;border:1px solid var(--line);border-radius:var(--r-sm);
@@ -1377,6 +1394,9 @@ tbody tr:hover td{background:var(--surface-2)}
 .qrPrintLocation strong{display:block;font-size:var(--fs-xs);line-height:1.4;color:var(--ink)}
 .qrPrintLocation small{display:block;font-size:10px;color:var(--muted);direction:ltr;text-align:start;margin-top:2px}
 .qrPrintHint{font-size:var(--fs-xs);color:var(--muted);line-height:1.6}
+.assignSectionTitle{display:flex;align-items:center;gap:6px;margin:14px 0 8px;color:var(--ink);font-weight:800;font-size:var(--fs-sm)}
+.assignGrid--groups{margin-bottom:8px}
+.assignItem--group{border-style:solid;background:color-mix(in srgb,var(--brand-bg) 50%,var(--surface))}
 .zone-chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .zone-chip{
   min-height:34px;border-radius:var(--r-full);padding:5px 8px 5px 12px;

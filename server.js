@@ -428,6 +428,16 @@ const mapLocation = l => l ? {
   space:      l.space || ''
 } : null;
 
+const mapLocationGroup = g => g ? {
+  id:         g.id,
+  nameAr:     g.name_ar,
+  nameEn:     g.name_en,
+  floor:      g.floor,
+  type:       g.type,
+  active:     g.active === 1 || g.active === true,
+  memberIds:  g.memberIds || []
+} : null;
+
 function canManageGlobalUsers(role) { return permissions.canManageGlobalUsers(role); }
 function canManageModuleTeam(role) { return permissions.canManageModuleTeam(role); }
 function canManageUsers(role) { return canManageGlobalUsers(role) || canManageModuleTeam(role); }
@@ -485,6 +495,23 @@ function dbUsers() {
 }
 function dbLocs()     {
   return getDb().prepare('SELECT * FROM locations WHERE deleted_at IS NULL').all().map(mapLocation);
+}
+function dbLocationGroups() {
+  const db = getDb();
+  const groups = db.prepare('SELECT * FROM location_groups WHERE deleted_at IS NULL ORDER BY floor, id').all();
+  const members = db.prepare(`
+    SELECT group_id, location_id
+    FROM location_group_members gm
+    JOIN locations l ON l.id = gm.location_id
+    WHERE l.deleted_at IS NULL
+    ORDER BY group_id, location_id
+  `).all();
+  const memberMap = {};
+  members.forEach(row => {
+    if (!memberMap[row.group_id]) memberMap[row.group_id] = [];
+    memberMap[row.group_id].push(row.location_id);
+  });
+  return groups.map(g => mapLocationGroup({ ...g, memberIds: memberMap[g.id] || [] }));
 }
 function dbZones()    {
   return getDb().prepare('SELECT name FROM zones').all().map(r => r.name);
@@ -1037,6 +1064,7 @@ function canActOnCleaningTicket(me, ticket) {
 function buildBootstrap(me) {
   const users       = dbUsers();
   const locations   = dbLocs();
+  const locationGroups = dbLocationGroups();
   const zones       = dbZones();
   const assignments = dbAssignments();
   const settings    = dbSettings();
@@ -1052,7 +1080,7 @@ function buildBootstrap(me) {
 
   const maintenance = ['system_admin','facility_manager','maintenance_manager','maintenance_supervisor','maintenance_worker'].includes(me.role)
     ? maintenancePayload(me, visibleMaintenanceTickets) : {};
-  const base = { user: publicUser(me), locations, zones, settings, recurringTasks: allRecurringTasks, maintenance };
+  const base = { user: publicUser(me), locations, locationGroups, zones, settings, recurringTasks: allRecurringTasks, maintenance };
   const hospitalityOrders = visibleHospitalityOrders;
 
   if (me.role === 'employee') {
@@ -1765,6 +1793,64 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { ok: true });
       }
 
+      /* ── LOCATION GROUPS: CREATE/UPDATE/DELETE ─────────────── */
+      if (req.method === 'POST' && url.pathname === '/api/location-groups') {
+        if (!canManageFacilities(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const b = await bodyJSON(req);
+        const groupId = sanitize(b.id || ('grp-' + crypto.randomBytes(4).toString('hex')), 80)
+          .replace(/[^a-zA-Z0-9\-_]/g, '');
+        if (!groupId) return send(res, 400, { error: 'MISSING_GROUP_ID' });
+        if (db.prepare('SELECT 1 FROM location_groups WHERE id = ?').get(groupId))
+          return send(res, 409, { error: 'GROUP_ID_EXISTS' });
+        const memberIds = Array.isArray(b.memberIds) ? [...new Set(b.memberIds.map(x => sanitize(x, 80)).filter(Boolean))] : [];
+        const existing = new Set(db.prepare(`SELECT id FROM locations WHERE deleted_at IS NULL`).all().map(r => r.id));
+        const validMemberIds = memberIds.filter(id => existing.has(id));
+        const ts = now();
+        db.transaction(() => {
+          db.prepare(`
+            INSERT INTO location_groups (id,name_ar,name_en,floor,type,active,created_at,updated_at)
+            VALUES (?,?,?,?,?,?,?,?)
+          `).run(groupId, sanitize(b.nameAr, 200), sanitize(b.nameEn, 200), sanitize(b.floor, 10), sanitize(b.type, 30) || 'group', b.active !== false ? 1 : 0, ts, ts);
+          const ins = db.prepare('INSERT OR IGNORE INTO location_group_members (group_id,location_id,created_at) VALUES (?,?,?)');
+          validMemberIds.forEach(locationId => ins.run(groupId, locationId, ts));
+        })();
+        return send(res, 200, { group: dbLocationGroups().find(g => g.id === groupId) });
+      }
+
+      if (req.method === 'PUT' && url.pathname.startsWith('/api/location-groups/')) {
+        if (!canManageFacilities(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const groupId = decodeURIComponent(url.pathname.split('/').pop());
+        const group = db.prepare('SELECT * FROM location_groups WHERE id = ? AND deleted_at IS NULL').get(groupId);
+        if (!group) return send(res, 404, { error: 'GROUP_NOT_FOUND' });
+        const b = await bodyJSON(req);
+        const memberIds = Array.isArray(b.memberIds) ? [...new Set(b.memberIds.map(x => sanitize(x, 80)).filter(Boolean))] : null;
+        const existing = new Set(db.prepare(`SELECT id FROM locations WHERE deleted_at IS NULL`).all().map(r => r.id));
+        const validMemberIds = memberIds ? memberIds.filter(id => existing.has(id)) : null;
+        const sets = []; const vals = [];
+        if (b.nameAr !== undefined) { sets.push('name_ar = ?'); vals.push(sanitize(b.nameAr, 200)); }
+        if (b.nameEn !== undefined) { sets.push('name_en = ?'); vals.push(sanitize(b.nameEn, 200)); }
+        if (b.floor !== undefined)  { sets.push('floor = ?'); vals.push(sanitize(b.floor, 10)); }
+        if (b.type !== undefined)   { sets.push('type = ?'); vals.push(sanitize(b.type, 30) || 'group'); }
+        if (b.active !== undefined) { sets.push('active = ?'); vals.push(b.active ? 1 : 0); }
+        sets.push('updated_at = ?'); vals.push(now()); vals.push(groupId);
+        db.transaction(() => {
+          db.prepare(`UPDATE location_groups SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
+          if (validMemberIds) {
+            db.prepare('DELETE FROM location_group_members WHERE group_id = ?').run(groupId);
+            const ins = db.prepare('INSERT OR IGNORE INTO location_group_members (group_id,location_id,created_at) VALUES (?,?,?)');
+            validMemberIds.forEach(locationId => ins.run(groupId, locationId, now()));
+          }
+        })();
+        return send(res, 200, { group: dbLocationGroups().find(g => g.id === groupId) });
+      }
+
+      if (req.method === 'DELETE' && url.pathname.startsWith('/api/location-groups/')) {
+        if (!canManageFacilities(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        const groupId = decodeURIComponent(url.pathname.split('/').pop());
+        db.prepare('UPDATE location_groups SET deleted_at = ?, updated_at = ?, active = 0 WHERE id = ?').run(now(), now(), groupId);
+        return send(res, 200, { ok: true });
+      }
+
       /* ── ZONES ──────────────────────────────────────────────── */
       if (req.method === 'POST' && url.pathname === '/api/zones') {
         if (!canManageFacilities(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
@@ -1796,6 +1882,17 @@ const server = http.createServer(async (req, res) => {
         if (worker.role !== workerRoles[module]) return send(res, 400, { error: 'WORKER_ROLE_MISMATCH' });
         const locationIds = Array.isArray(b.locationIds)
           ? b.locationIds.map(l => sanitize(l, 80)).filter(Boolean) : [];
+        const groupIds = Array.isArray(b.groupIds)
+          ? b.groupIds.map(g => sanitize(g, 80)).filter(Boolean) : [];
+        const groupLocationIds = groupIds.length ? db.prepare(`
+          SELECT DISTINCT gm.location_id
+          FROM location_group_members gm
+          JOIN location_groups g ON g.id = gm.group_id
+          JOIN locations l ON l.id = gm.location_id
+          WHERE gm.group_id IN (${groupIds.map(() => '?').join(',')})
+            AND g.active = 1 AND g.deleted_at IS NULL AND l.deleted_at IS NULL
+        `).all(...groupIds).map(r => r.location_id) : [];
+        const expandedLocationIds = [...new Set([...locationIds, ...groupLocationIds])];
         const supervisorId = sanitize(b.supervisorId || '', 50);
         if (supervisorId) {
           const sup = db.prepare("SELECT role FROM users WHERE id=? AND role=? AND active=1 AND deleted_at IS NULL").get(supervisorId, supervisorRoles[module]);
@@ -1804,7 +1901,7 @@ const server = http.createServer(async (req, res) => {
         db.transaction(() => {
           db.prepare('DELETE FROM assignments WHERE worker_id = ? AND module = ?').run(workerId, module);
           const ins = db.prepare('INSERT OR IGNORE INTO assignments (worker_id,location_id,created_at,supervisor_id,module) VALUES (?,?,?,?,?)');
-          locationIds.forEach(lid => ins.run(workerId, lid, now(), supervisorId, module));
+          expandedLocationIds.forEach(lid => ins.run(workerId, lid, now(), supervisorId, module));
         })();
         return send(res, 200, { ok: true });
       }
