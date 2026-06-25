@@ -591,6 +591,7 @@ let locsFloorFilter = 'all';
 let facilitiesSubView = 'locations';
 let assignModule = 'cleaning';
 let assignFloorFilter = 'all';
+let assignFloorFilters = ['all'];
 let showTicketCreate = false, showLocCreate = false, showZoneCreate = false;
 let mobileNavActive = '';
 let viewHistory = [];
@@ -703,7 +704,8 @@ const UI_ACTION_NAMES = new Set([
   'exportPDFReports','submitRating','deleteReport','createTicket','editTicketModal',
   'deleteTicketConfirm','forwardTicketToSupervisor','saveEditTicket','submitComment','deleteComment',
   'createRecurringTask','toggleRecurring','deleteRecurring','deleteZone','addZone','addLoc',
-  'deleteLocConfirm','filterAssignFloor','saveAssign','showAddRoleModal',
+  'deleteLocConfirm','filterAssignFloor','toggleAssignFloorFilter','setVisibleAssignChecks',
+  'setAllAssignChecks','updateAssignSelectedCount','saveAssign','showAddRoleModal',
   'showPasswordResetModal','deleteUserConfirm','saveUser','hideUserFormModal',
   'savePasswordReset','hidePasswordResetModal','startTicketWorker','startForm','closeCamera',
   'toggleCameraFacing','capturePhoto','submitReport','closeQRScanner','renderWorker',
@@ -771,6 +773,7 @@ function runUiFlow(flow,...values){
     else if(scope==='employeeHistoryFilter') employeeHistoryFilter=value;
     else if(scope==='empHospCatFilter') empHospCatFilter=value;
     else if(scope==='facilitiesSubView') facilitiesSubView=value;
+    else if(scope==='assignModule'){ assignModule=value; assignFloorFilter='all'; assignFloorFilters=['all']; }
     else return;
     if(nav) mobileNavActive=nav;
     renderByName(renderer);
@@ -901,6 +904,7 @@ document.addEventListener('keydown',event=>{
 document.addEventListener('change',event=>{
   const action=event.target.dataset.uiChange;
   if(action==='fill-assignment') fillAssign();
+  if(action==='assign-count') updateAssignSelectedCount();
   if(action==='filter-user-role'){
     usersRoleFilter=event.target.value;
     render();
@@ -1737,7 +1741,7 @@ function render(){
   setDoc();
   if(_lastView==='users' && view!=='users'){ usersSearch=''; usersRoleFilter='all'; usersStatusFilter='all'; }
   if(_lastView==='locations' && view!=='locations'){ locsFloorFilter='all'; }
-  if(_lastView==='assignments' && view!=='assignments'){ assignFloorFilter='all'; }
+  if(_lastView==='assignments' && view!=='assignments'){ assignFloorFilter='all'; assignFloorFilters=['all']; }
   _lastView = view;
   // Facilities (locations) management is restricted to system admin / facility manager.
   if(view==='locations' && !canManageFacilities()) view='dashboard';
@@ -4195,6 +4199,8 @@ function assignments(){
   const noWorkersMsg = lang==='ar'
     ? `لا يوجد عمال في قسم ${moduleLabels[module]} حالياً. أضف عامل من المستخدمين أولاً.`
     : `No ${moduleLabels[module]} workers yet. Add a worker from Users first.`;
+  const floors = [...new Set((data.locations||[]).map(l=>l.floor).filter(Boolean))].sort();
+  const floorVisible = floor => assignFloorFilters.includes('all') || assignFloorFilters.includes(floor||'');
   return`
 <div class="pageHeader">
   <div class="pageHeader-left">
@@ -4221,18 +4227,27 @@ function assignments(){
   <!-- FLOOR FILTER -->
   <div class="filterBar u-mb-16">
     <div class="filterChips">
-      ${['all',...[...new Set((data.locations||[]).map(l=>l.floor).filter(Boolean))].sort()].map(f=>
-        `<button class="filterChip asgFloorBtn${assignFloorFilter===f?' active':''}" data-floor="${f}" ${uiAction('filterAssignFloor',[(f)])}>
+      ${['all',...floors].map(f=>
+        `<button class="filterChip asgFloorBtn${(assignFloorFilters.includes('all')&&f==='all')||assignFloorFilters.includes(f)?' active':''}" data-floor="${esc(f)}" ${uiAction('toggleAssignFloorFilter',[(f)])}>
           ${f==='all'?(lang==='ar'?'الكل':'All'):f}
         </button>`
       ).join('')}
     </div>
   </div>
+  <div class="assignQuickBar">
+    <div class="assignQuickButtons">
+      <button type="button" class="btn secondary sm" ${uiAction('setVisibleAssignChecks',[true])}>${lang==='ar'?'تحديد الظاهر':'Select visible'}</button>
+      <button type="button" class="btn ghost sm" ${uiAction('setVisibleAssignChecks',[false])}>${lang==='ar'?'إلغاء الظاهر':'Clear visible'}</button>
+      <button type="button" class="btn secondary sm" ${uiAction('setAllAssignChecks',[true])}>${lang==='ar'?'تحديد الكل':'Select all'}</button>
+      <button type="button" class="btn ghost sm" ${uiAction('setAllAssignChecks',[false])}>${lang==='ar'?'إلغاء الكل':'Clear all'}</button>
+    </div>
+    <div class="assignSelectedCount" id="assignSelectedCount">${lang==='ar'?'المحدد:':'Selected:'} 0</div>
+  </div>
 
   <div class="assignGrid u-mt-0">
     ${(data.locations||[]).map(l=>`
-      <label class="assignItem${assignFloorFilter!=='all'&&(l.floor||'')!==assignFloorFilter?' is-hidden':''}" data-floor="${esc(l.floor||'')}">
-        <input class="asgCheck" type="checkbox" value="${l.id}">
+      <label class="assignItem${!floorVisible(l.floor)?' is-hidden':''}" data-floor="${esc(l.floor||'')}">
+        <input class="asgCheck" type="checkbox" value="${esc(l.id)}" data-ui-change="assign-count">
         <div class="assignItem-body">
           <div class="assignItem-label">${esc(locName(l))}</div>
           <div class="assignItem-id">${esc(l.id)}</div>
@@ -4247,15 +4262,65 @@ function assignments(){
 }
 
 function filterAssignFloor(floor){
-  assignFloorFilter = floor;
-  // show/hide items in-place — checkboxes keep their checked state
+  assignFloorFilters = [floor||'all'];
+  if(assignFloorFilters[0]==='all') assignFloorFilter = 'all';
+  else assignFloorFilter = assignFloorFilters[0];
+  applyAssignFloorFilters();
+}
+
+function toggleAssignFloorFilter(floor){
+  const next = String(floor||'all');
+  if(next==='all'){
+    assignFloorFilters = ['all'];
+  }else{
+    const current = assignFloorFilters.includes('all') ? [] : [...assignFloorFilters];
+    const idx = current.indexOf(next);
+    if(idx>=0) current.splice(idx,1);
+    else current.push(next);
+    assignFloorFilters = current.length ? current : ['all'];
+  }
+  assignFloorFilter = assignFloorFilters.includes('all') ? 'all' : assignFloorFilters[0];
+  applyAssignFloorFilters();
+}
+
+function assignItemVisible(el){
+  return assignFloorFilters.includes('all') || assignFloorFilters.includes(el.dataset.floor||'');
+}
+
+function applyAssignFloorFilters(){
   document.querySelectorAll('.assignItem[data-floor]').forEach(el=>{
-    el.classList.toggle('is-hidden', !(floor==='all' || el.dataset.floor===floor));
+    el.classList.toggle('is-hidden', !assignItemVisible(el));
   });
-  // update active chip without re-render
   document.querySelectorAll('.asgFloorBtn').forEach(btn=>{
-    btn.classList.toggle('active', btn.dataset.floor===floor);
+    const floor = btn.dataset.floor || 'all';
+    btn.classList.toggle('active', (floor==='all'&&assignFloorFilters.includes('all')) || assignFloorFilters.includes(floor));
   });
+  updateAssignSelectedCount();
+}
+
+function setVisibleAssignChecks(checked){
+  document.querySelectorAll('.assignItem[data-floor]').forEach(el=>{
+    if(assignItemVisible(el)){
+      const input = el.querySelector('.asgCheck');
+      if(input) input.checked = Boolean(checked);
+    }
+  });
+  updateAssignSelectedCount();
+}
+
+function setAllAssignChecks(checked){
+  document.querySelectorAll('.asgCheck').forEach(input=>{ input.checked = Boolean(checked); });
+  updateAssignSelectedCount();
+}
+
+function updateAssignSelectedCount(){
+  const el = document.getElementById('assignSelectedCount');
+  if(!el) return;
+  const selected = document.querySelectorAll('.asgCheck:checked').length;
+  const visible = [...document.querySelectorAll('.assignItem[data-floor]')].filter(assignItemVisible).length;
+  el.textContent = lang==='ar'
+    ? `المحدد: ${num(selected)} · الظاهر: ${num(visible)}`
+    : `Selected: ${num(selected)} · Visible: ${num(visible)}`;
 }
 
 function fillAssign(){
@@ -4265,6 +4330,7 @@ function fillAssign(){
   const a = (data.assignments||[]).find(x=>x.workerId===aw.value && (x.module||'cleaning')===module);
   document.querySelectorAll('.asgCheck').forEach(c=>c.checked=!!(a?.locationIds?.includes(c.value)));
   setChoicePickerValue('asup', a?.supervisorId || '');
+  updateAssignSelectedCount();
 }
 
 async function saveAssign(){
