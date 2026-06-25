@@ -4192,7 +4192,17 @@ async function saveLocationGroup(id){
     memberIds: [...document.querySelectorAll('.groupMemberCheck:checked')].map(x=>x.value)
   };
   if(!payload.id) return toast(lang==='ar'?'أدخل ترميز المجموعة':'Enter group code','bad');
-  await api(id?`/location-groups/${encodeURIComponent(id)}`:'/location-groups',{method:id?'PUT':'POST',body:JSON.stringify(payload)});
+  if(payload.memberIds.length < 2){
+    return toast(lang==='ar'?'المجموعة تحتاج موقعين على الأقل':'A group needs at least two locations','bad');
+  }
+  try{
+    await api(id?`/location-groups/${encodeURIComponent(id)}`:'/location-groups',{method:id?'PUT':'POST',body:JSON.stringify(payload)});
+  }catch(e){
+    const msg = e.message === 'GROUP_REQUIRES_MULTIPLE_LOCATIONS'
+      ? (lang==='ar'?'المجموعة تحتاج موقعين على الأقل':'A group needs at least two locations')
+      : e.message;
+    return toast(msg,'bad');
+  }
   showGroupCreate = false;
   document.getElementById('groupEditModal')?.remove();
   toast(tr('saved'),'ok');

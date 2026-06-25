@@ -850,7 +850,6 @@ function _seedPlanLocationGroups(db) {
     ['GF-K-G01','مطابخ الدور الأرضي','Ground floor kitchens','GF','kitchen',['GF-K-01','GF-K-02']],
     ['GF-CS-G01','خدمة العملاء الدور الأرضي','Ground floor customer service','GF','service',_range('GF-CS-',1,5)],
     ['GF-MR-G01','غرف اجتماع GF 01','Ground floor meeting rooms 01','GF','meeting_room',_range('GF-MR-',1,4)],
-    ['GF-MR-G02','غرف اجتماع GF 02','Ground floor meeting rooms 02','GF','meeting_room',['GF-MR-05','GF-MR-6A','GF-MR-6B']],
 
     ['MF-WS-G01','مجموعة مكاتب MF 01','Mezzanine workstation group 01','MF','workstation',_range('MF-WS-',1,6)],
     ['MF-WS-G02','مجموعة مكاتب MF 02','Mezzanine workstation group 02','MF','workstation',_range('MF-WS-',7,12)],
@@ -890,9 +889,6 @@ function _seedPlanLocationGroups(db) {
     ['5F-WS-G01','مجموعة مكاتب 5F 01','Fifth floor workstation group 01','5F','workstation',_range('5F-WS-',62,67)],
     ['5F-WS-G02','مجموعة مكاتب 5F 02','Fifth floor workstation group 02','5F','workstation',_range('5F-WS-',68,73)],
 
-    ['6F-WS-A','منطقة مكاتب 6F A','Sixth floor workstation zone A','6F','workstation',[]],
-    ['6F-WS-B','منطقة مكاتب 6F B','Sixth floor workstation zone B','6F','workstation',[]],
-
     ['7F-WS-G01','مجموعة مكاتب 7F 01','Seventh floor workstation group 01','7F','workstation',_range('7F-WS-',23,30)],
     ['7F-WS-G02','مجموعة مكاتب 7F 02','Seventh floor workstation group 02','7F','workstation',_range('7F-WS-',41,44)],
 
@@ -912,6 +908,7 @@ function _seedPlanLocationGroups(db) {
   `);
   db.transaction(() => {
     for (const [id, nameAr, nameEn, floor, type, members] of groups) {
+      if (members.length < 2) continue;
       insertGroup.run(id, nameAr, nameEn, floor, type, 1, ts, ts);
       for (const locationId of members) insertMember.run(id, ts, locationId);
     }

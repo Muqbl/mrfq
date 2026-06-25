@@ -498,6 +498,17 @@ function dbLocs()     {
 }
 function dbLocationGroups() {
   const db = getDb();
+  db.prepare(`
+    UPDATE location_groups
+    SET active = 0, deleted_at = COALESCE(deleted_at, ?), updated_at = ?
+    WHERE deleted_at IS NULL
+      AND (
+        SELECT COUNT(*)
+        FROM location_group_members gm
+        JOIN locations l ON l.id = gm.location_id
+        WHERE gm.group_id = location_groups.id AND l.deleted_at IS NULL
+      ) < 2
+  `).run(now(), now());
   const groups = db.prepare('SELECT * FROM location_groups WHERE deleted_at IS NULL ORDER BY floor, id').all();
   const members = db.prepare(`
     SELECT group_id, location_id
@@ -1805,6 +1816,7 @@ const server = http.createServer(async (req, res) => {
         const memberIds = Array.isArray(b.memberIds) ? [...new Set(b.memberIds.map(x => sanitize(x, 80)).filter(Boolean))] : [];
         const existing = new Set(db.prepare(`SELECT id FROM locations WHERE deleted_at IS NULL`).all().map(r => r.id));
         const validMemberIds = memberIds.filter(id => existing.has(id));
+        if (validMemberIds.length < 2) return send(res, 400, { error: 'GROUP_REQUIRES_MULTIPLE_LOCATIONS' });
         const ts = now();
         db.transaction(() => {
           db.prepare(`
@@ -1826,6 +1838,7 @@ const server = http.createServer(async (req, res) => {
         const memberIds = Array.isArray(b.memberIds) ? [...new Set(b.memberIds.map(x => sanitize(x, 80)).filter(Boolean))] : null;
         const existing = new Set(db.prepare(`SELECT id FROM locations WHERE deleted_at IS NULL`).all().map(r => r.id));
         const validMemberIds = memberIds ? memberIds.filter(id => existing.has(id)) : null;
+        if (validMemberIds && validMemberIds.length < 2) return send(res, 400, { error: 'GROUP_REQUIRES_MULTIPLE_LOCATIONS' });
         const sets = []; const vals = [];
         if (b.nameAr !== undefined) { sets.push('name_ar = ?'); vals.push(sanitize(b.nameAr, 200)); }
         if (b.nameEn !== undefined) { sets.push('name_en = ?'); vals.push(sanitize(b.nameEn, 200)); }
