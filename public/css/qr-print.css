@@ -7,14 +7,14 @@ body{margin:0;padding:16px;font-family:IBMPlexArabic,Tahoma,Arial,sans-serif;col
 .qrPrintHeader span{display:block;color:#56666a;font-size:11px;margin-top:2px}
 .qrPrintHeader small{color:#6f787f;font-size:10px;white-space:nowrap}
 .qrLabelGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.qrLabel{min-height:240px;padding:12px;border:1px solid #d8e4e1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;break-inside:avoid;page-break-inside:avoid}
+.qrLabel{min-height:240px;padding:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;break-inside:avoid;page-break-inside:avoid}
 .qrLabel img{width:150px;height:150px;object-fit:contain;display:block}
-.qrLabel-code{margin-top:8px;padding:3px 8px;border:1px solid #d8e4e1;border-radius:6px;font-family:Consolas,'Courier New',monospace;font-size:14px;font-weight:800;direction:ltr;letter-spacing:.02em;color:#0b3034}
+.qrLabel-code{margin-top:8px;padding:3px 8px;font-family:Consolas,'Courier New',monospace;font-size:14px;font-weight:800;direction:ltr;letter-spacing:.02em;color:#0b3034}
 @media print{
   body{padding:8mm}
   .qrPrintHeader{margin-bottom:8mm}
   .qrLabelGrid{gap:6mm;grid-template-columns:repeat(3,1fr)}
-  .qrLabel{border-color:#cfdcd9;min-height:62mm;padding:5mm}
+  .qrLabel{min-height:62mm;padding:5mm}
   .qrLabel img{width:38mm;height:38mm}
 }
 @page{size:A4;margin:10mm}
