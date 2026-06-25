@@ -4772,10 +4772,15 @@ function qrPrintSelectedLocations(){
 }
 
 function qrPrintLabelsHtml(items){
-  return items.map(l=>`<article class="qrLabel">
+  const labels = items.map(l=>`<article class="qrLabel">
     <img src="${locationQrUrl(l.id,260)}" alt="QR ${esc(l.id)}">
     <div class="qrLabel-code">${esc(l.id)}</div>
-  </article>`).join('');
+  </article>`);
+  const pages = [];
+  for(let i=0;i<labels.length;i+=12){
+    pages.push(`<section class="qrPage">${labels.slice(i,i+12).join('')}</section>`);
+  }
+  return pages.join('');
 }
 
 function printQrWindowWhenReady(w){
@@ -4806,16 +4811,11 @@ function printSelectedQrs(){
     return;
   }
   const dir = lang==='ar'?'rtl':'ltr';
-  const title = lang==='ar'?'طباعة رموز QR للمواقع':'Print location QR codes';
   const html = `<!doctype html><html lang="${lang}" dir="${dir}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MRFQ - QR Labels</title>
+<title></title>
 <link rel="stylesheet" href="/css/qr-print.css"></head><body>
-<header class="qrPrintHeader">
-  <div><strong>مِرفق - MRFQ</strong><span>${esc(title)}</span></div>
-  <small>${items.length} ${lang==='ar'?'موقع':'locations'} · ${new Date().toISOString().slice(0,10)}</small>
-</header>
-<main class="qrLabelGrid">${qrPrintLabelsHtml(items)}</main>
+${qrPrintLabelsHtml(items)}
 </body></html>`;
   const w = window.open('', '_blank', 'width=1000,height=800');
   if(!w){

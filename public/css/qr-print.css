@@ -1,20 +1,21 @@
 @font-face{font-family:IBMPlexArabic;src:url('/assets/fonts/IBMPlexSansArabic-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
 @font-face{font-family:IBMPlexArabic;src:url('/assets/fonts/IBMPlexSansArabic-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
 *{box-sizing:border-box}
-body{margin:0;padding:16px;font-family:IBMPlexArabic,Tahoma,Arial,sans-serif;color:#123238;background:#fff}
-.qrPrintHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #005257}
-.qrPrintHeader strong{display:block;color:#005257;font-size:18px;font-weight:800}
-.qrPrintHeader span{display:block;color:#56666a;font-size:11px;margin-top:2px}
-.qrPrintHeader small{color:#6f787f;font-size:10px;white-space:nowrap}
-.qrLabelGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.qrLabel{min-height:240px;padding:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;break-inside:avoid;page-break-inside:avoid}
+body{margin:0;padding:0;font-family:IBMPlexArabic,Tahoma,Arial,sans-serif;color:#123238;background:#fff}
+.qrPage{
+  width:210mm;height:297mm;padding:8mm;
+  display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(4,1fr);
+  gap:0;break-after:page;page-break-after:always;
+}
+.qrPage:last-child{break-after:auto;page-break-after:auto}
+.qrLabel{padding:4mm;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;break-inside:avoid;page-break-inside:avoid;overflow:hidden}
 .qrLabel img{width:150px;height:150px;object-fit:contain;display:block}
 .qrLabel-code{margin-top:8px;padding:3px 8px;font-family:Consolas,'Courier New',monospace;font-size:14px;font-weight:800;direction:ltr;letter-spacing:.02em;color:#0b3034}
 @media print{
-  body{padding:8mm}
-  .qrPrintHeader{margin-bottom:8mm}
-  .qrLabelGrid{gap:6mm;grid-template-columns:repeat(3,1fr)}
-  .qrLabel{min-height:62mm;padding:5mm}
+  body{padding:0}
+  .qrPage{width:210mm;height:297mm;padding:8mm;break-after:page;page-break-after:always}
+  .qrPage:last-child{break-after:auto;page-break-after:auto}
+  .qrLabel{padding:4mm}
   .qrLabel img{width:38mm;height:38mm}
 }
-@page{size:A4;margin:10mm}
+@page{size:A4;margin:0}
