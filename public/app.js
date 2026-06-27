@@ -869,13 +869,26 @@ function runUiFlow(flow,...values){
   if(flow==='close-notifications-reports'){goView('reports');document.getElementById('notifPanel')?.remove();return}
   if(flow==='notification-route'){
     const route=String(values[0]);
+    const kind=String(values[1]||'');
+    const id=String(values[2]||'');
+    document.getElementById('notifPanel')?.remove();
+    const ticket=id ? (data.tickets||[]).find(t=>t.id===id) : null;
+    const isMaintTicket=ticket && ticket.module==='maintenance';
     if(route==='reports') view='reports';
     else if(route==='pending-reports'){view='reports';reportFilter='pending'}
-    else if(route==='tickets') view='tickets';
+    else if(route==='tickets'){
+      if(me.role==='cleaning_supervisor'){supervisorView='requests';mobileNavActive='supervisor-requests'}
+      else if(isMaintTicket && me.role==='maintenance_supervisor'){maintView='orders';mobileNavActive='supervisor-requests'}
+      else if(isMaintTicket && ['maintenance_manager','system_admin','facility_manager'].includes(me.role)){adminModuleContext='maintenance';maintView='orders'}
+      else view='tickets';
+    }
     else if(route==='hospitality'){adminModuleContext='hospitality';hospManagerView='orders'}
     else if(route==='maintenance-parts'){adminModuleContext='maintenance';maintView='parts'}
     else if(route==='maintenance-assets'){adminModuleContext='maintenance';maintView='assets'}
-    render();document.getElementById('notifPanel')?.remove();return;
+    render();
+    if(kind==='ticket'&&id) setTimeout(()=>openTicketDetail(id),0);
+    else if(kind==='report'&&id) setTimeout(()=>openReportDetail(id),0);
+    return;
   }
 }
 document.addEventListener('input',event=>{
@@ -3136,26 +3149,40 @@ function toggleNotif(e){
       label: lang==='ar'? `تقرير بانتظار الاعتماد` : 'Report pending approval',
       sub:   esc((lang==='ar'?r.locationNameAr:r.locationNameEn)||r.locationNameAr),
       time:  fmt(r.createdAt),
-      route:'pending-reports'
+      route:'pending-reports',
+      kind:'report',
+      id:r.id
     })),
-    ...openTkts.map(t=>({
-      color:'var(--bad)',
-      label: esc(t.title),
-      sub:   `${ticketStatusLabel(t)} · ${tr('activeTicket')}`,
-      time:  fmt(t.createdAt),
-      route:'tickets'
-    })),
+    ...openTkts
+      .sort((a,b)=>(b.slaBreached?1:0)-(a.slaBreached?1:0))
+      .map(t=>({
+        color:'var(--bad)',
+        label: t.slaBreached
+          ? (lang==='ar'?`بلاغ متأخر: ${esc(t.title)}`:`Overdue ticket: ${esc(t.title)}`)
+          : esc(t.title),
+        sub:   `${ticketStatusLabel(t)} · ${t.slaBreached?'SLA':tr('activeTicket')}`,
+        time:  fmt(t.createdAt),
+        route:'tickets',
+        kind:'ticket',
+        id:t.id
+      })),
     ...overdueHospitality.map(o=>({
       color:'var(--bad)',label:lang==='ar'?'طلب ضيافة متأخر':'Overdue hospitality order',sub:esc(o.referenceNo||o.requesterName||''),time:fmt(o.createdAt),
-      route:'hospitality'
+      route:'hospitality',
+      kind:'hospitality',
+      id:o.id
     })),
     ...lowParts.map(p=>({
       color:'var(--warn)',label:lang==='ar'?'مخزون قطعة منخفض':'Spare part stock is low',sub:esc(lang==='ar'?p.nameAr:p.nameEn||p.nameAr),time:'',
-      route:'maintenance-parts'
+      route:'maintenance-parts',
+      kind:'maintenance-part',
+      id:p.id
     })),
     ...downAssets.map(a=>({
       color:'var(--bad)',label:lang==='ar'?'أصل متوقف':'Asset is down',sub:esc(lang==='ar'?a.nameAr:a.nameEn||a.nameAr),time:'',
-      route:'maintenance-assets'
+      route:'maintenance-assets',
+      kind:'maintenance-asset',
+      id:a.id
     }))
   ].sort((a,b)=>0); // keep order
 
@@ -3169,7 +3196,7 @@ function toggleNotif(e){
     </div>
     <div class="notifPanel-list">
       ${items.length ? items.map(it=>`
-        <div class="notifItem" ${uiAction('runUiFlow',['notification-route',it.route])}>
+        <div class="notifItem" ${uiAction('runUiFlow',['notification-route',it.route,it.kind,it.id])}>
           <div class="notifItem-dot notifItem-dot--${it.route}"></div>
           <div class="notifItem-body">
             <div class="notifItem-label">${it.label}</div>
@@ -3181,7 +3208,6 @@ function toggleNotif(e){
     </div>`;
 
   document.body.appendChild(panel);
-  panel.addEventListener('click', ev=>ev.stopPropagation());
   // Close on outside click
   setTimeout(()=>document.addEventListener('click',function h(){panel.remove();document.removeEventListener('click',h);}),0);
 }
