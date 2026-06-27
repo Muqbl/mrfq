@@ -149,6 +149,12 @@ test('platform exposes facilities, spaces, module registry and operational heatm
   assert.ok(Array.isArray(heatmap.body.locations));
   assert.ok(heatmap.body.locations.length >= 1);
   assert.deepEqual(Object.keys(heatmap.body.summary), ['normal','watch','hot','critical']);
+
+  const manager = await login('manager', PASSWORDS.manager);
+  const deniedFacilities = await manager('/api/facilities');
+  assert.equal(deniedFacilities.status, 403);
+  const deniedHeatmap = await manager('/api/facilities/heatmap');
+  assert.equal(deniedHeatmap.status, 403);
 });
 
 test('facility manager executive report is data-backed and role protected', async () => {
@@ -227,7 +233,27 @@ test('cleaning_manager bootstrap is scoped to cleaning users only', async () => 
   const r = await manager('/api/bootstrap');
   assert.equal(r.status, 200);
   assert.ok(r.body.users.length >= 1);
-  assert.ok(r.body.users.every(u => ['cleaning_manager','cleaning_supervisor','cleaner'].includes(u.role)));
+  assert.ok(r.body.users.every(u => (u.roles || [u.role]).some(role => ['cleaning_manager','cleaning_supervisor','cleaner'].includes(role))));
+});
+
+test('cleaning_manager sees users with secondary cleaning supervisor role', async () => {
+  const manager = await login('manager', PASSWORDS.manager);
+  const created = await manager('/api/users', { method: 'POST', body: JSON.stringify({
+    username: 'dual-supervisor-cleaning',
+    name: 'Dual Supervisor',
+    password: 'DualSup123!',
+    role: 'cleaner'
+  }) });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const added = await manager(`/api/users/${created.body.user.id}/roles`, {
+    method: 'POST',
+    body: JSON.stringify({ role: 'cleaning_supervisor' })
+  });
+  assert.equal(added.status, 200, JSON.stringify(added.body));
+  const boot = await manager('/api/bootstrap');
+  const user = boot.body.users.find(u => u.id === created.body.user.id);
+  assert.ok(user, 'multi-role supervisor should be visible to cleaning manager');
+  assert.ok(user.roles.includes('cleaning_supervisor'));
 });
 
 test('PUT /api/users/:id rejects invalid role (400 INVALID_ROLE)', async () => {

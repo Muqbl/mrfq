@@ -468,6 +468,11 @@ function userHasRole(db, userId, role) {
   return rolesForUserId(db, userId).includes(role);
 }
 
+function userRowHasAnyRole(user, roles) {
+  const owned = user?._roles?.length ? user._roles : [user?.role].filter(Boolean);
+  return roles.some(role => owned.includes(role));
+}
+
 /* ── Hospitality permissions ─────────────────────────────────── */
 function canHospitalityOverride(role) { return ['system_admin','facility_manager','hospitality_manager'].includes(role); }
 function canHospitalityAssign(role)   { return ['system_admin','facility_manager','hospitality_manager','hospitality_supervisor'].includes(role); }
@@ -1012,6 +1017,9 @@ function hospitalityOrdersForRole(me, allOrders) {
 
 function maintenanceTicketsForRole(me, allTickets) {
   const maintenanceTickets = allTickets.filter(t => t.module === 'maintenance');
+  if (me.role === 'maintenance_supervisor') {
+    return moduleTicketsForSupervisor(me, allTickets, dbAssignments(), 'maintenance');
+  }
   if (me.role !== 'maintenance_worker') return maintenanceTickets;
   const assignedIds = new Set(getDb().prepare(
     'SELECT work_order_id FROM maintenance_work_order_assignees WHERE technician_id=?'
@@ -1159,7 +1167,7 @@ function buildBootstrap(me) {
   if (me.role === 'maintenance_manager') {
     return {
       ...base,
-      users:       users.filter(u => ['maintenance_worker','maintenance_supervisor','maintenance_manager'].includes(u.role)).map(publicUser),
+      users:       users.filter(u => userRowHasAnyRole(u, ['maintenance_worker','maintenance_supervisor','maintenance_manager'])).map(publicUser),
       assignments,
       tickets:     allTickets.filter(t => t.module === 'maintenance'),
       reports:     allReports.filter(r => r.module === 'maintenance'),
@@ -1182,7 +1190,7 @@ function buildBootstrap(me) {
       : { enabled: false, workerIds: new Set() };
     const usersForHospitality = me.role === 'hospitality_supervisor'
       ? users.filter(u => u.id === me.id || scope.workerIds.has(u.id))
-      : users.filter(u => ['hospitality_worker','hospitality_supervisor','hospitality_manager'].includes(u.role));
+      : users.filter(u => userRowHasAnyRole(u, ['hospitality_worker','hospitality_supervisor','hospitality_manager']));
     return {
       ...base,
       users:       usersForHospitality.map(publicUser),
@@ -1197,7 +1205,7 @@ function buildBootstrap(me) {
   if (me.role === 'cleaning_manager') {
     return {
       ...base,
-      users:       users.filter(u => ['cleaner','cleaning_supervisor','cleaning_manager'].includes(u.role)).map(publicUser),
+      users:       users.filter(u => userRowHasAnyRole(u, ['cleaner','cleaning_supervisor','cleaning_manager'])).map(publicUser),
       assignments,
       tickets:     allTickets.filter(t => t.module === 'cleaning'),
       reports:     allReports.filter(r => r.module === 'cleaning'),
@@ -1229,23 +1237,34 @@ function canReceiveTicketEvent(user, ticket) {
   if (!ticket || !user) return false;
   if (['system_admin','facility_manager'].includes(user.role)) return true;
   if (user.role === 'employee') return ticket.createdById === user.id;
-  if (ticket.module === 'maintenance')
-    return ['maintenance_manager','maintenance_supervisor'].includes(user.role) ||
-      (user.role === 'maintenance_worker' && (ticket.assignedTo === user.id || !!getDb().prepare(
+  if (ticket.module === 'maintenance') {
+    if (user.role === 'maintenance_manager') return true;
+    if (user.role === 'maintenance_supervisor') {
+      return moduleTicketsForSupervisor(user, [ticket], dbAssignments(), 'maintenance').length > 0;
+    }
+    return user.role === 'maintenance_worker' && (ticket.assignedTo === user.id || !!getDb().prepare(
         'SELECT 1 FROM maintenance_work_order_assignees WHERE work_order_id=? AND technician_id=?'
-      ).get(ticket.id,user.id)));
+      ).get(ticket.id,user.id));
+  }
   if (user.role === 'cleaning_manager') return true;
-  if (user.role === 'cleaning_supervisor') return ticket.supervisorId === user.id;
+  if (user.role === 'cleaning_supervisor') return cleaningTicketsForSupervisor(user, [ticket], dbAssignments()).length > 0;
   return user.role === 'cleaner' && ticket.assignedTo === user.id;
 }
 function canReceiveReportEvent(user, report) {
   if (!report || !user) return false;
   if (['system_admin','facility_manager'].includes(user.role)) return true;
-  if (report.module === 'maintenance')
-    return ['maintenance_manager','maintenance_supervisor'].includes(user.role) ||
-      (user.role === 'maintenance_worker' && report.workerId === user.id);
-  return ['cleaning_manager','cleaning_supervisor'].includes(user.role) ||
-    (user.role === 'cleaner' && report.workerId === user.id);
+  if (report.module === 'maintenance') {
+    if (user.role === 'maintenance_manager') return true;
+    if (user.role === 'maintenance_supervisor') {
+      return moduleReportsForSupervisor(user, [report], dbAssignments(), 'maintenance').length > 0;
+    }
+    return user.role === 'maintenance_worker' && report.workerId === user.id;
+  }
+  if (user.role === 'cleaning_manager') return true;
+  if (user.role === 'cleaning_supervisor') {
+    return cleaningReportsForSupervisor(user, [report], dbAssignments()).length > 0;
+  }
+  return user.role === 'cleaner' && report.workerId === user.id;
 }
 function broadcast(event, payload) {
   const msg = `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;

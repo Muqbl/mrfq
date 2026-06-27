@@ -5559,7 +5559,7 @@ function applyScannedLocation(facility){
     employeeView='new';
     toast(lang==='ar'?'تم قراءة المرفق. اختر نوع الخدمة لإكمال الطلب.':'Facility scanned. Choose a service to continue.','ok');
     renderEmployee();
-  }else if(['system_admin','facility_manager','cleaning_manager','maintenance_manager','hospitality_manager'].includes(me?.role)){
+  }else if(['system_admin','facility_manager'].includes(me?.role)){
     view='locations';
     adminView='locations';
     facilitiesSubView=isGroup?'groups':'locations';

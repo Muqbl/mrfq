@@ -9,11 +9,22 @@ const permissions = require('../middleware/permissions');
 const clean = (value, max = 100) => String(value ?? '').trim().slice(0, max);
 const id = prefix => `${prefix}-${crypto.randomBytes(6).toString('hex')}`;
 const moduleForRole = role => String(role).startsWith('maintenance_') ? 'maintenance' : String(role).startsWith('hospitality_') ? 'hospitality' : 'cleaning';
+const canAccessFacilities = role => ['system_admin', 'facility_manager'].includes(role);
 
 async function handlePlatformRoutes({ req, res, url, me, db, send, bodyJSON }) {
   const path = url.pathname;
   if (req.method === 'GET' && path === '/api/modules') {
     return send(res, 200, { modules: db.prepare('SELECT * FROM module_registry ORDER BY status, id').all() }), true;
+  }
+  if ((path === '/api/facilities' ||
+       path === '/api/facilities/heatmap' ||
+       /^\/api\/facilities\/[^/]+\/buildings$/.test(path) ||
+       /^\/api\/buildings\/[^/]+\/floors$/.test(path) ||
+       /^\/api\/floors\/[^/]+\/zones$/.test(path) ||
+       /^\/api\/zones\/[^/]+\/spaces$/.test(path) ||
+       /^\/api\/spaces\/[^/]+\/(overview|requests|assets|performance)$/.test(path)) &&
+      !canAccessFacilities(me.role)) {
+    return send(res, 403, { error: 'FORBIDDEN' }), true;
   }
   if (req.method === 'GET' && path === '/api/facilities') {
     return send(res, 200, { facilities: facilities.facilityRows(db) }), true;
@@ -69,4 +80,3 @@ async function handlePlatformRoutes({ req, res, url, me, db, send, bodyJSON }) {
 }
 
 module.exports = { handlePlatformRoutes };
-
