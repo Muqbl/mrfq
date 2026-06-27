@@ -190,6 +190,23 @@ function sanitizePhone(v) {
   if (!p || p.length < 9) return null;
   return p;
 }
+function normalizeLocationId(v) {
+  return normalizeDigits(sanitize(v, 80)).replace(/[–—]/g, '-').trim();
+}
+function locationIdVariants(v) {
+  const normalized = normalizeLocationId(v);
+  return [...new Set([normalized, normalized.toUpperCase()].filter(Boolean))];
+}
+function getLocationByAnyId(db, id, activeOnly = false) {
+  const ids = locationIdVariants(id);
+  if (!ids.length) return null;
+  return db.prepare(`
+    SELECT * FROM locations
+    WHERE id IN (${ids.map(() => '?').join(',')})
+      ${activeOnly ? 'AND active = 1' : ''}
+      AND deleted_at IS NULL
+  `).get(...ids);
+}
 
 /* ═══════════════════════════════════════════════════════════════
    PASSWORD HASHING  (scrypt — built-in crypto, no external deps)
@@ -1949,7 +1966,7 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'POST' && url.pathname === '/api/tickets') {
         if (!canCreateTickets(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const b   = await bodyJSON(req);
-        const loc = db.prepare('SELECT * FROM locations WHERE id = ? AND deleted_at IS NULL').get(b.locationId);
+        const loc = getLocationByAnyId(db, b.locationId);
         if (!loc) return send(res, 400, { error: 'MISSING_LOCATION' });
         // Worker is optional — auto-assign if not provided
         let worker = null;
@@ -2687,7 +2704,7 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'POST' && url.pathname === '/api/maintenance-reports') {
         if (me.role !== 'maintenance_worker') return send(res, 403, { error: 'FORBIDDEN' });
         const b   = await bodyJSON(req);
-        const loc = db.prepare('SELECT * FROM locations WHERE id = ? AND active = 1 AND deleted_at IS NULL').get(b.locationId);
+        const loc = getLocationByAnyId(db, b.locationId, true);
         if (!loc) return send(res, 404, { error: 'LOCATION_NOT_FOUND' });
         const assigned = db.prepare(
           "SELECT 1 FROM assignments WHERE worker_id=? AND location_id=? AND module='maintenance'"
@@ -2786,7 +2803,7 @@ const server = http.createServer(async (req, res) => {
         if (!['employee','system_admin','facility_manager'].includes(me.role))
           return send(res, 403, { error: 'FORBIDDEN' });
         const b   = await bodyJSON(req);
-        const loc = db.prepare('SELECT * FROM locations WHERE id = ? AND deleted_at IS NULL').get(b.locationId);
+        const loc = getLocationByAnyId(db, b.locationId);
         if (!loc) return send(res, 400, { error: 'MISSING_LOCATION' });
         const id          = newId('mt');
         const ts          = now();

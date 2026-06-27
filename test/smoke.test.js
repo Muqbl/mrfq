@@ -567,6 +567,7 @@ test('maintenance: admin can create maintenance ticket', async () => {
   assert.equal(r.body.ticket.module, 'maintenance');
   assert.equal(r.body.ticket.category, 'electrical');
   crossModuleMaintenanceTicketId = r.body.ticket.id;
+
 });
 
 test('cleaning supervisor cannot mutate maintenance ticket through cleaning endpoint', async () => {

@@ -16,9 +16,32 @@ const FLOOR_ASSETS = Object.freeze([
 const VALID_LAYERS = new Set(['cleaning', 'maintenance', 'hospitality', 'safety', 'cameras', 'groups']);
 const TERMINAL_TICKET = new Set(['completed', 'rejected', 'cancelled']);
 const TERMINAL_HOSPITALITY = new Set(['completed', 'cancelled', 'rejected']);
+const ARABIC_DIGITS = '٠١٢٣٤٥٦٧٨٩';
+const EASTERN_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
+
+function normalizeCode(value) {
+  return String(value || '')
+    .replace(/[٠-٩]/g, digit => String(ARABIC_DIGITS.indexOf(digit)))
+    .replace(/[۰-۹]/g, digit => String(EASTERN_DIGITS.indexOf(digit)))
+    .replace(/[–—]/g, '-')
+    .trim()
+    .toUpperCase();
+}
+
+function codeVariants(value) {
+  const normalized = normalizeCode(value);
+  const arabic = normalized.replace(/\d/g, digit => ARABIC_DIGITS[Number(digit)]);
+  const eastern = normalized.replace(/\d/g, digit => EASTERN_DIGITS[Number(digit)]);
+  return [...new Set([normalized, arabic, eastern].filter(Boolean))];
+}
+
+function codeWhere(column, values) {
+  const variants = codeVariants(values);
+  return { clause: `${column} IN (${variants.map(() => '?').join(',')})`, values: variants };
+}
 
 function typeFromCode(code) {
-  const body = String(code || '').replace(/^(GF|MF|B1|B2|\dF)-/, '');
+  const body = normalizeCode(code).replace(/^(GF|MF|B1|B2|\dF)-/, '');
   const match = body.match(/^([A-Za-z]+)/);
   return match ? match[1].toUpperCase() : '';
 }
@@ -36,8 +59,8 @@ function floorRows(db) {
 }
 
 function normalizePoint(raw, fallbackFloor = '') {
-  const floor = String(raw.floor || fallbackFloor || '').trim().toUpperCase();
-  const code = String(raw.code || '').trim().toUpperCase();
+  const floor = normalizeCode(raw.floor || fallbackFloor);
+  const code = normalizeCode(raw.code);
   const layer = String(raw.layer || 'cleaning').trim().toLowerCase();
   const x = Number(raw.x);
   const y = Number(raw.y);
@@ -52,16 +75,17 @@ function normalizePoint(raw, fallbackFloor = '') {
 }
 
 function pointRows(db, floor) {
+  const normalizedFloor = normalizeCode(floor);
   return db.prepare(`
     SELECT id,floor,code,x,y,layer,type,created_at,updated_at
     FROM map_points
     WHERE floor = ?
     ORDER BY layer, code
-  `).all(String(floor || '').toUpperCase());
+  `).all(normalizedFloor);
 }
 
 function replaceFloorPoints(db, floor, rawPoints) {
-  const normalizedFloor = String(floor || '').trim().toUpperCase();
+  const normalizedFloor = normalizeCode(floor);
   const points = (Array.isArray(rawPoints) ? rawPoints : [])
     .map(point => normalizePoint(point, normalizedFloor))
     .filter(point => point.floor === normalizedFloor && point.code && point.x >= 0 && point.y >= 0);
@@ -86,22 +110,24 @@ function replaceFloorPoints(db, floor, rawPoints) {
 }
 
 function locationByCode(db, code) {
+  const lookup = codeWhere('l.id', code);
   return db.prepare(`
     SELECT l.*, s.id space_id
     FROM locations l
     LEFT JOIN location_space_map m ON m.location_id = l.id
     LEFT JOIN spaces s ON s.id = m.space_id
-    WHERE l.id = ? AND l.deleted_at IS NULL
-  `).get(code);
+    WHERE ${lookup.clause} AND l.deleted_at IS NULL
+  `).get(...lookup.values);
 }
 
 function groupByCode(db, code) {
+  const lookup = codeWhere('g.id', code);
   return db.prepare(`
     SELECT g.*,
       (SELECT COUNT(*) FROM location_group_members gm JOIN locations l ON l.id=gm.location_id AND l.deleted_at IS NULL WHERE gm.group_id=g.id) member_count
     FROM location_groups g
-    WHERE g.id = ? AND g.deleted_at IS NULL
-  `).get(code);
+    WHERE ${lookup.clause} AND g.deleted_at IS NULL
+  `).get(...lookup.values);
 }
 
 function statusLevel({ cleaning, maintenance, hospitality, safety, cameras, group }) {
@@ -114,23 +140,24 @@ function statusLevel({ cleaning, maintenance, hospitality, safety, cameras, grou
 
 function cleaningStatus(db, location) {
   if (!location) return null;
+  const lookup = codeWhere('location_id', location.id);
   const open = db.prepare(`
     SELECT COUNT(*) count,
       SUM(CASE WHEN sla_breached=1 THEN 1 ELSE 0 END) breached
     FROM tickets
-    WHERE location_id=? AND module='cleaning' AND deleted_at IS NULL
+    WHERE ${lookup.clause} AND module='cleaning' AND deleted_at IS NULL
       AND status NOT IN ('completed','rejected','cancelled')
-  `).get(location.id);
+  `).get(...lookup.values);
   const pending = db.prepare(`
     SELECT COUNT(*) count FROM reports
-    WHERE location_id=? AND module='cleaning' AND deleted_at IS NULL
+    WHERE ${lookup.clause} AND module='cleaning' AND deleted_at IS NULL
       AND approval_status IN ('pending','pending_approval')
-  `).get(location.id);
+  `).get(...lookup.values);
   const last = db.prepare(`
     SELECT created_at FROM reports
-    WHERE location_id=? AND module='cleaning' AND deleted_at IS NULL
+    WHERE ${lookup.clause} AND module='cleaning' AND deleted_at IS NULL
     ORDER BY created_at DESC LIMIT 1
-  `).get(location.id);
+  `).get(...lookup.values);
   const frequency = Number(db.prepare("SELECT value FROM settings WHERE key='frequency_minutes'").get()?.value || 120);
   const due = !last?.created_at || Date.now() - new Date(last.created_at).getTime() > frequency * 60_000;
   const level = open.breached ? 'critical' : open.count || pending.count || due ? 'warn' : 'ok';
@@ -146,10 +173,11 @@ function cleaningStatus(db, location) {
 
 function maintenanceStatus(db, location) {
   if (!location) return null;
+  const lookup = codeWhere('location_id', location.id);
   const rows = db.prepare(`
     SELECT status,sla_breached FROM tickets
-    WHERE location_id=? AND module='maintenance' AND deleted_at IS NULL
-  `).all(location.id);
+    WHERE ${lookup.clause} AND module='maintenance' AND deleted_at IS NULL
+  `).all(...lookup.values);
   const active = rows.filter(row => !TERMINAL_TICKET.has(row.status));
   const breached = active.filter(row => row.sla_breached === 1).length;
   return {
@@ -163,10 +191,11 @@ function hospitalityStatus(db, location) {
   if (!location) return null;
   const table = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='hospitality_orders'").get();
   if (!table) return { level: 'ok', openOrders: 0, slaBreaches: 0 };
+  const lookup = codeWhere('location_id', location.id);
   const rows = db.prepare(`
     SELECT status,sla_breached,sla_deadline FROM hospitality_orders
-    WHERE location_id=? AND deleted_at IS NULL
-  `).all(location.id);
+    WHERE ${lookup.clause} AND deleted_at IS NULL
+  `).all(...lookup.values);
   const active = rows.filter(row => !TERMINAL_HOSPITALITY.has(row.status));
   const breached = active.filter(row => row.sla_breached === 1 || (row.sla_deadline && new Date(row.sla_deadline) < new Date())).length;
   return {
@@ -180,12 +209,15 @@ function assetStatus(db, location, pointType) {
   if (!location) return null;
   const table = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='maintenance_assets'").get();
   if (!table) return { level: 'ok', count: 0, down: 0 };
+  const lookup = codeWhere('location_id', location.id);
   const rows = db.prepare(`
     SELECT status,criticality,category FROM maintenance_assets
-    WHERE location_id=? AND deleted_at IS NULL
-  `).all(location.id);
+    WHERE ${lookup.clause} AND deleted_at IS NULL
+  `).all(...lookup.values);
   const relevant = pointType === 'FS'
     ? rows.filter(row => String(row.category || '').toLowerCase().includes('fire') || String(row.category || '').includes('طف'))
+    : pointType === 'CAM'
+      ? rows.filter(row => String(row.category || '').toLowerCase().includes('cam') || String(row.category || '').includes('كام'))
     : rows;
   const down = relevant.filter(row => ['down', 'out_of_service'].includes(String(row.status || '').toLowerCase())).length;
   return { level: down ? 'critical' : relevant.length ? 'ok' : 'ok', count: relevant.length, down };
@@ -194,12 +226,16 @@ function assetStatus(db, location, pointType) {
 function pointStatus(db, point) {
   const location = locationByCode(db, point.code);
   const group = !location ? groupByCode(db, point.code) : null;
+  const pointType = typeFromCode(point.code);
+  const isSafetyPoint = point.layer === 'safety' || pointType === 'FS';
+  const isCameraPoint = point.layer === 'cameras' || pointType === 'CAM';
+  const isGroupPoint = point.layer === 'groups' || !!group;
   const modules = {
-    cleaning: cleaningStatus(db, location),
-    maintenance: maintenanceStatus(db, location),
-    hospitality: hospitalityStatus(db, location),
-    safety: assetStatus(db, location, point.type),
-    cameras: assetStatus(db, location, point.type === 'CAM' ? 'CAM' : point.type),
+    cleaning: !isSafetyPoint && !isCameraPoint && !isGroupPoint ? cleaningStatus(db, location) : null,
+    maintenance: !isSafetyPoint && !isCameraPoint && !isGroupPoint ? maintenanceStatus(db, location) : null,
+    hospitality: !isSafetyPoint && !isCameraPoint && !isGroupPoint ? hospitalityStatus(db, location) : null,
+    safety: isSafetyPoint ? assetStatus(db, location, 'FS') : null,
+    cameras: isCameraPoint ? assetStatus(db, location, 'CAM') : null,
     groups: group ? { level: group.member_count > 1 ? 'active' : 'warn', memberCount: group.member_count || 0 } : null
   };
   const activeModules = Object.fromEntries(Object.entries(modules).filter(([, value]) => value));
@@ -238,7 +274,7 @@ function statusRows(db, floor, layers = []) {
     acc.layers[point.layer] = (acc.layers[point.layer] || 0) + 1;
     return acc;
   }, { total: 0, ok: 0, active: 0, warn: 0, critical: 0, layers: {} });
-  return { floor: String(floor || '').toUpperCase(), points: rows, summary };
+  return { floor: normalizeCode(floor), points: rows, summary };
 }
 
-module.exports = { FLOOR_ASSETS, floorRows, pointRows, replaceFloorPoints, statusRows, typeFromCode };
+module.exports = { FLOOR_ASSETS, floorRows, pointRows, replaceFloorPoints, statusRows, typeFromCode, normalizeCode };

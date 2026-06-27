@@ -2789,12 +2789,15 @@ tbody tr:hover td{background:var(--surface-2)}
 }
 .mapLayer.active{border-color:rgba(0,143,148,.35);background:var(--brand-soft);color:var(--brand-dark)}
 .mapLayer.active b{background:#fff;color:var(--brand)}
-.mapShell{display:grid;grid-template-columns:300px minmax(0,1fr) 300px;gap:14px;align-items:start}
+.mapShell{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
 .mapSide,.mapDrawer,.mapCanvasWrap{
   background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
   box-shadow:var(--shadow-sm);
 }
-.mapSide,.mapDrawer{padding:16px;max-height:calc(100dvh - 245px);overflow:auto}
+.mapCanvasWrap{order:1;grid-column:1/-1}
+.mapSide{order:2}
+.mapDrawer{order:3}
+.mapSide,.mapDrawer{padding:16px;max-height:none;overflow:auto}
 .mapSide-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px}
 .mapSide-head strong,.mapDrawer-title strong{font-family:var(--font-head);font-size:var(--fs-md);color:var(--ink)}
 .mapSide-head span,.mapDrawer-title span,.mapHint,.mapDrawer-meta{font-size:var(--fs-xs);color:var(--muted)}
@@ -2820,7 +2823,7 @@ tbody tr:hover td{background:var(--surface-2)}
 .mapLegend span{display:flex;align-items:center;gap:8px}
 .mapDot{width:10px;height:10px;border-radius:99px;display:inline-block;background:var(--brand)}
 .mapDot.ok{background:var(--ok)}.mapDot.warn{background:var(--warn)}.mapDot.critical{background:var(--bad)}
-.mapCanvasWrap{padding:12px;overflow:auto}
+.mapCanvasWrap{padding:12px;overflow:auto;min-height:60vh}
 .mapZoomControls{
   position:sticky;top:0;z-index:8;display:flex;align-items:center;justify-content:center;gap:8px;
   padding:6px 8px;margin-bottom:8px;background:rgba(255,255,255,.92);
@@ -2831,7 +2834,7 @@ tbody tr:hover td{background:var(--surface-2)}
   color:var(--ink-soft);font-size:var(--fs-xs);font-weight:900;
 }
 .mapCanvas{
-  position:relative;width:100%;min-width:850px;aspect-ratio:1191/842;background:#fff;border:1px solid var(--line);
+  position:relative;width:100%;min-width:0;aspect-ratio:1191/842;background:#fff;border:1px solid var(--line);
   border-radius:var(--r-sm);overflow:hidden;cursor:crosshair;transition:width var(--t-base);
 }
 .mapSvg{width:100%;height:100%;object-fit:contain;display:block}
@@ -2854,6 +2857,9 @@ tbody tr:hover td{background:var(--surface-2)}
 .mapPin--critical{background:var(--bad)}
 .mapPin--missing{background:var(--muted)}
 .mapPin--active{background:var(--brand)}
+.mapPin.occupied{background:var(--bad)}
+.mapPin.vacant{background:var(--ok)}
+.mapPin.occupied,.mapPin.vacant{box-shadow:0 3px 9px rgba(0,0,0,.24)}
 .mapPin.selected{outline:3px solid rgba(0,143,148,.24);z-index:5}
 .mapDrawer-empty{
   min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -2894,13 +2900,11 @@ tbody tr:hover td{background:var(--surface-2)}
 @media(max-width:1180px){
   .mapShell{grid-template-columns:1fr}
   .mapSide,.mapDrawer{max-height:none}
-  .mapCanvas{min-width:720px}
 }
 @media(max-width:760px){
   .mapToolbar,.mapLayerBar{padding:10px}
   .mapLayer{flex:1;justify-content:center}
   .mapCanvasWrap{padding:8px}
-  .mapCanvas{min-width:620px}
 }
 
 @media(max-width:768px){

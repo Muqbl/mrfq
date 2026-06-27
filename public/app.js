@@ -636,6 +636,17 @@ let mapState = {
   dirty:false
 };
 
+function normalizeMapCode(value=''){
+  const ar='٠١٢٣٤٥٦٧٨٩';
+  const fa='۰۱۲۳۴۵۶۷۸۹';
+  return String(value||'')
+    .replace(/[٠-٩]/g,d=>String(ar.indexOf(d)))
+    .replace(/[۰-۹]/g,d=>String(fa.indexOf(d)))
+    .replace(/[–—]/g,'-')
+    .trim()
+    .toUpperCase();
+}
+
 /* ─── PLATFORM MODULE REGISTRY ──────────────────────────────────
    Add future modules here once. Dashboards, module cards, worker
    performance, and module entry all consume this registry. */
@@ -2634,7 +2645,7 @@ function mapLayerLabel(key){
   return meta ? (lang==='ar'?meta.ar:meta.en) : key;
 }
 function mapTypeFromCode(code=''){
-  const c=String(code).toUpperCase();
+  const c=normalizeMapCode(code);
   if(c.includes('-BR-')||c.includes('-WC-')) return lang==='ar'?'دورة مياه':'Restroom';
   if(c.includes('-WS-')) return lang==='ar'?'مساحة عمل':'Workspace';
   if(c.includes('-MR-')) return lang==='ar'?'غرفة اجتماع':'Meeting room';
@@ -2647,18 +2658,26 @@ function mapTypeFromCode(code=''){
   return lang==='ar'?'موقع':'Location';
 }
 function mapLayerForCode(code=''){
-  const c=String(code).toUpperCase();
+  const c=normalizeMapCode(code);
   if(/-G\d+/i.test(c)) return 'groups';
   if(c.includes('-CAM-')) return 'cameras';
   if(c.includes('-FS-')||c.includes('-FE-')||c.includes('-EXT-')) return 'safety';
   return 'cleaning';
 }
 function mapEmployeesForCode(code=''){
-  return mapState.employeeOffices?.employeesByCode?.[String(code).toUpperCase()] || [];
+  const c=normalizeMapCode(code);
+  const isAssignable=/-(WS|GM|M|MR)-?/i.test(c);
+  return isAssignable ? (mapState.employeeOffices?.employeesByCode?.[c] || []) : [];
+}
+function mapOccupancyClass(point){
+  const code=normalizeMapCode(point.code);
+  const assignable=/-(WS|GM|M|MR)-?/i.test(code);
+  if(!assignable) return '';
+  return mapEmployeesForCode(code).length ? 'occupied' : 'vacant';
 }
 function mapFloorCodes(){
   const codes=mapState.codes?.codes?.[mapState.floor] || [];
-  const employeeCodes=Object.keys(mapState.employeeOffices?.employeesByCode || {}).filter(code=>code.startsWith(`${mapState.floor}-`));
+  const employeeCodes=Object.keys(mapState.employeeOffices?.employeesByCode || {}).filter(code=>normalizeMapCode(code).startsWith(`${mapState.floor}-`));
   const groupCodes=(data.locationGroups||[]).filter(g=>String(g.floor||'').toUpperCase()===mapState.floor).map(g=>g.id);
   return Array.from(new Set([...codes,...employeeCodes,...groupCodes])).sort((a,b)=>String(a).localeCompare(String(b),'en',{numeric:true}));
 }
@@ -2720,11 +2739,11 @@ function renderMapConsole(){
   if(!host) return;
   const floor=mapCurrentFloor();
   const codes=mapFloorCodes();
-  const placed=new Set((mapState.points||[]).map(p=>p.code));
+  const placed=new Set((mapState.points||[]).map(p=>normalizeMapCode(p.code)));
   const visibleCodes=mapState.onlyUnplaced ? codes.filter(c=>!placed.has(c)) : codes;
   const mapPoints=(mapState.mode==='edit'?mapState.points:mapState.statusPoints)
     .filter(p=>mapState.layers[p.layer||mapLayerForCode(p.code)]!==false);
-  const selected=mapPoints.find(p=>p.code===mapState.selectedPointCode) || mapState.statusPoints.find(p=>p.code===mapState.selectedPointCode);
+  const selected=mapPoints.find(p=>normalizeMapCode(p.code)===normalizeMapCode(mapState.selectedPointCode)) || mapState.statusPoints.find(p=>normalizeMapCode(p.code)===normalizeMapCode(mapState.selectedPointCode));
   const counts=mapLayerMeta().reduce((acc,m)=>{
     acc[m.key]=(mapState.statusPoints||[]).filter(p=>(p.layer||mapLayerForCode(p.code))===m.key).length;
     return acc;
@@ -2762,7 +2781,7 @@ function renderMapConsole(){
           ${visibleCodes.map(code=>{
             const employees=mapEmployeesForCode(code);
             const employeeLabel=employees.length ? employees.map(e=>e.name).join('، ') : (lang==='ar'?'بدون موظف':'No employee');
-            return `<button class="mapCodeChip ${mapState.selectedCode===code?'active':''} ${placed.has(code)?'placed':''}" ${uiAction('mapSelectCode',[code])}>
+            return `<button class="mapCodeChip ${normalizeMapCode(mapState.selectedCode)===normalizeMapCode(code)?'active':''} ${placed.has(normalizeMapCode(code))?'placed':''}" ${uiAction('mapSelectCode',[code])}>
             <span>${esc(code)}</span><small>${mapTypeFromCode(code)} · ${esc(employeeLabel)}</small>
           </button>`;
           }).join('') || `<div class="emptyMini">${lang==='ar'?'كل الترميزات محددة':'All codes are placed'}</div>`}
@@ -2795,7 +2814,7 @@ function renderMapConsole(){
           ${mapPoints.map(p=>{
             const employees=mapEmployeesForCode(p.code);
             const title=[p.code, ...employees.map(e=>e.name)].filter(Boolean).join(' · ');
-            return `<button class="mapPin mapPin--${esc(p.level||'active')} ${employees.length?'hasEmployee':''} ${selected&&mapPointKey(selected)===mapPointKey(p)?'selected':''}" data-map-pin data-x="${Number(p.x)||0}" data-y="${Number(p.y)||0}" title="${esc(title)}" aria-label="${esc(title)}" ${uiAction('mapSelectPoint',[p.code])}></button>`;
+            return `<button class="mapPin mapPin--${esc(p.level||'active')} ${mapOccupancyClass(p)} ${selected&&mapPointKey(selected)===mapPointKey(p)?'selected':''}" data-map-pin data-x="${Number(p.x)||0}" data-y="${Number(p.y)||0}" title="${esc(title)}" aria-label="${esc(title)}" ${uiAction('mapSelectPoint',[p.code])}></button>`;
           }).join('')}
         </div>
       </div>
@@ -2886,9 +2905,9 @@ function mapCanvasClick(event,target){
   const rect=canvas.getBoundingClientRect();
   const x=((event.clientX-rect.left)/rect.width)*100;
   const y=((event.clientY-rect.top)/rect.height)*100;
-  const code=mapState.selectedCode;
+  const code=normalizeMapCode(mapState.selectedCode);
   const layer=mapLayerForCode(code);
-  const existing=mapState.points.find(p=>p.code===code && (p.layer||mapLayerForCode(p.code))===layer);
+  const existing=mapState.points.find(p=>normalizeMapCode(p.code)===code && (p.layer||mapLayerForCode(p.code))===layer);
   const next={floor:mapState.floor,code,x:+x.toFixed(2),y:+y.toFixed(2),layer,type:mapTypeFromCode(code)};
   if(existing) Object.assign(existing,next);
   else mapState.points.push(next);
@@ -2897,12 +2916,13 @@ function mapCanvasClick(event,target){
   renderMapConsole();
 }
 function mapSelectPoint(code){
-  mapState.selectedPointCode=code;
-  mapState.selectedCode=code;
+  mapState.selectedPointCode=normalizeMapCode(code);
+  mapState.selectedCode=normalizeMapCode(code);
   renderMapConsole();
 }
 function mapDeletePoint(code,layer){
-  mapState.points=mapState.points.filter(p=>!(p.code===code && (p.layer||mapLayerForCode(p.code))===layer));
+  const normalized=normalizeMapCode(code);
+  mapState.points=mapState.points.filter(p=>!(normalizeMapCode(p.code)===normalized && (p.layer||mapLayerForCode(p.code))===layer));
   mapState.selectedPointCode='';
   mapState.dirty=true;
   renderMapConsole();
@@ -2924,8 +2944,8 @@ async function mapSavePoints(){
 }
 function mapShowAllCodes(){ mapState.onlyUnplaced=false; renderMapConsole(); }
 function mapShowUnplacedCodes(){ mapState.onlyUnplaced=true; renderMapConsole(); }
-function mapZoomIn(){ mapState.zoom=Math.min(2.5, +(mapState.zoom+0.15).toFixed(2)); renderMapConsole(); }
-function mapZoomOut(){ mapState.zoom=Math.max(0.75, +(mapState.zoom-0.15).toFixed(2)); renderMapConsole(); }
+function mapZoomIn(){ mapState.zoom=Math.min(3, +(mapState.zoom+0.25).toFixed(2)); renderMapConsole(); }
+function mapZoomOut(){ mapState.zoom=Math.max(0.5, +(mapState.zoom-0.25).toFixed(2)); renderMapConsole(); }
 function mapZoomReset(){ mapState.zoom=1; renderMapConsole(); }
 
 function operationsWithinPeriod(items){
