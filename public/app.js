@@ -624,12 +624,14 @@ let mapState = {
   mode:'view',
   floors:[],
   codes:null,
+  employeeOffices:null,
   points:[],
   statusPoints:[],
   selectedCode:'',
   selectedPointCode:'',
   onlyUnplaced:false,
   layers:{cleaning:true,maintenance:true,hospitality:true,safety:true,cameras:true,groups:true},
+  zoom:1,
   loaded:false,
   dirty:false
 };
@@ -744,7 +746,7 @@ const UI_ACTION_NAMES = new Set([
   'invShowMovementForm','invSaveMovement',
   'mapSetFloor','mapToggleLayer','mapSetMode','mapSelectCode','mapCanvasClick',
   'mapDeletePoint','mapSavePoints','mapSelectPoint','mapShowAllCodes','mapShowUnplacedCodes',
-  'mapRefreshData'
+  'mapRefreshData','mapZoomIn','mapZoomOut','mapZoomReset'
 ]);
 function uiAction(name,args=[]){
   if(!UI_ACTION_NAMES.has(name)) throw new Error(`Unsupported UI action: ${name}`);
@@ -2651,10 +2653,14 @@ function mapLayerForCode(code=''){
   if(c.includes('-FS-')||c.includes('-FE-')||c.includes('-EXT-')) return 'safety';
   return 'cleaning';
 }
+function mapEmployeesForCode(code=''){
+  return mapState.employeeOffices?.employeesByCode?.[String(code).toUpperCase()] || [];
+}
 function mapFloorCodes(){
   const codes=mapState.codes?.codes?.[mapState.floor] || [];
+  const employeeCodes=Object.keys(mapState.employeeOffices?.employeesByCode || {}).filter(code=>code.startsWith(`${mapState.floor}-`));
   const groupCodes=(data.locationGroups||[]).filter(g=>String(g.floor||'').toUpperCase()===mapState.floor).map(g=>g.id);
-  return Array.from(new Set([...codes,...groupCodes])).sort((a,b)=>String(a).localeCompare(String(b),'en',{numeric:true}));
+  return Array.from(new Set([...codes,...employeeCodes,...groupCodes])).sort((a,b)=>String(a).localeCompare(String(b),'en',{numeric:true}));
 }
 function mapCurrentFloor(){
   return (mapState.floors||[]).find(f=>f.floor===mapState.floor) || {floor:mapState.floor,svg:''};
@@ -2673,12 +2679,14 @@ async function loadMapsPage(force=false){
   if(!host) return;
   if(mapState.loaded && !force){ renderMapConsole(); return; }
   try{
-    const [floors,codes]=await Promise.all([
+    const [floors,codes,employeeOffices]=await Promise.all([
       api('/maps/floors'),
-      fetch('/map-data/floor_codes.json',{cache:'no-store'}).then(r=>r.json())
+      fetch('/map-data/floor_codes.json',{cache:'no-store'}).then(r=>r.json()),
+      fetch('/map-data/employee_offices.json',{cache:'no-store'}).then(r=>r.ok?r.json():{employeesByCode:{}}).catch(()=>({employeesByCode:{}}))
     ]);
     mapState.floors=floors.floors||[];
     mapState.codes=codes||{codes:{}};
+    mapState.employeeOffices=employeeOffices||{employeesByCode:{}};
     if(!mapState.floors.some(f=>f.floor===mapState.floor)) mapState.floor=mapState.floors[0]?.floor||'GF';
     mapState.loaded=true;
     await mapRefreshData();
@@ -2751,9 +2759,13 @@ function renderMapConsole(){
         </div>
         <div class="mapHint">${lang==='ar'?'اختر الترميز ثم اضغط مكانه على المخطط.':'Choose a code, then click its position on the plan.'}</div>
         <div class="mapCodeList">
-          ${visibleCodes.map(code=>`<button class="mapCodeChip ${mapState.selectedCode===code?'active':''} ${placed.has(code)?'placed':''}" ${uiAction('mapSelectCode',[code])}>
-            <span>${esc(code)}</span><small>${mapTypeFromCode(code)}</small>
-          </button>`).join('') || `<div class="emptyMini">${lang==='ar'?'كل الترميزات محددة':'All codes are placed'}</div>`}
+          ${visibleCodes.map(code=>{
+            const employees=mapEmployeesForCode(code);
+            const employeeLabel=employees.length ? employees.map(e=>e.name).join('، ') : (lang==='ar'?'بدون موظف':'No employee');
+            return `<button class="mapCodeChip ${mapState.selectedCode===code?'active':''} ${placed.has(code)?'placed':''}" ${uiAction('mapSelectCode',[code])}>
+            <span>${esc(code)}</span><small>${mapTypeFromCode(code)} · ${esc(employeeLabel)}</small>
+          </button>`;
+          }).join('') || `<div class="emptyMini">${lang==='ar'?'كل الترميزات محددة':'All codes are placed'}</div>`}
         </div>
         <button class="btn wide ${mapState.dirty?'':'secondary'}" ${uiAction('mapSavePoints',[])}>${ic('check',15)} ${lang==='ar'?'حفظ النقاط':'Save points'}</button>
       `:`
@@ -2771,12 +2783,20 @@ function renderMapConsole(){
       `}
     </aside>
     <div class="mapCanvasWrap">
-      <div class="mapCanvas" ${uiAction('mapCanvasClick',[])}>
+      <div class="mapZoomControls">
+        <button class="icon-btn" ${uiAction('mapZoomOut',[])} title="${lang==='ar'?'تصغير':'Zoom out'}">${ic('minus',16)}</button>
+        <span>${num(Math.round(mapState.zoom*100))}%</span>
+        <button class="icon-btn" ${uiAction('mapZoomIn',[])} title="${lang==='ar'?'تكبير':'Zoom in'}">${ic('plus',16)}</button>
+        <button class="btn sm secondary" ${uiAction('mapZoomReset',[])}>${lang==='ar'?'إعادة':'Reset'}</button>
+      </div>
+      <div class="mapCanvas" data-map-canvas ${uiAction('mapCanvasClick',[])}>
         ${floor.svg?`<img class="mapSvg" src="${esc(floor.svg)}" alt="${esc(mapState.floor)}">`:`<div class="emptyMini">${lang==='ar'?'لا يوجد مخطط لهذا الدور':'No plan for this floor'}</div>`}
         <div class="mapPins">
-          ${mapPoints.map(p=>`<button class="mapPin mapPin--${esc(p.level||'active')} ${selected&&mapPointKey(selected)===mapPointKey(p)?'selected':''}" data-map-pin data-x="${Number(p.x)||0}" data-y="${Number(p.y)||0}" title="${esc(p.code)}" ${uiAction('mapSelectPoint',[p.code])}>
-            <span>${esc(p.code)}</span>
-          </button>`).join('')}
+          ${mapPoints.map(p=>{
+            const employees=mapEmployeesForCode(p.code);
+            const title=[p.code, ...employees.map(e=>e.name)].filter(Boolean).join(' · ');
+            return `<button class="mapPin mapPin--${esc(p.level||'active')} ${employees.length?'hasEmployee':''} ${selected&&mapPointKey(selected)===mapPointKey(p)?'selected':''}" data-map-pin data-x="${Number(p.x)||0}" data-y="${Number(p.y)||0}" title="${esc(title)}" aria-label="${esc(title)}" ${uiAction('mapSelectPoint',[p.code])}></button>`;
+          }).join('')}
         </div>
       </div>
     </div>
@@ -2796,6 +2816,8 @@ function mapEmptyPanel(){
 }
 function mapSelectedPanel(point){
   const modules=point.modules||{};
+  const employees=mapEmployeesForCode(point.code);
+  const displayName=point.location?.nameAr||point.location?.nameEn||point.group?.nameAr||point.group?.nameEn||point.nameAr||point.nameEn||point.code;
   const moduleCards=mapLayerMeta().filter(m=>modules[m.key]).map(m=>{
     const item=modules[m.key];
     return `<div class="mapModuleCard">
@@ -2805,7 +2827,7 @@ function mapSelectedPanel(point){
   }).join('');
   return `<div class="mapDrawer-card">
     <div class="mapDrawer-title">
-      <strong>${esc(point.nameAr||point.nameEn||point.code)}</strong>
+      <strong>${esc(displayName)}</strong>
       <span>${esc(point.code)}</span>
     </div>
     <div class="mapDrawer-tags">
@@ -2815,11 +2837,17 @@ function mapSelectedPanel(point){
     </div>
     <div class="mapDrawer-meta">${lang==='ar'?'الإحداثيات':'Coordinates'}: ${num(Number(point.x||0).toFixed(1))}% · ${num(Number(point.y||0).toFixed(1))}%</div>
     ${point.memberCount?`<div class="mapDrawer-meta">${lang==='ar'?'عدد المواقع داخل المجموعة':'Group locations'}: ${num(point.memberCount)}</div>`:''}
+    <div class="mapEmployees">
+      <strong>${lang==='ar'?'الموظفون':'Employees'}</strong>
+      ${employees.length ? employees.map(e=>`<span>${ic('user',13)} ${esc(e.name)}${e.status?` <small>${esc(e.status)}</small>`:''}</span>`).join('') : `<em>${lang==='ar'?'لا يوجد موظف مسجل لهذا الكود':'No employee registered for this code'}</em>`}
+    </div>
     <div class="mapModuleList">${moduleCards || `<div class="emptyMini">${lang==='ar'?'لا توجد بيانات تشغيلية لهذه النقطة':'No operational data for this point'}</div>`}</div>
     ${mapState.mode==='edit'?`<button class="btn danger wide" ${uiAction('mapDeletePoint',[point.code, point.layer||mapLayerForCode(point.code)])}>${ic('trash',15)} ${tr('delete')}</button>`:''}
   </div>`;
 }
 function mapApplyPinPositions(){
+  const canvas=document.querySelector('[data-map-canvas]');
+  if(canvas) canvas.style.width=`${Math.round(mapState.zoom*100)}%`;
   document.querySelectorAll('[data-map-pin]').forEach(pin=>{
     pin.style.left=`${Math.max(0,Math.min(100,Number(pin.dataset.x)||0))}%`;
     pin.style.top=`${Math.max(0,Math.min(100,Number(pin.dataset.y)||0))}%`;
@@ -2896,6 +2924,9 @@ async function mapSavePoints(){
 }
 function mapShowAllCodes(){ mapState.onlyUnplaced=false; renderMapConsole(); }
 function mapShowUnplacedCodes(){ mapState.onlyUnplaced=true; renderMapConsole(); }
+function mapZoomIn(){ mapState.zoom=Math.min(2.5, +(mapState.zoom+0.15).toFixed(2)); renderMapConsole(); }
+function mapZoomOut(){ mapState.zoom=Math.max(0.75, +(mapState.zoom-0.15).toFixed(2)); renderMapConsole(); }
+function mapZoomReset(){ mapState.zoom=1; renderMapConsole(); }
 
 function operationsWithinPeriod(items){
   const since=Date.now()-operationsDays*86400000;

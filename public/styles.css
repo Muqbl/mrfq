@@ -2821,20 +2821,34 @@ tbody tr:hover td{background:var(--surface-2)}
 .mapDot{width:10px;height:10px;border-radius:99px;display:inline-block;background:var(--brand)}
 .mapDot.ok{background:var(--ok)}.mapDot.warn{background:var(--warn)}.mapDot.critical{background:var(--bad)}
 .mapCanvasWrap{padding:12px;overflow:auto}
+.mapZoomControls{
+  position:sticky;top:0;z-index:8;display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:6px 8px;margin-bottom:8px;background:rgba(255,255,255,.92);
+  border:1px solid var(--line);border-radius:var(--r-sm);backdrop-filter:blur(8px);
+}
+.mapZoomControls span{
+  min-width:48px;text-align:center;font-family:ui-monospace,Consolas,monospace;
+  color:var(--ink-soft);font-size:var(--fs-xs);font-weight:900;
+}
 .mapCanvas{
-  position:relative;min-width:850px;aspect-ratio:1191/842;background:#fff;border:1px solid var(--line);
-  border-radius:var(--r-sm);overflow:hidden;cursor:crosshair;
+  position:relative;width:100%;min-width:850px;aspect-ratio:1191/842;background:#fff;border:1px solid var(--line);
+  border-radius:var(--r-sm);overflow:hidden;cursor:crosshair;transition:width var(--t-base);
 }
 .mapSvg{width:100%;height:100%;object-fit:contain;display:block}
 .mapPins{position:absolute;inset:0;pointer-events:none}
 .mapPin{
   position:absolute;transform:translate(-50%,-50%);pointer-events:auto;
   border:2px solid #fff;border-radius:999px;background:var(--brand);color:#fff;
-  min-width:30px;height:30px;padding:0 8px;display:grid;place-items:center;
-  font-family:ui-monospace,Consolas,monospace;font-size:10px;font-weight:900;
-  box-shadow:0 6px 18px rgba(0,0,0,.18);cursor:pointer;white-space:nowrap;
+  width:16px;height:16px;padding:0;display:grid;place-items:center;
+  box-shadow:0 3px 9px rgba(0,0,0,.22);cursor:pointer;
 }
-.mapPin span{max-width:92px;overflow:hidden;text-overflow:ellipsis}
+.mapPin::after{
+  content:'';position:absolute;inset:-6px;border-radius:inherit;border:1px solid transparent;
+}
+.mapPin:hover::after,.mapPin.selected::after{border-color:rgba(0,82,87,.28);background:rgba(0,143,148,.09)}
+.mapPin.hasEmployee::before{
+  content:'';position:absolute;inset:-4px;border-radius:inherit;border:2px solid rgba(0,143,148,.24);
+}
 .mapPin--ok{background:var(--ok)}
 .mapPin--warn{background:var(--warn)}
 .mapPin--critical{background:var(--bad)}
@@ -2854,6 +2868,14 @@ tbody tr:hover td{background:var(--surface-2)}
   border-radius:999px;background:var(--surface-3);border:1px solid var(--line);
   padding:6px 10px;color:var(--ink-soft);font-size:var(--fs-xs);font-weight:800;
 }
+.mapEmployees{
+  display:flex;flex-direction:column;gap:8px;border:1px solid var(--line);
+  border-radius:var(--r-sm);background:var(--surface-2);padding:12px;
+}
+.mapEmployees strong{font-size:var(--fs-sm);color:var(--ink);font-family:var(--font-head)}
+.mapEmployees span{display:flex;align-items:center;gap:7px;color:var(--ink-soft);font-weight:800}
+.mapEmployees small{color:var(--muted);font-weight:700}
+.mapEmployees em{font-style:normal;color:var(--muted);font-size:var(--fs-xs)}
 .mapModuleList{display:flex;flex-direction:column;gap:8px}
 .mapModuleCard{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
