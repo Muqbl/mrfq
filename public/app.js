@@ -1376,8 +1376,8 @@ function roleBadgeClass(role){
 function activityFeed(limit=8){
   // Combine recent reports and tickets into a unified activity feed
   const items = [
-    ...(data.reports||[]).slice(0,limit).map(r=>({type:'report',time:r.createdAt,label:locName((data.locations||[]).find(l=>l.id===r.locationId)||{})||r.locationNameAr||r.locationNameEn,sub:esc(r.workerName),st:r.approvalStatus||'pending_approval'})),
-    ...(data.tickets||[]).slice(0,limit).map(t=>({type:'ticket',time:t.createdAt,label:esc(t.title),sub:esc(lang==='ar'?t.locationNameAr:t.locationNameEn),st:t.status}))
+    ...(data.reports||[]).slice(0,limit).map(r=>({type:'report',id:r.id,time:r.createdAt,label:locName((data.locations||[]).find(l=>l.id===r.locationId)||{})||r.locationNameAr||r.locationNameEn,sub:esc(r.workerName),st:r.approvalStatus||'pending_approval'})),
+    ...(data.tickets||[]).slice(0,limit).map(t=>({type:'ticket',id:t.id,time:t.createdAt,label:esc(t.title),sub:esc(lang==='ar'?t.locationNameAr:t.locationNameEn),st:t.status}))
   ].sort((a,b)=>new Date(b.time)-new Date(a.time)).slice(0,limit);
 
   if(!items.length) return `<div class="empty-state"><div class="empty-icon">${ic('bell',22)}</div><div class="empty-title">${tr('noData')}</div></div>`;
@@ -1386,7 +1386,7 @@ function activityFeed(limit=8){
     const dotClass = isReport
       ? (it.st==='approved'?'ok':it.st==='rejected'||it.st==='needs_recleaning'?'bad':'warn')
       : (it.st==='completed'?'ok':'bad');
-    return`<div class="activityItem">
+    return`<div class="activityItem activityItem--clickable" ${uiAction(isReport?'openReportDetail':'openTicketDetail',[(it.id)])} role="button" tabindex="0">
       <div class="activityDot activityDot--${dotClass}">${ic(isReport?'reports':'tickets',14)}</div>
       <div class="activityBody">
         <div class="activityTitle">${it.label}</div>
@@ -2969,7 +2969,7 @@ function miniReportList(items){
     const imgs = imgList(r);
     const q = qualityScore(r);
     const st = r.approvalStatus||'pending_approval';
-    return`<div class="list-row">
+    return`<div class="list-row list-row--clickable" ${uiAction('openReportDetail',[(r.id)])} role="button" tabindex="0">
       ${imgs[0]?`<img src="${imgs[0]}" class="thumb-44">`:
         `<div class="list-icon surface-muted">${ic('reports',18)}</div>`}
       <div class="list-body">
