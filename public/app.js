@@ -710,6 +710,7 @@ const UI_ACTION_NAMES = new Set([
   'showPasswordResetModal','deleteUserConfirm','saveUser','hideUserFormModal',
   'savePasswordReset','hidePasswordResetModal','startTicketWorker','startForm','closeCamera',
   'toggleCameraFacing','capturePhoto','submitReport','closeQRScanner','renderWorker',
+  'submitGroupReport',
   'submitEmployeeOrder','submitEmployeeHospOrder','updateHospitalityOrderStatus',
   'showHospitalityActivity','toggleAssignRow','deleteHospitalityOrder','maintAcceptTicket','maintStartTicket',
   'maintAssignTicket','maintOpenTicketCreate','showMaintenanceTeamForm',
@@ -4900,6 +4901,28 @@ function findLocationByCode(code){
       || null;
 }
 
+function findLocationGroupByCode(code){
+  const groups = (data.locationGroups||[]).filter(g=>g.active!==false && (g.memberIds||[]).length>=2);
+  const c = String(code||'').trim();
+  if(!c) return null;
+  return groups.find(g=>g.id.toUpperCase()===c.toUpperCase())
+      || groups.find(g=>normalizeCode(g.id)===normalizeCode(c))
+      || null;
+}
+
+function groupMemberLocations(group){
+  const ids = new Set(group?.memberIds||[]);
+  return (data.locations||[]).filter(l=>ids.has(l.id));
+}
+
+function findScannableByCode(code){
+  const loc = findLocationByCode(code);
+  if(loc) return {kind:'location', item:loc};
+  const group = findLocationGroupByCode(code);
+  if(group) return {kind:'group', item:group};
+  return null;
+}
+
 function locationQrPayload(locationId){
   return `${location.origin}/?q=${encodeURIComponent(locationId)}`;
 }
@@ -5152,6 +5175,7 @@ function renderWorker(){
 }
 
 let cameraFacing = 'environment';
+let currentGroupReport = null;
 
 /* ── Camera overlay — created on demand, lives in body ──── */
 function ensureCameraOverlay(){
@@ -5180,7 +5204,7 @@ function workerGoBack(){
   const form=document.getElementById('workerForm');
   if(form&&form.innerHTML.trim()){
     form.innerHTML='';
-    currentPhotos=[]; currentBeforePhotos=[]; currentAfterPhotos=[];
+    currentPhotos=[]; currentBeforePhotos=[]; currentAfterPhotos=[]; currentGroupReport=null;
     if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
     setTopbarBackButton(false);
     window.scrollTo({top:0,behavior:'smooth'});
@@ -5213,9 +5237,12 @@ function startForm(){
   if(!code) return invalidLocationToast(raw);
   const loc = findLocationByCode(code);
   if(!loc){
+    const group = findLocationGroupByCode(code);
+    if(group) return startGroupForm(group, locCode);
     toast(lang==='ar'?`الموقع "${code}" غير موجود في النظام`:`Location "${code}" not found in system`,'bad');
     return;
   }
+  currentGroupReport = null;
   const id = loc.id;
   locCode.value = id;
   const asg = (data.assignments||[]).find(a=>a.workerId===me.id);
@@ -5281,6 +5308,56 @@ function startForm(){
 
   // Check all tasks by default
   document.querySelectorAll('.taskItem').forEach(el=>el.classList.add('checked'));
+  document.getElementById('workerForm').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function startGroupForm(group, locCode){
+  const members = groupMemberLocations(group);
+  if(members.length < 2){
+    toast(lang==='ar'?'هذه المجموعة لا تحتوي مواقع متعددة':'This group does not contain multiple locations','bad');
+    return;
+  }
+  const asg = (data.assignments||[]).find(a=>a.workerId===me.id);
+  if(asg&&asg.locationIds.length&&!members.every(l=>asg.locationIds.includes(l.id))) return toast(tr('notAssigned'),'bad');
+  currentGroupReport = { id:group.id, memberIds:members.map(l=>l.id) };
+  if(locCode) locCode.value = group.id;
+  currentBeforePhotos = []; currentAfterPhotos = [];
+  const type = group.type === 'workstation' ? 'other' : (group.type || members[0]?.type || 'other');
+  const tasks = taskSetFor(type);
+  setTopbarBackButton(true, 'workerGoBack()');
+  document.getElementById('workerForm').innerHTML=`
+    <div class="wCard">
+      <div class="layout-between-start-mb-16">
+        <div>
+          <div class="text-heading-lg">${esc(groupName(group))}</div>
+          <div class="text-muted-xs-mt-4">${ic('layers',12)} ${lang==='ar'?'مجموعة':'Group'} · ${group.floor||'—'} · ${group.id}</div>
+        </div>
+        <span class="badge brand">${num(members.length)} ${lang==='ar'?'مواقع':'locations'}</span>
+      </div>
+      <div class="groupMembersText u-mb-12">${members.map(l=>esc(l.id)).join('، ')}</div>
+      ${fc(tr('status'), sel('wkStatus', [
+        {v:'completed',l:tr('completed')},
+        {v:'needs_attention',l:lang==='ar'?'بحاجة متابعة':'Needs attention'}
+      ]))}
+      <div class="taskList">
+        ${tasks.map((t,i)=>`<label class="taskItem checked">
+          <input class="taskCheck" type="checkbox" value="${esc(t)}" checked data-ui-change="toggle-task">
+          <span>${esc(t)}</span>
+        </label>`).join('')}
+      </div>
+      <div class="field">
+        <label>${lang==='ar'?'صور قبل التنفيذ':'Before Photos'}</label>
+        <button class="cameraBtn" ${uiAction('openCamera',['before'])}>${ic('camera',20)}<span>${lang==='ar'?'إضافة صورة قبل':'Add before photo'}</span></button>
+        <div id="beforePreviews" class="photoGrid u-mt-10"></div>
+      </div>
+      <div class="field">
+        <label>${lang==='ar'?'صور بعد التنفيذ':'After Photos'}</label>
+        <button class="cameraBtn" ${uiAction('openCamera',['after'])}>${ic('camera',20)}<span>${lang==='ar'?'إضافة صورة بعد':'Add after photo'}</span></button>
+        <div id="afterPreviews" class="photoGrid u-mt-10"></div>
+      </div>
+      ${fc(tr('notes'), ta('wkNotes','',{rows:3,placeholder:lang==='ar'?'ملاحظات عن المجموعة...':'Notes about this group...'}))}
+      <button class="submitBtn" ${uiAction('submitGroupReport',[])}>${ic('check',20)} ${tr('submit')}</button>
+    </div>`;
   document.getElementById('workerForm').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
@@ -5443,38 +5520,58 @@ function qrErrorMessage(err){
 }
 
 function applyScannedLocation(facility){
+  const wrappedKind = facility?.kind;
+  const isGroup = wrappedKind === 'group';
+  const scanned = wrappedKind ? facility.item : facility;
   const fields = [
-    {id:'empLocCode', after:()=>{}},
-    {id:'empHospLocInput', after:()=>{ empHospLocId = facility.id; localStorage.setItem('mrfq_hosp_loc', facility.id); }},
+    {id:'empLocCode', after:()=>{}, employeeOnly:true},
+    {id:'empHospLocInput', after:()=>{ empHospLocId = scanned.id; localStorage.setItem('mrfq_hosp_loc', scanned.id); }, employeeOnly:true},
     {id:'locCode', after:()=>setTimeout(()=>startForm(), 200)}
   ];
   for(const field of fields){
     const el = document.getElementById(field.id);
     if(el){
-      el.value = facility.id;
+      if(isGroup && field.employeeOnly){
+        toast(lang==='ar'?'QR المجموعة مخصص لتقارير العاملين':'Group QR is for worker reports','bad');
+        return true;
+      }
+      el.value = scanned.id;
       el.dispatchEvent(new Event('input',{bubbles:true}));
       field.after();
-      toast(lang==='ar'?`تم فتح المرفق: ${locName(facility)}`:`Opened facility: ${locName(facility)}`,'ok');
+      const label = isGroup ? groupName(scanned) : locName(scanned);
+      toast(isGroup
+        ? (lang==='ar'?`تم فتح المجموعة: ${label}`:`Opened group: ${label}`)
+        : (lang==='ar'?`تم فتح المرفق: ${label}`:`Opened facility: ${label}`),'ok');
       return true;
     }
   }
 
-  sessionStorage.setItem('qr_loc', facility.id);
+  sessionStorage.setItem('qr_loc', scanned.id);
   if(me?.role==='cleaner'){
-    workerStartLocation(facility.id);
+    workerStartLocation(scanned.id);
   }else if(me?.role==='employee'){
+    if(isGroup){
+      toast(lang==='ar'?'QR المجموعة مخصص لتقارير العاملين':'Group QR is for worker reports','bad');
+      return true;
+    }
     employeeView='new';
     toast(lang==='ar'?'تم قراءة المرفق. اختر نوع الخدمة لإكمال الطلب.':'Facility scanned. Choose a service to continue.','ok');
     renderEmployee();
   }else if(['system_admin','facility_manager','cleaning_manager','maintenance_manager','hospitality_manager'].includes(me?.role)){
     view='locations';
     adminView='locations';
-    facilitiesSubView='locations';
+    facilitiesSubView=isGroup?'groups':'locations';
     mobileNavActive='locations';
-    toast(lang==='ar'?`تم قراءة المرفق: ${locName(facility)}`:`Scanned facility: ${locName(facility)}`,'ok');
+    const label = isGroup ? groupName(scanned) : locName(scanned);
+    toast(isGroup
+      ? (lang==='ar'?`تم قراءة المجموعة: ${label}`:`Scanned group: ${label}`)
+      : (lang==='ar'?`تم قراءة المرفق: ${label}`:`Scanned facility: ${label}`),'ok');
     render();
   }else{
-    toast(lang==='ar'?`تم قراءة المرفق: ${locName(facility)}`:`Scanned facility: ${locName(facility)}`,'ok');
+    const label = isGroup ? groupName(scanned) : locName(scanned);
+    toast(isGroup
+      ? (lang==='ar'?`تم قراءة المجموعة: ${label}`:`Scanned group: ${label}`)
+      : (lang==='ar'?`تم قراءة المرفق: ${label}`:`Scanned facility: ${label}`),'ok');
   }
   return true;
 }
@@ -5490,7 +5587,7 @@ function handleQrDecoded(decodedText){
     invalidLocationToast(raw);
     return;
   }
-  const facility = findLocationByCode(parsed);
+  const facility = findScannableByCode(parsed);
   if(!facility){
     toast(lang==='ar'?`تمت قراءة QR لكن الموقع "${parsed}" غير موجود في النظام`:`QR read, but location "${parsed}" was not found`,'bad');
     return;
@@ -5752,7 +5849,7 @@ async function submitReport(locationId){
   try{
     await api(maintenanceReportApi(),{method:'POST',body:JSON.stringify(payload)});
     toast(tr('reportSent'),'ok');
-    currentPhotos = []; currentBeforePhotos = []; currentAfterPhotos = [];
+    currentPhotos = []; currentBeforePhotos = []; currentAfterPhotos = []; currentGroupReport = null;
     document.getElementById('workerForm').innerHTML = `
       <div class="wCard u-text-center-p-32">
         <div class="u-success-icon-64">${ic('check',28)}</div>
@@ -5764,6 +5861,50 @@ async function submitReport(locationId){
   }catch(e){
     const q = getQ();
     q.push(payload);
+    setQ(q);
+    toast(tr('offlineSaved'),'warn');
+    if(btn){btn.disabled=false;btn.innerHTML=`${ic('check',20)} ${tr('submit')}`}
+    updateSyncDot();
+  }
+}
+
+async function submitGroupReport(){
+  const group = currentGroupReport;
+  const memberIds = group?.memberIds||[];
+  if(memberIds.length < 2) return toast(lang==='ar'?'لا توجد مجموعة صالحة للإرسال':'No valid group to submit','bad');
+  const hasPhotos = currentBeforePhotos.length||currentAfterPhotos.length||currentPhotos.length;
+  if(!hasPhotos) return toast(tr('photoRequired'),'bad');
+  const btn = document.querySelector('.submitBtn');
+  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner u-spinner-24"></div>`}
+  const usesTyped = currentBeforePhotos.length||currentAfterPhotos.length;
+  const basePayload = {
+    status:document.getElementById('wkStatus')?.value||'completed',
+    notes:document.getElementById('wkNotes')?.value||'',
+    tasks:[...document.querySelectorAll('.taskCheck:checked')].map(x=>x.value),
+    ...(usesTyped
+      ? { beforePhotos: currentBeforePhotos, afterPhotos: currentAfterPhotos }
+      : { photos: currentPhotos })
+  };
+  const payloads = memberIds.map(locationId=>({...basePayload, locationId}));
+  let sentCount = 0;
+  try{
+    for(const payload of payloads){
+      await api(maintenanceReportApi(),{method:'POST',body:JSON.stringify(payload)});
+      sentCount += 1;
+    }
+    toast(lang==='ar'?`تم إرسال ${num(payloads.length)} تقارير للمجموعة`:`Sent ${num(payloads.length)} group reports`,'ok');
+    currentPhotos = []; currentBeforePhotos = []; currentAfterPhotos = []; currentGroupReport = null;
+    document.getElementById('workerForm').innerHTML = `
+      <div class="wCard u-text-center-p-32">
+        <div class="u-success-icon-64">${ic('check',28)}</div>
+        <div class="text-heading-xl">${tr('reportSent')}</div>
+        <p class="text-muted-sm-mt-8">${fmt(new Date())}</p>
+        <button class="btn wide u-mt-20" ${uiAction('renderWorker',[])}>${lang==='ar'?'تقرير جديد':'New Report'}</button>
+      </div>`;
+    await load();
+  }catch(e){
+    const q = getQ();
+    payloads.slice(sentCount).forEach(payload=>q.push(payload));
     setQ(q);
     toast(tr('offlineSaved'),'warn');
     if(btn){btn.disabled=false;btn.innerHTML=`${ic('check',20)} ${tr('submit')}`}
