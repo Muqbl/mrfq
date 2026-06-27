@@ -150,11 +150,28 @@ test('platform exposes facilities, spaces, module registry and operational heatm
   assert.ok(heatmap.body.locations.length >= 1);
   assert.deepEqual(Object.keys(heatmap.body.summary), ['normal','watch','hot','critical']);
 
+  const mapFloors = await admin('/api/maps/floors');
+  assert.equal(mapFloors.status, 200);
+  assert.ok(mapFloors.body.floors.some(f => f.floor === 'MF' && f.svg.includes('/floors/')));
+
+  const savedMapPoints = await admin('/api/maps/MF/points', {
+    method: 'PUT',
+    body: JSON.stringify({ points: [{ code: 'MF-WS-01', x: 42.5, y: 57.25, layer: 'cleaning' }] })
+  });
+  assert.equal(savedMapPoints.status, 200);
+  assert.equal(savedMapPoints.body.points[0].code, 'MF-WS-01');
+
+  const mapStatus = await admin('/api/maps/MF/status?layers=cleaning');
+  assert.equal(mapStatus.status, 200);
+  assert.equal(mapStatus.body.points[0].code, 'MF-WS-01');
+
   const manager = await login('manager', PASSWORDS.manager);
   const deniedFacilities = await manager('/api/facilities');
   assert.equal(deniedFacilities.status, 403);
   const deniedHeatmap = await manager('/api/facilities/heatmap');
   assert.equal(deniedHeatmap.status, 403);
+  const deniedMaps = await manager('/api/maps/floors');
+  assert.equal(deniedMaps.status, 403);
 });
 
 test('facility manager executive report is data-backed and role protected', async () => {

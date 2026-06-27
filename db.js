@@ -828,6 +828,24 @@ const MIGRATIONS = {
     );
     CREATE INDEX IF NOT EXISTS idx_location_group_members_location ON location_group_members(location_id);
   `,
+  /* ── v27: interactive facility map points ─────────────────── */
+  27: `
+    CREATE TABLE IF NOT EXISTS map_points (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      floor      TEXT NOT NULL,
+      code       TEXT NOT NULL,
+      x          REAL NOT NULL,
+      y          REAL NOT NULL,
+      layer      TEXT NOT NULL DEFAULT 'cleaning',
+      type       TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(floor, code, layer)
+    );
+    CREATE INDEX IF NOT EXISTS idx_map_points_floor ON map_points(floor);
+    CREATE INDEX IF NOT EXISTS idx_map_points_code ON map_points(code);
+    CREATE INDEX IF NOT EXISTS idx_map_points_layer ON map_points(layer);
+  `,
 };
 
 function _range(prefix, start, end) {

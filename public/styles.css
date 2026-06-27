@@ -2767,6 +2767,120 @@ tbody tr:hover td{background:var(--surface-2)}
   font-size:10px;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   FACILITY MAPS
+   ═══════════════════════════════════════════════════════════════ */
+.mapsConsoleHost{min-height:420px}
+.mapsConsole{display:flex;flex-direction:column;gap:14px}
+.mapToolbar,.mapLayerBar{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px;
+}
+.mapFloorTabs,.mapModeSwitch,.mapSide-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mapLayerBar{justify-content:flex-start}
+.mapLayer{
+  display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);
+  background:var(--surface-2);border-radius:999px;padding:9px 12px;color:var(--ink-soft);
+  font-family:var(--font-ui);font-weight:800;cursor:pointer;transition:all var(--t-base);
+}
+.mapLayer b{
+  min-width:24px;height:24px;border-radius:999px;display:grid;place-items:center;
+  background:var(--surface);color:var(--muted);font-size:var(--fs-xs);
+}
+.mapLayer.active{border-color:rgba(0,143,148,.35);background:var(--brand-soft);color:var(--brand-dark)}
+.mapLayer.active b{background:#fff;color:var(--brand)}
+.mapShell{display:grid;grid-template-columns:300px minmax(0,1fr) 300px;gap:14px;align-items:start}
+.mapSide,.mapDrawer,.mapCanvasWrap{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
+  box-shadow:var(--shadow-sm);
+}
+.mapSide,.mapDrawer{padding:16px;max-height:calc(100dvh - 245px);overflow:auto}
+.mapSide-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px}
+.mapSide-head strong,.mapDrawer-title strong{font-family:var(--font-head);font-size:var(--fs-md);color:var(--ink)}
+.mapSide-head span,.mapDrawer-title span,.mapHint,.mapDrawer-meta{font-size:var(--fs-xs);color:var(--muted)}
+.mapHint{line-height:1.7;margin:10px 0}
+.mapCodeList{display:flex;flex-direction:column;gap:8px;margin:12px 0;max-height:420px;overflow:auto;padding-inline-end:3px}
+.mapCodeChip{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  border:1px solid var(--line);background:var(--surface-2);border-radius:var(--r-sm);
+  padding:10px 12px;cursor:pointer;font-family:var(--font-ui);color:var(--ink);
+}
+.mapCodeChip span{font-family:ui-monospace,Consolas,monospace;font-weight:900}
+.mapCodeChip small{color:var(--muted);font-weight:700}
+.mapCodeChip.placed{border-color:rgba(0,143,148,.20);background:var(--brand-soft)}
+.mapCodeChip.active{border-color:var(--brand);box-shadow:0 0 0 3px rgba(0,143,148,.13)}
+.mapStatsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.mapStatsGrid div{
+  background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);
+  padding:12px;display:flex;flex-direction:column;gap:6px;
+}
+.mapStatsGrid b{font-size:var(--fs-lg);color:var(--ink)}
+.mapStatsGrid span{font-size:var(--fs-xs);color:var(--muted)}
+.mapLegend{display:flex;flex-direction:column;gap:8px;margin-top:14px;color:var(--muted);font-size:var(--fs-xs);font-weight:800}
+.mapLegend span{display:flex;align-items:center;gap:8px}
+.mapDot{width:10px;height:10px;border-radius:99px;display:inline-block;background:var(--brand)}
+.mapDot.ok{background:var(--ok)}.mapDot.warn{background:var(--warn)}.mapDot.critical{background:var(--bad)}
+.mapCanvasWrap{padding:12px;overflow:auto}
+.mapCanvas{
+  position:relative;min-width:850px;aspect-ratio:1191/842;background:#fff;border:1px solid var(--line);
+  border-radius:var(--r-sm);overflow:hidden;cursor:crosshair;
+}
+.mapSvg{width:100%;height:100%;object-fit:contain;display:block}
+.mapPins{position:absolute;inset:0;pointer-events:none}
+.mapPin{
+  position:absolute;transform:translate(-50%,-50%);pointer-events:auto;
+  border:2px solid #fff;border-radius:999px;background:var(--brand);color:#fff;
+  min-width:30px;height:30px;padding:0 8px;display:grid;place-items:center;
+  font-family:ui-monospace,Consolas,monospace;font-size:10px;font-weight:900;
+  box-shadow:0 6px 18px rgba(0,0,0,.18);cursor:pointer;white-space:nowrap;
+}
+.mapPin span{max-width:92px;overflow:hidden;text-overflow:ellipsis}
+.mapPin--ok{background:var(--ok)}
+.mapPin--warn{background:var(--warn)}
+.mapPin--critical{background:var(--bad)}
+.mapPin--missing{background:var(--muted)}
+.mapPin--active{background:var(--brand)}
+.mapPin.selected{outline:3px solid rgba(0,143,148,.24);z-index:5}
+.mapDrawer-empty{
+  min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;text-align:center;color:var(--muted);
+}
+.mapDrawer-empty strong{color:var(--ink);font-family:var(--font-head)}
+.mapDrawer-card{display:flex;flex-direction:column;gap:14px}
+.mapDrawer-title{display:flex;flex-direction:column;gap:6px}
+.mapDrawer-title span{font-family:ui-monospace,Consolas,monospace}
+.mapDrawer-tags{display:flex;flex-wrap:wrap;gap:7px}
+.mapDrawer-tags span{
+  border-radius:999px;background:var(--surface-3);border:1px solid var(--line);
+  padding:6px 10px;color:var(--ink-soft);font-size:var(--fs-xs);font-weight:800;
+}
+.mapModuleList{display:flex;flex-direction:column;gap:8px}
+.mapModuleCard{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2);padding:10px 12px;
+}
+.mapModuleCard span{display:flex;align-items:center;gap:7px;color:var(--ink-soft);font-weight:800}
+.mapModuleCard b{font-size:var(--fs-xs);border-radius:999px;padding:5px 9px;background:var(--surface);color:var(--muted)}
+.mapModuleCard b.ok{background:var(--ok-bg);color:var(--ok)}
+.mapModuleCard b.warn{background:var(--warn-bg);color:var(--warn)}
+.mapModuleCard b.critical{background:var(--bad-bg);color:var(--bad)}
+.emptyMini{
+  border:1px dashed var(--line);border-radius:var(--r-sm);padding:14px;text-align:center;
+  color:var(--muted);font-size:var(--fs-sm);background:var(--surface-2);
+}
+
+@media(max-width:1180px){
+  .mapShell{grid-template-columns:1fr}
+  .mapSide,.mapDrawer{max-height:none}
+  .mapCanvas{min-width:720px}
+}
+@media(max-width:760px){
+  .mapToolbar,.mapLayerBar{padding:10px}
+  .mapLayer{flex:1;justify-content:center}
+  .mapCanvasWrap{padding:8px}
+  .mapCanvas{min-width:620px}
+}
+
 @media(max-width:768px){
   .usersTable th,.usersTable td,
   .perfTable th,.perfTable td{display:block}

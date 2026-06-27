@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const facilities = require('../services/facilities.service');
+const maps = require('../services/maps.service');
 const { heatmap } = require('../services/heatmap.service');
 const reports = require('../services/reports.service');
 const permissions = require('../middleware/permissions');
@@ -18,6 +19,8 @@ async function handlePlatformRoutes({ req, res, url, me, db, send, bodyJSON }) {
   }
   if ((path === '/api/facilities' ||
        path === '/api/facilities/heatmap' ||
+       path === '/api/maps/floors' ||
+       /^\/api\/maps\/[^/]+\/(points|status)$/.test(path) ||
        /^\/api\/facilities\/[^/]+\/buildings$/.test(path) ||
        /^\/api\/buildings\/[^/]+\/floors$/.test(path) ||
        /^\/api\/floors\/[^/]+\/zones$/.test(path) ||
@@ -25,6 +28,23 @@ async function handlePlatformRoutes({ req, res, url, me, db, send, bodyJSON }) {
        /^\/api\/spaces\/[^/]+\/(overview|requests|assets|performance)$/.test(path)) &&
       !canAccessFacilities(me.role)) {
     return send(res, 403, { error: 'FORBIDDEN' }), true;
+  }
+  if (req.method === 'GET' && path === '/api/maps/floors') {
+    return send(res, 200, { floors: maps.floorRows(db) }), true;
+  }
+  let mapMatch = path.match(/^\/api\/maps\/([^/]+)\/points$/);
+  if (req.method === 'GET' && mapMatch) {
+    return send(res, 200, { points: maps.pointRows(db, clean(mapMatch[1], 10)) }), true;
+  }
+  if (req.method === 'PUT' && mapMatch) {
+    if (!permissions.canManageFacilities(me.role)) return send(res, 403, { error: 'FORBIDDEN' }), true;
+    const body = await bodyJSON(req);
+    return send(res, 200, { points: maps.replaceFloorPoints(db, clean(mapMatch[1], 10), body.points) }), true;
+  }
+  mapMatch = path.match(/^\/api\/maps\/([^/]+)\/status$/);
+  if (req.method === 'GET' && mapMatch) {
+    const layers = String(url.searchParams.get('layers') || '').split(',').filter(Boolean);
+    return send(res, 200, maps.statusRows(db, clean(mapMatch[1], 10), layers)), true;
   }
   if (req.method === 'GET' && path === '/api/facilities') {
     return send(res, 200, { facilities: facilities.facilityRows(db) }), true;

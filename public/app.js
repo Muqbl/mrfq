@@ -619,6 +619,20 @@ let adminModuleContext = null; // null | 'cleaning'
 let inventoryTab = 'dashboard';
 let perfData = null; // cached performance data
 let workspaceSelected = false; // true after user picks workspace this session
+let mapState = {
+  floor:'MF',
+  mode:'view',
+  floors:[],
+  codes:null,
+  points:[],
+  statusPoints:[],
+  selectedCode:'',
+  selectedPointCode:'',
+  onlyUnplaced:false,
+  layers:{cleaning:true,maintenance:true,hospitality:true,safety:true,cameras:true,groups:true},
+  loaded:false,
+  dirty:false
+};
 
 /* ─── PLATFORM MODULE REGISTRY ──────────────────────────────────
    Add future modules here once. Dashboards, module cards, worker
@@ -727,7 +741,10 @@ const UI_ACTION_NAMES = new Set([
   'showQRPrintModal','setQrPrintMode','toggleQrPrintLocations','printSelectedQrs',
   'runUiFlow','openGallery',
   'invSetTab','invShowWarehouseForm','invSaveWarehouse','invShowItemForm','invSaveItem',
-  'invShowMovementForm','invSaveMovement'
+  'invShowMovementForm','invSaveMovement',
+  'mapSetFloor','mapToggleLayer','mapSetMode','mapSelectCode','mapCanvasClick',
+  'mapDeletePoint','mapSavePoints','mapSelectPoint','mapShowAllCodes','mapShowUnplacedCodes',
+  'mapRefreshData'
 ]);
 function uiAction(name,args=[]){
   if(!UI_ACTION_NAMES.has(name)) throw new Error(`Unsupported UI action: ${name}`);
@@ -745,7 +762,7 @@ document.addEventListener('click',event=>{
   if(typeof handler!=='function') return;
   let args=[];
   try{args=JSON.parse(target.dataset.uiArgs||'[]')}catch(_error){return}
-  if(name==='runUiFlow') args.push(event,target);
+  if(name==='runUiFlow' || name==='mapCanvasClick') args.push(event,target);
   Reflect.apply(handler,window,args);
 });
 const UI_RENDERER_NAMES = new Set([
@@ -2583,18 +2600,302 @@ function adminAssets(){
 }
 
 function adminMaps(){
+  setTimeout(()=>loadMapsPage(),0);
   return `
 <div class="pageHeader">
   <div class="pageHeader-left">
     <div class="pageTitle">${tr('maps')}</div>
+    <div class="pageSub">${lang==='ar'?'خرائط تشغيلية قابلة للتوزيع حسب الدور والوحدة':'Operational maps by floor and module'}</div>
   </div>
 </div>
-<div class="card"><div class="empty-state">
-  <div class="empty-icon">${ic('map-pin',24)}</div>
-  <div class="empty-title">${tr('noAuditData')}</div>
-  <p class="empty-sub">${tr('plannedNote')}</p>
-</div></div>`;
+<div id="mapsConsoleHost" class="mapsConsoleHost">
+  <div class="card"><div class="empty-state">
+    <div class="empty-icon">${ic('map-pin',24)}</div>
+    <div class="empty-title">${lang==='ar'?'جاري تحميل الخرائط':'Loading maps'}</div>
+    <p class="empty-sub">${lang==='ar'?'نقرأ المخططات والترميزات التشغيلية':'Reading floor plans and operational codes'}</p>
+  </div></div>
+</div>`;
 }
+
+function mapLayerMeta(){
+  return [
+    {key:'cleaning', icon:'reports', ar:'النظافة', en:'Cleaning'},
+    {key:'maintenance', icon:'tool', ar:'الصيانة', en:'Maintenance'},
+    {key:'hospitality', icon:'coffee', ar:'الضيافة', en:'Hospitality'},
+    {key:'safety', icon:'alert-triangle', ar:'السلامة', en:'Safety'},
+    {key:'cameras', icon:'camera', ar:'الكاميرات', en:'Cameras'},
+    {key:'groups', icon:'layers', ar:'المجموعات', en:'Groups'}
+  ];
+}
+function mapLayerLabel(key){
+  const meta=mapLayerMeta().find(x=>x.key===key);
+  return meta ? (lang==='ar'?meta.ar:meta.en) : key;
+}
+function mapTypeFromCode(code=''){
+  const c=String(code).toUpperCase();
+  if(c.includes('-BR-')||c.includes('-WC-')) return lang==='ar'?'دورة مياه':'Restroom';
+  if(c.includes('-WS-')) return lang==='ar'?'مساحة عمل':'Workspace';
+  if(c.includes('-MR-')) return lang==='ar'?'غرفة اجتماع':'Meeting room';
+  if(c.includes('-GM-')) return lang==='ar'?'مكتب عام':'General office';
+  if(c.includes('-K-')) return lang==='ar'?'مطبخ':'Kitchen';
+  if(c.includes('-CS-')) return lang==='ar'?'خدمة':'Service';
+  if(c.includes('-FS-')) return lang==='ar'?'طفاية':'Fire safety';
+  if(c.includes('-CAM-')) return lang==='ar'?'كاميرا':'Camera';
+  if(/-G\d+/i.test(c)) return lang==='ar'?'مجموعة':'Group';
+  return lang==='ar'?'موقع':'Location';
+}
+function mapLayerForCode(code=''){
+  const c=String(code).toUpperCase();
+  if(/-G\d+/i.test(c)) return 'groups';
+  if(c.includes('-CAM-')) return 'cameras';
+  if(c.includes('-FS-')||c.includes('-FE-')||c.includes('-EXT-')) return 'safety';
+  return 'cleaning';
+}
+function mapFloorCodes(){
+  const codes=mapState.codes?.codes?.[mapState.floor] || [];
+  const groupCodes=(data.locationGroups||[]).filter(g=>String(g.floor||'').toUpperCase()===mapState.floor).map(g=>g.id);
+  return Array.from(new Set([...codes,...groupCodes])).sort((a,b)=>String(a).localeCompare(String(b),'en',{numeric:true}));
+}
+function mapCurrentFloor(){
+  return (mapState.floors||[]).find(f=>f.floor===mapState.floor) || {floor:mapState.floor,svg:''};
+}
+function mapActiveLayers(){
+  return Object.entries(mapState.layers).filter(([,v])=>v).map(([k])=>k);
+}
+function mapPointKey(point){
+  return `${point.layer||mapLayerForCode(point.code)}:${point.code}`;
+}
+function mapCodeIsPlaced(code){
+  return (mapState.points||[]).some(p=>p.code===code);
+}
+async function loadMapsPage(force=false){
+  const host=document.getElementById('mapsConsoleHost');
+  if(!host) return;
+  if(mapState.loaded && !force){ renderMapConsole(); return; }
+  try{
+    const [floors,codes]=await Promise.all([
+      api('/maps/floors'),
+      fetch('/map-data/floor_codes.json',{cache:'no-store'}).then(r=>r.json())
+    ]);
+    mapState.floors=floors.floors||[];
+    mapState.codes=codes||{codes:{}};
+    if(!mapState.floors.some(f=>f.floor===mapState.floor)) mapState.floor=mapState.floors[0]?.floor||'GF';
+    mapState.loaded=true;
+    await mapRefreshData();
+  }catch(error){
+    host.innerHTML=`<div class="card"><div class="empty-state">
+      <div class="empty-icon">${ic('alert-triangle',24)}</div>
+      <div class="empty-title">${lang==='ar'?'تعذر تحميل الخرائط':'Unable to load maps'}</div>
+      <p class="empty-sub">${esc(error.message||error)}</p>
+    </div></div>`;
+  }
+}
+async function mapRefreshData(){
+  const host=document.getElementById('mapsConsoleHost');
+  if(!host) return;
+  try{
+    const layers=mapActiveLayers().join(',');
+    const [points,status]=await Promise.all([
+      api(`/maps/${encodeURIComponent(mapState.floor)}/points`),
+      api(`/maps/${encodeURIComponent(mapState.floor)}/status?layers=${encodeURIComponent(layers)}`)
+    ]);
+    mapState.points=points.points||[];
+    mapState.statusPoints=status.points||[];
+    mapState.dirty=false;
+    renderMapConsole();
+  }catch(error){
+    toast(error.message||String(error),'bad');
+  }
+}
+function renderMapConsole(){
+  const host=document.getElementById('mapsConsoleHost');
+  if(!host) return;
+  const floor=mapCurrentFloor();
+  const codes=mapFloorCodes();
+  const placed=new Set((mapState.points||[]).map(p=>p.code));
+  const visibleCodes=mapState.onlyUnplaced ? codes.filter(c=>!placed.has(c)) : codes;
+  const mapPoints=(mapState.mode==='edit'?mapState.points:mapState.statusPoints)
+    .filter(p=>mapState.layers[p.layer||mapLayerForCode(p.code)]!==false);
+  const selected=mapPoints.find(p=>p.code===mapState.selectedPointCode) || mapState.statusPoints.find(p=>p.code===mapState.selectedPointCode);
+  const counts=mapLayerMeta().reduce((acc,m)=>{
+    acc[m.key]=(mapState.statusPoints||[]).filter(p=>(p.layer||mapLayerForCode(p.code))===m.key).length;
+    return acc;
+  },{});
+  host.innerHTML=`
+<section class="mapsConsole">
+  <div class="mapToolbar">
+    <div class="mapFloorTabs">
+      ${(mapState.floors||[]).map(f=>`<button class="chip ${f.floor===mapState.floor?'active':''}" ${uiAction('mapSetFloor',[f.floor])}>${esc(f.floor)}</button>`).join('')}
+    </div>
+    <div class="mapModeSwitch">
+      <button class="btn sm ${mapState.mode==='view'?'':'secondary'}" ${uiAction('mapSetMode',['view'])}>${ic('eye',14)} ${lang==='ar'?'عرض':'View'}</button>
+      ${canManageFacilities()?`<button class="btn sm ${mapState.mode==='edit'?'':'secondary'}" ${uiAction('mapSetMode',['edit'])}>${ic('edit',14)} ${lang==='ar'?'تعديل النقاط':'Edit points'}</button>`:''}
+      <button class="btn sm secondary" ${uiAction('mapRefreshData',[])}>${ic('refresh',14)} ${lang==='ar'?'تحديث':'Refresh'}</button>
+    </div>
+  </div>
+  <div class="mapLayerBar">
+    ${mapLayerMeta().map(m=>`<button class="mapLayer ${mapState.layers[m.key]?'active':''}" ${uiAction('mapToggleLayer',[m.key])}>
+      ${ic(m.icon,15)} <span>${lang==='ar'?m.ar:m.en}</span><b>${num(counts[m.key]||0)}</b>
+    </button>`).join('')}
+  </div>
+  <div class="mapShell">
+    <aside class="mapSide">
+      <div class="mapSide-head">
+        <strong>${mapState.mode==='edit'?(lang==='ar'?'ترميزات الدور':'Floor codes'):(lang==='ar'?'ملخص الدور':'Floor summary')}</strong>
+        <span>${esc(mapState.floor)} · ${num(codes.length)}</span>
+      </div>
+      ${mapState.mode==='edit'?`
+        <div class="mapSide-actions">
+          <button class="btn sm secondary" ${uiAction('mapShowAllCodes',[])}>${lang==='ar'?'الكل':'All'}</button>
+          <button class="btn sm secondary" ${uiAction('mapShowUnplacedCodes',[])}>${lang==='ar'?'غير محدد':'Unplaced'}</button>
+        </div>
+        <div class="mapHint">${lang==='ar'?'اختر الترميز ثم اضغط مكانه على المخطط.':'Choose a code, then click its position on the plan.'}</div>
+        <div class="mapCodeList">
+          ${visibleCodes.map(code=>`<button class="mapCodeChip ${mapState.selectedCode===code?'active':''} ${placed.has(code)?'placed':''}" ${uiAction('mapSelectCode',[code])}>
+            <span>${esc(code)}</span><small>${mapTypeFromCode(code)}</small>
+          </button>`).join('') || `<div class="emptyMini">${lang==='ar'?'كل الترميزات محددة':'All codes are placed'}</div>`}
+        </div>
+        <button class="btn wide ${mapState.dirty?'':'secondary'}" ${uiAction('mapSavePoints',[])}>${ic('check',15)} ${lang==='ar'?'حفظ النقاط':'Save points'}</button>
+      `:`
+        <div class="mapStatsGrid">
+          <div><b>${num(mapState.statusPoints.length)}</b><span>${lang==='ar'?'نقطة ظاهرة':'Visible points'}</span></div>
+          <div><b>${num(mapState.statusPoints.filter(p=>p.level==='critical').length)}</b><span>${lang==='ar'?'حرجة':'Critical'}</span></div>
+          <div><b>${num(mapState.statusPoints.filter(p=>p.level==='warn').length)}</b><span>${lang==='ar'?'تحتاج انتباه':'Needs attention'}</span></div>
+          <div><b>${num(mapState.statusPoints.filter(p=>p.level==='ok').length)}</b><span>${lang==='ar'?'مستقرة':'Stable'}</span></div>
+        </div>
+        <div class="mapLegend">
+          <span><i class="mapDot ok"></i>${lang==='ar'?'مستقر':'Stable'}</span>
+          <span><i class="mapDot warn"></i>${lang==='ar'?'تنبيه':'Warning'}</span>
+          <span><i class="mapDot critical"></i>${lang==='ar'?'حرج':'Critical'}</span>
+        </div>
+      `}
+    </aside>
+    <div class="mapCanvasWrap">
+      <div class="mapCanvas" ${uiAction('mapCanvasClick',[])}>
+        ${floor.svg?`<img class="mapSvg" src="${esc(floor.svg)}" alt="${esc(mapState.floor)}">`:`<div class="emptyMini">${lang==='ar'?'لا يوجد مخطط لهذا الدور':'No plan for this floor'}</div>`}
+        <div class="mapPins">
+          ${mapPoints.map(p=>`<button class="mapPin mapPin--${esc(p.level||'active')} ${selected&&mapPointKey(selected)===mapPointKey(p)?'selected':''}" data-map-pin data-x="${Number(p.x)||0}" data-y="${Number(p.y)||0}" title="${esc(p.code)}" ${uiAction('mapSelectPoint',[p.code])}>
+            <span>${esc(p.code)}</span>
+          </button>`).join('')}
+        </div>
+      </div>
+    </div>
+    <aside class="mapDrawer">
+      ${selected?mapSelectedPanel(selected):mapEmptyPanel()}
+    </aside>
+  </div>
+</section>`;
+  mapApplyPinPositions();
+}
+function mapEmptyPanel(){
+  return `<div class="mapDrawer-empty">
+    ${ic('map-pin',24)}
+    <strong>${lang==='ar'?'اختر نقطة من المخطط':'Select a point'}</strong>
+    <span>${mapState.mode==='edit'?(lang==='ar'?'أو اختر ترميزاً من القائمة لتحديده':'Or choose a code to place it'):(lang==='ar'?'ستظهر حالة الموقع والوحدات هنا':'Location and module status appears here')}</span>
+  </div>`;
+}
+function mapSelectedPanel(point){
+  const modules=point.modules||{};
+  const moduleCards=mapLayerMeta().filter(m=>modules[m.key]).map(m=>{
+    const item=modules[m.key];
+    return `<div class="mapModuleCard">
+      <span>${ic(m.icon,15)} ${lang==='ar'?m.ar:m.en}</span>
+      <b class="${item.level||'active'}">${esc(item.label||item.level||'')}</b>
+    </div>`;
+  }).join('');
+  return `<div class="mapDrawer-card">
+    <div class="mapDrawer-title">
+      <strong>${esc(point.nameAr||point.nameEn||point.code)}</strong>
+      <span>${esc(point.code)}</span>
+    </div>
+    <div class="mapDrawer-tags">
+      <span>${esc(point.floor||mapState.floor)}</span>
+      <span>${mapLayerLabel(point.layer||mapLayerForCode(point.code))}</span>
+      <span>${mapTypeFromCode(point.code)}</span>
+    </div>
+    <div class="mapDrawer-meta">${lang==='ar'?'الإحداثيات':'Coordinates'}: ${num(Number(point.x||0).toFixed(1))}% · ${num(Number(point.y||0).toFixed(1))}%</div>
+    ${point.memberCount?`<div class="mapDrawer-meta">${lang==='ar'?'عدد المواقع داخل المجموعة':'Group locations'}: ${num(point.memberCount)}</div>`:''}
+    <div class="mapModuleList">${moduleCards || `<div class="emptyMini">${lang==='ar'?'لا توجد بيانات تشغيلية لهذه النقطة':'No operational data for this point'}</div>`}</div>
+    ${mapState.mode==='edit'?`<button class="btn danger wide" ${uiAction('mapDeletePoint',[point.code, point.layer||mapLayerForCode(point.code)])}>${ic('trash',15)} ${tr('delete')}</button>`:''}
+  </div>`;
+}
+function mapApplyPinPositions(){
+  document.querySelectorAll('[data-map-pin]').forEach(pin=>{
+    pin.style.left=`${Math.max(0,Math.min(100,Number(pin.dataset.x)||0))}%`;
+    pin.style.top=`${Math.max(0,Math.min(100,Number(pin.dataset.y)||0))}%`;
+  });
+}
+function mapSetFloor(floor){
+  if(mapState.dirty && !confirm(lang==='ar'?'لديك تعديلات غير محفوظة، هل تريد المتابعة؟':'You have unsaved changes. Continue?')) return;
+  mapState.floor=floor;
+  mapState.selectedCode='';
+  mapState.selectedPointCode='';
+  mapState.loaded=true;
+  mapRefreshData();
+}
+function mapToggleLayer(layer){
+  mapState.layers[layer]=!mapState.layers[layer];
+  renderMapConsole();
+  mapRefreshData();
+}
+function mapSetMode(mode){
+  if(mode==='edit' && !canManageFacilities()) return toast(lang==='ar'?'لا تملك صلاحية تعديل الخرائط':'You cannot edit maps','bad');
+  mapState.mode=mode;
+  mapState.selectedCode='';
+  mapState.selectedPointCode='';
+  renderMapConsole();
+}
+function mapSelectCode(code){
+  mapState.selectedCode=code;
+  mapState.selectedPointCode=code;
+  renderMapConsole();
+}
+function mapCanvasClick(event,target){
+  if(mapState.mode!=='edit' || !mapState.selectedCode) return;
+  if(event.target.closest('.mapPin')) return;
+  const canvas=target.closest('.mapCanvas');
+  if(!canvas) return;
+  const rect=canvas.getBoundingClientRect();
+  const x=((event.clientX-rect.left)/rect.width)*100;
+  const y=((event.clientY-rect.top)/rect.height)*100;
+  const code=mapState.selectedCode;
+  const layer=mapLayerForCode(code);
+  const existing=mapState.points.find(p=>p.code===code && (p.layer||mapLayerForCode(p.code))===layer);
+  const next={floor:mapState.floor,code,x:+x.toFixed(2),y:+y.toFixed(2),layer,type:mapTypeFromCode(code)};
+  if(existing) Object.assign(existing,next);
+  else mapState.points.push(next);
+  mapState.selectedPointCode=code;
+  mapState.dirty=true;
+  renderMapConsole();
+}
+function mapSelectPoint(code){
+  mapState.selectedPointCode=code;
+  mapState.selectedCode=code;
+  renderMapConsole();
+}
+function mapDeletePoint(code,layer){
+  mapState.points=mapState.points.filter(p=>!(p.code===code && (p.layer||mapLayerForCode(p.code))===layer));
+  mapState.selectedPointCode='';
+  mapState.dirty=true;
+  renderMapConsole();
+}
+async function mapSavePoints(){
+  if(!canManageFacilities()) return;
+  try{
+    const response=await api(`/maps/${encodeURIComponent(mapState.floor)}/points`,{
+      method:'PUT',
+      body:JSON.stringify({points:mapState.points})
+    });
+    mapState.points=response.points||[];
+    mapState.dirty=false;
+    toast(tr('saved'),'ok');
+    await mapRefreshData();
+  }catch(error){
+    toast(error.message||String(error),'bad');
+  }
+}
+function mapShowAllCodes(){ mapState.onlyUnplaced=false; renderMapConsole(); }
+function mapShowUnplacedCodes(){ mapState.onlyUnplaced=true; renderMapConsole(); }
 
 function operationsWithinPeriod(items){
   const since=Date.now()-operationsDays*86400000;
