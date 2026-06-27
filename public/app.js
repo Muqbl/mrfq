@@ -2975,6 +2975,7 @@ function miniReportList(items){
    ═══════════════════════════════════════════════════════════════ */
 function imgList(r){return (r.photos&&r.photos.length?r.photos:(r.photo?[r.photo]:[])).filter(Boolean)}
 function taskSetFor(type){return isMaintenanceRole()?MAINT_TASKS:(type==='restroom'?TASKS.restroom:TASKS.default)}
+function taskLabel(task){return Array.isArray(task) ? (lang==='ar'?task[0]:task[1]) : task}
 function taskDone(tasks,pair){return (tasks||[]).includes(pair[0])||(tasks||[]).includes(pair[1])}
 
 function reports(){
@@ -5342,8 +5343,8 @@ function startGroupForm(group, locCode){
       ]))}
       <div class="taskList">
         ${tasks.map((t,i)=>`<label class="taskItem checked">
-          <input class="taskCheck" type="checkbox" value="${esc(t)}" checked data-ui-change="toggle-task">
-          <span>${esc(t)}</span>
+          <input class="taskCheck" type="checkbox" value="${esc(taskLabel(t))}" checked data-ui-change="toggle-task">
+          <span class="taskItem-label">${esc(taskLabel(t))}</span>
         </label>`).join('')}
       </div>
       <div class="field">
