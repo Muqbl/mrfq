@@ -5365,27 +5365,51 @@ function startGroupForm(group, locCode){
       <div class="groupMembersText u-mb-12">${members.map(l=>esc(l.id)).join('، ')}</div>
       ${fc(tr('status'), sel('wkStatus', [
         {v:'completed',l:tr('completed')},
-        {v:'needs_attention',l:lang==='ar'?'بحاجة متابعة':'Needs attention'}
-      ]))}
-      <div class="taskList">
-        ${tasks.map((t,i)=>`<label class="taskItem checked">
-          <input class="taskCheck" type="checkbox" value="${esc(taskLabel(t))}" checked data-ui-change="toggle-task">
-          <span class="taskItem-label">${esc(taskLabel(t))}</span>
-        </label>`).join('')}
+        {v:'needs_followup',l:tr('needs_followup')}
+      ]), {cls:'field-spaced'})}
+    </div>
+
+    <div class="wCard">
+      <div class="wCard-title">${ic('camera',16)} ${tr('beforePhotos')}</div>
+      <p class="text-muted-xs-mb-12">${tr('beforePhotoHint')}</p>
+      <button class="cameraBtn" ${uiAction('openCamera',['before'])}>
+        ${ic('camera',22)}
+        <span>${tr('addPhoto')} — ${tr('beforePhotos')}</span>
+      </button>
+      <div id="beforePreviews" class="photoGrid u-mt-12"></div>
+    </div>
+
+    <div class="wCard">
+      <div class="wCard-title">${ic('check',16)} ${tr('step2')}</div>
+      <div class="taskChecklist">
+        ${tasks.map((t,i)=>`
+          <label class="taskItem" id="gti_${i}">
+            <input class="taskCheck" type="checkbox" checked value="${esc(taskLabel(t))}" data-ui-change="toggle-task">
+            <span class="taskItem-label">${esc(taskLabel(t))}</span>
+          </label>`).join('')}
       </div>
-      <div class="field">
-        <label>${lang==='ar'?'صور قبل التنفيذ':'Before Photos'}</label>
-        <button class="cameraBtn" ${uiAction('openCamera',['before'])}>${ic('camera',20)}<span>${lang==='ar'?'إضافة صورة قبل':'Add before photo'}</span></button>
-        <div id="beforePreviews" class="photoGrid u-mt-10"></div>
+      <div class="field u-mt-16">
+        <label>${tr('notes')}</label>
+        ${ta('wkNotes','',{rows:2, placeholder:lang==='ar'?'ملاحظات اختيارية...':'Optional notes...'})}
       </div>
-      <div class="field">
-        <label>${lang==='ar'?'صور بعد التنفيذ':'After Photos'}</label>
-        <button class="cameraBtn" ${uiAction('openCamera',['after'])}>${ic('camera',20)}<span>${lang==='ar'?'إضافة صورة بعد':'Add after photo'}</span></button>
-        <div id="afterPreviews" class="photoGrid u-mt-10"></div>
-      </div>
-      ${fc(tr('notes'), ta('wkNotes','',{rows:3,placeholder:lang==='ar'?'ملاحظات عن المجموعة...':'Notes about this group...'}))}
+    </div>
+
+    <div class="wCard">
+      <div class="wCard-title">${ic('camera',16)} ${tr('afterPhotos')}</div>
+      <p class="text-muted-xs-mb-12">${tr('afterPhotoHint')}</p>
+      <button class="cameraBtn" ${uiAction('openCamera',['after'])}>
+        ${ic('camera',22)}
+        <span>${tr('addPhoto')} — ${tr('afterPhotos')}</span>
+      </button>
+      <div id="afterPreviews" class="photoGrid u-mt-12"></div>
+    </div>
+
+    <div class="u-h-80"></div>
+
+    <div class="stickySubmit">
       <button class="submitBtn" ${uiAction('submitGroupReport',[])}>${ic('check',20)} ${tr('submit')}</button>
     </div>`;
+  document.querySelectorAll('.taskItem').forEach(el=>el.classList.add('checked'));
   document.getElementById('workerForm').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
