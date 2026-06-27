@@ -4390,8 +4390,9 @@ function assignments(){
     maintenance: lang==='ar'?'الصيانة':'Maintenance',
     hospitality: lang==='ar'?'الضيافة':'Hospitality'
   };
-  const workers = (data.users||[]).filter(u=>u.role===workerRoles[module]);
-  const supervisors = (data.users||[]).filter(u=>u.role===supervisorRoles[module]);
+  const userRoles = u => Array.isArray(u.roles) && u.roles.length ? u.roles : [u.role];
+  const workers = (data.users||[]).filter(u=>userRoles(u).includes(workerRoles[module]));
+  const supervisors = (data.users||[]).filter(u=>userRoles(u).includes(supervisorRoles[module]));
   const canSwitchModule = ['system_admin','facility_manager'].includes(me.role) && !adminModuleContext;
   const noWorkersMsg = lang==='ar'
     ? `لا يوجد عمال في قسم ${moduleLabels[module]} حالياً. أضف عامل من المستخدمين أولاً.`

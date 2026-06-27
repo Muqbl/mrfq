@@ -30,6 +30,7 @@ const TINY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1
 
 let serverProc;
 let maintenanceWorkerId;
+let maintenanceSupervisorId;
 let maintenanceTicketId;
 let crossModuleMaintenanceTicketId;
 let maintenanceWorker2Id;
@@ -580,8 +581,16 @@ test('maintenance: create roles and role-scoped bootstraps work', async () => {
   ]) {
     const created = await admin('/api/users', { method:'POST', body:JSON.stringify({ username, name, role, password:PASSWORDS.worker }) });
     assert.equal(created.status, 200);
+    if (role === 'maintenance_supervisor') maintenanceSupervisorId = created.body.user.id;
     if (role === 'maintenance_worker') maintenanceWorkerId = created.body.user.id;
   }
+  const scoped = await admin('/api/assignments', { method:'POST', body:JSON.stringify({
+    module:'maintenance',
+    workerId:maintenanceWorkerId,
+    supervisorId:maintenanceSupervisorId,
+    locationIds:['wc-gf-a','lobby-gf']
+  }) });
+  assert.equal(scoped.status, 200, JSON.stringify(scoped.body));
   const manager = await login('maint-manager', PASSWORDS.worker);
   const supervisor = await login('maint-supervisor', PASSWORDS.worker);
   const worker = await login('maint-worker', PASSWORDS.worker);
@@ -732,7 +741,7 @@ test('maintenance supervisor scope is isolated by assignment module', async () =
   const supervisor = boot.body.users.find(u => u.username === 'maint-supervisor');
   assert.ok(supervisor);
   const scoped = await manager('/api/assignments', { method:'POST', body:JSON.stringify({
-    module:'maintenance', workerId:maintenanceWorkerId, supervisorId:supervisor.id, locationIds:['lobby-gf']
+    module:'maintenance', workerId:maintenanceWorkerId, supervisorId:supervisor.id, locationIds:['wc-gf-a','lobby-gf']
   }) });
   assert.equal(scoped.status, 200);
 
@@ -743,11 +752,6 @@ test('maintenance supervisor scope is isolated by assignment module', async () =
   assert.equal(visibleUserIds.has(maintenanceWorkerId), true);
   assert.equal(visibleUserIds.has(second.body.user.id), false);
   assert.ok(supervisorBoot.body.assignments.every(a => a.module === 'maintenance'));
-
-  const cleared = await manager('/api/assignments', { method:'POST', body:JSON.stringify({
-    module:'maintenance', workerId:maintenanceWorkerId, supervisorId:'', locationIds:[]
-  }) });
-  assert.equal(cleared.status, 200);
 });
 
 test('maintenance: worker can progress only own assigned ticket', async () => {

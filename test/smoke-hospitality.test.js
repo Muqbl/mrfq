@@ -103,6 +103,18 @@ test('admin can create hospitality role users', async () => {
     assert.equal(r.status, 200, `create ${u.username} failed: ${JSON.stringify(r.body)}`);
     assert.equal(r.body.user.role, u.role);
   }
+  const boot = await admin('/api/bootstrap');
+  const supervisor = boot.body.users.find(u => u.username === HOSP_USERS.supervisor.username);
+  const worker = boot.body.users.find(u => u.username === HOSP_USERS.worker.username);
+  assert.ok(supervisor, 'hospitality supervisor user not found');
+  assert.ok(worker, 'hospitality worker user not found');
+  const scoped = await admin('/api/assignments', { method: 'POST', body: JSON.stringify({
+    module: 'hospitality',
+    workerId: worker.id,
+    supervisorId: supervisor.id,
+    locationIds: ['lobby-gf']
+  }) });
+  assert.equal(scoped.status, 200, JSON.stringify(scoped.body));
 });
 
 test('cleaning_supervisor cannot create hospitality role users', async () => {
