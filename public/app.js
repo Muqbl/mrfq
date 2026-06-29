@@ -1332,6 +1332,7 @@ function isMaintenanceRole(role=me?.role){return String(role||'').startsWith('ma
 function maintenanceTicketApi(suffix=''){return `${isMaintenanceRole()?'/maintenance-tickets':'/tickets'}${suffix}`}
 function maintenanceReportApi(suffix=''){return `${isMaintenanceRole()?'/maintenance-reports':'/reports'}${suffix}`}
 function operationalWorkerRole(){return isMaintenanceRole()?'maintenance_worker':'cleaner'}
+function activeTicketModule(){return isMaintenanceRole()?'maintenance':'cleaning'}
 function canUsers(){return canManageGlobalUsers()||canManageModuleTeam()}
 function canManageUsers(){return canManageGlobalUsers()||canManageModuleTeam()}
 function canManage(){return ['system_admin','facility_manager','cleaning_manager','maintenance_manager'].includes(me.role)}
@@ -1386,12 +1387,14 @@ function locModules(l={}){
 function locationCategory(l={}){
   const id=String(l.id||'').toUpperCase();
   const type=String(l.type||'').toLowerCase();
-  if(id.includes('-CAM-') || type==='camera') return 'camera';
-  if(id.includes('-FS-') || id.includes('-FE-') || id.includes('-EXT-') || type==='safety_asset') return 'safety_asset';
-  if(type==='restroom' || id.includes('-BR-') || id.includes('-WC-')) return 'restroom';
-  if(type==='meeting_room' || id.includes('-MR-')) return 'meeting_room';
-  if(['office'].includes(type) || /-(WS|GM|M)-?/i.test(id)) return 'office';
-  if(type==='pantry' || id.includes('-K-') || id.includes('-CS-') || id.includes('-SR-')) return 'pantry';
+  const name=`${l.nameAr||''} ${l.nameEn||''}`.toLowerCase();
+  const hasName=(...patterns)=>patterns.some(pattern=>pattern.test(name));
+  if(type==='camera' || hasName(/كاميرا|مراقبة|camera|cctv/) || id.includes('-CAM-')) return 'camera';
+  if(['safety_asset','fire_extinguisher'].includes(type) || hasName(/طفاي|حريق|سلامة|fire|extinguish|safety|escape/) || id.includes('-FS-') || id.includes('-FE-') || id.includes('-EXT-') || id.startsWith('EX-')) return 'safety_asset';
+  if(['restroom','ablution'].includes(type) || hasName(/دورة مياه|دورات المياه|حمام|مغاسل|وضوء|toilet|restroom|washroom|ablution/) || id.includes('-BR-') || id.includes('-WC-')) return 'restroom';
+  if(type==='meeting_room' || hasName(/غرفة اجتماع|قاعة اجتماع|اجتماع|meeting room|conference/) || id.includes('-MR-')) return 'meeting_room';
+  if(['office','workspace','executive_office'].includes(type) || hasName(/مكتب|مساحة عمل|محطة عمل|office|workspace|workstation|head of department/) || /-(WS|GM|M)-?/i.test(id)) return 'office';
+  if(['pantry','coffee_point','storage','data_room','control_room'].includes(type) || hasName(/مطبخ|ضيافة|قهوة|مخزن|غرفة تحكم|غرفة بيانات|pantry|coffee|storage|control room|data room/) || id.includes('-K-') || id.includes('-CS-') || id.includes('-SR-')) return 'pantry';
   if(['corridor','lobby','entrance','parking','outdoor','prayer_room','elevator'].includes(type)) return type;
   return 'other';
 }
@@ -3985,6 +3988,8 @@ function galleryMove(btn,dir){
    TICKETS PAGE
    ═══════════════════════════════════════════════════════════════ */
 function tickets(){
+  const ticketModule=activeTicketModule();
+  const scopedTickets=(data.tickets||[]).filter(t=>(t.module||'cleaning')===ticketModule);
   const workers = (data.users||[]).filter(u=>u.role===operationalWorkerRole());
   const createLabel = isMaintenanceRole()?tr('maintTicketCreate'):tr('createTicket');
   const categories = isMaintenanceRole()
@@ -3998,7 +4003,7 @@ function tickets(){
 <div class="pageHeader">
   <div class="pageHeader-left">
     <div class="pageTitle">${tr('tickets')}</div>
-    <div class="pageSub">${num((data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length)} ${lang==='ar'?'بلاغ نشط':'active tickets'}</div>
+    <div class="pageSub">${num(scopedTickets.filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length)} ${lang==='ar'?'بلاغ نشط':'active tickets'}</div>
   </div>
   ${canTicket()?`<button class="btn sm" ${uiAction('runUiFlow',['toggle-flag','showTicketCreate','toggle'])}>${ic('plus',14)} ${createLabel}</button>`:''}
 </div>
@@ -4019,7 +4024,7 @@ ${canTicket()&&showTicketCreate?`
 
   <button class="btn" ${uiAction('createTicket',[])}>${ic('plus',16)} ${createLabel}</button>
 </div>`:''}
-${ticketCards(data.tickets||[])}`;
+${ticketCards(scopedTickets)}`;
 }
 
 async function createTicket(){
@@ -4578,7 +4583,7 @@ ${showLocCreate?`
 <div class="filterBar u-mb-16">
   <div class="filterChips">
     ${facilityCategoryMeta('all').map(cat=>{
-      const count=(data.locations||[]).filter(l=>locMatchesType(l,cat.id)).length;
+      const count=(data.locations||[]).filter(l=>(locsFloorFilter==='all' || (l.floor||'')=== locsFloorFilter) && locMatchesType(l,cat.id)).length;
       return `<button class="filterChip${locsTypeFilter===cat.id?' active':''}" ${uiAction('runUiFlow',['navigate','locsTypeFilter',cat.id,null,'render'])}>
         ${ic(cat.icon,13)} ${cat.label} <b>${num(count)}</b>
       </button>`;
@@ -4690,7 +4695,7 @@ function _operationalTabContent(){
 </div></div>
 <div class="filterBar u-mb-16"><div class="filterChips">
   ${facilityCategoryMeta('all').map(cat=>{
-    const count=(data.locations||[]).filter(l=>locMatchesType(l,cat.id)).length;
+    const count=(data.locations||[]).filter(l=>(locsFloorFilter==='all'||(l.floor||'')===locsFloorFilter) && locMatchesType(l,cat.id)).length;
     return `<button class="filterChip${locsTypeFilter===cat.id?' active':''}" ${uiAction('runUiFlow',['navigate','locsTypeFilter',cat.id,null,'render'])}>
       ${ic(cat.icon,13)} ${cat.label} <b>${num(count)}</b>
     </button>`;

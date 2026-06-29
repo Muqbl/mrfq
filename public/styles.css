@@ -1331,7 +1331,7 @@ tbody tr:hover td{background:var(--surface-2)}
 }
 .ticketCard-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end;border-top:1px solid var(--line-soft);padding-top:10px}
 .ticketCard-actions .btn{min-height:34px}
-.ticketCard--escalated{border-inline-start:3px solid var(--bad)}
+.ticketCard--escalated{border-inline-start:1px solid var(--line)}
 /* ── comments ── */
 .commentItem{padding:10px 12px;border-radius:var(--r-sm);background:var(--surface-2);margin-bottom:8px}
 .commentItem--mine{background:color-mix(in srgb,var(--brand) 8%,transparent)}
