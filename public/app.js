@@ -2881,7 +2881,7 @@ function renderMapConsole(){
   if(selected){
     const selectedX=Number(selected.x||0);
     const selectedY=Number(selected.y||0);
-    if(selectedY < 34) selectedOverlayClasses.push('below');
+    if(selectedY < 58) selectedOverlayClasses.push('below');
     if(selectedX < 28) selectedOverlayClasses.push('alignStart');
     else if(selectedX > 72) selectedOverlayClasses.push('alignEnd');
   }
@@ -3002,12 +3002,35 @@ function mapOccupantTypeLabel(type='employee'){
     employee:['موظف','Employee'],
     contractor:['متعاقد','Contractor'],
     consultant:['استشاري','Consultant'],
-    visitor:['زائر','Visitor'],
-    vendor:['جهة خارجية','Vendor'],
+    trainee:['متدرب','Trainee'],
     other:['أخرى','Other']
   };
   const item=labels[String(type||'employee').toLowerCase()]||labels.other;
   return lang==='ar'?item[0]:item[1];
+}
+function mapOperationalStatusLabel(label='', level=''){
+  const key=String(label||level||'').trim().toLowerCase().replace(/\s+/g,'_');
+  const labels={
+    ok:['مستقر','Stable'],
+    stable:['مستقر','Stable'],
+    active:['نشط','Active'],
+    warn:['تنبيه','Warning'],
+    warning:['تنبيه','Warning'],
+    critical:['حرج','Critical'],
+    idle:['لا يوجد نشاط','No activity'],
+    missing:['غير مربوط','Missing link'],
+    due:['مستحق','Due'],
+    overdue:['متأخر','Overdue'],
+    open:['مفتوح','Open'],
+    pending:['بانتظار المراجعة','Pending Review'],
+    completed:['مكتمل','Completed'],
+    down:['متوقف','Down'],
+    out_of_service:['خارج الخدمة','Out of service'],
+    needs_repair:['يحتاج إصلاح','Needs repair']
+  };
+  const item=labels[key];
+  if(item) return lang==='ar'?item[0]:item[1];
+  return label || level || '';
 }
 function mapSelectedPanel(point,overlay=false){
   const modules=point.modules||{};
@@ -3017,9 +3040,10 @@ function mapSelectedPanel(point,overlay=false){
   const moduleCards=mapLayerMeta().filter(m=>modules[m.key]).map(m=>{
     const item=modules[m.key];
     const isOperational=(point.operationalLayers||point.visibleLayers||[]).includes(m.key);
+    const statusText=isOperational ? mapOperationalStatusLabel(item.label,item.level) : mapOperationalStatusLabel('idle','idle');
     return `<div class="mapModuleCard">
       <span>${ic(m.icon,15)} ${lang==='ar'?m.ar:m.en}</span>
-      <b class="${isOperational?(item.level||'active'):'idle'}">${esc(isOperational?(item.label||item.level||''):(lang==='ar'?'لا يوجد نشاط':'No activity'))}</b>
+      <b class="${isOperational?(item.level||'active'):'idle'}">${esc(statusText)}</b>
     </div>`;
   }).join('');
   return `<div class="mapDrawer-card">
@@ -3196,8 +3220,7 @@ function mapFreeOccupantRow(occupant={}){
     ['employee',lang==='ar'?'موظف':'Employee'],
     ['contractor',lang==='ar'?'متعاقد':'Contractor'],
     ['consultant',lang==='ar'?'استشاري':'Consultant'],
-    ['visitor',lang==='ar'?'زائر':'Visitor'],
-    ['vendor',lang==='ar'?'جهة خارجية':'Vendor'],
+    ['trainee',lang==='ar'?'متدرب':'Trainee'],
     ['other',lang==='ar'?'أخرى':'Other']
   ];
   return `<div class="mapFreeOccupantRow">
