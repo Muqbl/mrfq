@@ -2861,7 +2861,7 @@ tbody tr:hover td{background:var(--surface-2)}
   box-shadow:0 3px 9px rgba(0,0,0,.22);cursor:pointer;
 }
 .mapPin::after{
-  content:'';position:absolute;inset:-6px;border-radius:inherit;border:1px solid transparent;
+  content:'';position:absolute;inset:-6px;border-radius:inherit;border:1px solid transparent;pointer-events:none;
 }
 .mapPin:hover::after,.mapPin.selected::after{border-color:rgba(0,82,87,.28);background:rgba(0,143,148,.09)}
 .mapPin.hasEmployee::before{
@@ -2879,19 +2879,38 @@ tbody tr:hover td{background:var(--surface-2)}
   content:'';position:absolute;inset:-4px;border-radius:inherit;border:2px solid rgba(47,127,149,.24);
 }
 .mapPin.vacant::before{border-style:dashed;border-color:rgba(90,107,110,.30)}
-.mapPin.hasOps{box-shadow:0 0 0 4px rgba(0,132,141,.16),0 3px 9px rgba(0,0,0,.24)}
-.mapPin.hasOps.mapPin-state-warn{box-shadow:0 0 0 4px rgba(230,158,51,.24),0 3px 9px rgba(0,0,0,.24)}
-.mapPin.hasOps.mapPin-state-critical{box-shadow:0 0 0 4px rgba(216,86,89,.28),0 3px 9px rgba(0,0,0,.24)}
+.mapPin.hasOps{box-shadow:0 3px 9px rgba(0,0,0,.24)}
+.mapPin.hasOps::after{
+  inset:-8px;border:3px solid rgba(0,132,141,.30);background:rgba(0,132,141,.12);
+  animation:mapPinPulse 1.35s ease-out infinite;
+}
+.mapPin.hasOps.mapPin-state-warn::after{
+  border-color:rgba(216,86,89,.34);background:rgba(216,86,89,.18);
+}
+.mapPin.hasOps.mapPin-state-critical::after{
+  border-color:rgba(216,86,89,.42);background:rgba(216,86,89,.22);
+}
+@keyframes mapPinPulse{
+  0%{transform:scale(.72);opacity:.9}
+  70%{transform:scale(2.35);opacity:.08}
+  100%{transform:scale(2.55);opacity:0}
+}
 .mapPin.mapPin-state-missing{background:var(--muted)}
 .mapPin.auto{width:18px;height:18px;border-style:dashed}
 .mapPin.selected{outline:3px solid rgba(0,143,148,.24);z-index:5}
 .mapPointOverlay{
-  position:absolute;z-index:12;inset-block-start:72px;inset-inline-end:24px;
-  width:min(520px,calc(100% - 48px));max-height:calc(100% - 96px);overflow:auto;
+  position:absolute;z-index:12;left:var(--map-overlay-x,50%);top:var(--map-overlay-y,50%);
+  transform:translate(-50%,calc(-100% - 22px));
+  width:min(520px,calc(100% - 48px));max-height:min(520px,calc(100% - 48px));overflow:auto;
   background:rgba(255,255,255,.97);border:1px solid var(--line);
   border-radius:var(--r-md);box-shadow:var(--shadow-lg);padding:16px;
   backdrop-filter:blur(10px);
 }
+.mapPointOverlay.below{transform:translate(-50%,22px)}
+.mapPointOverlay.alignStart{transform:translate(0,calc(-100% - 22px))}
+.mapPointOverlay.alignStart.below{transform:translate(0,22px)}
+.mapPointOverlay.alignEnd{transform:translate(-100%,calc(-100% - 22px))}
+.mapPointOverlay.alignEnd.below{transform:translate(-100%,22px)}
 .mapOverlayClose{position:absolute;inset-block-start:10px;inset-inline-start:10px}
 .mapDrawer-empty{
   min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -2967,7 +2986,7 @@ tbody tr:hover td{background:var(--surface-2)}
   .mapToolbar,.mapLayerBar{padding:10px}
   .mapLayer{flex:1;justify-content:center}
   .mapCanvasWrap{padding:8px}
-  .mapPointOverlay{position:relative;inset:auto;width:100%;max-height:none;margin-top:10px}
+  .mapPointOverlay{position:absolute;width:min(420px,calc(100% - 24px));max-height:70%;margin-top:0}
   .mapFreeOccupantRow{grid-template-columns:1fr}
 }
 

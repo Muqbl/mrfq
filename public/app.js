@@ -759,7 +759,8 @@ const UI_ACTION_NAMES = new Set([
   'invShowMovementForm','invSaveMovement',
   'mapSetFloor','mapToggleLayer','mapTogglePointKind','mapSetMode','mapSelectCode','mapCanvasClick',
   'mapDeletePoint','mapSavePoints','mapSelectPoint','mapShowAllCodes','mapShowUnplacedCodes',
-  'mapRefreshData','mapZoomIn','mapZoomOut','mapZoomReset','showMapEmployeeModal','saveMapEmployees'
+  'mapRefreshData','mapZoomIn','mapZoomOut','mapZoomReset','showMapEmployeeModal','saveMapEmployees',
+  'mapClearSelection','mapAddFreeOccupant','mapRemoveFreeOccupant'
 ]);
 function uiAction(name,args=[]){
   if(!UI_ACTION_NAMES.has(name)) throw new Error(`Unsupported UI action: ${name}`);
@@ -777,7 +778,7 @@ document.addEventListener('click',event=>{
   if(typeof handler!=='function') return;
   let args=[];
   try{args=JSON.parse(target.dataset.uiArgs||'[]')}catch(_error){return}
-  if(name==='runUiFlow' || name==='mapCanvasClick') args.push(event,target);
+  if(['runUiFlow','mapCanvasClick','mapSelectPoint','mapRemoveFreeOccupant'].includes(name)) args.push(event,target);
   Reflect.apply(handler,window,args);
 });
 const UI_RENDERER_NAMES = new Set([
@@ -2795,6 +2796,15 @@ function renderMapConsole(){
   const mapPoints=(mapState.mode==='edit'?mapState.points:mapState.statusPoints)
     .filter(p=>activePointKinds.has(p.pointKind||'location'));
   const selected=mapPoints.find(p=>normalizeMapCode(p.code)===normalizeMapCode(mapState.selectedPointCode)) || mapState.statusPoints.find(p=>normalizeMapCode(p.code)===normalizeMapCode(mapState.selectedPointCode));
+  const selectedOverlayClasses=[];
+  if(selected){
+    const selectedX=Number(selected.x||0);
+    const selectedY=Number(selected.y||0);
+    if(selectedY < 34) selectedOverlayClasses.push('below');
+    if(selectedX < 28) selectedOverlayClasses.push('alignStart');
+    else if(selectedX > 72) selectedOverlayClasses.push('alignEnd');
+  }
+  const selectedOverlayClass=selectedOverlayClasses.length ? ` ${selectedOverlayClasses.join(' ')}` : '';
   const counts=mapLayerMeta().reduce((acc,m)=>{
     acc[m.key]=(mapState.statusPoints||[]).filter(p=>(p.operationalLayers||p.visibleLayers||[]).includes(m.key)).length;
     return acc;
@@ -2892,8 +2902,8 @@ function renderMapConsole(){
             return `<button class="mapPin mapPin--kind-${esc(p.pointKind||'location')} mapPin-state-${esc(p.level||'ok')} ${hasOps?'hasOps':''} ${mapOccupancyClass(p)} ${(p.source==='auto'||p.auto)?'auto':''} ${selected&&mapPointKey(selected)===mapPointKey(p)?'selected':''}" data-map-pin data-x="${Number(p.x)||0}" data-y="${Number(p.y)||0}" title="${esc(title)}" aria-label="${esc(title)}" ${uiAction('mapSelectPoint',[p.code])}></button>`;
           }).join('')}
         </div>
+        ${selected?`<div class="mapPointOverlay${selectedOverlayClass}" data-map-overlay data-x="${Number(selected.x)||0}" data-y="${Number(selected.y)||0}">${mapSelectedPanel(selected,true)}</div>`:''}
       </div>
-      ${selected?`<div class="mapPointOverlay">${mapSelectedPanel(selected,true)}</div>`:''}
     </div>
   </div>
 </section>`;
@@ -2970,6 +2980,10 @@ function mapApplyPinPositions(){
     pin.style.setProperty('--map-pin-x', `${Math.max(0,Math.min(100,Number(pin.dataset.x)||0))}%`);
     pin.style.setProperty('--map-pin-y', `${Math.max(0,Math.min(100,Number(pin.dataset.y)||0))}%`);
   });
+  document.querySelectorAll('[data-map-overlay]').forEach(overlay=>{
+    overlay.style.setProperty('--map-overlay-x', `${Math.max(4,Math.min(96,Number(overlay.dataset.x)||0))}%`);
+    overlay.style.setProperty('--map-overlay-y', `${Math.max(4,Math.min(96,Number(overlay.dataset.y)||0))}%`);
+  });
 }
 function mapSetFloor(floor){
   if(mapState.dirty && !confirm(lang==='ar'?'لديك تعديلات غير محفوظة، هل تريد المتابعة؟':'You have unsaved changes. Continue?')) return;
@@ -3018,7 +3032,9 @@ function mapCanvasClick(event,target){
   mapState.dirty=true;
   renderMapConsole();
 }
-function mapSelectPoint(code){
+function mapSelectPoint(code,event){
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
   mapState.selectedPointCode=normalizeMapCode(code);
   mapState.selectedCode=normalizeMapCode(code);
   renderMapConsole();
