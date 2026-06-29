@@ -2847,13 +2847,13 @@ tbody tr:hover td{background:var(--surface-2)}
   color:var(--ink-soft);font-size:var(--fs-xs);font-weight:900;
 }
 .mapCanvas{
-  position:relative;width:100%;min-width:0;aspect-ratio:1191/842;background:#fff;border:1px solid var(--line);
+  position:relative;width:var(--map-zoom-width,100%);min-width:0;aspect-ratio:1191/842;background:#fff;border:1px solid var(--line);
   border-radius:var(--r-sm);overflow:hidden;cursor:crosshair;transition:width var(--t-base);
 }
 .mapSvg{width:100%;height:100%;object-fit:contain;display:block}
 .mapPins{position:absolute;inset:0;pointer-events:none}
 .mapPin{
-  position:absolute;transform:translate(-50%,-50%);pointer-events:auto;
+  position:absolute;left:var(--map-pin-x,0);top:var(--map-pin-y,0);transform:translate(-50%,-50%);pointer-events:auto;
   border:2px solid #fff;border-radius:999px;background:var(--brand);color:#fff;
   width:16px;height:16px;padding:0;display:grid;place-items:center;
   box-shadow:0 3px 9px rgba(0,0,0,.22);cursor:pointer;
@@ -2926,6 +2926,7 @@ tbody tr:hover td{background:var(--surface-2)}
 .mapModuleCard b.ok{background:var(--ok-bg);color:var(--ok)}
 .mapModuleCard b.warn{background:var(--warn-bg);color:var(--warn)}
 .mapModuleCard b.critical{background:var(--bad-bg);color:var(--bad)}
+.mapModuleCard b.idle{background:var(--surface-3);color:var(--muted)}
 .emptyMini{
   border:1px dashed var(--line);border-radius:var(--r-sm);padding:14px;text-align:center;
   color:var(--muted);font-size:var(--fs-sm);background:var(--surface-2);

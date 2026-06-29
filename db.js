@@ -846,6 +846,21 @@ const MIGRATIONS = {
     CREATE INDEX IF NOT EXISTS idx_map_points_code ON map_points(code);
     CREATE INDEX IF NOT EXISTS idx_map_points_layer ON map_points(layer);
   `,
+  /* ── v28: stable map point identity separate from module state ─ */
+  28: `
+    ALTER TABLE map_points ADD COLUMN point_kind TEXT NOT NULL DEFAULT 'location';
+    UPDATE map_points SET point_kind = CASE
+      WHEN layer='groups' OR code LIKE '%-G%' THEN 'group'
+      WHEN layer='cameras' OR code LIKE '%-CAM-%' THEN 'camera'
+      WHEN layer='safety' OR code LIKE '%-FS-%' OR code LIKE '%-FE-%' OR code LIKE '%-EXT-%' THEN 'safety'
+      WHEN code LIKE '%-WS-%' OR code LIKE '%-GM-%' OR code LIKE '%-M-%' THEN 'employee'
+      WHEN code LIKE '%-BR-%' OR code LIKE '%-WC-%' THEN 'restroom'
+      WHEN code LIKE '%-MR-%' THEN 'room'
+      ELSE 'location'
+    END
+    WHERE point_kind='' OR point_kind='location';
+    CREATE INDEX IF NOT EXISTS idx_map_points_kind ON map_points(point_kind);
+  `,
 };
 
 function _range(prefix, start, end) {

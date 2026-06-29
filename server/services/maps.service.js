@@ -16,6 +16,7 @@ const FLOOR_ASSETS = Object.freeze([
 ]);
 
 const VALID_LAYERS = new Set(['cleaning', 'maintenance', 'hospitality', 'safety', 'cameras', 'groups']);
+const OPERATIONAL_LAYERS = new Set(['cleaning', 'maintenance', 'hospitality', 'safety', 'cameras']);
 const TERMINAL_TICKET = new Set(['completed', 'rejected', 'cancelled']);
 const TERMINAL_HOSPITALITY = new Set(['completed', 'cancelled', 'rejected']);
 const ARABIC_DIGITS = '٠١٢٣٤٥٦٧٨٩';
@@ -48,6 +49,19 @@ function typeFromCode(code) {
   return match ? match[1].toUpperCase() : '';
 }
 
+function pointKindFromCode(code, layer = '') {
+  const normalized = normalizeCode(code);
+  const type = typeFromCode(code);
+  if (layer === 'groups' || /-G\d+/i.test(normalized)) return 'group';
+  if (layer === 'cameras' || type === 'CAM') return 'camera';
+  if (layer === 'safety' || ['FS', 'FE', 'EXT'].includes(type)) return 'safety';
+  if (['WS', 'GM', 'M'].includes(type)) return 'employee';
+  if (['BR', 'WC'].includes(type)) return 'restroom';
+  if (['MR'].includes(type)) return 'room';
+  if (['K', 'CS', 'SR'].includes(type)) return 'location';
+  return 'location';
+}
+
 function floorRows(db) {
   const counts = db.prepare('SELECT floor, COUNT(*) count FROM map_points GROUP BY floor').all()
     .reduce((acc, row) => ({ ...acc, [row.floor]: row.count }), {});
@@ -70,6 +84,7 @@ function normalizePoint(raw, fallbackFloor = '') {
     floor,
     code,
     layer: VALID_LAYERS.has(layer) ? layer : 'cleaning',
+    pointKind: String(raw.pointKind || raw.point_kind || pointKindFromCode(code, layer)).trim().toLowerCase() || 'location',
     type: String(raw.type || typeFromCode(code)).trim().toUpperCase(),
     x: Number.isFinite(x) ? Math.max(0, Math.min(100, x)) : 0,
     y: Number.isFinite(y) ? Math.max(0, Math.min(100, y)) : 0
@@ -79,7 +94,7 @@ function normalizePoint(raw, fallbackFloor = '') {
 function pointRows(db, floor) {
   const normalizedFloor = normalizeCode(floor);
   return db.prepare(`
-    SELECT id,floor,code,x,y,layer,type,created_at,updated_at
+    SELECT id,floor,code,x,y,layer,type,point_kind pointKind,created_at,updated_at
     FROM map_points
     WHERE floor = ?
     ORDER BY layer, code
@@ -116,6 +131,22 @@ function autoCoordinate(floor, code) {
 function layerFromModules(modules) {
   const priority = ['cleaning', 'maintenance', 'hospitality', 'safety', 'cameras', 'groups'];
   return priority.find(layer => modules.has(layer)) || 'cleaning';
+}
+
+function moduleHasActivity(module, status) {
+  if (!status) return false;
+  if (module === 'cleaning') return !!(status.openTickets || status.pendingReports || status.slaBreaches);
+  if (module === 'maintenance') return !!(status.openTickets || status.slaBreaches);
+  if (module === 'hospitality') return !!(status.openOrders || status.slaBreaches);
+  if (module === 'safety' || module === 'cameras') return !!(status.down || status.slaBreaches);
+  return false;
+}
+
+function operationalModules(modules, wanted = new Set()) {
+  return Object.fromEntries(Object.entries(modules || {})
+    .filter(([module, status]) => OPERATIONAL_LAYERS.has(module))
+    .filter(([module, status]) => !wanted.size || wanted.has(module))
+    .filter(([module, status]) => moduleHasActivity(module, status)));
 }
 
 function collectAutoOperationalPoints(db, floor, layers = []) {
@@ -204,18 +235,19 @@ function replaceFloorPoints(db, floor, rawPoints) {
   const ts = new Date().toISOString();
   const del = db.prepare('DELETE FROM map_points WHERE floor = ?');
   const ins = db.prepare(`
-    INSERT INTO map_points (floor,code,x,y,layer,type,created_at,updated_at)
-    VALUES (?,?,?,?,?,?,?,?)
+    INSERT INTO map_points (floor,code,x,y,layer,type,point_kind,created_at,updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?)
     ON CONFLICT(floor, code, layer) DO UPDATE SET
       x=excluded.x,
       y=excluded.y,
       type=excluded.type,
+      point_kind=excluded.point_kind,
       updated_at=excluded.updated_at
   `);
   db.transaction(() => {
     del.run(normalizedFloor);
     for (const point of points) {
-      ins.run(point.floor, point.code, point.x, point.y, point.layer, point.type, ts, ts);
+      ins.run(point.floor, point.code, point.x, point.y, point.layer, point.type, point.pointKind, ts, ts);
     }
   })();
   return pointRows(db, normalizedFloor);
@@ -397,11 +429,18 @@ function pointStatus(db, point) {
     groups: group ? { level: group.member_count > 1 ? 'active' : 'warn', memberCount: group.member_count || 0 } : null
   };
   const activeModules = Object.fromEntries(Object.entries(modules).filter(([, value]) => value));
+  const employees = employeesForSpace(db, spaceId);
   const missingLocation = !location && !space && !group;
+  const pointKind = group
+    ? 'group'
+    : employees.length
+      ? 'employee'
+      : point.pointKind || pointKindFromCode(point.code, point.layer);
   return {
     ...point,
     source: point.source || 'manual',
     auto: point.auto === true,
+    pointKind,
     location: location ? {
       id: location.id,
       spaceId: location.space_id || '',
@@ -434,7 +473,7 @@ function pointStatus(db, point) {
       memberCount: group.member_count || 0
     } : null,
     modules: activeModules,
-    employees: employeesForSpace(db, spaceId),
+    employees,
     level: missingLocation ? 'missing' : statusLevel(activeModules),
     missingLocation
   };
@@ -449,24 +488,24 @@ function statusRows(db, floor, layers = []) {
   const rows = [...manualPoints, ...autoPoints]
     .map(point => {
       const row = pointStatus(db, point);
-      const moduleLayers = Object.keys(row.modules || {});
+      const activeOperationalModules = operationalModules(row.modules, wanted);
       const triggerLayers = point.visibleLayers || [];
-      row.visibleLayers = [...new Set([
-        ...(point.auto && triggerLayers.length ? triggerLayers : moduleLayers),
-        row.layer
-      ].filter(Boolean))];
+      row.operationalLayers = Object.keys(activeOperationalModules);
+      row.visibleLayers = row.operationalLayers;
+      row.level = row.missingLocation ? 'missing' : statusLevel(activeOperationalModules);
+      if (point.auto && triggerLayers.length && !row.operationalLayers.length) row.visibleLayers = triggerLayers.filter(layer => !wanted.size || wanted.has(layer));
       return row;
-    })
-    .filter(point => !wanted.size || point.visibleLayers.some(layer => wanted.has(layer)));
+    });
   const summary = rows.reduce((acc, point) => {
     acc.total += 1;
     acc[point.level] = (acc[point.level] || 0) + 1;
-    for (const layer of point.visibleLayers || [point.layer]) {
+    acc.pointKinds[point.pointKind] = (acc.pointKinds[point.pointKind] || 0) + 1;
+    for (const layer of point.operationalLayers || []) {
       acc.layers[layer] = (acc.layers[layer] || 0) + 1;
     }
     acc.sources[point.source] = (acc.sources[point.source] || 0) + 1;
     return acc;
-  }, { total: 0, ok: 0, active: 0, warn: 0, critical: 0, layers: {}, sources: { manual: 0, auto: 0 } });
+  }, { total: 0, ok: 0, active: 0, warn: 0, critical: 0, layers: {}, pointKinds: {}, sources: { manual: 0, auto: 0 } });
   return { floor: normalizeCode(floor), points: rows, summary };
 }
 

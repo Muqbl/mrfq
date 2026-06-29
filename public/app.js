@@ -2645,6 +2645,19 @@ function mapLayerLabel(key){
   const meta=mapLayerMeta().find(x=>x.key===key);
   return meta ? (lang==='ar'?meta.ar:meta.en) : key;
 }
+function mapPointKindLabel(kind='location'){
+  const labels={
+    employee:[lang==='ar'?'موظف / مكتب':'Employee / Office','employee'],
+    location:[lang==='ar'?'موقع':'Location','map-pin'],
+    restroom:[lang==='ar'?'دورة مياه':'Restroom','map-pin'],
+    room:[lang==='ar'?'غرفة':'Room','building'],
+    group:[lang==='ar'?'مجموعة':'Group','layers'],
+    camera:[lang==='ar'?'كاميرا':'Camera','camera'],
+    safety:[lang==='ar'?'سلامة':'Safety','alert-triangle'],
+    asset:[lang==='ar'?'أصل':'Asset','building']
+  };
+  return labels[kind] || labels.location;
+}
 function mapTypeFromCode(code=''){
   const c=normalizeMapCode(code);
   if(c.includes('-BR-')||c.includes('-WC-')) return lang==='ar'?'دورة مياه':'Restroom';
@@ -2689,7 +2702,7 @@ function mapActiveLayers(){
   return Object.entries(mapState.layers).filter(([,v])=>v).map(([k])=>k);
 }
 function mapPointKey(point){
-  return `${point.layer||mapLayerForCode(point.code)}:${point.code}`;
+  return `${point.pointKind||point.layer||mapLayerForCode(point.code)}:${point.code}`;
 }
 function mapCodeIsPlaced(code){
   return (mapState.points||[]).some(p=>p.code===code);
@@ -2750,11 +2763,10 @@ function renderMapConsole(){
   const visibleCodes=mapState.onlyUnplaced ? codes.filter(c=>!placed.has(normalizeMapCode(c))) : codes;
   const unplacedCount=codes.filter(c=>!placed.has(normalizeMapCode(c))).length;
   const auditSummary=mapState.audit?.summary||{total:0,linked:0,missing:0};
-  const mapPoints=(mapState.mode==='edit'?mapState.points:mapState.statusPoints)
-    .filter(p=>(p.visibleLayers||[p.layer||mapLayerForCode(p.code)]).some(layer=>mapState.layers[layer]!==false));
+  const mapPoints=(mapState.mode==='edit'?mapState.points:mapState.statusPoints);
   const selected=mapPoints.find(p=>normalizeMapCode(p.code)===normalizeMapCode(mapState.selectedPointCode)) || mapState.statusPoints.find(p=>normalizeMapCode(p.code)===normalizeMapCode(mapState.selectedPointCode));
   const counts=mapLayerMeta().reduce((acc,m)=>{
-    acc[m.key]=(mapState.statusPoints||[]).filter(p=>(p.visibleLayers||[p.layer||mapLayerForCode(p.code)]).includes(m.key)).length;
+    acc[m.key]=(mapState.statusPoints||[]).filter(p=>(p.operationalLayers||p.visibleLayers||[]).includes(m.key)).length;
     return acc;
   },{});
   const autoCount=(mapState.statusPoints||[]).filter(p=>p.source==='auto'||p.auto).length;
@@ -2858,11 +2870,13 @@ function mapSelectedPanel(point){
   const modules=point.modules||{};
   const employees=(point.employees||[]).length ? point.employees : mapEmployeesForCode(point.code);
   const displayName=point.location?.nameAr||point.location?.nameEn||point.space?.nameAr||point.space?.nameEn||point.group?.nameAr||point.group?.nameEn||point.nameAr||point.nameEn||point.code;
+  const [kindLabel, kindIcon]=mapPointKindLabel(point.pointKind||'location');
   const moduleCards=mapLayerMeta().filter(m=>modules[m.key]).map(m=>{
     const item=modules[m.key];
+    const isOperational=(point.operationalLayers||point.visibleLayers||[]).includes(m.key);
     return `<div class="mapModuleCard">
       <span>${ic(m.icon,15)} ${lang==='ar'?m.ar:m.en}</span>
-      <b class="${item.level||'active'}">${esc(item.label||item.level||'')}</b>
+      <b class="${isOperational?(item.level||'active'):'idle'}">${esc(isOperational?(item.label||item.level||''):(lang==='ar'?'لا يوجد نشاط':'No activity'))}</b>
     </div>`;
   }).join('');
   return `<div class="mapDrawer-card">
@@ -2872,7 +2886,7 @@ function mapSelectedPanel(point){
     </div>
     <div class="mapDrawer-tags">
       <span>${esc(point.floor||mapState.floor)}</span>
-      <span>${mapLayerLabel(point.layer||mapLayerForCode(point.code))}</span>
+      <span>${ic(kindIcon,12)} ${esc(kindLabel)}</span>
       <span>${mapTypeFromCode(point.code)}</span>
       ${point.source==='auto'||point.auto?`<span class="auto">${lang==='ar'?'تلقائية':'Auto'}</span>`:''}
     </div>
@@ -2893,10 +2907,10 @@ function mapSelectedPanel(point){
 }
 function mapApplyPinPositions(){
   const canvas=document.querySelector('[data-map-canvas]');
-  if(canvas) canvas.style.width=`${Math.round(mapState.zoom*100)}%`;
+  if(canvas) canvas.style.setProperty('--map-zoom-width', `${Math.round(mapState.zoom*100)}%`);
   document.querySelectorAll('[data-map-pin]').forEach(pin=>{
-    pin.style.left=`${Math.max(0,Math.min(100,Number(pin.dataset.x)||0))}%`;
-    pin.style.top=`${Math.max(0,Math.min(100,Number(pin.dataset.y)||0))}%`;
+    pin.style.setProperty('--map-pin-x', `${Math.max(0,Math.min(100,Number(pin.dataset.x)||0))}%`);
+    pin.style.setProperty('--map-pin-y', `${Math.max(0,Math.min(100,Number(pin.dataset.y)||0))}%`);
   });
 }
 function mapSetFloor(floor){

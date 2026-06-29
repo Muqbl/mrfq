@@ -45,6 +45,7 @@ __MACOSX/
 *.xlsx
 *.pdf
 reports/
+outputs/
 screenshots/
 backup*.zip
 backups/
@@ -55,5 +56,6 @@ importAllLocations.js
 TODO.md
 *.bak
 *.tmp
+tmp_*.json
 tmp/
 .tmp-preview/

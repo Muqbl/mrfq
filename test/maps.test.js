@@ -49,7 +49,8 @@ function mapDb() {
     CREATE TABLE map_points (
       id INTEGER PRIMARY KEY AUTOINCREMENT, floor TEXT NOT NULL, code TEXT NOT NULL,
       x REAL NOT NULL, y REAL NOT NULL, layer TEXT NOT NULL DEFAULT 'cleaning',
-      type TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT ''
+      type TEXT NOT NULL DEFAULT '', point_kind TEXT NOT NULL DEFAULT 'location',
+      created_at TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT ''
     );
     CREATE TABLE tickets (
       id TEXT PRIMARY KEY, location_id TEXT NOT NULL, module TEXT NOT NULL DEFAULT 'cleaning',
@@ -93,4 +94,19 @@ test('map status creates auto point for pending cleaning reports', () => {
   assert.equal(status.points[0].modules.cleaning.pendingReports, 1);
   assert.equal(status.summary.sources.auto, 1);
   assert.equal(status.summary.layers.cleaning, 1);
+});
+
+test('manual location points stay fixed without being counted as cleaning activity', () => {
+  const db = mapDb();
+  db.prepare("INSERT INTO locations (id,name_ar,floor) VALUES ('MF-WS-01','مكتب موظف','MF')").run();
+  db.prepare("INSERT INTO map_points (floor,code,x,y,layer,type,point_kind) VALUES ('MF','MF-WS-01',50,50,'cleaning','WS','employee')").run();
+
+  const status = statusRows(db, 'MF', ['cleaning']);
+  assert.equal(status.points.length, 1);
+  assert.equal(status.points[0].code, 'MF-WS-01');
+  assert.equal(status.points[0].source, 'manual');
+  assert.equal(status.points[0].pointKind, 'employee');
+  assert.deepEqual(status.points[0].operationalLayers, []);
+  assert.equal(status.points[0].level, 'ok');
+  assert.equal(status.summary.layers.cleaning || 0, 0);
 });
