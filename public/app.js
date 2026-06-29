@@ -1333,6 +1333,17 @@ function maintenanceTicketApi(suffix=''){return `${isMaintenanceRole()?'/mainten
 function maintenanceReportApi(suffix=''){return `${isMaintenanceRole()?'/maintenance-reports':'/reports'}${suffix}`}
 function operationalWorkerRole(){return isMaintenanceRole()?'maintenance_worker':'cleaner'}
 function activeTicketModule(){return isMaintenanceRole()?'maintenance':'cleaning'}
+function isOpenStatus(status){return !['completed','rejected','cancelled'].includes(status)}
+function ticketModule(t={}){return t.module||'cleaning'}
+function reportModule(r={}){return r.module||'cleaning'}
+function ticketMatchesModule(t={}, module=activeTicketModule()){return ticketModule(t)===module}
+function reportMatchesModule(r={}, module=activeTicketModule()){return reportModule(r)===module}
+function openTicketCount(module=activeTicketModule(), items=data?.tickets||[]){
+  return (items||[]).filter(t=>ticketMatchesModule(t,module) && isOpenStatus(t.status)).length;
+}
+function pendingReportCount(module=activeTicketModule(), items=data?.reports||[]){
+  return (items||[]).filter(r=>reportMatchesModule(r,module) && ['pending','pending_approval'].includes(r.approvalStatus||'pending')).length;
+}
 function canUsers(){return canManageGlobalUsers()||canManageModuleTeam()}
 function canManageUsers(){return canManageGlobalUsers()||canManageModuleTeam()}
 function canManage(){return ['system_admin','facility_manager','cleaning_manager','maintenance_manager'].includes(me.role)}
@@ -1682,8 +1693,8 @@ function renderFieldTabs(){
       ${count?`<span class="countBubble fieldTab-count">${num(count)}</span>`:''}
     </button>`;
   if(me.role==='maintenance_supervisor'){
-    const openTickets = (data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
-    const pendingReports = (data?.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
+    const openTickets = openTicketCount('maintenance');
+    const pendingReports = pendingReportCount('maintenance');
     const workers = (data?.users||[]).filter(u=>(u.roles||[u.role]).includes(operationalWorkerRole())).length;
     return `<div class="fieldTabs" role="tablist">
       ${mk(supervisorView==='dashboard','dashboard',tr('dashboard'),tabFlow('supervisorView','dashboard','supervisor-dashboard','renderMaintenanceSupervisor'))}
@@ -1694,8 +1705,8 @@ function renderFieldTabs(){
     </div>`;
   }
   if(me.role==='cleaning_supervisor'){
-    const openTickets = (data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
-    const pendingReports = (data?.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
+    const openTickets = openTicketCount('cleaning');
+    const pendingReports = pendingReportCount('cleaning');
     const workers = (data?.users||[]).filter(u=>(u.roles||[u.role]).includes(operationalWorkerRole())).length;
     return `<div class="fieldTabs" role="tablist">
       ${mk(supervisorView==='dashboard','dashboard',tr('dashboard'),tabFlow('supervisorView','dashboard','supervisor-dashboard','renderSupervisor'))}
@@ -1705,8 +1716,8 @@ function renderFieldTabs(){
     </div>`;
   }
   if(me.role==='maintenance_worker'){
-    const active=(data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
-    const team=(data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)&&maintenanceAssignees(t.id).length>1).length;
+    const active=(data?.tickets||[]).filter(t=>ticketMatchesModule(t,'maintenance') && isOpenStatus(t.status)).length;
+    const team=(data?.tickets||[]).filter(t=>ticketMatchesModule(t,'maintenance') && isOpenStatus(t.status)&&maintenanceAssignees(t.id).length>1).length;
     const upcoming=(maintenanceData().schedules||[]).filter(s=>(s.defaultTechnicianIds||[]).includes(me.id)&&s.active).length;
     const myReportCount=(data?.reports||[]).filter(r=>r.workerId===me.id&&r.module==='maintenance').length;
     return `<div class="fieldTabs" role="tablist">
@@ -1771,8 +1782,8 @@ function renderFieldTabs(){
 }
 function fieldShell(me, contentHtml, opts={}){
   const mainCls = 'platform-main platform-main--field' + (opts.noSticky ? ' platform-main--no-sticky' : '');
-  const openTickets = (data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
-  const pendingReports = (data?.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
+  const openTickets = openTicketCount();
+  const pendingReports = pendingReportCount();
   return`<div class="platform-shell">
   ${renderPlatformTopbar(me, {sync:true, back:opts.back, backFlow:opts.backFlow})}
   <div class="platform-body">
@@ -2013,8 +2024,8 @@ async function submitForcePassword(){
    APP SHELL
    ═══════════════════════════════════════════════════════════════ */
 function shell(content){
-  const openTickets   = (data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
-  const pendingReports= (data.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
+  const openTickets   = openTicketCount();
+  const pendingReports= pendingReportCount();
   app.innerHTML=`
 <div class="platform-shell platform-shell--admin">
   ${renderPlatformTopbar(me, {search:false, notif:true, sync:true, adminMode:true})}
@@ -2088,8 +2099,8 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
     ];
   }else if(role==='maintenance_worker'){
     showMore=false;
-    const active=(data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
-    const team=(data?.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)&&maintenanceAssignees(t.id).length>1).length;
+    const active=(data?.tickets||[]).filter(t=>ticketMatchesModule(t,'maintenance') && isOpenStatus(t.status)).length;
+    const team=(data?.tickets||[]).filter(t=>ticketMatchesModule(t,'maintenance') && isOpenStatus(t.status)&&maintenanceAssignees(t.id).length>1).length;
     const upcoming=(maintenanceData().schedules||[]).filter(s=>(s.defaultTechnicianIds||[]).includes(me.id)&&s.active).length;
     primary=[
       {v:'maint-worker-tasks',label:tr('maintMyTasks'),icon:'tickets',count:active,flow:['navigate','maintWorkerView','tasks',null,'renderMaintenanceWorker'],active:maintWorkerView==='tasks'},
@@ -2628,7 +2639,7 @@ function moduleCard(m){
   const isInProgress = m.status==='in_progress';
   let stats = '';
   if(m.key==='cleaning'){
-    const openTickets = (data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
+    const openTickets = openTicketCount('cleaning');
     const cleaningUsers = (data.users||[]).filter(u=>(u.roles||[u.role]).some(r=>['cleaner','cleaning_supervisor','cleaning_manager'].includes(r))).length;
     const slaPct = Math.max(10,100-Math.min(100,openTickets*18));
     stats = `<div class="moduleCard-stats">
@@ -2880,15 +2891,6 @@ function renderMapConsole(){
   const mapPoints=(mapState.mode==='edit'?mapState.points:mapState.statusPoints)
     .filter(p=>activePointKinds.has(p.pointKind||'location'));
   const selected=mapPoints.find(p=>normalizeMapCode(p.code)===normalizeMapCode(mapState.selectedPointCode)) || mapState.statusPoints.find(p=>normalizeMapCode(p.code)===normalizeMapCode(mapState.selectedPointCode));
-  const selectedOverlayClasses=[];
-  if(selected){
-    const selectedX=Number(selected.x||0);
-    const selectedY=Number(selected.y||0);
-    if(selectedY < 58) selectedOverlayClasses.push('below');
-    if(selectedX < 28) selectedOverlayClasses.push('alignStart');
-    else if(selectedX > 72) selectedOverlayClasses.push('alignEnd');
-  }
-  const selectedOverlayClass=selectedOverlayClasses.length ? ` ${selectedOverlayClasses.join(' ')}` : '';
   const counts=mapLayerMeta().reduce((acc,m)=>{
     acc[m.key]=(mapState.statusPoints||[]).filter(p=>(p.operationalLayers||p.visibleLayers||[]).includes(m.key)).length;
     return acc;
@@ -2986,8 +2988,8 @@ function renderMapConsole(){
             return `<button class="mapPin mapPin--kind-${esc(p.pointKind||'location')} mapPin-state-${esc(p.level||'ok')} ${hasOps?'hasOps':''} ${mapOccupancyClass(p)} ${(p.source==='auto'||p.auto)?'auto':''} ${selected&&mapPointKey(selected)===mapPointKey(p)?'selected':''}" data-map-pin data-x="${Number(p.x)||0}" data-y="${Number(p.y)||0}" title="${esc(title)}" aria-label="${esc(title)}" ${uiAction('mapSelectPoint',[p.code])}></button>`;
           }).join('')}
         </div>
-        ${selected?`<div class="mapPointOverlay${selectedOverlayClass}" data-map-overlay data-x="${Number(selected.x)||0}" data-y="${Number(selected.y)||0}">${mapSelectedPanel(selected,true)}</div>`:''}
       </div>
+      ${selected?`<div class="mapPointOverlay" data-map-overlay data-x="${Number(selected.x)||0}" data-y="${Number(selected.y)||0}">${mapSelectedPanel(selected,true)}</div>`:''}
     </div>
   </div>
 </section>`;
@@ -3049,7 +3051,7 @@ function mapSelectedPanel(point,overlay=false){
       <b class="${isOperational?(item.level||'active'):'idle'}">${esc(statusText)}</b>
     </div>`;
   }).join('');
-  return `<div class="mapDrawer-card">
+  return `<div class="mapDrawer-card${overlay?' mapDrawer-card--overlay':''}">
     ${overlay?`<button class="icon-btn mapOverlayClose" ${uiAction('mapClearSelection',[])} title="${lang==='ar'?'إغلاق':'Close'}">${ic('x',15)}</button>`:''}
     <div class="mapDrawer-title">
       <strong>${esc(displayName)}</strong>
@@ -3089,8 +3091,24 @@ function mapApplyPinPositions(){
     pin.style.setProperty('--map-pin-y', `${Math.max(0,Math.min(100,Number(pin.dataset.y)||0))}%`);
   });
   document.querySelectorAll('[data-map-overlay]').forEach(overlay=>{
-    overlay.style.setProperty('--map-overlay-x', `${Math.max(4,Math.min(96,Number(overlay.dataset.x)||0))}%`);
-    overlay.style.setProperty('--map-overlay-y', `${Math.max(4,Math.min(96,Number(overlay.dataset.y)||0))}%`);
+    const canvas=overlay.closest('.mapCanvasWrap')?.querySelector('[data-map-canvas]');
+    const wrap=overlay.closest('.mapCanvasWrap');
+    const x=Math.max(0,Math.min(100,Number(overlay.dataset.x)||0));
+    const y=Math.max(0,Math.min(100,Number(overlay.dataset.y)||0));
+    if(!canvas || !wrap){
+      overlay.style.setProperty('--map-overlay-x', `${Math.max(4,Math.min(96,x))}%`);
+      overlay.style.setProperty('--map-overlay-y', `${Math.max(4,Math.min(96,y))}%`);
+      return;
+    }
+    const canvasRect=canvas.getBoundingClientRect();
+    const wrapRect=wrap.getBoundingClientRect();
+    const left=canvas.offsetLeft + (canvasRect.width*x/100);
+    const top=canvas.offsetTop + (canvasRect.height*y/100);
+    overlay.style.setProperty('--map-overlay-x', `${left}px`);
+    overlay.style.setProperty('--map-overlay-y', `${top}px`);
+    overlay.classList.toggle('below', y < 58);
+    overlay.classList.toggle('alignStart', left < wrap.scrollLeft + 300);
+    overlay.classList.toggle('alignEnd', left > wrap.scrollLeft + wrapRect.width - 300);
   });
 }
 function mapSetFloor(floor){
@@ -3436,13 +3454,14 @@ function adminSettings(){
    DASHBOARD — OPERATIONS CENTER
    ═══════════════════════════════════════════════════════════════ */
 function stats(){
-  const today = (data.reports||[]).filter(r=>(r.createdAt||'').slice(0,10)===new Date().toISOString().slice(0,10));
+  const module=activeTicketModule();
+  const today = (data.reports||[]).filter(r=>reportMatchesModule(r,module) && (r.createdAt||'').slice(0,10)===new Date().toISOString().slice(0,10));
   const covered = new Set(today.map(r=>r.locationId)).size;
   return {
     today,
     coverage: data.locations.length ? Math.round(covered/data.locations.length*100) : 0,
-    pending: (data.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length,
-    openTickets: (data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length
+    pending: pendingReportCount(module),
+    openTickets: openTicketCount(module)
   };
 }
 function qualityScore(r){
@@ -7635,8 +7654,8 @@ function maintShell(me, content, opts={}){
     app.innerHTML = fieldShell(me, content, {sync:true});
     return;
   }
-  const openTickets=(data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status)).length;
-  const pendingReports=(data.reports||[]).filter(r=>(r.approvalStatus||'pending')==='pending').length;
+  const openTickets=openTicketCount('maintenance');
+  const pendingReports=pendingReportCount('maintenance');
   const renderFn=opts.renderFn||'renderMaintenanceManager';
   const item=(v,label,icon,count=0)=>`<button class="navBtn${maintView===v?' active':''}" ${uiAction('runUiFlow',['navigate','maintView',v,`maint-${v}`,renderFn])}>
     <span class="navBtn-icon">${ic(icon,18)}</span><span class="navBtn-label">${label}</span>
@@ -7791,9 +7810,10 @@ function maintDashboard(tickets, reports, opts={}){
 function renderMaintenanceWorker(){
   setDoc();
   const md=maintenanceData();
-  const active=(data.tickets||[]).filter(t=>!['completed','rejected','cancelled'].includes(t.status));
+  const maintenanceTickets=(data.tickets||[]).filter(t=>ticketMatchesModule(t,'maintenance'));
+  const active=maintenanceTickets.filter(t=>isOpenStatus(t.status));
   const team=active.filter(t=>maintenanceAssignees(t.id).length>1);
-  const history=(data.tickets||[]).filter(t=>['completed','rejected','cancelled'].includes(t.status));
+  const history=maintenanceTickets.filter(t=>!isOpenStatus(t.status));
   const upcoming=(md.schedules||[]).filter(s=>s.active&&(s.defaultTechnicianIds||[]).includes(me.id));
   const orderBlock=maintWorkerView==='team'?maintenanceWorkerOrders(team)
     :maintWorkerView==='upcoming'?maintenanceWorkerSchedules(upcoming)
@@ -8050,7 +8070,7 @@ function maintenancePageContent(){
 }
 
 function maintenanceOperationsDashboard(){
-  const md=maintenanceData(), tickets=data.tickets||[], active=tickets.filter(t=>!['completed','rejected','cancelled'].includes(t.status));
+  const md=maintenanceData(), tickets=(data.tickets||[]).filter(t=>ticketMatchesModule(t,'maintenance')), active=tickets.filter(t=>isOpenStatus(t.status));
   const breached=active.filter(t=>t.slaBreached), down=(md.assets||[]).filter(a=>a.status==='down'), low=(md.parts||[]).filter(p=>p.lowStock);
   const done=tickets.filter(t=>t.status==='completed'&&t.completionTimeMins!=null);
   const mttr=done.length?Math.round(done.reduce((s,t)=>s+t.completionTimeMins,0)/done.length):0;
@@ -8069,9 +8089,9 @@ function maintenanceOrderMini(items){return items.length?items.map(t=>`<div clas
 function maintenanceScheduleMini(items){return items.length?items.map(s=>`<div class="list-row"><div class="list-icon">${ic('clock',17)}</div><div class="list-body"><div class="list-title">${esc(lang==='ar'?s.titleAr:s.titleEn||s.titleAr)}</div><div class="list-sub">${fmt(s.nextRunAt)} · ${scheduleFrequencyLabel(s)}</div></div><span class="badge ${new Date(s.nextRunAt)<new Date()?'bad':'brand'}">${s.active?tr('activeUser'):tr('inactive')}</span></div>`).join(''):`<div class="empty-state"><div class="empty-title">${tr('noData')}</div></div>`}
 
 function maintenanceOrdersPage(){
-  const tickets=data.tickets||[]; const canCreate=['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role);
-  const active=tickets.filter(t=>!['completed','rejected','cancelled'].includes(t.status));
-  const closed=tickets.filter(t=>['completed','rejected','cancelled'].includes(t.status));
+  const tickets=(data.tickets||[]).filter(t=>ticketMatchesModule(t,'maintenance')); const canCreate=['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role);
+  const active=tickets.filter(t=>isOpenStatus(t.status));
+  const closed=tickets.filter(t=>!isOpenStatus(t.status));
   return `<div class="pageHeader"><div class="pageHeader-left"><div class="pageTitle">${tr('maintOrders')}</div><div class="pageSub">${active.length} ${lang==='ar'?'نشط':'active'} · ${closed.length} ${lang==='ar'?'مغلق':'closed'}</div></div>${canCreate?`<button class="btn" ${uiAction('showMaintenanceOrderForm',[])}>${ic('plus',15)} ${tr('maintTicketCreate')}</button>`:''}</div>
     <div class="wCard"><div class="wCard-title">${ic('sync',16)} ${lang==='ar'?'أوامر العمل النشطة':'Active Work Orders'} ${countBubble(active.length)}</div><div class="ticketGrid">${active.length?active.map(maintenanceOrderCard).join(''):`<div class="empty-state"><div class="empty-title">${lang==='ar'?'لا توجد أوامر نشطة':'No active work orders'}</div></div>`}</div></div>
     <div class="wCard u-mt-16"><div class="wCard-title">${ic('check',16)} ${lang==='ar'?'سجل الأوامر المغلقة':'Closed Work Order History'} ${countBubble(closed.length,'ok')}</div><div class="ticketGrid">${closed.length?closed.map(maintenanceOrderCard).join(''):`<div class="empty-state"><div class="empty-title">${lang==='ar'?'لا توجد أوامر مغلقة':'No closed work orders'}</div></div>`}</div></div>`;

@@ -2921,13 +2921,14 @@ tbody tr:hover td{background:var(--surface-2)}
 .mapPointOverlay.alignStart.below{transform:translate(0,22px)}
 .mapPointOverlay.alignEnd{transform:translate(-100%,calc(-100% - 22px))}
 .mapPointOverlay.alignEnd.below{transform:translate(-100%,22px)}
-.mapOverlayClose{position:absolute;inset-block-start:10px;inset-inline-start:10px}
+.mapOverlayClose{position:absolute;inset-block-start:12px;inset-inline-start:12px}
 .mapDrawer-empty{
   min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:10px;text-align:center;color:var(--muted);
 }
 .mapDrawer-empty strong{color:var(--ink);font-family:var(--font-head)}
 .mapDrawer-card{position:relative;display:flex;flex-direction:column;gap:14px}
+.mapDrawer-card--overlay .mapDrawer-title{padding-inline-start:44px}
 .mapDrawer-title{display:flex;flex-direction:column;gap:6px}
 .mapDrawer-title span{font-family:ui-monospace,Consolas,monospace}
 .mapDrawer-tags{display:flex;flex-wrap:wrap;gap:7px}
