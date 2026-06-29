@@ -627,6 +627,7 @@ let mapState = {
   employeeOffices:null,
   points:[],
   statusPoints:[],
+  audit:null,
   selectedCode:'',
   selectedPointCode:'',
   onlyUnplaced:false,
@@ -757,7 +758,7 @@ const UI_ACTION_NAMES = new Set([
   'invShowMovementForm','invSaveMovement',
   'mapSetFloor','mapToggleLayer','mapSetMode','mapSelectCode','mapCanvasClick',
   'mapDeletePoint','mapSavePoints','mapSelectPoint','mapShowAllCodes','mapShowUnplacedCodes',
-  'mapRefreshData','mapZoomIn','mapZoomOut','mapZoomReset'
+  'mapRefreshData','mapZoomIn','mapZoomOut','mapZoomReset','showMapEmployeeModal','saveMapEmployees'
 ]);
 function uiAction(name,args=[]){
   if(!UI_ACTION_NAMES.has(name)) throw new Error(`Unsupported UI action: ${name}`);
@@ -2673,7 +2674,7 @@ function mapOccupancyClass(point){
   const code=normalizeMapCode(point.code);
   const assignable=/-(WS|GM|M|MR)-?/i.test(code);
   if(!assignable) return '';
-  return mapEmployeesForCode(code).length ? 'occupied' : 'vacant';
+  return ((point.employees||[]).length || mapEmployeesForCode(code).length) ? 'occupied' : 'vacant';
 }
 function mapFloorCodes(){
   const codes=mapState.codes?.codes?.[mapState.floor] || [];
@@ -2692,6 +2693,9 @@ function mapPointKey(point){
 }
 function mapCodeIsPlaced(code){
   return (mapState.points||[]).some(p=>p.code===code);
+}
+function mapMissingCodes(){
+  return new Set((mapState.audit?.missing||[]).map(item=>normalizeMapCode(item.code)));
 }
 async function loadMapsPage(force=false){
   const host=document.getElementById('mapsConsoleHost');
@@ -2722,12 +2726,14 @@ async function mapRefreshData(){
   if(!host) return;
   try{
     const layers=mapActiveLayers().join(',');
-    const [points,status]=await Promise.all([
+    const [points,status,audit]=await Promise.all([
       api(`/maps/${encodeURIComponent(mapState.floor)}/points`),
-      api(`/maps/${encodeURIComponent(mapState.floor)}/status?layers=${encodeURIComponent(layers)}`)
+      api(`/maps/${encodeURIComponent(mapState.floor)}/status?layers=${encodeURIComponent(layers)}`),
+      api(`/maps/${encodeURIComponent(mapState.floor)}/audit`)
     ]);
     mapState.points=points.points||[];
     mapState.statusPoints=status.points||[];
+    mapState.audit=audit||null;
     mapState.dirty=false;
     renderMapConsole();
   }catch(error){
@@ -2740,14 +2746,19 @@ function renderMapConsole(){
   const floor=mapCurrentFloor();
   const codes=mapFloorCodes();
   const placed=new Set((mapState.points||[]).map(p=>normalizeMapCode(p.code)));
-  const visibleCodes=mapState.onlyUnplaced ? codes.filter(c=>!placed.has(c)) : codes;
+  const missingCodes=mapMissingCodes();
+  const visibleCodes=mapState.onlyUnplaced ? codes.filter(c=>!placed.has(normalizeMapCode(c))) : codes;
+  const unplacedCount=codes.filter(c=>!placed.has(normalizeMapCode(c))).length;
+  const auditSummary=mapState.audit?.summary||{total:0,linked:0,missing:0};
   const mapPoints=(mapState.mode==='edit'?mapState.points:mapState.statusPoints)
-    .filter(p=>mapState.layers[p.layer||mapLayerForCode(p.code)]!==false);
+    .filter(p=>(p.visibleLayers||[p.layer||mapLayerForCode(p.code)]).some(layer=>mapState.layers[layer]!==false));
   const selected=mapPoints.find(p=>normalizeMapCode(p.code)===normalizeMapCode(mapState.selectedPointCode)) || mapState.statusPoints.find(p=>normalizeMapCode(p.code)===normalizeMapCode(mapState.selectedPointCode));
   const counts=mapLayerMeta().reduce((acc,m)=>{
-    acc[m.key]=(mapState.statusPoints||[]).filter(p=>(p.layer||mapLayerForCode(p.code))===m.key).length;
+    acc[m.key]=(mapState.statusPoints||[]).filter(p=>(p.visibleLayers||[p.layer||mapLayerForCode(p.code)]).includes(m.key)).length;
     return acc;
   },{});
+  const autoCount=(mapState.statusPoints||[]).filter(p=>p.source==='auto'||p.auto).length;
+  const manualCount=(mapState.statusPoints||[]).filter(p=>p.source!=='auto'&&!p.auto).length;
   host.innerHTML=`
 <section class="mapsConsole">
   <div class="mapToolbar">
@@ -2777,11 +2788,17 @@ function renderMapConsole(){
           <button class="btn sm secondary" ${uiAction('mapShowUnplacedCodes',[])}>${lang==='ar'?'غير محدد':'Unplaced'}</button>
         </div>
         <div class="mapHint">${lang==='ar'?'اختر الترميز ثم اضغط مكانه على المخطط.':'Choose a code, then click its position on the plan.'}</div>
+        <div class="mapAuditStrip">
+          <span class="ok">${lang==='ar'?'مربوط':'Linked'} <b>${num(auditSummary.linked||0)}</b></span>
+          <span class="${auditSummary.missing?'bad':'ok'}">${lang==='ar'?'غير مربوط':'Missing link'} <b>${num(auditSummary.missing||0)}</b></span>
+          <span>${lang==='ar'?'غير محدد':'Unplaced'} <b>${num(unplacedCount)}</b></span>
+        </div>
         <div class="mapCodeList">
           ${visibleCodes.map(code=>{
             const employees=mapEmployeesForCode(code);
             const employeeLabel=employees.length ? employees.map(e=>e.name).join('، ') : (lang==='ar'?'بدون موظف':'No employee');
-            return `<button class="mapCodeChip ${normalizeMapCode(mapState.selectedCode)===normalizeMapCode(code)?'active':''} ${placed.has(normalizeMapCode(code))?'placed':''}" ${uiAction('mapSelectCode',[code])}>
+            const normalizedCode=normalizeMapCode(code);
+            return `<button class="mapCodeChip ${normalizeMapCode(mapState.selectedCode)===normalizedCode?'active':''} ${placed.has(normalizedCode)?'placed':''} ${missingCodes.has(normalizedCode)?'missing':''}" ${uiAction('mapSelectCode',[code])}>
             <span>${esc(code)}</span><small>${mapTypeFromCode(code)} · ${esc(employeeLabel)}</small>
           </button>`;
           }).join('') || `<div class="emptyMini">${lang==='ar'?'كل الترميزات محددة':'All codes are placed'}</div>`}
@@ -2790,14 +2807,17 @@ function renderMapConsole(){
       `:`
         <div class="mapStatsGrid">
           <div><b>${num(mapState.statusPoints.length)}</b><span>${lang==='ar'?'نقطة ظاهرة':'Visible points'}</span></div>
+          <div><b>${num(autoCount)}</b><span>${lang==='ar'?'تلقائية':'Auto points'}</span></div>
+          <div><b>${num(manualCount)}</b><span>${lang==='ar'?'مثبتة':'Pinned points'}</span></div>
           <div><b>${num(mapState.statusPoints.filter(p=>p.level==='critical').length)}</b><span>${lang==='ar'?'حرجة':'Critical'}</span></div>
           <div><b>${num(mapState.statusPoints.filter(p=>p.level==='warn').length)}</b><span>${lang==='ar'?'تحتاج انتباه':'Needs attention'}</span></div>
-          <div><b>${num(mapState.statusPoints.filter(p=>p.level==='ok').length)}</b><span>${lang==='ar'?'مستقرة':'Stable'}</span></div>
+          <div><b>${num(auditSummary.missing||0)}</b><span>${lang==='ar'?'غير مربوطة':'Missing links'}</span></div>
         </div>
         <div class="mapLegend">
           <span><i class="mapDot ok"></i>${lang==='ar'?'مستقر':'Stable'}</span>
           <span><i class="mapDot warn"></i>${lang==='ar'?'تنبيه':'Warning'}</span>
           <span><i class="mapDot critical"></i>${lang==='ar'?'حرج':'Critical'}</span>
+          <span><i class="mapDot missing"></i>${lang==='ar'?'غير مربوط':'Missing link'}</span>
         </div>
       `}
     </aside>
@@ -2813,8 +2833,9 @@ function renderMapConsole(){
         <div class="mapPins">
           ${mapPoints.map(p=>{
             const employees=mapEmployeesForCode(p.code);
-            const title=[p.code, ...employees.map(e=>e.name)].filter(Boolean).join(' · ');
-            return `<button class="mapPin mapPin--${esc(p.level||'active')} ${mapOccupancyClass(p)} ${selected&&mapPointKey(selected)===mapPointKey(p)?'selected':''}" data-map-pin data-x="${Number(p.x)||0}" data-y="${Number(p.y)||0}" title="${esc(title)}" aria-label="${esc(title)}" ${uiAction('mapSelectPoint',[p.code])}></button>`;
+            const autoLabel=(p.source==='auto'||p.auto) ? (lang==='ar'?'نقطة تلقائية':'Auto point') : '';
+            const title=[p.code, autoLabel, ...employees.map(e=>e.name)].filter(Boolean).join(' · ');
+            return `<button class="mapPin mapPin--${esc(p.level||'active')} ${mapOccupancyClass(p)} ${(p.source==='auto'||p.auto)?'auto':''} ${selected&&mapPointKey(selected)===mapPointKey(p)?'selected':''}" data-map-pin data-x="${Number(p.x)||0}" data-y="${Number(p.y)||0}" title="${esc(title)}" aria-label="${esc(title)}" ${uiAction('mapSelectPoint',[p.code])}></button>`;
           }).join('')}
         </div>
       </div>
@@ -2835,8 +2856,8 @@ function mapEmptyPanel(){
 }
 function mapSelectedPanel(point){
   const modules=point.modules||{};
-  const employees=mapEmployeesForCode(point.code);
-  const displayName=point.location?.nameAr||point.location?.nameEn||point.group?.nameAr||point.group?.nameEn||point.nameAr||point.nameEn||point.code;
+  const employees=(point.employees||[]).length ? point.employees : mapEmployeesForCode(point.code);
+  const displayName=point.location?.nameAr||point.location?.nameEn||point.space?.nameAr||point.space?.nameEn||point.group?.nameAr||point.group?.nameEn||point.nameAr||point.nameEn||point.code;
   const moduleCards=mapLayerMeta().filter(m=>modules[m.key]).map(m=>{
     const item=modules[m.key];
     return `<div class="mapModuleCard">
@@ -2853,11 +2874,17 @@ function mapSelectedPanel(point){
       <span>${esc(point.floor||mapState.floor)}</span>
       <span>${mapLayerLabel(point.layer||mapLayerForCode(point.code))}</span>
       <span>${mapTypeFromCode(point.code)}</span>
+      ${point.source==='auto'||point.auto?`<span class="auto">${lang==='ar'?'تلقائية':'Auto'}</span>`:''}
     </div>
     <div class="mapDrawer-meta">${lang==='ar'?'الإحداثيات':'Coordinates'}: ${num(Number(point.x||0).toFixed(1))}% · ${num(Number(point.y||0).toFixed(1))}%</div>
+    ${point.space?.id?`<div class="mapDrawer-meta">${lang==='ar'?'المساحة':'Space'}: ${esc(point.space.id)}</div>`:''}
+    ${point.missingLocation?`<div class="mapLinkWarning">${ic('alert-triangle',14)} ${lang==='ar'?'هذا الكود غير موجود في المواقع أو المساحات أو المجموعات.':'This code is not linked to a location, space, or group.'}</div>`:''}
     ${point.memberCount?`<div class="mapDrawer-meta">${lang==='ar'?'عدد المواقع داخل المجموعة':'Group locations'}: ${num(point.memberCount)}</div>`:''}
     <div class="mapEmployees">
-      <strong>${lang==='ar'?'الموظفون':'Employees'}</strong>
+      <div class="mapEmployees-head">
+        <strong>${lang==='ar'?'الموظفون':'Employees'}</strong>
+        ${canManageFacilities()?`<button class="icon-btn" ${uiAction('showMapEmployeeModal',[point.code])} title="${lang==='ar'?'تعديل الموظفين':'Edit employees'}">${ic('edit',14)}</button>`:''}
+      </div>
       ${employees.length ? employees.map(e=>`<span>${ic('user',13)} ${esc(e.name)}${e.status?` <small>${esc(e.status)}</small>`:''}</span>`).join('') : `<em>${lang==='ar'?'لا يوجد موظف مسجل لهذا الكود':'No employee registered for this code'}</em>`}
     </div>
     <div class="mapModuleList">${moduleCards || `<div class="emptyMini">${lang==='ar'?'لا توجد بيانات تشغيلية لهذه النقطة':'No operational data for this point'}</div>`}</div>
@@ -2947,6 +2974,57 @@ function mapShowUnplacedCodes(){ mapState.onlyUnplaced=true; renderMapConsole();
 function mapZoomIn(){ mapState.zoom=Math.min(3, +(mapState.zoom+0.25).toFixed(2)); renderMapConsole(); }
 function mapZoomOut(){ mapState.zoom=Math.max(0.5, +(mapState.zoom-0.25).toFixed(2)); renderMapConsole(); }
 function mapZoomReset(){ mapState.zoom=1; renderMapConsole(); }
+
+function mapSelectedStatusPoint(code){
+  const normalized=normalizeMapCode(code||mapState.selectedPointCode);
+  return (mapState.statusPoints||[]).find(p=>normalizeMapCode(p.code)===normalized)
+    || (mapState.points||[]).find(p=>normalizeMapCode(p.code)===normalized);
+}
+function mapAssignableUsers(){
+  const active=(data.users||[]).filter(u=>u.active!==false);
+  const employees=active.filter(u=>u.role==='employee');
+  return employees.length ? employees : active.filter(u=>!['system_admin'].includes(u.role));
+}
+function showMapEmployeeModal(code){
+  if(!canManageFacilities()) return;
+  const point=mapSelectedStatusPoint(code);
+  if(!point) return toast(lang==='ar'?'اختر نقطة أولاً':'Select a point first','bad');
+  if(point.missingLocation) return toast(lang==='ar'?'اربط الكود بموقع أو مساحة قبل إضافة الموظفين':'Link this code to a location or space first','bad');
+  const assigned=new Set((point.employees||[]).map(e=>e.id));
+  const users=mapAssignableUsers();
+  const body=`<div class="mapEmployeeModal">
+    <div class="mapEmployeeModal-code">${esc(point.code)}</div>
+    <div class="mapEmployeeList">
+      ${users.map(user=>`<label class="mapEmployeeOption">
+        <input type="checkbox" value="${esc(user.id)}" ${assigned.has(user.id)?'checked':''}>
+        <span>${ic('user',14)}</span>
+        <b>${esc(user.name)}</b>
+        <small>${esc(user.employeeNo||user.username||user.role)}</small>
+      </label>`).join('') || `<div class="emptyMini">${lang==='ar'?'لا يوجد مستخدمون نشطون':'No active users'}</div>`}
+    </div>
+  </div>`;
+  const foot=`<button class="btn" ${uiAction('saveMapEmployees',[point.code])}>${ic('check',15)} ${tr('save')}</button>
+    <button class="btn secondary" ${uiAction('runUiFlow',['close-element','mapEmployeeModal'])}>${tr('cancel')}</button>`;
+  showModal('mapEmployeeModal', `${ic('users',16)} ${lang==='ar'?'تعديل موظفي الموقع':'Edit location employees'}`, body, foot, {narrow:true});
+}
+async function saveMapEmployees(code){
+  if(!canManageFacilities()) return;
+  const modal=document.getElementById('mapEmployeeModal');
+  const checkedInputs=modal ? [...modal.querySelectorAll('input[type="checkbox"]:checked')] : [];
+  const userIds=checkedInputs.map(input=>input.value);
+  try{
+    await api(`/maps/${encodeURIComponent(mapState.floor)}/assignments`,{
+      method:'PUT',
+      body:JSON.stringify({code,userIds})
+    });
+    modal?.remove();
+    toast(tr('saved'),'ok');
+    await mapRefreshData();
+    await load();
+  }catch(error){
+    toast(error.message||String(error),'bad');
+  }
+}
 
 function operationsWithinPeriod(items){
   const since=Date.now()-operationsDays*86400000;

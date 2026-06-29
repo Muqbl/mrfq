@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face{font-family:'IBMPlexArabic';src:url('current/assets/fonts/IBMPlexSansArabic-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
+@font-face{font-family:'IBMPlexArabic';src:url('current/assets/fonts/IBMPlexSansArabic-Medium.ttf') format('truetype');font-weight:500;font-display:swap}
+@font-face{font-family:'IBMPlexArabic';src:url('current/assets/fonts/IBMPlexSansArabic-SemiBold.ttf') format('truetype');font-weight:600;font-display:swap}
+@font-face{font-family:'IBMPlexArabic';src:url('current/assets/fonts/IBMPlexSansArabic-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
+*{box-sizing:border-box}
+html,body{margin:0}
+@keyframes ldPulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes ldFlow{from{stroke-dashoffset:18}to{stroke-dashoffset:0}}
+</style>
+</helmet>
+
+<div dir="rtl" style="font-family:'IBMPlexArabic',system-ui,sans-serif;background:#EDF2F0;min-height:100vh;padding:26px 20px;color:#123238">
+  <div style="max-width:1080px;margin:0 auto">
+
+    <!-- intro -->
+    <div style="text-align:center;margin-bottom:22px">
+      <div style="font-size:13px;font-weight:700;color:#00848D;background:#fff;display:inline-block;padding:6px 16px;border-radius:999px;border:1px solid #DDE9E5;margin-bottom:12px">موقع واحد · ثلاثة أقسام في آنٍ واحد</div>
+      <h1 style="margin:0;font-size:24px;font-weight:800">كيف يتعامل النظام مع <span style="font-family:ui-monospace,monospace;color:#00646B">MF-WS-03</span></h1>
+    </div>
+
+    <!-- the shared key band -->
+    <div style="background:#0E3338;border-radius:18px;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;color:#fff;margin-bottom:18px;flex-wrap:wrap;gap:14px">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div style="width:46px;height:46px;border-radius:13px;background:rgba(255,255,255,.12);display:grid;place-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#75CEC8" stroke-width="1.8"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+        <div>
+          <div style="font-size:18px;font-weight:800;font-family:ui-monospace,monospace">MF-WS-03</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.7)">محطة عمل · الطابق الميزان · الجناح الغربي</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:9px;background:rgba(117,206,200,.14);border:1px solid rgba(117,206,200,.3);padding:8px 14px;border-radius:11px">
+        <span style="font-size:11px;color:#9FD8D2;font-weight:600">المفتاح المشترك</span>
+        <span style="font-family:ui-monospace,monospace;font-size:13px;font-weight:700;color:#fff">locationId</span>
+      </div>
+    </div>
+
+    <!-- three module cards -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:8px">
+
+      <!-- cleaning -->
+      <div style="background:#fff;border:1px solid #E1E9E6;border-top:4px solid #00A488;border-radius:16px;overflow:hidden">
+        <div style="padding:15px 16px;border-bottom:1px solid #EFF4F2;display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:9px"><span style="width:34px;height:34px;border-radius:10px;background:rgba(0,164,136,.12);color:#00A488;display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21h18M5 21V7l7-4 7 4v14"/></svg></span><span style="font-size:14px;font-weight:800">النظافة</span></div>
+          <span style="font-family:ui-monospace,monospace;font-size:10px;color:#8A989C;background:#F1F7F5;padding:3px 7px;border-radius:6px">cleaning</span>
+        </div>
+        <div style="padding:15px 16px">
+          <div style="font-size:12px;color:#8A989C;margin-bottom:4px">الحالة الحالية</div>
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:14px"><span style="width:8px;height:8px;border-radius:50%;background:#00A488"></span><span style="font-size:14px;font-weight:700;color:#00A488">نظيف · ضمن الجدول</span></div>
+          <div style="font-size:12px;color:#6F787F;line-height:1.9">
+            <div style="display:flex;justify-content:space-between"><span>آخر تنظيف</span><span style="font-weight:700;color:#123238">قبل ١٨ دقيقة</span></div>
+            <div style="display:flex;justify-content:space-between"><span>العامل</span><span style="font-weight:700;color:#123238">سعيد القحطاني</span></div>
+            <div style="display:flex;justify-content:space-between"><span>التكرار</span><span style="font-weight:700;color:#123238">كل ساعتين</span></div>
+          </div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px dashed #E1E9E6;font-size:11px;color:#8A989C">المصدر: <span style="font-family:ui-monospace,monospace;color:#00646B">data.reports</span></div>
+        </div>
+      </div>
+
+      <!-- maintenance (ACTIVE) -->
+      <div style="background:#fff;border:1.5px solid #E69E33;border-top:4px solid #E69E33;border-radius:16px;overflow:hidden;box-shadow:0 8px 24px rgba(230,158,51,.14)">
+        <div style="padding:15px 16px;border-bottom:1px solid #FBF0DD;display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:9px"><span style="width:34px;height:34px;border-radius:10px;background:rgba(230,158,51,.14);color:#C2710C;display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.7 2.7-2-2 2.7-2.7z"/></svg></span><span style="font-size:14px;font-weight:800">الصيانة</span></div>
+          <span style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#fff;background:#E69E33;padding:3px 9px;border-radius:999px"><span style="width:6px;height:6px;border-radius:50%;background:#fff;animation:ldPulse 1.4s infinite"></span>بلاغ نشط</span>
+        </div>
+        <div style="padding:15px 16px">
+          <div style="font-size:12px;color:#8A989C;margin-bottom:4px">البلاغ المفتوح</div>
+          <div style="font-size:14px;font-weight:800;color:#123238;margin-bottom:3px">مقبس كهرباء لا يعمل</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px"><span style="font-size:11px;font-weight:700;color:#DE7559;background:#FBEAE4;padding:2px 8px;border-radius:6px">أولوية عالية</span><span style="font-family:ui-monospace,monospace;font-size:10px;color:#8A989C">#MT-2026-0412</span></div>
+          <div style="font-size:12px;color:#6F787F;line-height:1.9">
+            <div style="display:flex;justify-content:space-between"><span>الحالة</span><span style="font-weight:700;color:#C2710C">قيد التنفيذ</span></div>
+            <div style="display:flex;justify-content:space-between"><span>الفني</span><span style="font-weight:700;color:#123238">فهد الزهراني</span></div>
+            <div style="display:flex;justify-content:space-between"><span>SLA</span><span style="font-weight:700;color:#DE7559">متبقٍ ٤٢ د</span></div>
+          </div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px dashed #F0DFC2;font-size:11px;color:#8A989C">المصدر: <span style="font-family:ui-monospace,monospace;color:#00646B">data.tickets · module=maintenance</span></div>
+        </div>
+      </div>
+
+      <!-- hospitality (ACTIVE) -->
+      <div style="background:#fff;border:1.5px solid #3B9CC4;border-top:4px solid #3B9CC4;border-radius:16px;overflow:hidden;box-shadow:0 8px 24px rgba(59,156,196,.13)">
+        <div style="padding:15px 16px;border-bottom:1px solid #E4F0F5;display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:9px"><span style="width:34px;height:34px;border-radius:10px;background:rgba(59,156,196,.13);color:#2C7A9C;display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><path d="M6 1v3M10 1v3M14 1v3"/></svg></span><span style="font-size:14px;font-weight:800">الضيافة</span></div>
+          <span style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#fff;background:#3B9CC4;padding:3px 9px;border-radius:999px"><span style="width:6px;height:6px;border-radius:50%;background:#fff;animation:ldPulse 1.4s infinite"></span>طلب جديد</span>
+        </div>
+        <div style="padding:15px 16px">
+          <div style="font-size:12px;color:#8A989C;margin-bottom:4px">الطلب الحالي</div>
+          <div style="font-size:14px;font-weight:800;color:#123238;margin-bottom:3px">٢ قهوة عربية · ١ شاي أخضر</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px"><span style="font-size:11px;font-weight:700;color:#2C7A9C;background:#E4F0F5;padding:2px 8px;border-radius:6px">قيد التحضير</span><span style="font-family:ui-monospace,monospace;font-size:10px;color:#8A989C">#HS-2026-1187</span></div>
+          <div style="font-size:12px;color:#6F787F;line-height:1.9">
+            <div style="display:flex;justify-content:space-between"><span>الطالب</span><span style="font-weight:700;color:#123238">أحمد المالكي</span></div>
+            <div style="display:flex;justify-content:space-between"><span>المطبخ</span><span style="font-weight:700;color:#123238">مطبخ الميزان</span></div>
+            <div style="display:flex;justify-content:space-between"><span>SLA</span><span style="font-weight:700;color:#00A488">ضمن الوقت · ٧ د</span></div>
+          </div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px dashed #D9EAF1;font-size:11px;color:#8A989C">المصدر: <span style="font-family:ui-monospace,monospace;color:#00646B">data.hospitalityOrders</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- flow explanation -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px">
+      <div style="background:#fff;border:1px solid #E1E9E6;border-radius:16px;padding:18px 20px">
+        <div style="font-size:14px;font-weight:800;margin-bottom:14px;display:flex;align-items:center;gap:8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00848D" stroke-width="1.9"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>مسار بلاغ الصيانة</div>
+        <div style="display:flex;flex-direction:column;gap:0">
+          <div style="display:flex;gap:12px"><div style="display:flex;flex-direction:column;align-items:center"><span style="width:26px;height:26px;border-radius:50%;background:#E69E33;color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center">١</span><span style="width:2px;flex:1;background:#F0DFC2;margin:2px 0"></span></div><div style="padding-bottom:14px"><div style="font-size:13px;font-weight:700">مسح QR للموقع</div><div style="font-size:12px;color:#8A989C">يُلتقط <span style="font-family:ui-monospace,monospace">MF-WS-03</span> تلقائياً كـ locationId</div></div></div>
+          <div style="display:flex;gap:12px"><div style="display:flex;flex-direction:column;align-items:center"><span style="width:26px;height:26px;border-radius:50%;background:#E69E33;color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center">٢</span><span style="width:2px;flex:1;background:#F0DFC2;margin:2px 0"></span></div><div style="padding-bottom:14px"><div style="font-size:13px;font-weight:700">تصنيف البلاغ كصيانة</div><div style="font-size:12px;color:#8A989C">يُنشأ ticket بـ <span style="font-family:ui-monospace,monospace">module:'maintenance'</span></div></div></div>
+          <div style="display:flex;gap:12px"><div style="display:flex;flex-direction:column;align-items:center"><span style="width:26px;height:26px;border-radius:50%;background:#E69E33;color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center">٣</span><span style="width:2px;flex:1;background:#F0DFC2;margin:2px 0"></span></div><div style="padding-bottom:14px"><div style="font-size:13px;font-weight:700">إسناد لفني الصيانة</div><div style="font-size:12px;color:#8A989C">يذهب لقائمة <span style="font-family:ui-monospace,monospace">maintenance_worker</span> لا للنظافة</div></div></div>
+          <div style="display:flex;gap:12px"><div style="display:flex;flex-direction:column;align-items:center"><span style="width:26px;height:26px;border-radius:50%;background:#00A488;color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center">٤</span></div><div><div style="font-size:13px;font-weight:700">يلوّن نقطة الموقع على الخريطة</div><div style="font-size:12px;color:#8A989C">عبر <span style="font-family:ui-monospace,monospace">locationOperationalStatus()</span></div></div></div>
+        </div>
+      </div>
+
+      <div style="background:#fff;border:1px solid #E1E9E6;border-radius:16px;padding:18px 20px">
+        <div style="font-size:14px;font-weight:800;margin-bottom:14px;display:flex;align-items:center;gap:8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00848D" stroke-width="1.9"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>لماذا لا تتعارض الأقسام</div>
+        <p style="font-size:13px;color:#5A6B6E;line-height:1.85;margin:0 0 14px">الموقع لا «يملكه» قسم واحد. الأقسام الثلاثة تكتب سجلّات منفصلة تشترك في نفس <span style="font-family:ui-monospace,monospace;background:#F1F7F5;padding:1px 6px;border-radius:5px;color:#00646B">locationId</span>، فيتعايش بلاغ صيانة وطلب ضيافة وحالة نظافة في آنٍ واحد دون تضارب.</p>
+        <div style="background:#F8FAF9;border:1px solid #EFF4F2;border-radius:12px;padding:14px;font-family:ui-monospace,monospace;font-size:11.5px;line-height:1.85;color:#26474D;direction:ltr;text-align:left">
+          <div style="color:#8A989C">// نفس الموقع، ثلاثة مصادر</div>
+          <div><span style="color:#C2710C">tickets</span>.filter(t =&gt; t.locationId === <span style="color:#00848D">id</span></div>
+          <div style="padding-inline-start:14px">&amp;&amp; t.module === <span style="color:#3B9CC4">'maintenance'</span>)</div>
+          <div><span style="color:#3B9CC4">hospitalityOrders</span>.filter(o =&gt; o.locationId === <span style="color:#00848D">id</span>)</div>
+          <div><span style="color:#00A488">reports</span>.filter(r =&gt; r.locationId === <span style="color:#00848D">id</span>)</div>
+        </div>
+        <div style="margin-top:14px;display:flex;align-items:center;gap:8px;font-size:12px;color:#00848D;font-weight:600"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg>كل طبقة على الخريطة = ترشيح حسب <span style="font-family:ui-monospace,monospace">module</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1080,&quot;height&quot;:880}}"></script>
+</body>
+</html>

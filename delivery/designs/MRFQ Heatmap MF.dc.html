@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face{font-family:'IBMPlexArabic';src:url('current/assets/fonts/IBMPlexSansArabic-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
+@font-face{font-family:'IBMPlexArabic';src:url('current/assets/fonts/IBMPlexSansArabic-Medium.ttf') format('truetype');font-weight:500;font-display:swap}
+@font-face{font-family:'IBMPlexArabic';src:url('current/assets/fonts/IBMPlexSansArabic-SemiBold.ttf') format('truetype');font-weight:600;font-display:swap}
+@font-face{font-family:'IBMPlexArabic';src:url('current/assets/fonts/IBMPlexSansArabic-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
+*{box-sizing:border-box}
+html,body{margin:0}
+@keyframes hmPulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes hmDrawerIn{from{transform:translateX(-14px)}to{transform:translateX(0)}}
+</style>
+</helmet>
+
+<div dir="rtl" style="font-family:'IBMPlexArabic',system-ui,sans-serif;background:#F8FAF9;min-height:100vh;color:#123238">
+  <!-- top bar -->
+  <div style="height:62px;background:rgba(255,255,255,.92);border-bottom:1px solid #E1E9E6;display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:30">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#005257,#00848D);display:grid;place-items:center"><span style="color:#fff;font-weight:800;font-size:10px">MRFQ</span></div>
+      <div>
+        <div style="font-size:15px;font-weight:800;line-height:1.1">الخريطة الحرارية للمرفق</div>
+        <div style="font-size:11px;color:#8A989C">مركز عمليات النظافة · مبنى المقر الرئيسي</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#00A488"><span style="width:7px;height:7px;border-radius:50%;background:#00A488;animation:hmPulse 1.8s infinite"></span>تحديث مباشر</div>
+      <div style="width:34px;height:34px;border-radius:50%;background:#E3F0EE;display:grid;place-items:center;font-size:12px;font-weight:700;color:#005257">م.ح</div>
+    </div>
+  </div>
+
+  <div style="max-width:1340px;margin:0 auto;padding:20px 24px 40px">
+    <!-- floor tabs + metric controls -->
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px">
+      <div style="display:flex;gap:7px;background:#fff;border:1px solid #E1E9E6;padding:5px;border-radius:14px">
+        <span style="font-size:13px;font-weight:600;color:#8A989C;padding:7px 13px;border-radius:9px">الأرضي</span>
+        <span style="font-size:13px;font-weight:700;color:#fff;background:#00848D;padding:7px 14px;border-radius:9px">الميزان · MF</span>
+        <span style="font-size:13px;font-weight:600;color:#8A989C;padding:7px 13px;border-radius:9px">الأول</span>
+        <span style="font-size:13px;font-weight:600;color:#8A989C;padding:7px 13px;border-radius:9px">الثاني</span>
+        <span style="font-size:13px;font-weight:600;color:#C4CFCB;padding:7px 13px;border-radius:9px">…</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:#8A989C;font-weight:600">المقياس:</span>
+        <div style="display:flex;gap:6px;background:#fff;border:1px solid #E1E9E6;padding:5px;border-radius:13px">{{ metricTabs }}</div>
+      </div>
+    </div>
+
+    <!-- main grid -->
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start">
+      <!-- plan + overlay -->
+      <div style="background:#fff;border:1px solid #E1E9E6;border-radius:18px;padding:14px;box-shadow:0 1px 3px rgba(0,82,87,.05)">
+        <div style="position:relative;width:100%;border-radius:12px;overflow:hidden;background:#fff">
+          <img src="assets/MF_mezzanine.svg" alt="مخطط الطابق الميزان" style="width:100%;display:block"/>
+          {{ zoneLayer }}
+          {{ tooltip }}
+        </div>
+        <!-- legend -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding:0 6px;flex-wrap:wrap;gap:10px">
+          <div style="display:flex;align-items:center;gap:16px">{{ legend }}</div>
+          <div style="font-size:11px;color:#8A989C">آخر مزامنة: قبل دقيقتين · {{ zoneCountLabel }}</div>
+        </div>
+      </div>
+
+      <!-- side panel / drawer -->
+      <div style="position:sticky;top:82px">{{ drawer }}</div>
+    </div>
+
+    <!-- data contract note -->
+    <div style="margin-top:18px;background:#F1F7F5;border:1px solid #DDE9E5;border-radius:14px;padding:16px 18px;display:flex;gap:14px;align-items:flex-start">
+      <div style="width:34px;height:34px;border-radius:10px;background:#E3F0EE;color:#005257;display:grid;place-items:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4"/><circle cx="12" cy="12" r="3"/></svg></div>
+      <div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px">كيف تتصل الخريطة بالنظام</div>
+        <div style="font-size:12px;color:#5A6B6E;line-height:1.7">كل منطقة مربوطة بكود موقع من سجل المكاتب. تجلب الواجهة حالة كل كود من <span style="font-family:ui-monospace,monospace;background:#fff;padding:1px 6px;border-radius:5px;color:#00646B">GET /api/heatmap?floor=MF</span> ويُحدّث التلوين فورياً عبر SSE عند ورود تقرير نظافة أو بلاغ جديد.</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1340,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  state = { metric:'clean', selected:null, hover:null };
+
+  zones(){
+    return [
+      {id:'ws-west', name:'محطات العمل — الجناح الغربي', type:'محطات عمل', rect:{l:2,t:11,w:21,h:23},
+        codes:'MF-WS-01 → MF-WS-10', seats:10, occupied:7, cleaner:'سعيد القحطاني',
+        people:['طلال المطيري','غازي الشمري','مسفر الشمري','مشوح الشمري','خيري فراج','حسناء العتيبي','غادة الحديثى'],
+        clean:18, tickets:0, coverage:96 },
+      {id:'svc', name:'غرف خدمية ودرج', type:'خدمات', rect:{l:24.5,t:11.5,w:13,h:21.5},
+        codes:'MF-BR-01 · MF-BR-02 · MF-SR-01', seats:0, occupied:0, cleaner:'سعيد القحطاني',
+        people:[], clean:52, tickets:1, coverage:74 },
+      {id:'board', name:'قاعة المجلس الكبرى', type:'قاعة اجتماعات', rect:{l:57.5,t:11.5,w:21,h:22},
+        codes:'MF-MR (قاعة)', seats:14, occupied:0, cleaner:'نورة العتيبي',
+        people:[], clean:120, tickets:2, coverage:48 },
+      {id:'corner', name:'مكاتب الزاوية', type:'مكاتب إدارة', rect:{l:80,t:13,w:17.5,h:20},
+        codes:'MF-CM-01 · MF-GM-02', seats:2, occupied:2, cleaner:'نورة العتيبي',
+        people:['فهد الثنيان','الجنيدل'], clean:34, tickets:0, coverage:88 },
+      {id:'mgr', name:'مكاتب الإدارة', type:'مكاتب إدارة', rect:{l:8,t:39,w:17,h:13},
+        codes:'MF-M-01 → MF-M-04', seats:4, occupied:3, cleaner:'سعيد القحطاني',
+        people:['بندر فادن','سعيد الأسمري','خالد الحمادي'], clean:41, tickets:0, coverage:82 },
+      {id:'meeting', name:'قاعة اجتماعات MF-M/R-01', type:'قاعة اجتماعات', rect:{l:26.5,t:37,w:11.5,h:16},
+        codes:'MF-M/R-01', seats:10, occupied:0, cleaner:'سعيد القحطاني',
+        people:[], clean:67, tickets:0, coverage:71 },
+      {id:'ws-east', name:'محطات العمل — الجناح الشرقي', type:'محطات عمل', rect:{l:59,t:37,w:38.5,h:17},
+        codes:'MF-WS-11 → MF-WS-40', seats:30, occupied:9, cleaner:'نورة العتيبي',
+        people:['مزمل سليمان','عبدالعزيز المطيري','سعود عيسى','مصعب التميمي','فواز الشلوى','عبدالرحمن الرويق','خالد الحمادي','محمد السهلي'],
+        clean:95, tickets:3, coverage:55 },
+      {id:'hall', name:'البهو الإنشائي (مزدوج الارتفاع)', type:'غير مشمول بالتنظيف', rect:{l:2,t:57,w:95.5,h:38}, inactive:true,
+        codes:'—', seats:0, occupied:0, people:[], clean:0, tickets:0, coverage:0 }
+    ];
+  }
+
+  metricMeta(){
+    return {
+      clean:{label:'آخر تنظيف', unit:'د', get:z=>z.clean, fmt:v=>v+' د',
+        color:v=> v<30?'#00A488': v<90?'#E69E33':'#DE7559',
+        bands:[['أقل من ٣٠ د','#00A488'],['٣٠–٩٠ د','#E69E33'],['أكثر من ٩٠ د','#DE7559']]},
+      tickets:{label:'بلاغات مفتوحة', unit:'', get:z=>z.tickets, fmt:v=>String(v),
+        color:v=> v===0?'#00A488': v<=2?'#E69E33':'#DE7559',
+        bands:[['لا بلاغات','#00A488'],['١–٢','#E69E33'],['٣ فأكثر','#DE7559']]},
+      coverage:{label:'نسبة الإنجاز', unit:'%', get:z=>z.coverage, fmt:v=>v+'%',
+        color:v=> v>=85?'#00A488': v>=60?'#E69E33':'#DE7559',
+        bands:[['٨٥٪ فأكثر','#00A488'],['٦٠–٨٥٪','#E69E33'],['أقل من ٦٠٪','#DE7559']]}
+    };
+  }
+
+  ar(n){ return String(n).replace(/[0-9]/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]); }
+
+  hex2rgba(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
+
+  renderVals(){
+    const m = this.metricMeta()[this.state.metric];
+    const zones = this.zones();
+    const active = zones.filter(z=>!z.inactive);
+    const selZone = zones.find(z=>z.id===this.state.selected) || null;
+
+    // metric tabs
+    const tabKeys=[['clean','آخر تنظيف'],['tickets','بلاغات'],['coverage','الإنجاز']];
+    const metricTabs = tabKeys.map(([k,lbl])=>{
+      const on=this.state.metric===k;
+      return React.createElement('button',{key:k,
+        onClick:()=>this.setState({metric:k}),
+        style:{border:0,cursor:'pointer',fontFamily:'inherit',fontSize:'13px',fontWeight:on?700:600,
+          padding:'7px 14px',borderRadius:'9px',background:on?'#00848D':'transparent',color:on?'#fff':'#6F787F'}},lbl);
+    });
+
+    // zone overlay
+    const zoneEls = zones.map(z=>{
+      const col = z.inactive ? '#9AA8AB' : m.color(m.get(z));
+      const val = z.inactive ? '' : m.fmt(this.ar(m.get(z)));
+      const isSel = this.state.selected===z.id;
+      const base = {
+        position:'absolute', left:z.rect.l+'%', top:z.rect.t+'%', width:z.rect.w+'%', height:z.rect.h+'%',
+        borderRadius:'7px', cursor:z.inactive?'default':'pointer', transition:'all .15s',
+        display:'flex', alignItems:'center', justifyContent:'center', textAlign:'center',
+        boxSizing:'border-box', overflow:'hidden'
+      };
+      const style = z.inactive
+        ? {...base, background:'repeating-linear-gradient(45deg,rgba(150,168,171,.13),rgba(150,168,171,.13) 7px,rgba(150,168,171,.05) 7px,rgba(150,168,171,.05) 14px)', border:'1.5px dashed rgba(150,168,171,.55)'}
+        : {...base, background:this.hex2rgba(col,isSel?0.62:0.42), border:`2px solid ${col}`,
+            boxShadow:isSel?`0 0 0 3px ${this.hex2rgba(col,.25)}`:'none', zIndex:isSel?5:1};
+      const label = z.inactive
+        ? React.createElement('span',{style:{fontSize:'11px',fontWeight:700,color:'#7B8A8D'}}, z.name)
+        : React.createElement('span',{style:{fontSize:'11px',fontWeight:800,color:'#0E3338',background:'rgba(255,255,255,.82)',padding:'2px 7px',borderRadius:'999px',lineHeight:1.5,whiteSpace:'nowrap'}}, val);
+      return React.createElement('div',{key:z.id, style,
+        onMouseEnter:()=>!z.inactive&&this.setState({hover:z.id}),
+        onMouseLeave:()=>this.setState({hover:null}),
+        onClick:()=>!z.inactive&&this.setState({selected:z.id})}, label);
+    });
+    const zoneLayer = React.createElement('div',{style:{position:'absolute',inset:0,pointerEvents:'auto'}}, zoneEls);
+
+    // tooltip
+    const hz = zones.find(z=>z.id===this.state.hover);
+    let tooltip=null;
+    if(hz && !hz.inactive){
+      tooltip = React.createElement('div',{style:{position:'absolute',left:(hz.rect.l+hz.rect.w/2)+'%',top:hz.rect.t+'%',
+        transform:'translate(50%,-115%)',background:'#0E3338',color:'#fff',padding:'7px 11px',borderRadius:'10px',
+        fontSize:'11px',fontWeight:600,whiteSpace:'nowrap',pointerEvents:'none',zIndex:9,boxShadow:'0 8px 20px rgba(0,0,0,.22)'}},
+        React.createElement('div',{style:{fontWeight:800,marginBottom:'2px'}},hz.name),
+        React.createElement('div',{style:{color:'#9FD8D2'}}, m.label+': '+m.fmt(this.ar(m.get(hz))) ));
+    }
+
+    // legend
+    const legend = m.bands.map(([lbl,c],i)=>React.createElement('div',{key:i,style:{display:'flex',alignItems:'center',gap:'6px'}},
+      React.createElement('span',{style:{width:'13px',height:'13px',borderRadius:'4px',background:c}}),
+      React.createElement('span',{style:{fontSize:'11px',color:'#6F787F',fontWeight:600}},lbl)
+    ));
+
+    // drawer
+    let drawer;
+    if(selZone){
+      const col = m.color(m.get(selZone));
+      const stat=(label,value,c)=>React.createElement('div',{style:{flex:1,background:'#F8FAF9',border:'1px solid #EFF4F2',borderRadius:'12px',padding:'12px'}},
+        React.createElement('div',{style:{fontSize:'11px',color:'#8A989C',fontWeight:600,marginBottom:'6px'}},label),
+        React.createElement('div',{style:{fontSize:'20px',fontWeight:800,color:c||'#123238',lineHeight:1}},value));
+      const peopleEls = selZone.people.length
+        ? selZone.people.slice(0,6).map((p,i)=>React.createElement('div',{key:i,style:{display:'flex',alignItems:'center',gap:'9px',padding:'8px 0',borderBottom:i<Math.min(6,selZone.people.length)-1?'1px solid #EFF4F2':'0'}},
+            React.createElement('span',{style:{width:'30px',height:'30px',borderRadius:'50%',background:'#E3F0EE',color:'#005257',fontSize:'10px',fontWeight:700,display:'grid',placeItems:'center'}}, p.split(' ').slice(0,2).map(x=>x[0]).join('')),
+            React.createElement('span',{style:{fontSize:'13px',color:'#123238'}},p)))
+        : [React.createElement('div',{key:'e',style:{fontSize:'12px',color:'#8A989C',padding:'6px 0'}},'لا يوجد شاغلون مسجّلون')];
+
+      drawer = React.createElement('div',{key:selZone.id,style:{background:'#fff',border:'1px solid #E1E9E6',borderRadius:'18px',overflow:'hidden',boxShadow:'0 8px 24px rgba(0,82,87,.08)',animation:'hmDrawerIn .22s ease'}},
+        React.createElement('div',{style:{padding:'16px 18px',borderBottom:'1px solid #EFF4F2',display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'10px'}},
+          React.createElement('div',null,
+            React.createElement('div',{style:{fontSize:'15px',fontWeight:800,color:'#123238',marginBottom:'4px'}},selZone.name),
+            React.createElement('div',{style:{fontSize:'12px',color:'#8A989C',fontFamily:'ui-monospace,monospace'}},selZone.codes)),
+          React.createElement('button',{onClick:()=>this.setState({selected:null}),style:{width:'30px',height:'30px',borderRadius:'9px',border:0,background:'#F1F7F5',color:'#6F787F',cursor:'pointer',flexShrink:0,fontSize:'16px'}},'×')),
+        React.createElement('div',{style:{padding:'16px 18px'}},
+          React.createElement('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px'}},
+            React.createElement('span',{style:{fontSize:'12px',fontWeight:700,color:'#fff',background:col,padding:'4px 11px',borderRadius:'999px'}}, m.label+': '+m.fmt(this.ar(m.get(selZone)))),
+            React.createElement('span',{style:{fontSize:'12px',color:'#6F787F',background:'#F1F7F5',padding:'4px 11px',borderRadius:'999px',fontWeight:600}}, selZone.type)),
+          React.createElement('div',{style:{display:'flex',gap:'10px',marginBottom:'16px'}},
+            stat('آخر تنظيف', this.ar(selZone.clean)+' د', m.color(selZone.clean)),
+            stat('بلاغات', this.ar(selZone.tickets), selZone.tickets?'#DE7559':'#00A488'),
+            stat('الإنجاز', this.ar(selZone.coverage)+'%')),
+          React.createElement('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:'10px'}},
+            React.createElement('span',{style:{fontSize:'13px',fontWeight:700,color:'#123238'}},'الشاغلون · '+this.ar(selZone.occupied)+'/'+this.ar(selZone.seats)),
+            React.createElement('span',{style:{fontSize:'12px',color:'#00848D',fontWeight:600}},'عامل النظافة: '+(selZone.cleaner||'—'))),
+          React.createElement('div',{style:{marginBottom:'16px'}}, peopleEls),
+          React.createElement('div',{style:{display:'flex',gap:'9px'}},
+            React.createElement('button',{style:{flex:1,height:'44px',border:0,borderRadius:'12px',background:'#00848D',color:'#fff',fontFamily:'inherit',fontSize:'13px',fontWeight:700,cursor:'pointer'}},'إنشاء بلاغ'),
+            React.createElement('button',{style:{flex:1,height:'44px',borderRadius:'12px',background:'#fff',border:'1px solid #00848D',color:'#00848D',fontFamily:'inherit',fontSize:'13px',fontWeight:700,cursor:'pointer'}},'عرض السجل'))));
+    } else {
+      const lateCount = active.filter(z=>z.clean>=90).length;
+      const totalTickets = active.reduce((s,z)=>s+z.tickets,0);
+      const avgCov = Math.round(active.reduce((s,z)=>s+z.coverage,0)/active.length);
+      const sum=(label,val,c)=>React.createElement('div',{style:{background:'#F8FAF9',border:'1px solid #EFF4F2',borderRadius:'12px',padding:'13px'}},
+        React.createElement('div',{style:{fontSize:'11px',color:'#8A989C',fontWeight:600,marginBottom:'6px'}},label),
+        React.createElement('div',{style:{fontSize:'22px',fontWeight:800,color:c||'#123238',lineHeight:1}},val));
+      const rankList = [...active].sort((a,b)=>a.coverage-b.coverage).slice(0,4).map((z,i)=>
+        React.createElement('div',{key:z.id,onClick:()=>this.setState({selected:z.id}),style:{display:'flex',alignItems:'center',gap:'10px',padding:'9px 0',borderBottom:i<3?'1px solid #EFF4F2':'0',cursor:'pointer'}},
+          React.createElement('span',{style:{width:'9px',height:'9px',borderRadius:'3px',background:m.color(m.get(z)),flexShrink:0}}),
+          React.createElement('span',{style:{flex:1,fontSize:'13px',color:'#123238',fontWeight:600}},z.name),
+          React.createElement('span',{style:{fontSize:'12px',fontWeight:700,color:'#6F787F'}}, m.fmt(this.ar(m.get(z))))));
+      drawer = React.createElement('div',{style:{background:'#fff',border:'1px solid #E1E9E6',borderRadius:'18px',padding:'18px',boxShadow:'0 1px 3px rgba(0,82,87,.05)'}},
+        React.createElement('div',{style:{fontSize:'15px',fontWeight:800,marginBottom:'14px'}},'ملخص الطابق · MF'),
+        React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'18px'}},
+          sum('مناطق نشطة', this.ar(active.length)),
+          sum('متأخرة عن التنظيف', this.ar(lateCount), lateCount?'#DE7559':'#00A488'),
+          sum('بلاغات مفتوحة', this.ar(totalTickets), totalTickets?'#E69E33':'#00A488'),
+          sum('متوسط الإنجاز', this.ar(avgCov)+'%')),
+        React.createElement('div',{style:{fontSize:'13px',fontWeight:700,marginBottom:'4px'}},'الأكثر حاجة للمتابعة'),
+        React.createElement('div',null, rankList),
+        React.createElement('div',{style:{marginTop:'14px',fontSize:'11px',color:'#8A989C',lineHeight:1.6}},'انقر منطقة على المخطط لعرض تفاصيلها وإجراءاتها.'));
+    }
+
+    return {
+      metricTabs, zoneLayer, tooltip, legend, drawer,
+      zoneCountLabel: this.ar(active.length)+' منطقة نشطة',
+    };
+  }
+}
+</script>
+</body>
+</html>

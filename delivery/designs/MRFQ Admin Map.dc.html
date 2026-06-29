@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face{font-family:'IBMPlexArabic';src:url('current/assets/fonts/IBMPlexSansArabic-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
+@font-face{font-family:'IBMPlexArabic';src:url('current/assets/fonts/IBMPlexSansArabic-Medium.ttf') format('truetype');font-weight:500;font-display:swap}
+@font-face{font-family:'IBMPlexArabic';src:url('current/assets/fonts/IBMPlexSansArabic-SemiBold.ttf') format('truetype');font-weight:600;font-display:swap}
+@font-face{font-family:'IBMPlexArabic';src:url('current/assets/fonts/IBMPlexSansArabic-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+@keyframes amPulse{0%,100%{transform:scale(1);opacity:.55}70%{transform:scale(2.4);opacity:0}100%{opacity:0}}
+@keyframes amBlink{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes amIn{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
+.am-scroll::-webkit-scrollbar{width:7px}.am-scroll::-webkit-scrollbar-thumb{background:#CFDCD8;border-radius:8px}
+</style>
+</helmet>
+
+<div dir="rtl" style="font-family:'IBMPlexArabic',system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;background:#EDF2F0;color:#123238;overflow:hidden">
+  <!-- admin topbar -->
+  <div style="height:58px;flex-shrink:0;background:#0E3338;display:flex;align-items:center;justify-content:space-between;padding:0 20px;z-index:20">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#00848D,#00A488);display:grid;place-items:center"><span style="color:#fff;font-weight:800;font-size:9px">MRFQ</span></div>
+      <span style="font-size:15px;font-weight:800;color:#fff">الخرائط التفاعلية</span>
+      <span style="font-size:11px;color:#9FD8D2;background:rgba(117,206,200,.14);border:1px solid rgba(117,206,200,.25);padding:4px 11px;border-radius:999px;font-weight:700">مدير النظام · رؤية كاملة</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#75CEC8"><span style="width:7px;height:7px;border-radius:50%;background:#75CEC8;animation:amBlink 1.8s infinite"></span>مباشر</div>
+      <div style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.14);display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff">م.ح</div>
+    </div>
+  </div>
+
+  <!-- body -->
+  <div style="flex:1;display:flex;min-height:0">
+    <!-- left rail: layers + summary -->
+    <div class="am-scroll" style="width:268px;flex-shrink:0;background:#fff;border-inline-end:1px solid #E1E9E6;display:flex;flex-direction:column;overflow-y:auto">
+      <!-- floor -->
+      <div style="padding:16px 16px 12px;border-bottom:1px solid #EFF4F2">
+        <div style="font-size:11px;font-weight:700;color:#8A989C;margin-bottom:8px">الطابق</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;background:#F1F7F5;border:1px solid #DFEAE7;border-radius:11px;padding:10px 13px">
+          <span style="font-size:14px;font-weight:800;color:#005257">الميزان · MF</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00848D" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </div>
+      <!-- layers -->
+      <div style="padding:16px;border-bottom:1px solid #EFF4F2">
+        <div style="font-size:11px;font-weight:700;color:#8A989C;margin-bottom:12px">الطبقات — انقر للإظهار/الإخفاء</div>
+        <div style="display:flex;flex-direction:column;gap:8px">{{ layerToggles }}</div>
+      </div>
+      <!-- summary -->
+      <div style="padding:16px">
+        <div style="font-size:11px;font-weight:700;color:#8A989C;margin-bottom:12px">ملخص الطابق · كل الأقسام</div>
+        <div style="display:flex;flex-direction:column;gap:9px">{{ summaryRows }}</div>
+      </div>
+      <!-- needs attention -->
+      <div style="padding:0 16px 18px">
+        <div style="font-size:11px;font-weight:700;color:#8A989C;margin:4px 0 10px">يحتاج إجراء الآن</div>
+        <div style="display:flex;flex-direction:column;gap:8px">{{ alertRows }}</div>
+      </div>
+    </div>
+
+    <!-- map canvas -->
+    <div style="flex:1;position:relative;display:flex;align-items:center;justify-content:center;min-width:0;overflow:hidden">
+      <div style="position:absolute;top:14px;inset-inline-end:16px;z-index:8;background:rgba(255,255,255,.95);border:1px solid #E1E9E6;border-radius:12px;padding:11px 14px;display:flex;gap:16px;box-shadow:0 2px 8px rgba(0,0,0,.06)">{{ legend }}</div>
+      {{ mapLayer }}
+    </div>
+
+    <!-- right detail drawer -->
+    <div class="am-scroll" style="width:330px;flex-shrink:0;background:#fff;border-inline-start:1px solid #E1E9E6;overflow-y:auto">{{ drawer }}</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1320,&quot;height&quot;:820}}">
+class Component extends DCLogic {
+  state = {
+    layers:{cleaning:true,maintenance:true,hospitality:true,safety:true,cameras:true},
+    selected:'MF-WS-03'
+  };
+
+  LAYER_META(){
+    return {
+      cleaning:{name:'النظافة',color:'#00A488',icon:'M3 21h18M5 21V7l7-4 7 4v14'},
+      maintenance:{name:'الصيانة',color:'#E69E33',icon:'M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.7 2.7-2-2 2.7-2.7z'},
+      hospitality:{name:'الضيافة',color:'#3B9CC4',icon:'M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z'},
+      safety:{name:'السلامة (طفايات)',color:'#DE5959',icon:'M12 2s5 4 5 10a5 5 0 0 1-10 0c0-2 1-3 1-3'},
+      cameras:{name:'الكاميرات',color:'#7A5AF8',icon:'M23 7l-7 5 7 5V7zM14 5H3a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z'}
+    };
+  }
+
+  // points over MF plan: x,y in %, with per-module state
+  POINTS(){
+    return [
+      {code:'MF-WS-01',layer:'cleaning',x:6,y:15,st:'ok'},
+      {code:'MF-WS-02',layer:'cleaning',x:11,y:15,st:'ok'},
+      {code:'MF-WS-03',layer:'cleaning',x:16,y:16,st:'multi',
+        modules:{cleaning:{s:'ok',t:'نظيف · قبل ١٨ د'},maintenance:{s:'warn',t:'مقبس لا يعمل · قيد التنفيذ'},hospitality:{s:'info',t:'٢ قهوة · قيد التحضير'}},
+        name:'محطة عمل · الجناح الغربي',occupant:'أحمد المالكي'},
+      {code:'MF-WS-04',layer:'cleaning',x:8,y:24,st:'due'},
+      {code:'MF-WS-05',layer:'cleaning',x:14,y:25,st:'ok'},
+      {code:'MF-WS-08',layer:'cleaning',x:20,y:20,st:'ok'},
+      {code:'MF-M-01',layer:'maintenance',x:12,y:44,st:'warn',name:'مكتب إدارة',modules:{maintenance:{s:'warn',t:'تكييف — صيانة دورية'}}},
+      {code:'MF-MR-01',layer:'hospitality',x:31,y:44,st:'info',name:'قاعة اجتماعات',modules:{hospitality:{s:'info',t:'طلب ضيافة لاجتماع'}}},
+      {code:'MF-WS-22',layer:'cleaning',x:64,y:42,st:'ok'},
+      {code:'MF-WS-25',layer:'cleaning',x:72,y:42,st:'due'},
+      {code:'MF-WS-28',layer:'cleaning',x:80,y:42,st:'ok'},
+      {code:'MF-WS-31',layer:'cleaning',x:88,y:43,st:'ok'},
+      {code:'MF-WS-34',layer:'cleaning',x:68,y:50,st:'crit',name:'محطة عمل · الجناح الشرقي',modules:{cleaning:{s:'crit',t:'متأخر ٢ ساعة'},maintenance:{s:'warn',t:'كرسي مكسور'}}},
+      {code:'MF-WS-37',layer:'cleaning',x:80,y:50,st:'ok'},
+      {code:'MF-FS-01',layer:'safety',x:40,y:14,st:'ok',name:'طفاية حريق',modules:{safety:{s:'ok',t:'سارية · فُحصت ٠٤/٢٦'}}},
+      {code:'MF-FS-02',layer:'safety',x:52,y:50,st:'crit',name:'طفاية حريق',modules:{safety:{s:'crit',t:'انتهت الصلاحية — استبدال'}}},
+      {code:'MF-CAM-01',layer:'cameras',x:25,y:11,st:'ok',name:'كاميرا مراقبة',modules:{cameras:{s:'ok',t:'تعمل · بث مباشر'}}},
+      {code:'MF-CAM-02',layer:'cameras',x:75,y:36,st:'warn',name:'كاميرا مراقبة',modules:{cameras:{s:'warn',t:'انقطاع متقطع'}}},
+      {code:'MF-CAM-03',layer:'cameras',x:50,y:33,st:'ok',name:'كاميرا مراقبة',modules:{cameras:{s:'ok',t:'تعمل · بث مباشر'}}}
+    ];
+  }
+
+  ST_COLOR(s){ return {ok:'#00A488',due:'#E69E33',warn:'#E69E33',info:'#3B9CC4',crit:'#DE5959',multi:'#7A5AF8'}[s]||'#8A989C'; }
+  ar(n){ return String(n).replace(/[0-9]/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]); }
+
+  pointColor(p){
+    if(p.modules){
+      const states=Object.values(p.modules).map(m=>m.s);
+      if(states.includes('crit'))return '#DE5959';
+      if(states.includes('warn'))return '#E69E33';
+      if(states.includes('info'))return '#3B9CC4';
+    }
+    return this.ST_COLOR(p.st);
+  }
+
+  visiblePoints(){ return this.POINTS().filter(p=>this.state.layers[p.layer]); }
+
+  renderVals(){
+    const LM=this.LAYER_META();
+    const pts=this.POINTS();
+
+    // layer toggles
+    const layerToggles=Object.keys(LM).map(k=>{
+      const on=this.state.layers[k]; const m=LM[k];
+      const count=pts.filter(p=>p.layer===k).length;
+      return React.createElement('div',{key:k,onClick:()=>this.setState(s=>({layers:{...s.layers,[k]:!s.layers[k]}})),
+        style:{display:'flex',alignItems:'center',gap:'10px',padding:'9px 11px',borderRadius:'11px',cursor:'pointer',
+          border:`1px solid ${on?m.color+'55':'#EFF1F0'}`,background:on?m.color+'0F':'#fff',transition:'all .15s'}},
+        React.createElement('span',{style:{width:'30px',height:'30px',borderRadius:'9px',background:on?m.color:'#F1F2F2',display:'grid',placeItems:'center',flexShrink:0}},
+          React.createElement('svg',{width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:on?'#fff':'#A8B4B1',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round'},React.createElement('path',{d:m.icon}))),
+        React.createElement('span',{style:{flex:1,fontSize:'13px',fontWeight:700,color:on?'#123238':'#9AA8AB'}},m.name),
+        React.createElement('span',{style:{fontSize:'11px',fontWeight:700,color:on?m.color:'#C0CBC8',background:on?m.color+'18':'#F4F6F5',padding:'2px 8px',borderRadius:'999px'}},this.ar(count)),
+        React.createElement('span',{style:{width:'34px',height:'20px',borderRadius:'999px',background:on?m.color:'#DDE2E0',position:'relative',flexShrink:0,transition:'background .15s'}},
+          React.createElement('span',{style:{position:'absolute',top:'2px',insetInlineStart:on?'2px':'16px',width:'16px',height:'16px',borderRadius:'50%',background:'#fff',transition:'inset-inline-start .15s'}})));
+    });
+
+    // summary across modules
+    const sumData=[
+      {layer:'cleaning',label:'مواقع نظافة متأخرة',val:pts.filter(p=>p.layer==='cleaning'&&(p.st==='due'||p.st==='crit'||(p.modules&&p.modules.cleaning&&['due','crit'].includes(p.modules.cleaning.s)))).length},
+      {layer:'maintenance',label:'بلاغات صيانة مفتوحة',val:pts.filter(p=>p.modules&&p.modules.maintenance).length},
+      {layer:'hospitality',label:'طلبات ضيافة جارية',val:pts.filter(p=>p.modules&&p.modules.hospitality).length},
+      {layer:'safety',label:'طفايات تحتاج إجراء',val:pts.filter(p=>p.layer==='safety'&&p.st==='crit').length},
+      {layer:'cameras',label:'كاميرات بها خلل',val:pts.filter(p=>p.layer==='cameras'&&p.st==='warn').length}
+    ];
+    const summaryRows=sumData.map(d=>{
+      const m=LM[d.layer];
+      return React.createElement('div',{key:d.layer,style:{display:'flex',alignItems:'center',gap:'10px'}},
+        React.createElement('span',{style:{width:'10px',height:'10px',borderRadius:'3px',background:m.color,flexShrink:0}}),
+        React.createElement('span',{style:{flex:1,fontSize:'12.5px',color:'#5A6B6E'}},d.label),
+        React.createElement('span',{style:{fontSize:'15px',fontWeight:800,color:d.val>0?m.color:'#9AA8AB'}},this.ar(d.val)));
+    });
+
+    // alerts
+    const alerts=[
+      {c:'#DE5959',code:'MF-FS-02',t:'طفاية منتهية الصلاحية',layer:'safety'},
+      {c:'#DE5959',code:'MF-WS-34',t:'نظافة متأخرة ٢ ساعة',layer:'cleaning'},
+      {c:'#E69E33',code:'MF-WS-03',t:'صيانة — مقبس لا يعمل',layer:'maintenance'},
+      {c:'#E69E33',code:'MF-CAM-02',t:'كاميرا — انقطاع متقطع',layer:'cameras'}
+    ];
+    const alertRows=alerts.map((a,i)=>React.createElement('div',{key:i,onClick:()=>this.setState({selected:a.code}),
+      style:{display:'flex',alignItems:'center',gap:'10px',padding:'10px 11px',borderRadius:'11px',cursor:'pointer',
+        background:this.state.selected===a.code?a.c+'12':'#F8FAF9',border:`1px solid ${this.state.selected===a.code?a.c+'44':'#EFF1F0'}`}},
+      React.createElement('span',{style:{width:'8px',height:'8px',borderRadius:'50%',background:a.c,flexShrink:0,animation:'amBlink 1.6s infinite'}}),
+      React.createElement('div',{style:{flex:1,minWidth:0}},
+        React.createElement('div',{style:{fontSize:'12.5px',fontWeight:700,color:'#123238'}},a.t),
+        React.createElement('div',{style:{fontSize:'11px',color:'#8A989C',fontFamily:'ui-monospace,monospace'}},a.code))));
+
+    // legend
+    const legend=[['#00A488','سليم'],['#3B9CC4','نشط'],['#E69E33','يحتاج متابعة'],['#DE5959','حرج'],['#7A5AF8','متعدد الأقسام']].map(([c,l],i)=>
+      React.createElement('div',{key:i,style:{display:'flex',alignItems:'center',gap:'6px'}},
+        React.createElement('span',{style:{width:'11px',height:'11px',borderRadius:'50%',background:c}}),
+        React.createElement('span',{style:{fontSize:'11px',color:'#5A6B6E',fontWeight:600}},l)));
+
+    // map pins
+    const pins=this.visiblePoints().map(p=>{
+      const col=this.pointColor(p); const sel=this.state.selected===p.code;
+      const isMulti=p.modules&&Object.keys(p.modules).length>1;
+      const urgent=['crit','warn'].includes(p.st)||(p.modules&&Object.values(p.modules).some(m=>m.s==='crit'));
+      return React.createElement('div',{key:p.code,onClick:(e)=>{e.stopPropagation();this.setState({selected:p.code});},
+        style:{position:'absolute',left:p.x+'%',top:p.y+'%',transform:'translate(-50%,-50%)',cursor:'pointer',zIndex:sel?9:(urgent?6:4)}},
+        urgent?React.createElement('span',{style:{position:'absolute',inset:'-3px',borderRadius:'50%',background:col,animation:'amPulse 1.8s infinite'}}):null,
+        React.createElement('span',{style:{position:'relative',display:'block',width:sel?'18px':'13px',height:sel?'18px':'13px',borderRadius:'50%',
+          background:col,border:'2.5px solid #fff',boxShadow:sel?`0 0 0 3px ${col}66`:'0 1px 4px rgba(0,0,0,.4)'}},
+          isMulti?React.createElement('span',{style:{position:'absolute',top:'-4px',right:'-4px',width:'8px',height:'8px',borderRadius:'50%',background:'#fff',border:`2px solid ${col}`}}):null),
+        sel?React.createElement('span',{style:{position:'absolute',top:'-24px',left:'50%',transform:'translateX(-50%)',background:'#0E3338',color:'#fff',fontSize:'10px',fontWeight:700,padding:'2px 7px',borderRadius:'6px',whiteSpace:'nowrap',fontFamily:'ui-monospace,monospace'}},p.code):null);
+    });
+
+    const mapLayer=React.createElement('div',{onClick:()=>this.setState({selected:null}),
+      style:{width:'min(94%, calc((100vh - 130px) * 1.414))',position:'relative'}},
+      React.createElement('div',{style:{position:'relative',width:'100%',aspectRatio:'1191/842',background:'#fff',borderRadius:'8px',boxShadow:'0 6px 26px rgba(0,0,0,.14)',overflow:'hidden'}},
+        React.createElement('img',{src:'assets/floors/02_MF.svg',draggable:false,style:{width:'100%',height:'100%',display:'block',pointerEvents:'none'}}),
+        ...pins));
+
+    // drawer
+    const sel=pts.find(p=>p.code===this.state.selected);
+    let drawer;
+    if(sel){
+      const modules=sel.modules||{[sel.layer]:{s:sel.st,t:({ok:'سليم',due:'يحتاج تنظيف',crit:'حرج',warn:'يحتاج متابعة',info:'نشط'}[sel.st]||'')}};
+      const modCards=Object.keys(modules).map(k=>{
+        const m=LM[k]; const md=modules[k]; const c=this.ST_COLOR(md.s);
+        return React.createElement('div',{key:k,style:{border:`1px solid ${m.color}33`,borderInlineStart:`3px solid ${m.color}`,borderRadius:'12px',padding:'12px 14px',background:m.color+'08'}},
+          React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'6px'}},
+            React.createElement('span',{style:{display:'flex',alignItems:'center',gap:'7px',fontSize:'13px',fontWeight:800,color:'#123238'}},
+              React.createElement('svg',{width:15,height:15,viewBox:'0 0 24 24',fill:'none',stroke:m.color,strokeWidth:1.9,strokeLinecap:'round',strokeLinejoin:'round'},React.createElement('path',{d:m.icon})),m.name),
+            React.createElement('span',{style:{width:'9px',height:'9px',borderRadius:'50%',background:c}})),
+          React.createElement('div',{style:{fontSize:'12.5px',color:'#5A6B6E',lineHeight:1.6}},md.t));
+      });
+      drawer=React.createElement('div',{key:sel.code,style:{padding:'18px',animation:'amIn .22s ease'}},
+        React.createElement('div',{style:{fontFamily:'ui-monospace,monospace',fontSize:'17px',fontWeight:800,color:'#0E3338'}},sel.code),
+        React.createElement('div',{style:{fontSize:'12.5px',color:'#8A989C',marginBottom:'4px'}},sel.name||'محطة عمل · الطابق الميزان'),
+        sel.occupant?React.createElement('div',{style:{display:'inline-flex',alignItems:'center',gap:'6px',fontSize:'12px',color:'#00646B',background:'#E3F0EE',padding:'4px 10px',borderRadius:'999px',marginBottom:'16px'}},
+          React.createElement('svg',{width:13,height:13,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.9},React.createElement('path',{d:'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'}),React.createElement('circle',{cx:12,cy:7,r:4})),sel.occupant):React.createElement('div',{style:{height:'8px'}}),
+        React.createElement('div',{style:{fontSize:'11px',fontWeight:700,color:'#8A989C',margin:'8px 0 10px'}},'الأقسام النشطة على هذا الموقع · '+this.ar(Object.keys(modules).length)),
+        React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:'10px',marginBottom:'18px'}},modCards),
+        React.createElement('div',{style:{display:'flex',gap:'9px'}},
+          React.createElement('button',{style:{flex:1,height:'42px',border:0,borderRadius:'11px',background:'#00848D',color:'#fff',fontFamily:'inherit',fontSize:'13px',fontWeight:700,cursor:'pointer'}},'فتح الموقع'),
+          React.createElement('button',{style:{flex:1,height:'42px',borderRadius:'11px',background:'#fff',border:'1px solid #00848D',color:'#00848D',fontFamily:'inherit',fontSize:'13px',fontWeight:700,cursor:'pointer'}},'السجل الكامل')));
+    } else {
+      drawer=React.createElement('div',{style:{padding:'40px 24px',textAlign:'center',color:'#9AA8AB'}},
+        React.createElement('div',{style:{width:'54px',height:'54px',borderRadius:'15px',background:'#F1F7F5',display:'grid',placeItems:'center',margin:'0 auto 14px'}},
+          React.createElement('svg',{width:26,height:26,viewBox:'0 0 24 24',fill:'none',stroke:'#00848D',strokeWidth:1.7},React.createElement('path',{d:'M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z'}),React.createElement('circle',{cx:12,cy:10,r:3}))),
+        React.createElement('div',{style:{fontSize:'14px',fontWeight:700,color:'#5A6B6E',marginBottom:'6px'}},'انقر أي نقطة على المخطط'),
+        React.createElement('div',{style:{fontSize:'12.5px',lineHeight:1.7}},'لعرض كل أقسامها (نظافة · صيانة · ضيافة · سلامة · كاميرات) في مكان واحد.'));
+    }
+
+    return { layerToggles, summaryRows, alertRows, legend, mapLayer, drawer };
+  }
+}
+</script>
+</body>
+</html>

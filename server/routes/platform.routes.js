@@ -20,6 +20,8 @@ async function handlePlatformRoutes({ req, res, url, me, db, send, bodyJSON }) {
   if ((path === '/api/facilities' ||
        path === '/api/facilities/heatmap' ||
        path === '/api/maps/floors' ||
+       /^\/api\/maps\/[^/]+\/audit$/.test(path) ||
+       /^\/api\/maps\/[^/]+\/assignments$/.test(path) ||
        /^\/api\/maps\/[^/]+\/(points|status)$/.test(path) ||
        /^\/api\/facilities\/[^/]+\/buildings$/.test(path) ||
        /^\/api\/buildings\/[^/]+\/floors$/.test(path) ||
@@ -32,7 +34,19 @@ async function handlePlatformRoutes({ req, res, url, me, db, send, bodyJSON }) {
   if (req.method === 'GET' && path === '/api/maps/floors') {
     return send(res, 200, { floors: maps.floorRows(db) }), true;
   }
-  let mapMatch = path.match(/^\/api\/maps\/([^/]+)\/points$/);
+  let mapMatch = path.match(/^\/api\/maps\/([^/]+)\/audit$/);
+  if (req.method === 'GET' && mapMatch) {
+    return send(res, 200, maps.auditRows(db, clean(mapMatch[1], 10))), true;
+  }
+  mapMatch = path.match(/^\/api\/maps\/([^/]+)\/assignments$/);
+  if (req.method === 'PUT' && mapMatch) {
+    if (!permissions.canManageFacilities(me.role)) return send(res, 403, { error: 'FORBIDDEN' }), true;
+    const body = await bodyJSON(req);
+    const result = maps.assignEmployees(db, clean(body.code, 80), body.userIds);
+    if (result.error) return send(res, 404, { error: result.error }), true;
+    return send(res, 200, result), true;
+  }
+  mapMatch = path.match(/^\/api\/maps\/([^/]+)\/points$/);
   if (req.method === 'GET' && mapMatch) {
     return send(res, 200, { points: maps.pointRows(db, clean(mapMatch[1], 10)) }), true;
   }

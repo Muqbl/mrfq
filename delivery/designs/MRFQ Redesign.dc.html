@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<style>
+@font-face{font-family:'IBMPlexArabic';src:url('current/assets/fonts/IBMPlexSansArabic-Light.ttf') format('truetype');font-weight:300;font-display:swap}
+@font-face{font-family:'IBMPlexArabic';src:url('current/assets/fonts/IBMPlexSansArabic-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
+@font-face{font-family:'IBMPlexArabic';src:url('current/assets/fonts/IBMPlexSansArabic-Medium.ttf') format('truetype');font-weight:500;font-display:swap}
+@font-face{font-family:'IBMPlexArabic';src:url('current/assets/fonts/IBMPlexSansArabic-SemiBold.ttf') format('truetype');font-weight:600;font-display:swap}
+@font-face{font-family:'IBMPlexArabic';src:url('current/assets/fonts/IBMPlexSansArabic-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
+*{box-sizing:border-box}
+.cv-frame{font-family:'IBMPlexArabic',system-ui,sans-serif}
+</style>
+</helmet>
+
+<div dir="rtl" style="font-family:'IBMPlexArabic',system-ui,sans-serif">
+
+<!-- ░░░░░░░░ FRAME 1 — LOGIN (DESKTOP) ░░░░░░░░ -->
+<div style="position:absolute;left:0px;top:0px;width:1040px">
+  <div data-drags-parent="1" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;cursor:grab">
+    <span style="font-size:13px;font-weight:700;color:#005257;background:#E3F0EE;padding:5px 12px;border-radius:999px;font-family:'IBMPlexArabic',sans-serif">٠١ — تسجيل الدخول · سطح المكتب</span>
+    <span style="font-size:12px;color:#8A989C">هرمية أوضح · حقول أكبر · تذكّرني</span>
+  </div>
+  <div class="cv-frame" style="background:#fff;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden">
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 420px;min-height:600px">
+      <!-- form panel (right in RTL = first col) -->
+      <div style="padding:54px 52px;display:flex;flex-direction:column;justify-content:center;position:relative">
+        <button style="position:absolute;top:24px;inset-inline-end:24px;width:42px;height:42px;border:1px solid #E1E9E6;background:#fff;border-radius:12px;display:grid;place-items:center;color:#26474D;cursor:pointer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>
+        </button>
+        <div style="width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#005257,#00848D);display:grid;place-items:center;margin-bottom:22px;box-shadow:0 8px 22px rgba(0,132,141,.28)">
+          <span style="color:#fff;font-weight:800;font-size:13px;letter-spacing:.5px">MRFQ</span>
+        </div>
+        <h1 style="margin:0 0 6px;font-size:30px;font-weight:800;color:#123238;letter-spacing:-.5px">أهلاً بعودتك</h1>
+        <p style="margin:0 0 30px;font-size:15px;color:#6F787F;line-height:1.6">سجّل دخولك للوصول إلى مركز عمليات المرافق.</p>
+
+        <label style="font-size:12px;font-weight:700;color:#6F787F;margin-bottom:7px;display:block">اسم المستخدم</label>
+        <div style="position:relative;margin-bottom:18px">
+          <span style="position:absolute;top:50%;inset-inline-start:15px;transform:translateY(-50%);color:#8A989C;display:flex"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+          <input value="m.alharbi" style="width:100%;height:52px;border:1.5px solid #E1E9E6;border-radius:13px;padding:0 16px 0 48px;font-size:15px;color:#123238;font-family:inherit;background:#fff;outline:none"/>
+        </div>
+
+        <label style="font-size:12px;font-weight:700;color:#6F787F;margin-bottom:7px;display:block">كلمة المرور</label>
+        <div style="position:relative;margin-bottom:18px">
+          <span style="position:absolute;top:50%;inset-inline-start:15px;transform:translateY(-50%);color:#8A989C;display:flex"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+          <input type="password" value="123456789" style="width:100%;height:52px;border:1.5px solid #00848D;border-radius:13px;padding:0 16px 0 48px;font-size:15px;color:#123238;font-family:inherit;background:#fff;outline:none;box-shadow:0 0 0 4px rgba(0,132,141,.10)"/>
+          <span style="position:absolute;top:50%;inset-inline-end:15px;transform:translateY(-50%);color:#8A989C;display:flex;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></span>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+          <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:14px;color:#26474D">
+            <span style="width:20px;height:20px;border-radius:6px;background:#00848D;display:grid;place-items:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            تذكّرني على هذا الجهاز
+          </label>
+          <a style="font-size:14px;color:#00848D;font-weight:600;text-decoration:none;cursor:pointer">نسيت كلمة المرور؟</a>
+        </div>
+
+        <button style="width:100%;height:54px;border:0;border-radius:15px;background:#00848D;color:#fff;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 8px 22px rgba(0,132,141,.22)">
+            تسجيل الدخول
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <p style="margin:22px 0 0;font-size:12px;color:#8A989C;text-align:center;line-height:1.6">الدخول متاح فقط للمستخدمين المصرّح لهم داخل المنصة.</p>
+      </div>
+
+      <!-- hero panel (left in RTL = last col) -->
+      <div style="position:relative;overflow:hidden;color:#fff;padding:56px 46px;display:flex;flex-direction:column;justify-content:center;background:linear-gradient(160deg,#003F45 0%,#00646B 52%,#008C84 100%)">
+        <div style="position:absolute;right:-140px;bottom:-180px;width:420px;height:420px;border-radius:50%;background:rgba(255,255,255,.06)"></div>
+        <div style="position:absolute;left:-90px;top:-90px;width:240px;height:240px;border-radius:50%;background:rgba(117,206,200,.10)"></div>
+        <div style="position:relative">
+          <h2 style="margin:0 0 16px;font-size:34px;font-weight:800;line-height:1.25;letter-spacing:-.5px">مِرفق</h2>
+          <p style="margin:0 0 36px;font-size:16px;line-height:1.8;color:rgba(255,255,255,.84);max-width:300px">منصّة متكاملة لإدارة المرافق والخدمات التشغيلية.</p>
+          <div style="display:flex;flex-direction:column;gap:22px">
+            <div style="display:flex;align-items:center;gap:15px;font-size:15px;color:rgba(255,255,255,.92)"><span style="width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.12);display:grid;place-items:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 10h.01M15 10h.01"/></svg></span>إدارة متكاملة للنظافة والصيانة والضيافة</div>
+            <div style="display:flex;align-items:center;gap:15px;font-size:15px;color:rgba(255,255,255,.92)"><span style="width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.12);display:grid;place-items:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><path d="M3 3v18h18M7 14l4-4 3 3 5-7"/></svg></span>متابعة الأعمال والتقارير لحظياً</div>
+            <div style="display:flex;align-items:center;gap:15px;font-size:15px;color:rgba(255,255,255,.92)"><span style="width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.12);display:grid;place-items:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>أمان عالٍ وحماية للبيانات</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ░░░░░░░░ FRAME 2 — MANAGER DASHBOARD (DESKTOP) ░░░░░░░░ -->
+<div dir="rtl" style="position:absolute;left:1140px;top:0px;width:1240px;font-family:'IBMPlexArabic',system-ui,sans-serif">
+  <div data-drags-parent="1" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;cursor:grab">
+    <span style="font-size:13px;font-weight:700;color:#005257;background:#E3F0EE;padding:5px 12px;border-radius:999px">٠٢ — لوحة المدير · سطح المكتب</span>
+    <span style="font-size:12px;color:#8A989C">تركيز على ما يحتاج متابعة · رسوم أهدأ · بيانات أقل ضجيجاً</span>
+  </div>
+  <div style="background:#F8FAF9;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden;display:flex;flex-direction:column;min-height:860px">
+    <div style="height:64px;background:rgba(255,255,255,.92);border-bottom:1px solid #E1E9E6;display:flex;align-items:center;justify-content:space-between;padding:0 22px;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:11px">
+        <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#005257,#00848D);display:grid;place-items:center"><span style="color:#fff;font-weight:800;font-size:10px">MRFQ</span></div>
+        <span style="font-size:15px;font-weight:800;color:#123238">مِرفق</span>
+        <span style="font-size:12px;color:#8A989C;background:#F1F7F5;padding:4px 10px;border-radius:8px;margin-inline-start:6px">النظافة</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;color:#26474D">
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#00A488"><span style="width:7px;height:7px;border-radius:50%;background:#00A488"></span>متزامن</div>
+        <span style="position:relative;display:flex"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg><span style="position:absolute;top:-1px;inset-inline-end:-1px;width:8px;height:8px;border-radius:50%;background:#DE7559;border:2px solid #fff"></span></span>
+        <div style="width:34px;height:34px;border-radius:50%;background:#E3F0EE;display:grid;place-items:center;font-size:13px;font-weight:700;color:#005257">م.ح</div>
+      </div>
+    </div>
+    <div style="display:flex;flex:1;min-height:0">
+      <aside style="width:236px;background:#fff;border-inline-end:1px solid #E1E9E6;padding:18px 12px;flex-shrink:0">
+        <div style="font-size:11px;font-weight:700;color:#8A989C;padding:0 10px;margin-bottom:8px;letter-spacing:.3px">العمليات</div>
+        <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:18px">
+          <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;background:#00848D;color:#fff;font-size:14px;font-weight:700"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>الرئيسية</div>
+          <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#26474D;font-size:14px;font-weight:600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg><span style="flex:1">التقارير</span><span style="background:#FCEFE0;color:#E69E33;font-size:11px;font-weight:700;width:22px;height:22px;border-radius:50%;display:grid;place-items:center">٥</span></div>
+          <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#26474D;font-size:14px;font-weight:600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span style="flex:1">البلاغات</span><span style="background:#FBEAE4;color:#DE7559;font-size:11px;font-weight:700;width:22px;height:22px;border-radius:50%;display:grid;place-items:center">٣</span></div>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:#8A989C;padding:0 10px;margin-bottom:8px;letter-spacing:.3px">الإدارة</div>
+        <div style="display:flex;flex-direction:column;gap:3px">
+          <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#26474D;font-size:14px;font-weight:600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>المواقع</div>
+          <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#26474D;font-size:14px;font-weight:600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>فريق النظافة</div>
+          <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#26474D;font-size:14px;font-weight:600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18M18 17V9M13 17V5M8 17v-3"/></svg>الأداء</div>
+        </div>
+      </aside>
+      <main style="flex:1;padding:26px 28px;min-width:0;overflow:hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#003F45,#00848D);border-radius:20px;padding:26px 30px;color:#fff;margin-bottom:22px">
+          <div>
+            <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,.72);margin-bottom:7px">مدير النظافة · مركز العمليات</div>
+            <div style="font-size:26px;font-weight:800;margin-bottom:6px">صباح الخير، محمد</div>
+            <div style="font-size:14px;color:rgba(255,255,255,.82)"><b style="color:#fff">٨ عناصر</b> تحتاج متابعة اليوم · ٨٤٪ تغطية</div>
+          </div>
+          <div style="display:flex;gap:26px;text-align:center">
+            <div><div style="font-size:30px;font-weight:800;line-height:1">٤٢</div><div style="font-size:12px;color:rgba(255,255,255,.72);margin-top:4px">موقع</div></div>
+            <div style="width:1px;background:rgba(255,255,255,.18)"></div>
+            <div><div style="font-size:30px;font-weight:800;line-height:1;color:#FFD9A0">٨</div><div style="font-size:12px;color:rgba(255,255,255,.72);margin-top:4px">تحتاج متابعة</div></div>
+            <div style="width:1px;background:rgba(255,255,255,.18)"></div>
+            <div><div style="font-size:30px;font-weight:800;line-height:1">٨٨٪</div><div style="font-size:12px;color:rgba(255,255,255,.72);margin-top:4px">جودة</div></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px">
+          <div style="background:#fff;border:1px solid #E1E9E6;border-radius:16px;padding:18px;display:flex;justify-content:space-between;align-items:flex-start;box-shadow:0 1px 2px rgba(0,82,87,.04)"><div><div style="font-size:12px;color:#6F787F;font-weight:600;margin-bottom:8px">تقارير اليوم</div><div style="font-size:28px;font-weight:800;color:#123238;line-height:1">٣١</div></div><div style="width:40px;height:40px;border-radius:11px;background:rgba(0,132,141,.10);color:#00848D;display:grid;place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div></div>
+          <div style="background:#fff;border:1px solid #E1E9E6;border-radius:16px;padding:18px;display:flex;justify-content:space-between;align-items:flex-start;box-shadow:0 1px 2px rgba(0,82,87,.04)"><div><div style="font-size:12px;color:#6F787F;font-weight:600;margin-bottom:8px">التغطية</div><div style="font-size:28px;font-weight:800;color:#123238;line-height:1">٨٤٪</div></div><div style="width:40px;height:40px;border-radius:11px;background:rgba(0,164,136,.10);color:#00A488;display:grid;place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div></div>
+          <div style="background:#fff;border:1px solid #E1E9E6;border-radius:16px;padding:18px;display:flex;justify-content:space-between;align-items:flex-start;box-shadow:0 1px 2px rgba(0,82,87,.04)"><div><div style="font-size:12px;color:#6F787F;font-weight:600;margin-bottom:8px">بانتظار الاعتماد</div><div style="font-size:28px;font-weight:800;color:#E69E33;line-height:1">٥</div></div><div style="width:40px;height:40px;border-radius:11px;background:rgba(230,158,51,.12);color:#E69E33;display:grid;place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div></div>
+          <div style="background:#fff;border:1px solid #E1E9E6;border-radius:16px;padding:18px;display:flex;justify-content:space-between;align-items:flex-start;box-shadow:0 1px 2px rgba(0,82,87,.04)"><div><div style="font-size:12px;color:#6F787F;font-weight:600;margin-bottom:8px">بلاغات مفتوحة</div><div style="font-size:28px;font-weight:800;color:#DE7559;line-height:1">٣</div></div><div style="width:40px;height:40px;border-radius:11px;background:rgba(222,117,89,.12);color:#DE7559;display:grid;place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg></div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:14px;margin-bottom:22px">
+          <div style="background:#fff;border:1px solid #E1E9E6;border-radius:16px;padding:18px 20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><span style="font-size:14px;font-weight:700;color:#123238">التقارير — آخر ٧ أيام</span><span style="font-size:11px;font-weight:700;color:#00848D;background:rgba(0,132,141,.08);padding:4px 9px;border-radius:8px">٧ أيام</span></div>
+            <div style="display:flex;align-items:flex-end;gap:14px;height:120px">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;height:100%;justify-content:flex-end"><span style="font-size:11px;font-weight:700;color:#8A989C">٢٢</span><div style="width:100%;height:52%;background:#D6EAE7;border-radius:7px 7px 0 0"></div><span style="font-size:11px;color:#8A989C">السبت</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;height:100%;justify-content:flex-end"><span style="font-size:11px;font-weight:700;color:#8A989C">٣٠</span><div style="width:100%;height:70%;background:#D6EAE7;border-radius:7px 7px 0 0"></div><span style="font-size:11px;color:#8A989C">الأحد</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;height:100%;justify-content:flex-end"><span style="font-size:11px;font-weight:700;color:#8A989C">٢٦</span><div style="width:100%;height:60%;background:#D6EAE7;border-radius:7px 7px 0 0"></div><span style="font-size:11px;color:#8A989C">الإثنين</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;height:100%;justify-content:flex-end"><span style="font-size:11px;font-weight:700;color:#8A989C">٣٤</span><div style="width:100%;height:82%;background:#D6EAE7;border-radius:7px 7px 0 0"></div><span style="font-size:11px;color:#8A989C">الثلاثاء</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;height:100%;justify-content:flex-end"><span style="font-size:11px;font-weight:700;color:#8A989C">٢٨</span><div style="width:100%;height:66%;background:#D6EAE7;border-radius:7px 7px 0 0"></div><span style="font-size:11px;color:#8A989C">الأربعاء</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;height:100%;justify-content:flex-end"><span style="font-size:11px;font-weight:700;color:#8A989C">٢٩</span><div style="width:100%;height:70%;background:#D6EAE7;border-radius:7px 7px 0 0"></div><span style="font-size:11px;color:#8A989C">الخميس</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;height:100%;justify-content:flex-end"><span style="font-size:11px;font-weight:800;color:#00848D">٣١</span><div style="width:100%;height:76%;background:linear-gradient(#00A488,#00848D);border-radius:7px 7px 0 0"></div><span style="font-size:11px;font-weight:700;color:#00848D">اليوم</span></div>
+            </div>
+          </div>
+          <div style="background:#fff;border:1px solid #E1E9E6;border-radius:16px;padding:18px 20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px"><span style="font-size:14px;font-weight:700;color:#123238">الجودة</span><span style="font-size:11px;font-weight:700;color:#A86F2A;background:rgba(168,111,42,.10);padding:4px 9px;border-radius:8px">٨٨٪</span></div>
+            <div style="margin-bottom:18px"><div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:13px;color:#6F787F">جودة التقارير</span><span style="font-size:13px;font-weight:700;color:#123238">٨٨٪</span></div><div style="height:7px;background:#EFF4F2;border-radius:999px;overflow:hidden"><div style="width:88%;height:100%;background:#00A488;border-radius:999px"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:13px;color:#6F787F">التغطية اليومية</span><span style="font-size:13px;font-weight:700;color:#123238">٨٤٪</span></div><div style="height:7px;background:#EFF4F2;border-radius:999px;overflow:hidden"><div style="width:84%;height:100%;background:#00A488;border-radius:999px"></div></div></div>
+          </div>
+          <div style="background:#fff;border:1px solid #E1E9E6;border-radius:16px;padding:18px 20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><span style="font-size:14px;font-weight:700;color:#123238">مستوى الخدمة</span><span style="font-size:11px;font-weight:700;color:#E69E33;background:rgba(230,158,51,.12);padding:4px 9px;border-radius:8px">٣ مفتوحة</span></div>
+            <div style="font-size:14px;font-weight:700;color:#E69E33;margin-bottom:12px">٣ بلاغات مفتوحة</div>
+            <div style="height:7px;background:#EFF4F2;border-radius:999px;overflow:hidden;margin-bottom:10px"><div style="width:62%;height:100%;background:#E69E33;border-radius:999px"></div></div>
+            <p style="font-size:12px;color:#8A989C;line-height:1.6;margin:0">مؤشر يعتمد على عدد البلاغات المفتوحة مقابل المغلقة.</p>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div style="background:#fff;border:1px solid #E1E9E6;border-radius:16px;padding:18px 20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><span style="font-size:14px;font-weight:700;color:#123238">أحدث التقارير</span><button style="font-size:12px;font-weight:700;color:#00848D;background:#F1F7F5;border:0;padding:6px 12px;border-radius:9px;cursor:pointer;font-family:inherit">عرض الكل</button></div>
+            <div style="display:flex;flex-direction:column">
+              <div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #EFF4F2"><div style="width:42px;height:42px;border-radius:11px;background:#E3F0EE;color:#005257;display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div><div style="flex:1"><div style="font-size:13px;font-weight:700;color:#123238">دورة مياه — الطابق الأرضي أ</div><div style="font-size:12px;color:#8A989C">سعيد القحطاني · قبل ٥ د</div></div><span style="font-size:11px;font-weight:700;color:#00A488;background:rgba(0,164,136,.10);padding:4px 10px;border-radius:999px">معتمد</span></div>
+              <div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #EFF4F2"><div style="width:42px;height:42px;border-radius:11px;background:#E3F0EE;color:#005257;display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div><div style="flex:1"><div style="font-size:13px;font-weight:700;color:#123238">قاعة اجتماعات — الطابق الثاني</div><div style="font-size:12px;color:#8A989C">نورة العتيبي · قبل ١٢ د</div></div><span style="font-size:11px;font-weight:700;color:#E69E33;background:rgba(230,158,51,.12);padding:4px 10px;border-radius:999px">بانتظار</span></div>
+              <div style="display:flex;align-items:center;gap:12px;padding:11px 0"><div style="width:42px;height:42px;border-radius:11px;background:#E3F0EE;color:#005257;display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div><div style="flex:1"><div style="font-size:13px;font-weight:700;color:#123238">ممر — الطابق الأول ب</div><div style="font-size:12px;color:#8A989C">خالد الدوسري · قبل ٢٠ د</div></div><span style="font-size:11px;font-weight:700;color:#00A488;background:rgba(0,164,136,.10);padding:4px 10px;border-radius:999px">معتمد</span></div>
+            </div>
+          </div>
+          <div style="background:#fff;border:1px solid #E1E9E6;border-radius:16px;padding:18px 20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><span style="font-size:14px;font-weight:700;color:#123238">النشاط الأخير</span><span style="font-size:11px;font-weight:700;color:#00848D;background:rgba(0,132,141,.08);padding:4px 9px;border-radius:8px">٤٧ حدث</span></div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <div style="display:flex;gap:12px;padding:9px 0"><div style="display:flex;flex-direction:column;align-items:center"><span style="width:9px;height:9px;border-radius:50%;background:#00A488;margin-top:4px"></span><span style="width:1.5px;flex:1;background:#EFF4F2;margin:3px 0"></span></div><div><div style="font-size:13px;color:#123238">اعتُمد تقرير دورة مياه الطابق الأرضي</div><div style="font-size:11px;color:#8A989C">قبل ٥ دقائق</div></div></div>
+              <div style="display:flex;gap:12px;padding:9px 0"><div style="display:flex;flex-direction:column;align-items:center"><span style="width:9px;height:9px;border-radius:50%;background:#E69E33;margin-top:4px"></span><span style="width:1.5px;flex:1;background:#EFF4F2;margin:3px 0"></span></div><div><div style="font-size:13px;color:#123238">بلاغ جديد — انسكاب في الطابق الثاني</div><div style="font-size:11px;color:#8A989C">قبل ١٤ دقيقة</div></div></div>
+              <div style="display:flex;gap:12px;padding:9px 0"><div style="display:flex;flex-direction:column;align-items:center"><span style="width:9px;height:9px;border-radius:50%;background:#00848D;margin-top:4px"></span><span style="width:1.5px;flex:1;background:#EFF4F2;margin:3px 0"></span></div><div><div style="font-size:13px;color:#123238">أُسندت مهمة إلى سعيد القحطاني</div><div style="font-size:11px;color:#8A989C">قبل ٢٨ دقيقة</div></div></div>
+              <div style="display:flex;gap:12px;padding:9px 0"><div style="display:flex;flex-direction:column;align-items:center"><span style="width:9px;height:9px;border-radius:50%;background:#00A488;margin-top:4px"></span></div><div><div style="font-size:13px;color:#123238">اكتملت دورة تنظيف الممر الأول</div><div style="font-size:11px;color:#8A989C">قبل ٤١ دقيقة</div></div></div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
+
+<!-- ░░░░░░░░ FRAME 3 — EMPLOYEE REQUEST (MOBILE) ░░░░░░░░ -->
+<div dir="rtl" style="position:absolute;left:0px;top:980px;width:392px;font-family:'IBMPlexArabic',system-ui,sans-serif">
+  <div data-drags-parent="1" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;cursor:grab">
+    <span style="font-size:13px;font-weight:700;color:#005257;background:#E3F0EE;padding:5px 12px;border-radius:999px">٠٣ — طلب خدمة الموظف · جوال</span>
+  </div>
+  <div style="background:#fff;border-radius:30px;box-shadow:0 1px 3px rgba(0,0,0,.10);overflow:hidden;border:1px solid #ECF1EF">
+    <div style="height:8px"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 24px 8px;font-size:13px;font-weight:700;color:#123238"><span>٩:٤١</span><span style="display:flex;gap:5px;align-items:center"><svg width="16" height="11" viewBox="0 0 18 12" fill="#123238"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4" width="3" height="8" rx="1"/><rect x="10" y="1" width="3" height="11" rx="1"/><rect x="15" y="2" width="3" height="10" rx="1" opacity=".3"/></svg><svg width="18" height="12" viewBox="0 0 24 16" fill="none" stroke="#123238" stroke-width="1.6"><rect x="1" y="4" width="18" height="9" rx="2.5"/><path d="M21 7v3" stroke-linecap="round"/></svg></span></div>
+    <!-- app bar -->
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 18px 14px;border-bottom:1px solid #EFF4F2">
+      <button style="width:40px;height:40px;border-radius:12px;background:#F1F7F5;border:0;display:grid;place-items:center;color:#26474D;cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+      <div style="flex:1"><div style="font-size:16px;font-weight:800;color:#123238">طلب خدمة نظافة</div><div style="font-size:12px;color:#8A989C">الخطوة ١ من ٣</div></div>
+      <div style="width:40px;height:40px;border-radius:50%;background:#E3F0EE;display:grid;place-items:center;font-size:12px;font-weight:700;color:#005257">أ.م</div>
+    </div>
+    <!-- step progress -->
+    <div style="display:flex;gap:6px;padding:14px 18px 4px">
+      <div style="flex:1;height:5px;border-radius:999px;background:#00848D"></div>
+      <div style="flex:1;height:5px;border-radius:999px;background:#D6EAE7"></div>
+      <div style="flex:1;height:5px;border-radius:999px;background:#D6EAE7"></div>
+    </div>
+    <div style="padding:14px 18px 20px;background:#F8FAF9">
+      <!-- card 1 -->
+      <div style="background:#fff;border:1px solid #E1E9E6;border-radius:18px;padding:16px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:14px"><span style="width:24px;height:24px;border-radius:50%;background:#00848D;color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center">١</span><span style="font-size:15px;font-weight:700;color:#123238">حدّد الموقع</span></div>
+        <label style="font-size:12px;font-weight:700;color:#6F787F;margin-bottom:7px;display:block">كود الموقع</label>
+        <div style="display:flex;gap:9px">
+          <button style="width:52px;height:52px;border-radius:13px;background:#005257;border:0;display:grid;place-items:center;color:#fff;flex-shrink:0;cursor:pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v.01M14 21h.01M21 18v3"/></svg></button>
+          <input value="wc-gf-a" dir="ltr" style="flex:1;height:52px;border:1.5px solid #00848D;border-radius:13px;padding:0 14px;font-size:15px;color:#123238;font-family:inherit;text-align:left;outline:none;box-shadow:0 0 0 4px rgba(0,132,141,.10)"/>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:9px;font-size:13px;color:#00A488;font-weight:600"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg>دورة مياه — الطابق الأرضي أ</div>
+      </div>
+      <!-- card 2 -->
+      <div style="background:#fff;border:1px solid #E1E9E6;border-radius:18px;padding:16px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:14px"><span style="width:24px;height:24px;border-radius:50%;background:#EFF4F2;color:#8A989C;font-size:12px;font-weight:800;display:grid;place-items:center">٢</span><span style="font-size:15px;font-weight:700;color:#123238">نوع البلاغ</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">
+          <div style="border:1.5px solid #00848D;background:rgba(0,132,141,.06);border-radius:13px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;gap:7px;color:#00848D"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span style="font-size:13px;font-weight:700">عام</span></div>
+          <div style="border:1.5px solid #E1E9E6;border-radius:13px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;gap:7px;color:#6F787F"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><span style="font-size:13px;font-weight:600">انسكاب</span></div>
+          <div style="border:1.5px solid #E1E9E6;border-radius:13px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;gap:7px;color:#6F787F"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><span style="font-size:13px;font-weight:600">قاعة</span></div>
+          <div style="border:1.5px solid #E1E9E6;border-radius:13px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;gap:7px;color:#6F787F"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/></svg><span style="font-size:13px;font-weight:600">طارئ</span></div>
+        </div>
+      </div>
+      <!-- card 3 -->
+      <div style="background:#fff;border:1px solid #E1E9E6;border-radius:18px;padding:16px">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:14px"><span style="width:24px;height:24px;border-radius:50%;background:#EFF4F2;color:#8A989C;font-size:12px;font-weight:800;display:grid;place-items:center">٣</span><span style="font-size:15px;font-weight:700;color:#123238">التفاصيل</span></div>
+        <button style="width:100%;border:1.5px dashed #C9DAD5;background:#F8FAF9;border-radius:13px;padding:18px;display:flex;flex-direction:column;align-items:center;gap:8px;color:#00848D;cursor:pointer"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span style="font-size:13px;font-weight:700">إضافة صورة <span style="color:#DE7559">(إلزامي)</span></span></button>
+      </div>
+    </div>
+    <!-- sticky submit -->
+    <div style="padding:14px 18px;border-top:1px solid #EFF4F2;background:#fff">
+      <button style="width:100%;height:54px;border:0;border-radius:15px;background:#00848D;color:#fff;font-size:16px;font-weight:700;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;box-shadow:0 8px 20px rgba(0,132,141,.22)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg>إرسال الطلب</button>
+    </div>
+  </div>
+</div>
+
+<!-- ░░░░░░░░ FRAME 4 — WORKER TASK (MOBILE) ░░░░░░░░ -->
+<div dir="rtl" style="position:absolute;left:452px;top:980px;width:392px;font-family:'IBMPlexArabic',system-ui,sans-serif">
+  <div data-drags-parent="1" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;cursor:grab">
+    <span style="font-size:13px;font-weight:700;color:#005257;background:#E3F0EE;padding:5px 12px;border-radius:999px">٠٤ — واجهة العامل/الفني · جوال</span>
+  </div>
+  <div style="background:#fff;border-radius:30px;box-shadow:0 1px 3px rgba(0,0,0,.10);overflow:hidden;border:1px solid #ECF1EF;display:flex;flex-direction:column">
+    <div style="height:8px"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 24px 8px;font-size:13px;font-weight:700;color:#123238"><span>٩:٤١</span><span style="display:flex;gap:5px;align-items:center"><svg width="16" height="11" viewBox="0 0 18 12" fill="#123238"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4" width="3" height="8" rx="1"/><rect x="10" y="1" width="3" height="11" rx="1"/><rect x="15" y="2" width="3" height="10" rx="1" opacity=".3"/></svg><svg width="18" height="12" viewBox="0 0 24 16" fill="none" stroke="#123238" stroke-width="1.6"><rect x="1" y="4" width="18" height="9" rx="2.5"/><path d="M21 7v3" stroke-linecap="round"/></svg></span></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px 14px;border-bottom:1px solid #EFF4F2">
+      <div style="display:flex;align-items:center;gap:10px"><div style="width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#005257,#00848D);display:grid;place-items:center"><span style="color:#fff;font-weight:800;font-size:9px">MRFQ</span></div><div><div style="font-size:15px;font-weight:800;color:#123238">سعيد القحطاني</div><div style="font-size:11px;color:#8A989C">عامل نظافة · فريق أ</div></div></div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#00A488"><span style="width:7px;height:7px;border-radius:50%;background:#00A488"></span>متصل</div>
+    </div>
+    <div style="padding:16px 18px;background:#F8FAF9;flex:1">
+      <!-- primary scan CTA -->
+      <div style="background:linear-gradient(135deg,#003F45,#00848D);border-radius:20px;padding:20px;color:#fff;margin-bottom:16px">
+        <div style="font-size:15px;font-weight:800;margin-bottom:4px">ابدأ مهمة جديدة</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.78);margin-bottom:16px">امسح رمز الموقع أو أدخل الكود يدوياً</div>
+        <button style="width:100%;height:56px;border:0;border-radius:14px;background:#fff;color:#005257;font-size:16px;font-weight:800;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:9px;cursor:pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v.01M14 21h.01M21 18v3"/></svg>مسح رمز QR</button>
+        <div style="text-align:center;font-size:12px;color:rgba(255,255,255,.6);margin:10px 0">أو</div>
+        <input placeholder="wc-gf-a" dir="ltr" style="width:100%;height:48px;border:0;border-radius:12px;padding:0 14px;font-size:14px;font-family:inherit;text-align:left;color:#123238;outline:none"/>
+      </div>
+      <!-- my tickets -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px"><span style="font-size:14px;font-weight:800;color:#123238">مهامي المسندة</span><span style="background:#00848D;color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px">٢</span></div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="background:#fff;border:1px solid #E1E9E6;border-radius:15px;padding:14px;display:flex;align-items:center;gap:12px">
+          <div style="width:44px;height:44px;border-radius:12px;background:#FBEAE4;color:#DE7559;display:grid;place-items:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:#123238">انسكاب — الطابق الثاني</div><div style="font-size:12px;color:#8A989C">قاعة الاجتماعات · عاجل</div></div>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A989C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </div>
+        <div style="background:#fff;border:1px solid #E1E9E6;border-radius:15px;padding:14px;display:flex;align-items:center;gap:12px">
+          <div style="width:44px;height:44px;border-radius:12px;background:#E3F0EE;color:#005257;display:grid;place-items:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:#123238">دورة مياه — الطابق الأول ب</div><div style="font-size:12px;color:#8A989C">تنظيف دوري</div></div>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A989C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </div>
+      </div>
+    </div>
+    <!-- bottom nav -->
+    <div style="display:flex;border-top:1px solid #EFF4F2;background:#fff;padding:8px 0 14px">
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:#00848D"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span style="font-size:11px;font-weight:700">المهمة</span></div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:#8A989C"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span style="font-size:11px;font-weight:600">المسندة</span></div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:#8A989C;position:relative"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><span style="font-size:11px;font-weight:600">تقاريري</span><span style="position:absolute;top:-2px;inset-inline-end:26px;width:16px;height:16px;border-radius:50%;background:#DE7559;color:#fff;font-size:9px;font-weight:700;display:grid;place-items:center">٣</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ░░░░░░░░ FRAME 5 — PUBLIC HOSPITALITY ORDER (MOBILE) ░░░░░░░░ -->
+<div dir="rtl" style="position:absolute;left:904px;top:980px;width:392px;font-family:'IBMPlexArabic',system-ui,sans-serif">
+  <div data-drags-parent="1" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;cursor:grab">
+    <span style="font-size:13px;font-weight:700;color:#005257;background:#E3F0EE;padding:5px 12px;border-radius:999px">٠٥ — الطلب العام للضيافة · جوال</span>
+  </div>
+  <div style="background:#fff;border-radius:30px;box-shadow:0 1px 3px rgba(0,0,0,.10);overflow:hidden;border:1px solid #ECF1EF;display:flex;flex-direction:column">
+    <div style="height:8px"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 24px 8px;font-size:13px;font-weight:700;color:#123238"><span>٩:٤١</span><span style="display:flex;gap:5px;align-items:center"><svg width="16" height="11" viewBox="0 0 18 12" fill="#123238"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4" width="3" height="8" rx="1"/><rect x="10" y="1" width="3" height="11" rx="1"/><rect x="15" y="2" width="3" height="10" rx="1" opacity=".3"/></svg><svg width="18" height="12" viewBox="0 0 24 16" fill="none" stroke="#123238" stroke-width="1.6"><rect x="1" y="4" width="18" height="9" rx="2.5"/><path d="M21 7v3" stroke-linecap="round"/></svg></span></div>
+    <!-- header -->
+    <div style="background:linear-gradient(135deg,#003F45,#00848D);padding:18px;color:#fff">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div style="width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.14);display:grid;place-items:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><path d="M6 1v3M10 1v3M14 1v3"/></svg></div><div><div style="font-size:17px;font-weight:800">طلب ضيافة</div><div style="font-size:12px;color:rgba(255,255,255,.78)">بدون تسجيل دخول</div></div></div>
+      <div style="background:rgba(255,255,255,.12);border-radius:12px;padding:10px 13px;display:flex;align-items:center;gap:8px;font-size:13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>مكتب ٣١٢ — الطابق الثالث</div>
+    </div>
+    <!-- category chips -->
+    <div style="display:flex;gap:8px;padding:14px 18px 10px;overflow:hidden">
+      <span style="background:#00848D;color:#fff;font-size:13px;font-weight:700;padding:8px 15px;border-radius:999px;white-space:nowrap">الكل</span>
+      <span style="background:#F1F7F5;color:#6F787F;font-size:13px;font-weight:600;padding:8px 15px;border-radius:999px;white-space:nowrap">قهوة</span>
+      <span style="background:#F1F7F5;color:#6F787F;font-size:13px;font-weight:600;padding:8px 15px;border-radius:999px;white-space:nowrap">شاي</span>
+      <span style="background:#F1F7F5;color:#6F787F;font-size:13px;font-weight:600;padding:8px 15px;border-radius:999px;white-space:nowrap">حلويات</span>
+    </div>
+    <!-- menu items -->
+    <div style="padding:6px 18px 14px;background:#F8FAF9;flex:1">
+      <div style="background:#fff;border:1px solid #E1E9E6;border-radius:16px;padding:11px;display:flex;align-items:center;gap:13px;margin-bottom:11px">
+        <div style="width:62px;height:62px;border-radius:13px;background:repeating-linear-gradient(45deg,#EEF3F1,#EEF3F1 6px,#E3EAE7 6px,#E3EAE7 12px);flex-shrink:0;display:grid;place-items:center"><span style="font-family:ui-monospace,monospace;font-size:8px;color:#9DB0AB">صورة</span></div>
+        <div style="flex:1"><div style="font-size:15px;font-weight:700;color:#123238">قهوة عربية</div><div style="font-size:12px;color:#8A989C;margin-top:2px">سادة · فنجان</div></div>
+        <button style="width:38px;height:38px;border-radius:11px;background:#00848D;border:0;display:grid;place-items:center;color:#fff;cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+      <div style="background:#fff;border:1.5px solid #00848D;border-radius:16px;padding:11px;display:flex;align-items:center;gap:13px;margin-bottom:11px">
+        <div style="width:62px;height:62px;border-radius:13px;background:repeating-linear-gradient(45deg,#EEF3F1,#EEF3F1 6px,#E3EAE7 6px,#E3EAE7 12px);flex-shrink:0;display:grid;place-items:center"><span style="font-family:ui-monospace,monospace;font-size:8px;color:#9DB0AB">صورة</span></div>
+        <div style="flex:1"><div style="font-size:15px;font-weight:700;color:#123238">شاي أخضر</div><div style="font-size:12px;color:#8A989C;margin-top:2px">بالنعناع · كوب</div></div>
+        <div style="display:flex;align-items:center;gap:11px;background:#F1F7F5;border-radius:11px;padding:5px"><button style="width:30px;height:30px;border-radius:8px;background:#fff;border:0;color:#00848D;font-size:18px;font-weight:700;cursor:pointer">−</button><span style="font-size:15px;font-weight:800;color:#123238;min-width:14px;text-align:center">٢</span><button style="width:30px;height:30px;border-radius:8px;background:#00848D;border:0;color:#fff;font-size:18px;font-weight:700;cursor:pointer">+</button></div>
+      </div>
+      <div style="background:#fff;border:1px solid #E1E9E6;border-radius:16px;padding:11px;display:flex;align-items:center;gap:13px">
+        <div style="width:62px;height:62px;border-radius:13px;background:repeating-linear-gradient(45deg,#EEF3F1,#EEF3F1 6px,#E3EAE7 6px,#E3EAE7 12px);flex-shrink:0;display:grid;place-items:center"><span style="font-family:ui-monospace,monospace;font-size:8px;color:#9DB0AB">صورة</span></div>
+        <div style="flex:1"><div style="font-size:15px;font-weight:700;color:#123238">تمر وقهوة</div><div style="font-size:12px;color:#8A989C;margin-top:2px">طبق ضيافة</div></div>
+        <button style="width:38px;height:38px;border-radius:11px;background:#00848D;border:0;display:grid;place-items:center;color:#fff;cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+    </div>
+    <!-- cart bar -->
+    <div style="padding:13px 18px;border-top:1px solid #EFF4F2;background:#fff">
+      <button style="width:100%;height:56px;border:0;border-radius:15px;background:#00848D;color:#fff;font-family:inherit;display:flex;align-items:center;justify-content:space-between;padding:0 18px;cursor:pointer;box-shadow:0 8px 20px rgba(0,132,141,.22)">
+        <span style="display:flex;align-items:center;gap:9px;font-size:16px;font-weight:700"><span style="background:rgba(255,255,255,.22);width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-size:13px;font-weight:800">٢</span>مراجعة الطلب</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ░░░░░░░░ FRAME 6 — PERFORMANCE BOARD (DESKTOP) ░░░░░░░░ -->
+<div dir="rtl" style="position:absolute;left:1356px;top:980px;width:1024px;font-family:'IBMPlexArabic',system-ui,sans-serif">
+  <div data-drags-parent="1" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;cursor:grab">
+    <span style="font-size:13px;font-weight:700;color:#005257;background:#E3F0EE;padding:5px 12px;border-radius:999px">٠٦ — لوحة الأداء والتقارير · سطح المكتب</span>
+  </div>
+  <div style="background:#fff;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden;border:1px solid #ECF1EF;padding:26px 28px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:22px">
+      <div><div style="font-size:22px;font-weight:800;color:#123238">أداء الفريق</div><div style="font-size:13px;color:#8A989C;margin-top:4px">منصّة تكريم شهرية · يونيو ٢٠٢٦</div></div>
+      <div style="display:flex;gap:6px;background:#F1F7F5;padding:4px;border-radius:12px">
+        <span style="background:#fff;color:#00848D;font-size:13px;font-weight:700;padding:7px 15px;border-radius:9px;box-shadow:0 1px 2px rgba(0,82,87,.06)">هذا الشهر</span>
+        <span style="color:#8A989C;font-size:13px;font-weight:600;padding:7px 15px">الربع</span>
+      </div>
+    </div>
+    <!-- podium -->
+    <div style="display:flex;align-items:flex-end;justify-content:center;gap:18px;margin-bottom:26px">
+      <!-- 2nd -->
+      <div style="text-align:center;width:200px">
+        <div style="width:64px;height:64px;border-radius:50%;background:#E3F0EE;display:grid;place-items:center;margin:0 auto 8px;font-size:18px;font-weight:800;color:#005257;border:3px solid #C2D8D2">ن.ع</div>
+        <div style="font-size:14px;font-weight:700;color:#123238">نورة العتيبي</div>
+        <div style="font-size:12px;color:#8A989C;margin-bottom:10px">٩٤ تقرير</div>
+        <div style="background:linear-gradient(#EEF4F2,#fff);border:1px solid #E1E9E6;border-radius:14px 14px 0 0;padding:18px 0 22px"><div style="font-size:13px;font-weight:700;color:#8A989C;margin-bottom:3px">٢</div><div style="font-size:26px;font-weight:800;color:#005257">٩١٪</div></div>
+      </div>
+      <!-- 1st -->
+      <div style="text-align:center;width:210px">
+        <div style="font-size:22px;margin-bottom:2px">👑</div>
+        <div style="width:74px;height:74px;border-radius:50%;background:#FBF1DF;display:grid;place-items:center;margin:0 auto 8px;font-size:20px;font-weight:800;color:#A86F2A;border:3px solid #E6C77E">س.ق</div>
+        <div style="font-size:15px;font-weight:800;color:#123238">سعيد القحطاني</div>
+        <div style="font-size:12px;color:#8A989C;margin-bottom:10px">١١٢ تقرير</div>
+        <div style="background:linear-gradient(#FBF3E2,#fff);border:1px solid #ECD9A8;border-radius:14px 14px 0 0;padding:26px 0 30px"><div style="font-size:13px;font-weight:700;color:#A86F2A;margin-bottom:3px">١</div><div style="font-size:32px;font-weight:800;color:#A86F2A">٩٦٪</div></div>
+      </div>
+      <!-- 3rd -->
+      <div style="text-align:center;width:200px">
+        <div style="width:64px;height:64px;border-radius:50%;background:#E3F0EE;display:grid;place-items:center;margin:0 auto 8px;font-size:18px;font-weight:800;color:#005257;border:3px solid #C2D8D2">خ.د</div>
+        <div style="font-size:14px;font-weight:700;color:#123238">خالد الدوسري</div>
+        <div style="font-size:12px;color:#8A989C;margin-bottom:10px">٨٧ تقرير</div>
+        <div style="background:linear-gradient(#EEF4F2,#fff);border:1px solid #E1E9E6;border-radius:14px 14px 0 0;padding:12px 0 16px"><div style="font-size:13px;font-weight:700;color:#8A989C;margin-bottom:3px">٣</div><div style="font-size:24px;font-weight:800;color:#005257">٨٩٪</div></div>
+      </div>
+    </div>
+    <!-- table -->
+    <div style="border:1px solid #E1E9E6;border-radius:14px;overflow:hidden">
+      <div style="display:grid;grid-template-columns:50px 1.6fr 1fr 1fr 1fr 1.2fr;background:#F8FAF9;padding:13px 18px;font-size:12px;font-weight:700;color:#8A989C">
+        <span>#</span><span>الفني</span><span>التقارير</span><span>معدل الاعتماد</span><span>تقييم المشرف</span><span>النقاط</span>
+      </div>
+      <div style="display:grid;grid-template-columns:50px 1.6fr 1fr 1fr 1fr 1.2fr;padding:13px 18px;align-items:center;border-top:1px solid #EFF4F2;font-size:14px;color:#123238">
+        <span style="font-weight:800;color:#A86F2A">١</span><span style="display:flex;align-items:center;gap:9px"><span style="width:32px;height:32px;border-radius:50%;background:#FBF1DF;color:#A86F2A;font-size:11px;font-weight:700;display:grid;place-items:center">س.ق</span>سعيد القحطاني</span><span>١١٢</span><span style="color:#00A488;font-weight:700">٩٧٪</span><span>٤.٨ / ٥</span><span><span style="background:rgba(168,111,42,.10);color:#A86F2A;font-size:13px;font-weight:800;padding:5px 12px;border-radius:999px">٩٦ نقطة</span></span>
+      </div>
+      <div style="display:grid;grid-template-columns:50px 1.6fr 1fr 1fr 1fr 1.2fr;padding:13px 18px;align-items:center;border-top:1px solid #EFF4F2;font-size:14px;color:#123238">
+        <span style="font-weight:800;color:#8A989C">٢</span><span style="display:flex;align-items:center;gap:9px"><span style="width:32px;height:32px;border-radius:50%;background:#E3F0EE;color:#005257;font-size:11px;font-weight:700;display:grid;place-items:center">ن.ع</span>نورة العتيبي</span><span>٩٤</span><span style="color:#00A488;font-weight:700">٩٣٪</span><span>٤.٧ / ٥</span><span><span style="background:#F1F7F5;color:#005257;font-size:13px;font-weight:800;padding:5px 12px;border-radius:999px">٩١ نقطة</span></span>
+      </div>
+      <div style="display:grid;grid-template-columns:50px 1.6fr 1fr 1fr 1fr 1.2fr;padding:13px 18px;align-items:center;border-top:1px solid #EFF4F2;font-size:14px;color:#123238">
+        <span style="font-weight:800;color:#8A989C">٣</span><span style="display:flex;align-items:center;gap:9px"><span style="width:32px;height:32px;border-radius:50%;background:#E3F0EE;color:#005257;font-size:11px;font-weight:700;display:grid;place-items:center">خ.د</span>خالد الدوسري</span><span>٨٧</span><span style="color:#00A488;font-weight:700">٩٠٪</span><span>٤.٦ / ٥</span><span><span style="background:#F1F7F5;color:#005257;font-size:13px;font-weight:800;padding:5px 12px;border-radius:999px">٨٩ نقطة</span></span>
+      </div>
+      <div style="display:grid;grid-template-columns:50px 1.6fr 1fr 1fr 1fr 1.2fr;padding:13px 18px;align-items:center;border-top:1px solid #EFF4F2;font-size:14px;color:#123238">
+        <span style="font-weight:800;color:#8A989C">٤</span><span style="display:flex;align-items:center;gap:9px"><span style="width:32px;height:32px;border-radius:50%;background:#E3F0EE;color:#005257;font-size:11px;font-weight:700;display:grid;place-items:center">ف.ز</span>فهد الزهراني</span><span>٧٦</span><span style="color:#E69E33;font-weight:700">٨٤٪</span><span>٤.٣ / ٥</span><span><span style="background:#F1F7F5;color:#005257;font-size:13px;font-weight:800;padding:5px 12px;border-radius:999px">٨٢ نقطة</span></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+</x-dc>
+</body>
+</html>

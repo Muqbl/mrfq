@@ -164,6 +164,44 @@ test('platform exposes facilities, spaces, module registry and operational heatm
   const mapStatus = await admin('/api/maps/MF/status?layers=cleaning');
   assert.equal(mapStatus.status, 200);
   assert.equal(mapStatus.body.points[0].code, 'MF-WS-01');
+  assert.equal(mapStatus.body.points[0].missingLocation, true);
+
+  const mapAudit = await admin('/api/maps/MF/audit');
+  assert.equal(mapAudit.status, 200);
+  assert.equal(mapAudit.body.summary.total, 1);
+  assert.equal(mapAudit.body.summary.missing, 1);
+
+  const mapLocation = await admin('/api/locations', {
+    method: 'POST',
+    body: JSON.stringify({
+      id: 'MF-WS-99',
+      type: 'workspace',
+      nameAr: 'مساحة عمل خريطة',
+      nameEn: 'Map Workspace',
+      floor: 'MF',
+      zone: 'MF',
+      priority: 'medium'
+    })
+  });
+  assert.equal(mapLocation.status, 200);
+
+  const linkedMapPoint = await admin('/api/maps/MF/points', {
+    method: 'PUT',
+    body: JSON.stringify({ points: [{ code: 'MF-WS-99', x: 40, y: 55, layer: 'cleaning' }] })
+  });
+  assert.equal(linkedMapPoint.status, 200);
+
+  const assignedEmployee = await admin('/api/maps/MF/assignments', {
+    method: 'PUT',
+    body: JSON.stringify({ code: 'MF-WS-99', userIds: ['u-emp1'] })
+  });
+  assert.equal(assignedEmployee.status, 200);
+  assert.equal(assignedEmployee.body.employees[0].id, 'u-emp1');
+
+  const linkedStatus = await admin('/api/maps/MF/status?layers=cleaning');
+  assert.equal(linkedStatus.status, 200);
+  assert.equal(linkedStatus.body.points[0].missingLocation, false);
+  assert.equal(linkedStatus.body.points[0].employees[0].id, 'u-emp1');
 
   const manager = await login('manager', PASSWORDS.manager);
   const deniedFacilities = await manager('/api/facilities');
@@ -172,6 +210,13 @@ test('platform exposes facilities, spaces, module registry and operational heatm
   assert.equal(deniedHeatmap.status, 403);
   const deniedMaps = await manager('/api/maps/floors');
   assert.equal(deniedMaps.status, 403);
+  const deniedMapAudit = await manager('/api/maps/MF/audit');
+  assert.equal(deniedMapAudit.status, 403);
+  const deniedMapAssignment = await manager('/api/maps/MF/assignments', {
+    method: 'PUT',
+    body: JSON.stringify({ code: 'MF-WS-99', userIds: [] })
+  });
+  assert.equal(deniedMapAssignment.status, 403);
 });
 
 test('facility manager executive report is data-backed and role protected', async () => {

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face{font-family:'IBMPlexArabic';src:url('current/assets/fonts/IBMPlexSansArabic-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
+@font-face{font-family:'IBMPlexArabic';src:url('current/assets/fonts/IBMPlexSansArabic-Medium.ttf') format('truetype');font-weight:500;font-display:swap}
+@font-face{font-family:'IBMPlexArabic';src:url('current/assets/fonts/IBMPlexSansArabic-SemiBold.ttf') format('truetype');font-weight:600;font-display:swap}
+@font-face{font-family:'IBMPlexArabic';src:url('current/assets/fonts/IBMPlexSansArabic-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+.ced-chip::-webkit-scrollbar{width:8px}
+.ced-chip::-webkit-scrollbar-thumb{background:#CFDCD8;border-radius:8px}
+@keyframes cedDrop{0%{transform:translate(-50%,-140%) scale(.4);opacity:0}60%{transform:translate(-50%,-50%) scale(1.15)}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
+@keyframes cedPulse{0%,100%{opacity:1}50%{opacity:.45}}
+</style>
+</helmet>
+
+<div dir="rtl" style="font-family:'IBMPlexArabic',system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;background:#F8FAF9;color:#123238;overflow:hidden">
+  <!-- top bar -->
+  <div style="height:60px;flex-shrink:0;background:#fff;border-bottom:1px solid #E1E9E6;display:flex;align-items:center;justify-content:space-between;padding:0 20px;z-index:20">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#005257,#00848D);display:grid;place-items:center"><span style="color:#fff;font-weight:800;font-size:9px">MRFQ</span></div>
+      <div>
+        <div style="font-size:15px;font-weight:800;line-height:1.1">محرّر إحداثيات المواقع</div>
+        <div style="font-size:11px;color:#8A989C">اربط كل كود بموضعه على المخطط · يُصدّر map_points</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="font-size:12px;color:#5A6B6E;background:#F1F7F5;border:1px solid #DFEAE7;padding:7px 13px;border-radius:10px;font-weight:600">{{ progressLabel }}</div>
+      <button onClick="{{ exportJson }}" style="height:38px;padding:0 16px;border:0;border-radius:11px;background:#00848D;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>تصدير JSON</button>
+    </div>
+  </div>
+
+  <!-- floor tabs -->
+  <div style="height:48px;flex-shrink:0;background:#fff;border-bottom:1px solid #E1E9E6;display:flex;align-items:center;gap:6px;padding:0 20px;overflow-x:auto;z-index:10">{{ floorTabs }}</div>
+
+  <!-- body -->
+  <div style="flex:1;display:flex;min-height:0">
+    <!-- canvas -->
+    <div style="flex:1;position:relative;background:#EDF2F0;overflow:hidden;min-width:0;display:flex;align-items:center;justify-content:center" onWheel="{{ onWheel }}">
+      <div style="position:absolute;top:14px;inset-inline-start:14px;z-index:8;display:flex;flex-direction:column;gap:6px">
+        <button onClick="{{ zoomIn }}" style="width:38px;height:38px;border-radius:10px;border:1px solid #E1E9E6;background:#fff;color:#26474D;font-size:20px;font-weight:700;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08)">+</button>
+        <button onClick="{{ zoomOut }}" style="width:38px;height:38px;border-radius:10px;border:1px solid #E1E9E6;background:#fff;color:#26474D;font-size:22px;font-weight:700;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08)">−</button>
+        <button onClick="{{ resetView }}" style="width:38px;height:38px;border-radius:10px;border:1px solid #E1E9E6;background:#fff;color:#26474D;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08);display:grid;place-items:center"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.7 3M3 4v4h4"/></svg></button>
+      </div>
+      <div style="position:absolute;bottom:14px;inset-inline-start:14px;z-index:8;background:rgba(14,51,56,.86);color:#fff;font-size:11px;padding:7px 12px;border-radius:9px;max-width:240px;line-height:1.6">{{ hintText }}</div>
+      {{ canvas }}
+    </div>
+
+    <!-- code panel -->
+    <div style="width:310px;flex-shrink:0;background:#fff;border-inline-start:1px solid #E1E9E6;display:flex;flex-direction:column;min-height:0">
+      <div style="padding:14px 16px 10px;border-bottom:1px solid #EFF4F2">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <span style="font-size:14px;font-weight:800">أكواد الطابق {{ floorLabel }}</span>
+          <span style="font-size:12px;font-weight:700;color:#00848D;background:#E3F0EE;padding:3px 10px;border-radius:999px">{{ floorPlaced }}</span>
+        </div>
+        <div style="position:relative">
+          <input value="{{ filter }}" onInput="{{ onFilter }}" placeholder="بحث عن كود…" style="width:100%;height:38px;border:1px solid #E1E9E6;border-radius:10px;padding:0 36px 0 12px;font-size:13px;font-family:inherit;outline:none"/>
+          <span style="position:absolute;top:50%;inset-inline-end:12px;transform:translateY(-50%);color:#8A989C;pointer-events:none"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:10px">
+          <button onClick="{{ showUnplaced }}" style="flex:1;height:32px;border-radius:9px;border:1px solid {{ unplacedBorder }};background:{{ unplacedBg }};color:{{ unplacedColor }};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">غير محدّد</button>
+          <button onClick="{{ showAll }}" style="flex:1;height:32px;border-radius:9px;border:1px solid {{ allBorder }};background:{{ allBg }};color:{{ allColor }};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">الكل</button>
+        </div>
+      </div>
+      <div class="ced-chip" style="flex:1;overflow-y:auto;padding:12px 16px">{{ codeList }}</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:820}}">
+class Component extends DCLogic {
+  state = {
+    floor:'MF', codes:{}, names:{}, coords:{}, selected:null,
+    filter:'', onlyUnplaced:true, zoom:1, tx:0, ty:0, loaded:false, justPlaced:null
+  };
+
+  SVGMAP = {GF:'01_GF',MF:'02_MF','1F':'03_1F','2F':'04_2F','3F':'05_3F','4F':'06_4F','5F':'08_5F','6F':'09_6F','7F':'10_7F','8F':'11_8F'};
+  FLOORS = ['GF','MF','1F','2F','3F','4F','5F','6F','7F','8F'];
+  STORAGE='mrfq_coords_v1';
+
+  componentDidMount(){
+    fetch('assets/floor_codes.json').then(r=>r.json()).then(d=>{
+      let saved={};
+      try{ saved=JSON.parse(localStorage.getItem(this.STORAGE)||'{}'); }catch(e){}
+      this.setState({codes:d.codes||{},names:d.names||{},coords:saved,loaded:true},()=>this.pickFirstUnplaced());
+    }).catch(()=>this.setState({loaded:true}));
+  }
+
+  typeOf(code){
+    const m=code.replace(/^(GF|MF|B1|B2|IF|\dF)-/,'').match(/^([A-Za-z]+)/);
+    return m?m[1].toUpperCase():'?';
+  }
+  typeColor(t){
+    const map={WS:'#00848D',M:'#7A5AF8',MR:'#E69E33',BR:'#3B9CC4',CS:'#00A488',K:'#C2710C',CD:'#D8569B',CEO:'#A8400C',MG:'#A8400C',MO:'#7A5AF8',GM:'#A8400C',CM:'#A8400C',FS:'#DE5959',SR:'#5A6B6E',WA:'#A8400C'};
+    return map[t]||'#5A6B6E';
+  }
+  ar(n){ return String(n).replace(/[0-9]/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]); }
+
+  floorCodes(f){ return (this.state.codes[f]||[]); }
+  placedCount(f){ const c=this.state.coords[f]||{}; return this.floorCodes(f).filter(code=>c[code]).length; }
+
+  pickFirstUnplaced(){
+    const c=this.state.coords[this.state.floor]||{};
+    const next=this.floorCodes(this.state.floor).find(code=>!c[code]);
+    this.setState({selected:next||null});
+  }
+
+  persist(coords){ try{ localStorage.setItem(this.STORAGE, JSON.stringify(coords)); }catch(e){} }
+
+  placeAt(e){
+    if(!this.state.selected) return;
+    const box=e.currentTarget.getBoundingClientRect();
+    // account for transform: we attach handler on the transformed layer, so use offset relative to it
+    const x=((e.clientX-box.left)/box.width)*100;
+    const y=((e.clientY-box.top)/box.height)*100;
+    const floor=this.state.floor, code=this.state.selected;
+    const coords={...this.state.coords, [floor]:{...(this.state.coords[floor]||{}), [code]:{x:+x.toFixed(2),y:+y.toFixed(2)}}};
+    this.persist(coords);
+    this.setState({coords, justPlaced:code},()=>{ setTimeout(()=>this.setState({justPlaced:null}),420); this.pickFirstUnplaced(); });
+  }
+
+  removePin(code){
+    const floor=this.state.floor;
+    const fc={...(this.state.coords[floor]||{})}; delete fc[code];
+    const coords={...this.state.coords,[floor]:fc};
+    this.persist(coords); this.setState({coords});
+  }
+
+  exportData(){
+    const out=[];
+    for(const f of this.FLOORS){
+      const fc=this.state.coords[f]||{};
+      for(const code of Object.keys(fc)){
+        out.push({floor:f,code,x:fc[code].x,y:fc[code].y,type:this.typeOf(code)});
+      }
+    }
+    return out;
+  }
+
+  renderVals(){
+    const f=this.state.floor;
+    const codes=this.floorCodes(f);
+    const coords=this.state.coords[f]||{};
+    const totalAll=this.FLOORS.reduce((s,fl)=>s+this.floorCodes(fl).length,0);
+    const placedAll=this.FLOORS.reduce((s,fl)=>s+this.placedCount(fl),0);
+
+    // floor tabs
+    const floorTabs=this.FLOORS.map(fl=>{
+      const on=fl===f; const p=this.placedCount(fl), t=this.floorCodes(fl).length;
+      const done=t>0&&p===t;
+      return React.createElement('button',{key:fl,onClick:()=>this.setState({floor:fl,filter:''},()=>this.pickFirstUnplaced()),
+        style:{flexShrink:0,height:'34px',padding:'0 14px',borderRadius:'10px',border:on?'0':'1px solid #E1E9E6',
+          background:on?'#00848D':'#fff',color:on?'#fff':'#5A6B6E',fontFamily:'inherit',fontSize:'13px',fontWeight:on?700:600,
+          cursor:'pointer',display:'flex',alignItems:'center',gap:'7px'}},
+        fl,
+        React.createElement('span',{style:{fontSize:'10px',fontWeight:700,padding:'1px 6px',borderRadius:'999px',
+          background:on?'rgba(255,255,255,.22)':(done?'#E3F0EE':'#F1F2F2'),color:on?'#fff':(done?'#00848D':'#9AA8AB')}}, this.ar(p)+'/'+this.ar(t)));
+    });
+
+    // canvas with transform layer
+    const pins=Object.keys(coords).map(code=>{
+      const pos=coords[code]; const col=this.typeColor(this.typeOf(code));
+      const isSel=this.state.selected===code; const justP=this.state.justPlaced===code;
+      return React.createElement('div',{key:code,title:code,
+        onClick:(ev)=>{ev.stopPropagation();this.setState({selected:code});},
+        style:{position:'absolute',left:pos.x+'%',top:pos.y+'%',transform:'translate(-50%,-50%)',
+          zIndex:isSel?6:4,cursor:'pointer',animation:justP?'cedDrop .42s ease':'none'}},
+        React.createElement('div',{style:{width:isSel?'16px':'12px',height:isSel?'16px':'12px',borderRadius:'50%',
+          background:col,border:'2.5px solid #fff',boxShadow:isSel?`0 0 0 3px ${col}66`:'0 1px 3px rgba(0,0,0,.35)'}}),
+        isSel?React.createElement('div',{style:{position:'absolute',top:'-26px',left:'50%',transform:'translateX(-50%)',
+          background:'#0E3338',color:'#fff',fontSize:'10px',fontWeight:700,padding:'2px 7px',borderRadius:'6px',whiteSpace:'nowrap'}},code):null);
+    });
+
+    const transformLayer=React.createElement('div',{
+      onClick:(e)=>this.placeAt(e),
+      style:{width:'min(92%, calc((100vh - 220px) * 1.414))',
+        transform:`translate(${this.state.tx}px,${this.state.ty}px) scale(${this.state.zoom})`,
+        transformOrigin:'center center',transition:this.state.justPlaced?'none':'transform .12s',cursor:this.state.selected?'crosshair':'default'}},
+      React.createElement('div',{style:{position:'relative',width:'100%',aspectRatio:'1191/842',background:'#fff',
+        borderRadius:'6px',boxShadow:'0 4px 20px rgba(0,0,0,.12)',overflow:'hidden'}},
+        React.createElement('img',{src:'assets/floors/'+this.SVGMAP[f]+'.svg',draggable:false,
+          style:{width:'100%',height:'100%',display:'block',pointerEvents:'none',userSelect:'none'}}),
+        ...pins));
+
+    const canvas=this.state.loaded
+      ? transformLayer
+      : React.createElement('div',{style:{position:'absolute',inset:0,display:'grid',placeItems:'center',color:'#8A989C',fontSize:'14px'}},'جارٍ تحميل البيانات…');
+
+    // code list
+    let listCodes=codes.filter(c=>!this.state.filter||c.toLowerCase().includes(this.state.filter.toLowerCase()));
+    if(this.state.onlyUnplaced) listCodes=listCodes.filter(c=>!coords[c]);
+    // group by type
+    const groups={};
+    listCodes.forEach(c=>{const t=this.typeOf(c);(groups[t]=groups[t]||[]).push(c);});
+    const typeNames={WS:'محطات عمل',M:'مكاتب إدارة',MR:'قاعات اجتماعات',BR:'دورات مياه',CS:'خدمة عملاء',K:'مطابخ',CD:'غرف خدمية',FS:'طفايات حريق',SR:'غرف خدمات',CEO:'الرئاسة',MG:'إدارة',MO:'مكتب',GM:'إدارة عامة',CM:'إدارة',WA:'انتظار'};
+    const listEls=[];
+    Object.keys(groups).sort().forEach(t=>{
+      const col=this.typeColor(t);
+      listEls.push(React.createElement('div',{key:'h'+t,style:{display:'flex',alignItems:'center',gap:'7px',margin:'12px 0 8px'}},
+        React.createElement('span',{style:{width:'9px',height:'9px',borderRadius:'3px',background:col}}),
+        React.createElement('span',{style:{fontSize:'12px',fontWeight:700,color:'#5A6B6E'}}, (typeNames[t]||t)+' · '+this.ar(groups[t].length))));
+      const chips=groups[t].map(c=>{
+        const placed=!!coords[c]; const sel=this.state.selected===c;
+        return React.createElement('div',{key:c,onClick:()=>this.setState({selected:c}),
+          style:{display:'flex',alignItems:'center',gap:'8px',padding:'8px 10px',borderRadius:'10px',cursor:'pointer',
+            border:sel?`1.5px solid ${col}`:'1px solid #EFF1F0',background:sel?`${col}11`:(placed?'#F6FAF9':'#fff'),marginBottom:'5px'}},
+          React.createElement('span',{style:{width:'8px',height:'8px',borderRadius:'50%',flexShrink:0,
+            background:placed?col:'#fff',border:placed?'0':`1.5px solid ${col}`}}),
+          React.createElement('span',{style:{flex:1,fontSize:'12.5px',fontWeight:600,fontFamily:'ui-monospace,monospace',color:'#123238'}},c),
+          this.state.names[c]?React.createElement('span',{style:{fontSize:'10px',color:'#9AA8AB',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'80px'}},this.state.names[c]):null,
+          placed?React.createElement('button',{onClick:(ev)=>{ev.stopPropagation();this.removePin(c);},
+            title:'حذف الموضع',style:{width:'22px',height:'22px',borderRadius:'7px',border:0,background:'#F1F2F2',color:'#9AA8AB',cursor:'pointer',fontSize:'13px',flexShrink:0}},'×')
+            :React.createElement('span',{style:{fontSize:'9px',color:'#C0CBC8',fontWeight:700}},'—'));
+      });
+      listEls.push(React.createElement('div',{key:'g'+t},chips));
+    });
+    if(listCodes.length===0) listEls.push(React.createElement('div',{key:'empty',style:{textAlign:'center',color:'#9AA8AB',fontSize:'13px',padding:'30px 0'}},
+      this.state.onlyUnplaced?'✓ كل الأكواد محدّدة في هذا الطابق':'لا نتائج'));
+
+    const u=this.state.onlyUnplaced;
+    return {
+      floorTabs, canvas, codeList:listEls,
+      floorLabel:f, floorPlaced:this.ar(this.placedCount(f))+'/'+this.ar(codes.length),
+      progressLabel:'الإجمالي: '+this.ar(placedAll)+' / '+this.ar(totalAll)+' موقع',
+      filter:this.state.filter,
+      onFilter:(e)=>this.setState({filter:e.target.value}),
+      showUnplaced:()=>this.setState({onlyUnplaced:true}),
+      showAll:()=>this.setState({onlyUnplaced:false}),
+      unplacedBg:u?'#00848D':'#fff',unplacedColor:u?'#fff':'#5A6B6E',unplacedBorder:u?'#00848D':'#E1E9E6',
+      allBg:!u?'#00848D':'#fff',allColor:!u?'#fff':'#5A6B6E',allBorder:!u?'#00848D':'#E1E9E6',
+      hintText:this.state.selected?('انقر على المخطط لتحديد موضع: '+this.state.selected):'اختر كوداً من القائمة ثم انقر على المخطط',
+      zoomIn:()=>this.setState(s=>({zoom:Math.min(6,+(s.zoom+0.3).toFixed(2))})),
+      zoomOut:()=>this.setState(s=>({zoom:Math.max(0.5,+(s.zoom-0.3).toFixed(2))})),
+      resetView:()=>this.setState({zoom:1,tx:0,ty:0}),
+      onWheel:(e)=>{ e.preventDefault(); const d=e.deltaY<0?0.2:-0.2; this.setState(s=>({zoom:Math.max(0.5,Math.min(6,+(s.zoom+d).toFixed(2)))})); },
+      exportJson:()=>{
+        const data=this.exportData();
+        const blob=new Blob([JSON.stringify({version:1,generatedAt:new Date().toISOString(),points:data},null,2)],{type:'application/json'});
+        const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='map_points.json'; a.click();
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

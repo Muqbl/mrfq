@@ -1,5 +1,7 @@
 'use strict';
 
+const crypto = require('crypto');
+
 const FLOOR_ASSETS = Object.freeze([
   { id: 'GF', labelAr: 'الدور الأرضي', labelEn: 'Ground Floor', svg: '/floors/01_GF.svg' },
   { id: 'MF', labelAr: 'دور الميزانين', labelEn: 'Mezzanine', svg: '/floors/02_MF.svg' },
@@ -84,6 +86,116 @@ function pointRows(db, floor) {
   `).all(normalizedFloor);
 }
 
+function tableExists(db, table) {
+  return !!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(table);
+}
+
+function wantedLayers(layers = []) {
+  return new Set((layers || []).map(layer => String(layer).trim().toLowerCase()).filter(Boolean));
+}
+
+function activeLayerSet(wanted) {
+  return wanted.size ? wanted : new Set(['cleaning', 'maintenance', 'hospitality', 'safety', 'cameras', 'groups']);
+}
+
+function autoCoordinate(floor, code) {
+  const hash = crypto.createHash('sha1').update(`${floor}:${code}`).digest();
+  const cols = 12;
+  const rows = 8;
+  const slot = hash[0] + (hash[1] << 8);
+  const col = slot % cols;
+  const row = Math.floor(slot / cols) % rows;
+  const jitterX = ((hash[2] / 255) - 0.5) * 3;
+  const jitterY = ((hash[3] / 255) - 0.5) * 3;
+  return {
+    x: Math.max(5, Math.min(95, 8 + col * (84 / (cols - 1)) + jitterX)),
+    y: Math.max(7, Math.min(93, 10 + row * (78 / (rows - 1)) + jitterY))
+  };
+}
+
+function layerFromModules(modules) {
+  const priority = ['cleaning', 'maintenance', 'hospitality', 'safety', 'cameras', 'groups'];
+  return priority.find(layer => modules.has(layer)) || 'cleaning';
+}
+
+function collectAutoOperationalPoints(db, floor, layers = []) {
+  const normalizedFloor = normalizeCode(floor);
+  const wanted = wantedLayers(layers);
+  const active = activeLayerSet(wanted);
+  const byCode = new Map();
+  const add = (code, module) => {
+    const normalizedCode = normalizeCode(code);
+    if (!normalizedCode || !active.has(module)) return;
+    const entry = byCode.get(normalizedCode) || new Set();
+    entry.add(module);
+    byCode.set(normalizedCode, entry);
+  };
+  const ticketModules = ['cleaning', 'maintenance', 'hospitality'].filter(module => active.has(module));
+  if (ticketModules.length) {
+    db.prepare(`
+      SELECT DISTINCT l.id code, t.module
+      FROM tickets t
+      JOIN locations l ON l.id = t.location_id AND l.deleted_at IS NULL
+      WHERE l.floor = ?
+        AND t.deleted_at IS NULL
+        AND t.status NOT IN ('completed','rejected','cancelled')
+        AND t.module IN (${ticketModules.map(() => '?').join(',')})
+    `).all(normalizedFloor, ...ticketModules).forEach(row => add(row.code, row.module));
+  }
+  const reportModules = ['cleaning', 'maintenance', 'hospitality'].filter(module => active.has(module));
+  if (reportModules.length) {
+    db.prepare(`
+      SELECT DISTINCT l.id code, r.module
+      FROM reports r
+      JOIN locations l ON l.id = r.location_id AND l.deleted_at IS NULL
+      WHERE l.floor = ?
+        AND r.deleted_at IS NULL
+        AND r.approval_status IN ('pending','pending_approval','needs_recleaning')
+        AND r.module IN (${reportModules.map(() => '?').join(',')})
+    `).all(normalizedFloor, ...reportModules).forEach(row => add(row.code, row.module));
+  }
+  if (active.has('hospitality') && tableExists(db, 'hospitality_orders')) {
+    db.prepare(`
+      SELECT DISTINCT l.id code
+      FROM hospitality_orders h
+      JOIN locations l ON l.id = h.location_id AND l.deleted_at IS NULL
+      WHERE l.floor = ?
+        AND h.deleted_at IS NULL
+        AND h.status NOT IN ('completed','cancelled','rejected')
+    `).all(normalizedFloor).forEach(row => add(row.code, 'hospitality'));
+  }
+  if ((active.has('maintenance') || active.has('safety') || active.has('cameras')) && tableExists(db, 'maintenance_assets')) {
+    db.prepare(`
+      SELECT DISTINCT l.id code, a.category, a.status
+      FROM maintenance_assets a
+      JOIN locations l ON l.id = a.location_id AND l.deleted_at IS NULL
+      WHERE l.floor = ?
+        AND a.deleted_at IS NULL
+        AND lower(COALESCE(a.status,'')) IN ('down','out_of_service','needs_repair','critical')
+    `).all(normalizedFloor).forEach(row => {
+      const category = String(row.category || '').toLowerCase();
+      if (category.includes('cam') || String(row.category || '').includes('كام')) add(row.code, 'cameras');
+      else if (category.includes('fire') || String(row.category || '').includes('طف')) add(row.code, 'safety');
+      else add(row.code, 'maintenance');
+    });
+  }
+  return [...byCode.entries()].map(([code, modules]) => {
+    const { x, y } = autoCoordinate(normalizedFloor, code);
+    const layer = layerFromModules(modules);
+    return {
+      floor: normalizedFloor,
+      code,
+      x,
+      y,
+      layer,
+      type: typeFromCode(code),
+      source: 'auto',
+      auto: true,
+      visibleLayers: [...modules]
+    };
+  });
+}
+
 function replaceFloorPoints(db, floor, rawPoints) {
   const normalizedFloor = normalizeCode(floor);
   const points = (Array.isArray(rawPoints) ? rawPoints : [])
@@ -118,6 +230,49 @@ function locationByCode(db, code) {
     LEFT JOIN spaces s ON s.id = m.space_id
     WHERE ${lookup.clause} AND l.deleted_at IS NULL
   `).get(...lookup.values);
+}
+
+function spaceByCode(db, code) {
+  const lookup = codeWhere('s.code', code);
+  return db.prepare(`
+    SELECT s.*, z.name_ar zone_name_ar, z.name_en zone_name_en,
+      fl.id floor_id, fl.name_ar floor_name_ar, fl.name_en floor_name_en,
+      b.id building_id, b.name_ar building_name_ar, b.name_en building_name_en,
+      f.id facility_id, f.name_ar facility_name_ar, f.name_en facility_name_en
+    FROM spaces s
+    JOIN facility_zones z ON z.id = s.zone_id
+    JOIN floors fl ON fl.id = z.floor_id
+    JOIN buildings b ON b.id = fl.building_id
+    JOIN facilities f ON f.id = b.facility_id
+    WHERE (${lookup.clause} OR s.legacy_location_id IN (${lookup.values.map(() => '?').join(',')}))
+      AND s.deleted_at IS NULL
+  `).get(...lookup.values, ...lookup.values);
+}
+
+function resolveSpace(db, code) {
+  const location = locationByCode(db, code);
+  if (location?.space_id) return { location, spaceId: location.space_id, space: null };
+  const space = spaceByCode(db, code);
+  return { location, spaceId: space?.id || '', space: space || null };
+}
+
+function employeesForSpace(db, spaceId) {
+  if (!spaceId) return [];
+  return db.prepare(`
+    SELECT DISTINCT u.id,u.name,u.username,u.role,u.employee_no,u.active
+    FROM users u
+    LEFT JOIN space_assignments sa ON sa.user_id = u.id AND sa.deleted_at IS NULL
+    WHERE u.deleted_at IS NULL
+      AND (u.space_id = ? OR sa.space_id = ?)
+    ORDER BY u.name
+  `).all(spaceId, spaceId).map(user => ({
+    id: user.id,
+    name: user.name || '',
+    username: user.username || '',
+    role: user.role || '',
+    employeeNo: user.employee_no || '',
+    active: user.active === 1 || user.active === true
+  }));
 }
 
 function groupByCode(db, code) {
@@ -224,8 +379,11 @@ function assetStatus(db, location, pointType) {
 }
 
 function pointStatus(db, point) {
-  const location = locationByCode(db, point.code);
-  const group = !location ? groupByCode(db, point.code) : null;
+  const resolved = resolveSpace(db, point.code);
+  const location = resolved.location;
+  const space = resolved.space;
+  const spaceId = resolved.spaceId;
+  const group = !location && !space ? groupByCode(db, point.code) : null;
   const pointType = typeFromCode(point.code);
   const isSafetyPoint = point.layer === 'safety' || pointType === 'FS';
   const isCameraPoint = point.layer === 'cameras' || pointType === 'CAM';
@@ -239,16 +397,33 @@ function pointStatus(db, point) {
     groups: group ? { level: group.member_count > 1 ? 'active' : 'warn', memberCount: group.member_count || 0 } : null
   };
   const activeModules = Object.fromEntries(Object.entries(modules).filter(([, value]) => value));
+  const missingLocation = !location && !space && !group;
   return {
     ...point,
+    source: point.source || 'manual',
+    auto: point.auto === true,
     location: location ? {
       id: location.id,
+      spaceId: location.space_id || '',
       nameAr: location.name_ar || '',
       nameEn: location.name_en || '',
       type: location.type || '',
       floor: location.floor || '',
       zone: location.zone || '',
       priority: location.priority || ''
+    } : null,
+    space: space ? {
+      id: space.id,
+      code: space.code || '',
+      nameAr: space.name_ar || '',
+      nameEn: space.name_en || '',
+      legacyLocationId: space.legacy_location_id || '',
+      floorId: space.floor_id || '',
+      floorNameAr: space.floor_name_ar || '',
+      floorNameEn: space.floor_name_en || '',
+      facilityId: space.facility_id || '',
+      facilityNameAr: space.facility_name_ar || '',
+      facilityNameEn: space.facility_name_en || ''
     } : null,
     group: group ? {
       id: group.id,
@@ -259,22 +434,93 @@ function pointStatus(db, point) {
       memberCount: group.member_count || 0
     } : null,
     modules: activeModules,
-    level: statusLevel(activeModules),
-    missingLocation: !location && !group
+    employees: employeesForSpace(db, spaceId),
+    level: missingLocation ? 'missing' : statusLevel(activeModules),
+    missingLocation
   };
 }
 
 function statusRows(db, floor, layers = []) {
-  const wanted = new Set((layers || []).map(layer => String(layer).trim().toLowerCase()).filter(Boolean));
-  const points = pointRows(db, floor).filter(point => !wanted.size || wanted.has(point.layer));
-  const rows = points.map(point => pointStatus(db, point));
+  const wanted = wantedLayers(layers);
+  const manualPoints = pointRows(db, floor).map(point => ({ ...point, source: 'manual', auto: false }));
+  const manualCodes = new Set(manualPoints.map(point => normalizeCode(point.code)));
+  const autoPoints = collectAutoOperationalPoints(db, floor, layers)
+    .filter(point => !manualCodes.has(normalizeCode(point.code)));
+  const rows = [...manualPoints, ...autoPoints]
+    .map(point => {
+      const row = pointStatus(db, point);
+      const moduleLayers = Object.keys(row.modules || {});
+      const triggerLayers = point.visibleLayers || [];
+      row.visibleLayers = [...new Set([
+        ...(point.auto && triggerLayers.length ? triggerLayers : moduleLayers),
+        row.layer
+      ].filter(Boolean))];
+      return row;
+    })
+    .filter(point => !wanted.size || point.visibleLayers.some(layer => wanted.has(layer)));
   const summary = rows.reduce((acc, point) => {
     acc.total += 1;
     acc[point.level] = (acc[point.level] || 0) + 1;
-    acc.layers[point.layer] = (acc.layers[point.layer] || 0) + 1;
+    for (const layer of point.visibleLayers || [point.layer]) {
+      acc.layers[layer] = (acc.layers[layer] || 0) + 1;
+    }
+    acc.sources[point.source] = (acc.sources[point.source] || 0) + 1;
     return acc;
-  }, { total: 0, ok: 0, active: 0, warn: 0, critical: 0, layers: {} });
+  }, { total: 0, ok: 0, active: 0, warn: 0, critical: 0, layers: {}, sources: { manual: 0, auto: 0 } });
   return { floor: normalizeCode(floor), points: rows, summary };
 }
 
-module.exports = { FLOOR_ASSETS, floorRows, pointRows, replaceFloorPoints, statusRows, typeFromCode, normalizeCode };
+function auditRows(db, floor) {
+  const rows = pointRows(db, floor).map(point => pointStatus(db, point));
+  const byLayer = rows.reduce((acc, point) => {
+    acc[point.layer] = acc[point.layer] || { total: 0, linked: 0, missing: 0 };
+    acc[point.layer].total += 1;
+    if (point.missingLocation) acc[point.layer].missing += 1;
+    else acc[point.layer].linked += 1;
+    return acc;
+  }, {});
+  const missing = rows
+    .filter(point => point.missingLocation)
+    .map(point => ({ code: point.code, floor: point.floor, layer: point.layer, type: point.type }));
+  return {
+    floor: normalizeCode(floor),
+    summary: {
+      total: rows.length,
+      linked: rows.length - missing.length,
+      missing: missing.length,
+      byLayer
+    },
+    missing
+  };
+}
+
+function assignEmployees(db, code, userIds = []) {
+  const normalizedCode = normalizeCode(code);
+  const { spaceId } = resolveSpace(db, normalizedCode);
+  if (!spaceId) return { error: 'SPACE_NOT_FOUND' };
+  const ids = [...new Set((Array.isArray(userIds) ? userIds : []).map(value => String(value || '').trim()).filter(Boolean))];
+  const users = ids.length
+    ? db.prepare(`
+      SELECT id FROM users
+      WHERE id IN (${ids.map(() => '?').join(',')})
+        AND active = 1 AND deleted_at IS NULL
+    `).all(...ids).map(row => row.id)
+    : [];
+  const ts = new Date().toISOString();
+  db.transaction(() => {
+    db.prepare("UPDATE space_assignments SET deleted_at = ? WHERE space_id = ? AND assignment_type = 'employee' AND deleted_at IS NULL").run(ts, spaceId);
+    db.prepare("UPDATE users SET space_id = '', updated_at = ? WHERE space_id = ?").run(ts, spaceId);
+    const insert = db.prepare(`
+      INSERT INTO space_assignments (id,space_id,user_id,assignment_type,module,created_at,deleted_at)
+      VALUES (?,?,?,?,?,?,NULL)
+    `);
+    const updateUser = db.prepare('UPDATE users SET space_id = ?, updated_at = ? WHERE id = ?');
+    for (const userId of users) {
+      insert.run(`spa-${crypto.randomBytes(6).toString('hex')}`, spaceId, userId, 'employee', '', ts);
+      updateUser.run(spaceId, ts, userId);
+    }
+  })();
+  return { spaceId, employees: employeesForSpace(db, spaceId) };
+}
+
+module.exports = { FLOOR_ASSETS, floorRows, pointRows, replaceFloorPoints, statusRows, auditRows, assignEmployees, typeFromCode, normalizeCode };
