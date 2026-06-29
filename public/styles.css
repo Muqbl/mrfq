@@ -2970,12 +2970,18 @@ tbody tr:hover td{background:var(--surface-2)}
 }
 .mapFreeOccupantRows{display:flex;flex-direction:column;gap:8px}
 .mapFreeOccupantRow{
-  display:grid;grid-template-columns:minmax(160px,1.1fr) minmax(130px,.8fr) minmax(160px,1fr) 38px;
+  display:grid;grid-template-columns:1fr;
   gap:10px;align-items:center;border:1px solid var(--line);border-radius:var(--r-sm);
   background:var(--surface-2);padding:10px;
 }
 .mapFreeOccupantRow .ctrl{width:100%;min-width:0;background:var(--surface)}
-.mapFreeOccupantRow .icon-btn{justify-self:center}
+.mapFreeOccupantRow .icon-btn{justify-self:flex-end}
+@media(min-width:980px){
+  .mapFreeOccupantRow{
+    grid-template-columns:minmax(180px,1.1fr) minmax(140px,.75fr) minmax(180px,1fr) 38px;
+  }
+  .mapFreeOccupantRow .icon-btn{justify-self:center}
+}
 .mapModuleList{display:flex;flex-direction:column;gap:8px}
 .mapModuleCard{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
@@ -3001,8 +3007,6 @@ tbody tr:hover td{background:var(--surface-2)}
   .mapLayer{flex:1;justify-content:center}
   .mapCanvasWrap{padding:8px}
   .mapPointOverlay{position:absolute;width:min(420px,calc(100% - 24px));max-height:70%;margin-top:0}
-  .mapFreeOccupantRow{grid-template-columns:1fr}
-  .mapFreeOccupantRow .icon-btn{justify-self:flex-end}
 }
 
 @media(max-width:768px){
