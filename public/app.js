@@ -1388,9 +1388,9 @@ function locationCategory(l={}){
   const type=String(l.type||'').toLowerCase();
   if(id.includes('-CAM-') || type==='camera') return 'camera';
   if(id.includes('-FS-') || id.includes('-FE-') || id.includes('-EXT-') || type==='safety_asset') return 'safety_asset';
-  if(['office'].includes(type) || /-(WS|GM|M)-?/i.test(id)) return 'office';
   if(type==='restroom' || id.includes('-BR-') || id.includes('-WC-')) return 'restroom';
   if(type==='meeting_room' || id.includes('-MR-')) return 'meeting_room';
+  if(['office'].includes(type) || /-(WS|GM|M)-?/i.test(id)) return 'office';
   if(type==='pantry' || id.includes('-K-') || id.includes('-CS-') || id.includes('-SR-')) return 'pantry';
   if(['corridor','lobby','entrance','parking','outdoor','prayer_room','elevator'].includes(type)) return type;
   return 'other';
