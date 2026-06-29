@@ -5,7 +5,7 @@
 
 /* ─── CONSTANTS ──────────────────────────────────────────────── */
 const ROLES = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','cleaner','employee','hospitality_manager','hospitality_supervisor','hospitality_worker','maintenance_manager','maintenance_supervisor','maintenance_worker'];
-const TYPES = ['restroom','lobby','office','meeting_room','pantry','corridor','prayer_room','elevator','entrance','parking','outdoor','other'];
+const TYPES = ['restroom','lobby','office','meeting_room','pantry','corridor','prayer_room','elevator','entrance','parking','outdoor','safety_asset','camera','other'];
 
 // ===== Facility Constants =====
 const FACILITY_FLOORS = [
@@ -83,6 +83,7 @@ const T = {
     open:'مفتوح',closed:'مغلق',
     restroom:'دورة مياه',lobby:'ردهة',office:'مكتب',meeting_room:'قاعة اجتماع',
     pantry:'ضيافة',corridor:'ممرات',prayer_room:'مصلى',elevator:'مصاعد',
+    safety_asset:'طفايات وسلامة',camera:'كاميرات',
     entrance:'مدخل',parking:'مواقف',outdoor:'خارجي',other:'أخرى',
     operations:'العمليات',management:'الإدارة',settings:'الإعدادات',
     demoAccounts:'حسابات تجريبية',scanQR:'مسح QR',
@@ -310,6 +311,7 @@ const T = {
     open:'Open',closed:'Closed',
     restroom:'Restroom',lobby:'Lobby',office:'Office',meeting_room:'Meeting Room',
     pantry:'Pantry',corridor:'Corridor',prayer_room:'Prayer Room',elevator:'Elevator',
+    safety_asset:'Fire & Safety',camera:'Cameras',
     entrance:'Entrance',parking:'Parking',outdoor:'Outdoor',other:'Other',
     operations:'Operations',management:'Management',settings:'Settings',
     demoAccounts:'Demo Accounts',scanQR:'Scan QR',
@@ -588,10 +590,12 @@ let empHospCatFilter = '';
 let empHospLocId = '';
 let usersSearch = '', usersRoleFilter = 'all', usersStatusFilter = 'all';
 let locsFloorFilter = 'all';
+let locsTypeFilter = 'all';
 let facilitiesSubView = 'locations';
 let assignModule = 'cleaning';
 let assignFloorFilter = 'all';
 let assignFloorFilters = ['all'];
+let assignTypeFilter = 'all';
 let showTicketCreate = false, showLocCreate = false, showZoneCreate = false, showGroupCreate = false;
 let mobileNavActive = '';
 let viewHistory = [];
@@ -760,7 +764,7 @@ const UI_ACTION_NAMES = new Set([
   'mapSetFloor','mapToggleLayer','mapTogglePointKind','mapSetMode','mapSelectCode','mapCanvasClick',
   'mapDeletePoint','mapSavePoints','mapSelectPoint','mapShowAllCodes','mapShowUnplacedCodes',
   'mapRefreshData','mapZoomIn','mapZoomOut','mapZoomReset','showMapEmployeeModal','saveMapEmployees',
-  'mapClearSelection','mapAddFreeOccupant','mapRemoveFreeOccupant'
+  'mapClearSelection','mapAddFreeOccupant','mapRemoveFreeOccupant','updateLocationModules'
 ]);
 function uiAction(name,args=[]){
   if(!UI_ACTION_NAMES.has(name)) throw new Error(`Unsupported UI action: ${name}`);
@@ -805,10 +809,12 @@ function runUiFlow(flow,...values){
     else if(scope==='maintView') maintView=value;
     else if(scope==='reportFilter') reportFilter=value;
     else if(scope==='locsFloorFilter') locsFloorFilter=value;
+    else if(scope==='locsTypeFilter') locsTypeFilter=value;
     else if(scope==='employeeHistoryFilter') employeeHistoryFilter=value;
     else if(scope==='empHospCatFilter') empHospCatFilter=value;
     else if(scope==='facilitiesSubView') facilitiesSubView=value;
-    else if(scope==='assignModule'){ assignModule=value; assignFloorFilter='all'; assignFloorFilters=['all']; }
+    else if(scope==='assignModule'){ assignModule=value; assignFloorFilter='all'; assignFloorFilters=['all']; assignTypeFilter='all'; }
+    else if(scope==='assignTypeFilter') assignTypeFilter=value;
     else return;
     if(nav) mobileNavActive=nav;
     renderByName(renderer);
@@ -1355,6 +1361,81 @@ function activeAssignModule(){
     return adminModuleContext || assignModule;
   }
   return moduleForCurrentRole();
+}
+function operationalModuleMeta(){
+  return [
+    {id:'cleaning',label:lang==='ar'?'النظافة':'Cleaning',icon:'check'},
+    {id:'maintenance',label:lang==='ar'?'الصيانة':'Maintenance',icon:'wrench'},
+    {id:'hospitality',label:lang==='ar'?'الضيافة':'Hospitality',icon:'coffee'},
+    {id:'safety',label:lang==='ar'?'السلامة':'Safety',icon:'shield'},
+    {id:'security',label:lang==='ar'?'الأمن':'Security',icon:'camera'}
+  ];
+}
+function inferLocationModules(l={}){
+  const id=String(l.id||'').toUpperCase();
+  const type=String(l.type||'').toLowerCase();
+  if(id.includes('-CAM-') || type==='camera') return ['maintenance'];
+  if(id.includes('-FS-') || id.includes('-FE-') || id.includes('-EXT-') || type==='safety_asset') return ['maintenance','safety'];
+  if(['office','meeting_room','lobby','pantry'].includes(type)) return ['cleaning','maintenance','hospitality'];
+  if(['restroom','pantry','prayer_room','corridor','lobby','entrance','parking','outdoor'].includes(type)) return ['cleaning','maintenance'];
+  return ['cleaning','maintenance'];
+}
+function locModules(l={}){
+  return Array.isArray(l.serviceModules) && l.serviceModules.length ? l.serviceModules : inferLocationModules(l);
+}
+function locationCategory(l={}){
+  const id=String(l.id||'').toUpperCase();
+  const type=String(l.type||'').toLowerCase();
+  if(id.includes('-CAM-') || type==='camera') return 'camera';
+  if(id.includes('-FS-') || id.includes('-FE-') || id.includes('-EXT-') || type==='safety_asset') return 'safety_asset';
+  if(['office'].includes(type) || /-(WS|GM|M)-?/i.test(id)) return 'office';
+  if(type==='restroom' || id.includes('-BR-') || id.includes('-WC-')) return 'restroom';
+  if(type==='meeting_room' || id.includes('-MR-')) return 'meeting_room';
+  if(type==='pantry' || id.includes('-K-') || id.includes('-CS-') || id.includes('-SR-')) return 'pantry';
+  if(['corridor','lobby','entrance','parking','outdoor','prayer_room','elevator'].includes(type)) return type;
+  return 'other';
+}
+function facilityCategoryMeta(module='all'){
+  const base=[
+    {id:'all',label:lang==='ar'?'الكل':'All',icon:'layers'},
+    {id:'office',label:lang==='ar'?'المكاتب':'Offices',icon:'building'},
+    {id:'restroom',label:lang==='ar'?'دورات المياه':'Restrooms',icon:'droplets'},
+    {id:'meeting_room',label:lang==='ar'?'غرف الاجتماعات':'Meeting rooms',icon:'users'},
+    {id:'pantry',label:lang==='ar'?'المطابخ والخدمات':'Pantry & service',icon:'coffee'},
+    {id:'safety_asset',label:lang==='ar'?'الطفايات والسلامة':'Fire & safety',icon:'shield'},
+    {id:'camera',label:lang==='ar'?'الكاميرات':'Cameras',icon:'camera'},
+    {id:'corridor',label:lang==='ar'?'الممرات والمناطق':'Corridors & areas',icon:'map-pin'},
+    {id:'other',label:lang==='ar'?'أخرى':'Other',icon:'locations'}
+  ];
+  const allowedByModule={
+    cleaning:['all','office','restroom','meeting_room','pantry','corridor','lobby','entrance','parking','outdoor','prayer_room','other'],
+    maintenance:['all','office','restroom','meeting_room','pantry','safety_asset','camera','corridor','lobby','entrance','parking','outdoor','prayer_room','elevator','other'],
+    hospitality:['all','office','meeting_room','pantry'],
+    safety:['all','safety_asset','restroom','corridor','other'],
+    security:['all','camera','corridor','entrance','parking','other']
+  };
+  const allowed = allowedByModule[module] || base.map(x=>x.id);
+  return base.filter(item=>allowed.includes(item.id));
+}
+function locMatchesType(l={}, filter='all'){
+  return filter==='all' || locationCategory(l)===filter;
+}
+function locSupportsModule(l={}, module='cleaning'){
+  return locModules(l).includes(module);
+}
+function moduleChipsHtml(l){
+  const active=new Set(locModules(l));
+  return `<div class="moduleLinkChips">${operationalModuleMeta().map(m=>`
+    <button type="button" class="moduleLinkChip${active.has(m.id)?' active':''}" ${canManageFacilities()?uiAction('updateLocationModules',[l.id,m.id,!active.has(m.id)]):'disabled'}>
+      ${ic(m.icon,12)} ${m.label}
+    </button>`).join('')}</div>`;
+}
+function serviceModulePickerHtml(selected=[]){
+  const active=new Set(selected.length ? selected : ['cleaning','maintenance']);
+  return `<div class="moduleCheckGrid">${operationalModuleMeta().map(m=>`<label class="moduleCheck">
+    <input type="checkbox" class="serviceModuleCheck" value="${esc(m.id)}" ${active.has(m.id)?'checked':''}>
+    <span>${ic(m.icon,13)} ${m.label}</span>
+  </label>`).join('')}</div>`;
 }
 
 function locationOperationalStatus(locationId){
@@ -4457,6 +4538,7 @@ ${showLocCreate?`
     ${fc(tr('floor'), sel('lf', FACILITY_FLOORS.map(f=>({v:f,l:f}))))}
     ${fc(tr('zone'), sel('lz', FACILITY_ZONES.map(z=>({v:z,l:z}))))}
     ${fc(tr('priority'), sel('lpri',[{v:'high',l:tr('high')},{v:'medium',l:tr('medium'),sel:true},{v:'low',l:tr('low')}]))}
+    ${fc(lang==='ar'?'الأقسام المرتبطة':'Linked modules', serviceModulePickerHtml(['cleaning','maintenance']))}
     <div class="field align-self-end"><button class="btn wide" ${uiAction('addLoc',[])}>${ic('plus',16)} ${tr('save')}</button></div>
   </div>
 </div>`:''}`:''}
@@ -4470,10 +4552,20 @@ ${showLocCreate?`
     ).join('')}
   </div>
 </div>
+<div class="filterBar u-mb-16">
+  <div class="filterChips">
+    ${facilityCategoryMeta('all').map(cat=>{
+      const count=(data.locations||[]).filter(l=>locMatchesType(l,cat.id)).length;
+      return `<button class="filterChip${locsTypeFilter===cat.id?' active':''}" ${uiAction('runUiFlow',['navigate','locsTypeFilter',cat.id,null,'render'])}>
+        ${ic(cat.icon,13)} ${cat.label} <b>${num(count)}</b>
+      </button>`;
+    }).join('')}
+  </div>
+</div>
 
 <div class="locGrid">
   ${(data.locations||[]).filter(l=>{
-    return locsFloorFilter==='all' || (l.floor||'')=== locsFloorFilter;
+    return (locsFloorFilter==='all' || (l.floor||'')=== locsFloorFilter) && locMatchesType(l,locsTypeFilter);
   }).map(l=>{
     const status = locationOperationalStatus(l.id);
     const qrUrl = locationQrUrl(l.id);
@@ -4487,10 +4579,12 @@ ${showLocCreate?`
       </div>
       <div class="u-flex-wrap-gap-6">
         <span class="badge brand">${tr(l.type)}</span>
+        <span class="badge info">${facilityCategoryMeta('all').find(c=>c.id===locationCategory(l))?.label||tr(l.type)}</span>
         ${l.floor?`<span class="badge">${l.floor}</span>`:''}
         ${l.zone?`<span class="badge">${l.zone}</span>`:''}
         <span class="badge ${l.priority==='high'?'bad':l.priority==='low'?'info':'warn'}">${tr(l.priority||'medium')}</span>
       </div>
+      ${moduleChipsHtml(l)}
       ${locationStatusCardMeta(status)}
       <div class="locCard-actions">
         ${canManage()?`<button class="btn danger sm" ${uiAction('deleteLocConfirm',[(esc(l.id))])}>${ic('trash',13)} ${lang==='ar'?'حذف':'Delete'}</button>`:''}
@@ -4560,6 +4654,7 @@ function _operationalTabContent(){
     ${fc(tr('floor'), sel('lf', FACILITY_FLOORS.map(f=>({v:f,l:f}))))}
     ${fc(tr('zone'), sel('lz', FACILITY_ZONES.map(z=>({v:z,l:z}))))}
     ${fc(tr('priority'), sel('lpri',[{v:'high',l:tr('high')},{v:'medium',l:tr('medium'),sel:true},{v:'low',l:tr('low')}]))}
+    ${fc(lang==='ar'?'الأقسام المرتبطة':'Linked modules', serviceModulePickerHtml(['cleaning','maintenance']))}
     <div class="field align-self-end"><button class="btn wide" ${uiAction('addLoc',[])}>${ic('plus',16)} ${tr('save')}</button></div>
   </div>
 </div>`:''}
@@ -4570,8 +4665,16 @@ function _operationalTabContent(){
     </button>`
   ).join('')}
 </div></div>
+<div class="filterBar u-mb-16"><div class="filterChips">
+  ${facilityCategoryMeta('all').map(cat=>{
+    const count=(data.locations||[]).filter(l=>locMatchesType(l,cat.id)).length;
+    return `<button class="filterChip${locsTypeFilter===cat.id?' active':''}" ${uiAction('runUiFlow',['navigate','locsTypeFilter',cat.id,null,'render'])}>
+      ${ic(cat.icon,13)} ${cat.label} <b>${num(count)}</b>
+    </button>`;
+  }).join('')}
+</div></div>
 <div class="locGrid">
-  ${(data.locations||[]).filter(l=>locsFloorFilter==='all'||(l.floor||'')===locsFloorFilter).map(l=>{
+  ${(data.locations||[]).filter(l=>(locsFloorFilter==='all'||(l.floor||'')===locsFloorFilter) && locMatchesType(l,locsTypeFilter)).map(l=>{
     const status=locationOperationalStatus(l.id);
     const qrUrl=locationQrUrl(l.id);
     return`<div class="locCard">
@@ -4581,10 +4684,12 @@ function _operationalTabContent(){
       </div>
       <div class="u-flex-wrap-gap-6">
         <span class="badge brand">${tr(l.type)}</span>
+        <span class="badge info">${facilityCategoryMeta('all').find(c=>c.id===locationCategory(l))?.label||tr(l.type)}</span>
         ${l.floor?`<span class="badge">${l.floor}</span>`:''}
         ${l.zone?`<span class="badge">${l.zone}</span>`:''}
         <span class="badge ${l.priority==='high'?'bad':l.priority==='low'?'info':'warn'}">${tr(l.priority||'medium')}</span>
       </div>
+      ${moduleChipsHtml(l)}
       ${locationStatusCardMeta(status)}
       <div class="locCard-actions">
         ${canManage()?`<button class="btn danger sm" ${uiAction('deleteLocConfirm',[(esc(l.id))])}>${ic('trash',13)} ${lang==='ar'?'حذف':'Delete'}</button>`:''}
@@ -4937,7 +5042,8 @@ async function addLoc(){
     nameEn:document.getElementById('len').value.trim(),
     floor:document.getElementById('lf').value.trim(),
     zone:document.getElementById('lz').value.trim(),
-    priority:document.getElementById('lpri').value
+    priority:document.getElementById('lpri').value,
+    serviceModules:[...document.querySelectorAll('.serviceModuleCheck:checked')].map(input=>input.value)
   })});
   toast(tr('saved'),'ok');
   showLocCreate = false;
@@ -4969,11 +5075,29 @@ async function deleteLocConfirm(id){
   await load();
 }
 
+async function updateLocationModules(id,module,enabled){
+  if(!canManageFacilities()) return;
+  const loc=(data.locations||[]).find(l=>l.id===id);
+  if(!loc) return;
+  const modules=new Set(locModules(loc));
+  if(enabled) modules.add(module);
+  else modules.delete(module);
+  if(!modules.size) return toast(lang==='ar'?'يجب ربط المرفق بقسم واحد على الأقل':'Keep at least one linked module','bad');
+  await api('/locations/'+encodeURIComponent(id),{
+    method:'PUT',
+    body:JSON.stringify({serviceModules:[...modules]})
+  });
+  loc.serviceModules=[...modules];
+  toast(tr('saved'),'ok');
+  render();
+}
+
 /* ═══════════════════════════════════════════════════════════════
    ASSIGNMENTS PAGE
    ═══════════════════════════════════════════════════════════════ */
 function assignments(){
   const module = activeAssignModule();
+  if(!facilityCategoryMeta(module).some(cat=>cat.id===assignTypeFilter)) assignTypeFilter='all';
   const workerRoles = {cleaning:'cleaner', maintenance:'maintenance_worker', hospitality:'hospitality_worker'};
   const supervisorRoles = {cleaning:'cleaning_supervisor', maintenance:'maintenance_supervisor', hospitality:'hospitality_supervisor'};
   const moduleLabels = {
@@ -4989,9 +5113,14 @@ function assignments(){
     ? `لا يوجد عمال في قسم ${moduleLabels[module]} حالياً. أضف عامل من المستخدمين أولاً.`
     : `No ${moduleLabels[module]} workers yet. Add a worker from Users first.`;
   const groups = (data.locationGroups||[]).filter(g=>g.active!==false);
+  const groupLocations = g => (g.memberIds||[]).map(id=>(data.locations||[]).find(l=>l.id===id)).filter(Boolean);
+  const groupSupportsModule = g => groupLocations(g).some(l=>locSupportsModule(l,module));
+  const groupMatchesType = g => assignTypeFilter==='all' || groupLocations(g).some(l=>locSupportsModule(l,module) && locMatchesType(l,assignTypeFilter));
+  const visibleLocations = (data.locations||[]).filter(l=>locSupportsModule(l,module) && locMatchesType(l,assignTypeFilter));
+  const visibleGroups = groups.filter(g=>groupSupportsModule(g) && groupMatchesType(g));
   const floors = [...new Set([
-    ...(data.locations||[]).map(l=>l.floor).filter(Boolean),
-    ...groups.map(g=>g.floor).filter(Boolean)
+    ...visibleLocations.map(l=>l.floor).filter(Boolean),
+    ...visibleGroups.map(g=>g.floor).filter(Boolean)
   ])].sort();
   const floorVisible = floor => assignFloorFilters.includes('all') || assignFloorFilters.includes(floor||'');
   return`
@@ -5017,6 +5146,16 @@ function assignments(){
     <label>${lang==='ar'?'المشرف المسؤول':'Responsible Supervisor'}</label>
     ${choicePicker('asup',[{v:'',l:lang==='ar'?'بدون تحديد':'Unscoped'},...supervisors.map(s=>({v:s.id,l:s.name}))])}
   </div>
+  <div class="filterBar u-mb-16">
+    <div class="filterChips">
+      ${facilityCategoryMeta(module).map(cat=>{
+        const count=(data.locations||[]).filter(l=>locSupportsModule(l,module) && locMatchesType(l,cat.id)).length;
+        return `<button class="filterChip${assignTypeFilter===cat.id?' active':''}" ${uiAction('runUiFlow',['navigate','assignTypeFilter',cat.id,null,'render'])}>
+          ${ic(cat.icon,13)} ${cat.label} <b>${num(count)}</b>
+        </button>`;
+      }).join('')}
+    </div>
+  </div>
   <!-- FLOOR FILTER -->
   <div class="filterBar u-mb-16">
     <div class="filterChips">
@@ -5037,9 +5176,9 @@ function assignments(){
     <div class="assignSelectedCount" id="assignSelectedCount">${lang==='ar'?'المحدد:':'Selected:'} 0</div>
   </div>
 
-  ${groups.length?`<div class="assignSectionTitle">${ic('layers',14)} ${lang==='ar'?'مجموعات من المخطط':'Plan groups'}</div>
+  ${visibleGroups.length?`<div class="assignSectionTitle">${ic('layers',14)} ${lang==='ar'?'مجموعات من المخطط':'Plan groups'}</div>
   <div class="assignGrid assignGrid--groups u-mt-0">
-    ${groups.map(g=>`
+    ${visibleGroups.map(g=>`
       <label class="assignItem assignItem--group${!floorVisible(g.floor)?' is-hidden':''}" data-floor="${esc(g.floor||'')}">
         <input class="asgGroupCheck" type="checkbox" value="${esc(g.id)}" data-ui-change="assign-count">
         <div class="assignItem-body">
@@ -5053,13 +5192,14 @@ function assignments(){
 
   <div class="assignSectionTitle">${ic('locations',14)} ${lang==='ar'?'المواقع المفردة':'Individual locations'}</div>
   <div class="assignGrid u-mt-0">
-    ${(data.locations||[]).map(l=>`
+    ${visibleLocations.map(l=>`
       <label class="assignItem${!floorVisible(l.floor)?' is-hidden':''}" data-floor="${esc(l.floor||'')}">
         <input class="asgCheck" type="checkbox" value="${esc(l.id)}" data-ui-change="assign-count">
         <div class="assignItem-body">
           <div class="assignItem-label">${esc(locName(l))}</div>
           <div class="assignItem-id">${esc(l.id)}</div>
           <span class="badge">${tr(l.type)}</span>
+          <span class="badge info">${facilityCategoryMeta(module).find(c=>c.id===locationCategory(l))?.label||tr(l.type)}</span>
         </div>
       </label>`).join('')}
   </div>

@@ -1368,6 +1368,16 @@ tbody tr:hover td{background:var(--surface-2)}
 @media(max-width:720px){.groupMemberTools{grid-template-columns:1fr}}
 .locCard-qr{display:flex;justify-content:center;padding:10px;background:var(--surface-2);border-radius:var(--r-sm)}
 .locCard-qr img{border-radius:8px}
+.moduleLinkChips,.moduleCheckGrid{display:flex;flex-wrap:wrap;gap:6px}
+.moduleLinkChip,.moduleCheck{
+  min-height:34px;border:1px solid var(--line);border-radius:999px;background:var(--surface-2);
+  color:var(--muted);display:inline-flex;align-items:center;gap:6px;padding:7px 10px;
+  font-family:var(--font-ui);font-size:var(--fs-xs);font-weight:900;cursor:pointer;
+}
+.moduleLinkChip.active{background:var(--brand-soft);border-color:rgba(0,132,141,.28);color:var(--brand-dark)}
+.moduleCheck{border-radius:var(--r-sm)}
+.moduleCheck input{accent-color:var(--brand)}
+.moduleCheck span{display:inline-flex;align-items:center;gap:6px}
 .qr-code-label{
   font-family:ui-monospace,Consolas,monospace;font-size:12px;font-weight:800;
   color:var(--ink);background:var(--surface);border:1px solid var(--line);

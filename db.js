@@ -879,6 +879,19 @@ const MIGRATIONS = {
     CREATE INDEX IF NOT EXISTS idx_map_point_occupants_floor_code ON map_point_occupants(floor, code);
     CREATE INDEX IF NOT EXISTS idx_map_point_occupants_user ON map_point_occupants(user_id);
   `,
+  /* ── v30: flexible operational module links for locations ─── */
+  30: `
+    ALTER TABLE locations ADD COLUMN service_modules TEXT NOT NULL DEFAULT '';
+    UPDATE locations SET service_modules = CASE
+      WHEN id LIKE '%-CAM-%' THEN 'maintenance'
+      WHEN id LIKE '%-FS-%' OR id LIKE '%-FE-%' OR id LIKE '%-EXT-%' THEN 'maintenance,safety'
+      WHEN type IN ('lobby','pantry','meeting_room','office') THEN 'cleaning,maintenance,hospitality'
+      WHEN type IN ('restroom','prayer_room','corridor','entrance','parking','outdoor') THEN 'cleaning,maintenance'
+      ELSE 'cleaning,maintenance'
+    END
+    WHERE service_modules = '';
+    CREATE INDEX IF NOT EXISTS idx_locations_service_modules ON locations(service_modules);
+  `,
 };
 
 function _range(prefix, start, end) {

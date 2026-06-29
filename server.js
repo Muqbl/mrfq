@@ -208,6 +208,26 @@ function getLocationByAnyId(db, id, activeOnly = false) {
   `).get(...ids);
 }
 
+function normalizeServiceModules(value, fallbackType = '', fallbackId = '') {
+  const allowed = new Set(['cleaning', 'maintenance', 'hospitality', 'safety', 'security']);
+  const raw = Array.isArray(value)
+    ? value
+    : String(value || '').split(',');
+  const modules = [...new Set(raw.map(v => sanitize(v, 30).toLowerCase()).filter(v => allowed.has(v)))];
+  if (modules.length) return modules;
+  const id = String(fallbackId || '').toUpperCase();
+  const type = String(fallbackType || '').toLowerCase();
+  if (id.includes('-CAM-')) return ['maintenance'];
+  if (id.includes('-FS-') || id.includes('-FE-') || id.includes('-EXT-')) return ['maintenance', 'safety'];
+  if (['office', 'meeting_room', 'lobby', 'pantry'].includes(type)) return ['cleaning', 'maintenance', 'hospitality'];
+  if (['restroom', 'pantry', 'prayer_room', 'corridor', 'lobby', 'entrance', 'parking', 'outdoor'].includes(type)) return ['cleaning', 'maintenance'];
+  return ['cleaning', 'maintenance'];
+}
+
+function serviceModulesText(value, fallbackType = '', fallbackId = '') {
+  return normalizeServiceModules(value, fallbackType, fallbackId).join(',');
+}
+
 /* ═══════════════════════════════════════════════════════════════
    PASSWORD HASHING  (scrypt — built-in crypto, no external deps)
    ═══════════════════════════════════════════════════════════════ */
@@ -442,7 +462,8 @@ const mapLocation = l => l ? {
   facilityId: l.facility_id || '',
   buildingId: l.building_id || '',
   room:       l.room  || '',
-  space:      l.space || ''
+  space:      l.space || '',
+  serviceModules: normalizeServiceModules(l.service_modules, l.type, l.id)
 } : null;
 
 const mapLocationGroup = g => g ? {
@@ -1809,11 +1830,12 @@ const server = http.createServer(async (req, res) => {
           floor: sanitize(b.floor, 10), zone: sanitize(b.zone, 10),
           priority: sanitize(b.priority, 10) || 'medium', active: b.active !== false ? 1 : 0
         };
+        const serviceModules = serviceModulesText(b.serviceModules, loc.type, loc.id);
         db.prepare(`
-          INSERT INTO locations (id,type,name_ar,name_en,floor,zone,priority,active,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?)
-        `).run(loc.id,loc.type,loc.name_ar,loc.name_en,loc.floor,loc.zone,loc.priority,loc.active,ts,ts);
-        return send(res, 200, { location: loc });
+          INSERT INTO locations (id,type,name_ar,name_en,floor,zone,priority,active,created_at,updated_at,service_modules)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?)
+        `).run(loc.id,loc.type,loc.name_ar,loc.name_en,loc.floor,loc.zone,loc.priority,loc.active,ts,ts,serviceModules);
+        return send(res, 200, { location: mapLocation({ ...loc, service_modules: serviceModules }) });
       }
 
       /* ── LOCATIONS: UPDATE ──────────────────────────────────── */
@@ -1830,6 +1852,10 @@ const server = http.createServer(async (req, res) => {
         if (b.floor)   { sets.push('floor = ?');   vals.push(sanitize(b.floor, 10)); }
         if (b.zone)    { sets.push('zone = ?');     vals.push(sanitize(b.zone, 10)); }
         if (b.priority){ sets.push('priority = ?');vals.push(sanitize(b.priority, 10)); }
+        if (b.serviceModules !== undefined) {
+          sets.push('service_modules = ?');
+          vals.push(serviceModulesText(b.serviceModules, b.type || loc.type, id));
+        }
         if (b.active !== undefined) { sets.push('active = ?'); vals.push(b.active ? 1 : 0); }
         sets.push('updated_at = ?'); vals.push(now()); vals.push(id);
         if (sets.length > 1) db.prepare(`UPDATE locations SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
@@ -1949,6 +1975,13 @@ const server = http.createServer(async (req, res) => {
             AND g.active = 1 AND g.deleted_at IS NULL AND l.deleted_at IS NULL
         `).all(...groupIds).map(r => r.location_id) : [];
         const expandedLocationIds = [...new Set([...locationIds, ...groupLocationIds])];
+        const supportedLocationIds = expandedLocationIds.length ? db.prepare(`
+          SELECT id,type,service_modules FROM locations
+          WHERE id IN (${expandedLocationIds.map(() => '?').join(',')})
+            AND active = 1 AND deleted_at IS NULL
+        `).all(...expandedLocationIds)
+          .filter(loc => normalizeServiceModules(loc.service_modules, loc.type, loc.id).includes(module))
+          .map(loc => loc.id) : [];
         const supervisorId = sanitize(b.supervisorId || '', 50);
         if (supervisorId) {
           const sup = db.prepare("SELECT id FROM users WHERE id=? AND active=1 AND deleted_at IS NULL").get(supervisorId);
@@ -1957,7 +1990,7 @@ const server = http.createServer(async (req, res) => {
         db.transaction(() => {
           db.prepare('DELETE FROM assignments WHERE worker_id = ? AND module = ?').run(workerId, module);
           const ins = db.prepare('INSERT OR IGNORE INTO assignments (worker_id,location_id,created_at,supervisor_id,module) VALUES (?,?,?,?,?)');
-          expandedLocationIds.forEach(lid => ins.run(workerId, lid, now(), supervisorId, module));
+          supportedLocationIds.forEach(lid => ins.run(workerId, lid, now(), supervisorId, module));
         })();
         return send(res, 200, { ok: true });
       }
