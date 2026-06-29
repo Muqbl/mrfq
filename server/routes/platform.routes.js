@@ -42,7 +42,7 @@ async function handlePlatformRoutes({ req, res, url, me, db, send, bodyJSON }) {
   if (req.method === 'PUT' && mapMatch) {
     if (!permissions.canManageFacilities(me.role)) return send(res, 403, { error: 'FORBIDDEN' }), true;
     const body = await bodyJSON(req);
-    const result = maps.assignEmployees(db, clean(body.code, 80), body.userIds);
+    const result = maps.assignEmployees(db, clean(mapMatch[1], 10), clean(body.code, 80), body.userIds, body.occupants);
     if (result.error) return send(res, 404, { error: result.error }), true;
     return send(res, 200, result), true;
   }

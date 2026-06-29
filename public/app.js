@@ -2893,10 +2893,8 @@ function renderMapConsole(){
           }).join('')}
         </div>
       </div>
+      ${selected?`<div class="mapPointOverlay">${mapSelectedPanel(selected,true)}</div>`:''}
     </div>
-    <aside class="mapDrawer">
-      ${selected?mapSelectedPanel(selected):mapEmptyPanel()}
-    </aside>
   </div>
 </section>`;
   mapApplyPinPositions();
@@ -2908,7 +2906,19 @@ function mapEmptyPanel(){
     <span>${mapState.mode==='edit'?(lang==='ar'?'أو اختر ترميزاً من القائمة لتحديده':'Or choose a code to place it'):(lang==='ar'?'ستظهر حالة الموقع والوحدات هنا':'Location and module status appears here')}</span>
   </div>`;
 }
-function mapSelectedPanel(point){
+function mapOccupantTypeLabel(type='employee'){
+  const labels={
+    employee:['موظف','Employee'],
+    contractor:['متعاقد','Contractor'],
+    consultant:['استشاري','Consultant'],
+    visitor:['زائر','Visitor'],
+    vendor:['جهة خارجية','Vendor'],
+    other:['أخرى','Other']
+  };
+  const item=labels[String(type||'employee').toLowerCase()]||labels.other;
+  return lang==='ar'?item[0]:item[1];
+}
+function mapSelectedPanel(point,overlay=false){
   const modules=point.modules||{};
   const employees=(point.employees||[]).length ? point.employees : mapEmployeesForCode(point.code);
   const displayName=point.location?.nameAr||point.location?.nameEn||point.space?.nameAr||point.space?.nameEn||point.group?.nameAr||point.group?.nameEn||point.nameAr||point.nameEn||point.code;
@@ -2922,6 +2932,7 @@ function mapSelectedPanel(point){
     </div>`;
   }).join('');
   return `<div class="mapDrawer-card">
+    ${overlay?`<button class="icon-btn mapOverlayClose" ${uiAction('mapClearSelection',[])} title="${lang==='ar'?'إغلاق':'Close'}">${ic('x',15)}</button>`:''}
     <div class="mapDrawer-title">
       <strong>${esc(displayName)}</strong>
       <span>${esc(point.code)}</span>
@@ -2938,14 +2949,19 @@ function mapSelectedPanel(point){
     ${point.memberCount?`<div class="mapDrawer-meta">${lang==='ar'?'عدد المواقع داخل المجموعة':'Group locations'}: ${num(point.memberCount)}</div>`:''}
     <div class="mapEmployees">
       <div class="mapEmployees-head">
-        <strong>${lang==='ar'?'الموظفون':'Employees'}</strong>
-        ${canManageFacilities()?`<button class="icon-btn" ${uiAction('showMapEmployeeModal',[point.code])} title="${lang==='ar'?'تعديل الموظفين':'Edit employees'}">${ic('edit',14)}</button>`:''}
+        <strong>${lang==='ar'?'الشاغلون':'Occupants'}</strong>
+        ${canManageFacilities()?`<button class="icon-btn" ${uiAction('showMapEmployeeModal',[point.code])} title="${lang==='ar'?'تعديل الشاغلين':'Edit occupants'}">${ic('edit',14)}</button>`:''}
       </div>
-      ${employees.length ? employees.map(e=>`<span>${ic('user',13)} ${esc(e.name)}${e.status?` <small>${esc(e.status)}</small>`:''}</span>`).join('') : `<em>${lang==='ar'?'لا يوجد موظف مسجل لهذا الكود':'No employee registered for this code'}</em>`}
+      ${employees.length ? employees.map(e=>`<span>${ic('user',13)} ${esc(e.name)} <small>${esc(mapOccupantTypeLabel(e.occupantType||'employee'))}${e.status?` · ${esc(e.status)}`:''}${e.note?` · ${esc(e.note)}`:''}</small></span>`).join('') : `<em>${lang==='ar'?'لا يوجد شاغل مسجل لهذا الكود':'No occupant registered for this code'}</em>`}
     </div>
     <div class="mapModuleList">${moduleCards || `<div class="emptyMini">${lang==='ar'?'لا توجد بيانات تشغيلية لهذه النقطة':'No operational data for this point'}</div>`}</div>
     ${mapState.mode==='edit'?`<button class="btn danger wide" ${uiAction('mapDeletePoint',[point.code, point.layer||mapLayerForCode(point.code)])}>${ic('trash',15)} ${tr('delete')}</button>`:''}
   </div>`;
+}
+function mapClearSelection(){
+  mapState.selectedCode='';
+  mapState.selectedPointCode='';
+  renderMapConsole();
 }
 function mapApplyPinPositions(){
   const canvas=document.querySelector('[data-map-canvas]');
@@ -3049,33 +3065,75 @@ function showMapEmployeeModal(code){
   if(!canManageFacilities()) return;
   const point=mapSelectedStatusPoint(code);
   if(!point) return toast(lang==='ar'?'اختر نقطة أولاً':'Select a point first','bad');
-  if(point.missingLocation) return toast(lang==='ar'?'اربط الكود بموقع أو مساحة قبل إضافة الموظفين':'Link this code to a location or space first','bad');
-  const assigned=new Set((point.employees||[]).map(e=>e.id));
+  const assigned=new Set((point.employees||[]).filter(e=>e.source!=='free').map(e=>e.id||e.userId).filter(Boolean));
+  const freeOccupants=(point.occupants||[]).filter(e=>e.source==='free'||!e.userId);
   const users=mapAssignableUsers();
   const body=`<div class="mapEmployeeModal">
     <div class="mapEmployeeModal-code">${esc(point.code)}</div>
+    ${point.missingLocation?`<div class="mapLinkWarning">${ic('alert-triangle',14)} ${lang==='ar'?'الكود غير مربوط بمساحة، يمكنك حفظ أسماء حرة فقط.':'This code is not linked to a space; free-form occupants can still be saved.'}</div>`:''}
     <div class="mapEmployeeList">
       ${users.map(user=>`<label class="mapEmployeeOption">
-        <input type="checkbox" value="${esc(user.id)}" ${assigned.has(user.id)?'checked':''}>
+        <input type="checkbox" value="${esc(user.id)}" ${assigned.has(user.id)?'checked':''} ${point.missingLocation?'disabled':''}>
         <span>${ic('user',14)}</span>
         <b>${esc(user.name)}</b>
         <small>${esc(user.employeeNo||user.username||user.role)}</small>
       </label>`).join('') || `<div class="emptyMini">${lang==='ar'?'لا يوجد مستخدمون نشطون':'No active users'}</div>`}
     </div>
+    <div class="mapFreeOccupants">
+      <div class="mapEmployees-head">
+        <strong>${lang==='ar'?'أسماء غير موجودة في النظام':'Names outside the system'}</strong>
+        <button class="btn sm secondary" ${uiAction('mapAddFreeOccupant',[])}>${ic('plus',14)} ${lang==='ar'?'إضافة':'Add'}</button>
+      </div>
+      <div class="mapFreeOccupantRows" data-free-occupants>
+        ${freeOccupants.length ? freeOccupants.map(mapFreeOccupantRow).join('') : mapFreeOccupantRow()}
+      </div>
+    </div>
   </div>`;
   const foot=`<button class="btn" ${uiAction('saveMapEmployees',[point.code])}>${ic('check',15)} ${tr('save')}</button>
     <button class="btn secondary" ${uiAction('runUiFlow',['close-element','mapEmployeeModal'])}>${tr('cancel')}</button>`;
-  showModal('mapEmployeeModal', `${ic('users',16)} ${lang==='ar'?'تعديل موظفي الموقع':'Edit location employees'}`, body, foot, {narrow:true});
+  showModal('mapEmployeeModal', `${ic('users',16)} ${lang==='ar'?'تعديل شاغلي النقطة':'Edit point occupants'}`, body, foot, {narrow:true});
+}
+function mapFreeOccupantRow(occupant={}){
+  const type=occupant.occupantType||'contractor';
+  const options=[
+    ['employee',lang==='ar'?'موظف':'Employee'],
+    ['contractor',lang==='ar'?'متعاقد':'Contractor'],
+    ['consultant',lang==='ar'?'استشاري':'Consultant'],
+    ['visitor',lang==='ar'?'زائر':'Visitor'],
+    ['vendor',lang==='ar'?'جهة خارجية':'Vendor'],
+    ['other',lang==='ar'?'أخرى':'Other']
+  ];
+  return `<div class="mapFreeOccupantRow">
+    <input class="ctrl" data-free-name value="${esc(occupant.name||'')}" placeholder="${lang==='ar'?'الاسم':'Name'}">
+    <select class="ctrl" data-free-type>${options.map(([value,label])=>`<option value="${esc(value)}" ${type===value?'selected':''}>${esc(label)}</option>`).join('')}</select>
+    <input class="ctrl" data-free-note value="${esc(occupant.note||'')}" placeholder="${lang==='ar'?'ملاحظة':'Note'}">
+    <button class="icon-btn" ${uiAction('mapRemoveFreeOccupant',[])} title="${tr('delete')}">${ic('trash',14)}</button>
+  </div>`;
+}
+function mapAddFreeOccupant(){
+  const host=document.querySelector('#mapEmployeeModal [data-free-occupants]');
+  if(host) host.insertAdjacentHTML('beforeend', mapFreeOccupantRow());
+}
+function mapRemoveFreeOccupant(event,target){
+  const row=target.closest('.mapFreeOccupantRow');
+  const host=target.closest('[data-free-occupants]');
+  if(row && host && host.querySelectorAll('.mapFreeOccupantRow').length>1) row.remove();
+  else if(row) row.querySelectorAll('input').forEach(input=>input.value='');
 }
 async function saveMapEmployees(code){
   if(!canManageFacilities()) return;
   const modal=document.getElementById('mapEmployeeModal');
   const checkedInputs=modal ? [...modal.querySelectorAll('input[type="checkbox"]:checked')] : [];
   const userIds=checkedInputs.map(input=>input.value);
+  const occupants=modal ? [...modal.querySelectorAll('.mapFreeOccupantRow')].map(row=>({
+    name: row.querySelector('[data-free-name]')?.value || '',
+    occupantType: row.querySelector('[data-free-type]')?.value || 'employee',
+    note: row.querySelector('[data-free-note]')?.value || ''
+  })).filter(item=>item.name.trim()) : [];
   try{
     await api(`/maps/${encodeURIComponent(mapState.floor)}/assignments`,{
       method:'PUT',
-      body:JSON.stringify({code,userIds})
+      body:JSON.stringify({code,userIds,occupants})
     });
     modal?.remove();
     toast(tr('saved'),'ok');

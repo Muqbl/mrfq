@@ -861,6 +861,24 @@ const MIGRATIONS = {
     WHERE point_kind='' OR point_kind='location';
     CREATE INDEX IF NOT EXISTS idx_map_points_kind ON map_points(point_kind);
   `,
+  /* ── v29: free-form occupants for map points ──────────────── */
+  29: `
+    CREATE TABLE IF NOT EXISTS map_point_occupants (
+      id            TEXT PRIMARY KEY,
+      floor         TEXT NOT NULL DEFAULT '',
+      code          TEXT NOT NULL,
+      user_id       TEXT NOT NULL DEFAULT '',
+      name          TEXT NOT NULL DEFAULT '',
+      occupant_type TEXT NOT NULL DEFAULT 'employee',
+      note          TEXT NOT NULL DEFAULT '',
+      created_at    TEXT NOT NULL,
+      updated_at    TEXT NOT NULL,
+      deleted_at    TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_map_point_occupants_code ON map_point_occupants(code);
+    CREATE INDEX IF NOT EXISTS idx_map_point_occupants_floor_code ON map_point_occupants(floor, code);
+    CREATE INDEX IF NOT EXISTS idx_map_point_occupants_user ON map_point_occupants(user_id);
+  `,
 };
 
 function _range(prefix, start, end) {

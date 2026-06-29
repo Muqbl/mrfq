@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Database = require('better-sqlite3');
-const { normalizeCode, statusRows } = require('../server/services/maps.service');
+const { normalizeCode, statusRows, assignEmployees } = require('../server/services/maps.service');
 
 test('map code normalization accepts Arabic and Persian digits', () => {
   assert.equal(normalizeCode('MF-WS-٠١'), 'MF-WS-01');
@@ -45,6 +45,12 @@ function mapDb() {
       active INTEGER NOT NULL DEFAULT 1, deleted_at TEXT
     );
     CREATE TABLE space_assignments (space_id TEXT NOT NULL DEFAULT '', user_id TEXT NOT NULL DEFAULT '', assignment_type TEXT NOT NULL DEFAULT '', deleted_at TEXT);
+    CREATE TABLE map_point_occupants (
+      id TEXT PRIMARY KEY, floor TEXT NOT NULL DEFAULT '', code TEXT NOT NULL,
+      user_id TEXT NOT NULL DEFAULT '', name TEXT NOT NULL DEFAULT '',
+      occupant_type TEXT NOT NULL DEFAULT 'employee', note TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT '', deleted_at TEXT
+    );
 
     CREATE TABLE map_points (
       id INTEGER PRIMARY KEY AUTOINCREMENT, floor TEXT NOT NULL, code TEXT NOT NULL,
@@ -109,4 +115,21 @@ test('manual location points stay fixed without being counted as cleaning activi
   assert.deepEqual(status.points[0].operationalLayers, []);
   assert.equal(status.points[0].level, 'ok');
   assert.equal(status.summary.layers.cleaning || 0, 0);
+});
+
+test('map assignments accept free-form point occupants without system users', () => {
+  const db = mapDb();
+  db.prepare("INSERT INTO map_points (floor,code,x,y,layer,type,point_kind) VALUES ('MF','MF-WS-35',41.2,75.2,'cleaning','WS','employee')").run();
+
+  const saved = assignEmployees(db, 'MF', 'MF-WS-35', [], [
+    { name: 'أحمد المتعاقد', occupantType: 'contractor', note: 'وردية صباحية' }
+  ]);
+  assert.equal(saved.employees.length, 1);
+  assert.equal(saved.employees[0].name, 'أحمد المتعاقد');
+  assert.equal(saved.employees[0].occupantType, 'contractor');
+
+  const status = statusRows(db, 'MF', []);
+  assert.equal(status.points[0].employees[0].name, 'أحمد المتعاقد');
+  assert.equal(status.points[0].employees[0].source, 'free');
+  assert.equal(status.points[0].pointKind, 'employee');
 });

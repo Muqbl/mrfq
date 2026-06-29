@@ -2791,7 +2791,7 @@ tbody tr:hover td{background:var(--surface-2)}
 }
 .mapLayer.active{border-color:rgba(0,143,148,.35);background:var(--brand-soft);color:var(--brand-dark)}
 .mapLayer.active b{background:#fff;color:var(--brand)}
-.mapShell{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+.mapShell{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
 .mapSide,.mapDrawer,.mapCanvasWrap{
   background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
   box-shadow:var(--shadow-sm);
@@ -2838,7 +2838,7 @@ tbody tr:hover td{background:var(--surface-2)}
 .mapDot{width:10px;height:10px;border-radius:99px;display:inline-block;background:var(--brand)}
 .mapDot.ok{background:var(--ok)}.mapDot.warn{background:var(--warn)}.mapDot.critical{background:var(--bad)}
 .mapDot.missing{background:var(--muted)}
-.mapCanvasWrap{padding:12px;overflow:auto;min-height:60vh}
+.mapCanvasWrap{position:relative;padding:12px;overflow:auto;min-height:60vh}
 .mapZoomControls{
   position:sticky;top:0;z-index:8;display:flex;align-items:center;justify-content:center;gap:8px;
   padding:6px 8px;margin-bottom:8px;background:rgba(255,255,255,.92);
@@ -2885,12 +2885,20 @@ tbody tr:hover td{background:var(--surface-2)}
 .mapPin.mapPin-state-missing{background:var(--muted)}
 .mapPin.auto{width:18px;height:18px;border-style:dashed}
 .mapPin.selected{outline:3px solid rgba(0,143,148,.24);z-index:5}
+.mapPointOverlay{
+  position:absolute;z-index:12;inset-block-start:72px;inset-inline-end:24px;
+  width:min(520px,calc(100% - 48px));max-height:calc(100% - 96px);overflow:auto;
+  background:rgba(255,255,255,.97);border:1px solid var(--line);
+  border-radius:var(--r-md);box-shadow:var(--shadow-lg);padding:16px;
+  backdrop-filter:blur(10px);
+}
+.mapOverlayClose{position:absolute;inset-block-start:10px;inset-inline-start:10px}
 .mapDrawer-empty{
   min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:10px;text-align:center;color:var(--muted);
 }
 .mapDrawer-empty strong{color:var(--ink);font-family:var(--font-head)}
-.mapDrawer-card{display:flex;flex-direction:column;gap:14px}
+.mapDrawer-card{position:relative;display:flex;flex-direction:column;gap:14px}
 .mapDrawer-title{display:flex;flex-direction:column;gap:6px}
 .mapDrawer-title span{font-family:ui-monospace,Consolas,monospace}
 .mapDrawer-tags{display:flex;flex-wrap:wrap;gap:7px}
@@ -2926,6 +2934,15 @@ tbody tr:hover td{background:var(--surface-2)}
 }
 .mapEmployeeOption b{font-size:var(--fs-sm);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mapEmployeeOption small{font-size:var(--fs-xs);color:var(--muted);font-weight:800}
+.mapFreeOccupants{
+  display:flex;flex-direction:column;gap:10px;border:1px solid var(--line);
+  border-radius:var(--r-sm);background:var(--surface);padding:12px;
+}
+.mapFreeOccupantRows{display:flex;flex-direction:column;gap:8px}
+.mapFreeOccupantRow{
+  display:grid;grid-template-columns:minmax(120px,1.1fr) minmax(110px,.8fr) minmax(120px,1fr) 38px;
+  gap:8px;align-items:center;
+}
 .mapModuleList{display:flex;flex-direction:column;gap:8px}
 .mapModuleCard{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
@@ -2950,6 +2967,8 @@ tbody tr:hover td{background:var(--surface-2)}
   .mapToolbar,.mapLayerBar{padding:10px}
   .mapLayer{flex:1;justify-content:center}
   .mapCanvasWrap{padding:8px}
+  .mapPointOverlay{position:relative;inset:auto;width:100%;max-height:none;margin-top:10px}
+  .mapFreeOccupantRow{grid-template-columns:1fr}
 }
 
 @media(max-width:768px){

@@ -307,6 +307,30 @@ function employeesForSpace(db, spaceId) {
   }));
 }
 
+function pointOccupants(db, floor, code) {
+  if (!tableExists(db, 'map_point_occupants')) return [];
+  const lookup = codeWhere('code', code);
+  return db.prepare(`
+    SELECT mpo.id,mpo.floor,mpo.code,mpo.user_id userId,mpo.name,mpo.occupant_type occupantType,mpo.note,
+      u.username,u.role,u.employee_no employeeNo,u.active
+    FROM map_point_occupants mpo
+    LEFT JOIN users u ON u.id = mpo.user_id AND u.deleted_at IS NULL
+    WHERE mpo.floor = ? AND ${lookup.clause} AND mpo.deleted_at IS NULL
+    ORDER BY mpo.created_at, mpo.name
+  `).all(normalizeCode(floor), ...lookup.values).map(row => ({
+    id: row.id,
+    userId: row.userId || '',
+    name: row.name || '',
+    occupantType: row.occupantType || 'employee',
+    note: row.note || '',
+    username: row.username || '',
+    role: row.role || '',
+    employeeNo: row.employeeNo || '',
+    active: row.active === 1 || row.active === true,
+    source: row.userId ? 'user' : 'free'
+  }));
+}
+
 function groupByCode(db, code) {
   const lookup = codeWhere('g.id', code);
   return db.prepare(`
@@ -430,10 +454,15 @@ function pointStatus(db, point) {
   };
   const activeModules = Object.fromEntries(Object.entries(modules).filter(([, value]) => value));
   const employees = employeesForSpace(db, spaceId);
+  const occupants = pointOccupants(db, point.floor, point.code);
+  const employeeRows = [
+    ...employees.map(user => ({ ...user, occupantType: 'employee', source: 'user' })),
+    ...occupants
+  ];
   const missingLocation = !location && !space && !group;
   const pointKind = group
     ? 'group'
-    : employees.length
+    : employeeRows.length
       ? 'employee'
       : point.pointKind || pointKindFromCode(point.code, point.layer);
   return {
@@ -473,7 +502,8 @@ function pointStatus(db, point) {
       memberCount: group.member_count || 0
     } : null,
     modules: activeModules,
-    employees,
+    employees: employeeRows,
+    occupants,
     level: missingLocation ? 'missing' : statusLevel(activeModules),
     missingLocation
   };
@@ -535,10 +565,25 @@ function auditRows(db, floor) {
   };
 }
 
-function assignEmployees(db, code, userIds = []) {
+function normalizeOccupants(occupants = []) {
+  return (Array.isArray(occupants) ? occupants : [])
+    .map(item => ({
+      name: String(item?.name || '').trim().slice(0, 120),
+      occupantType: String(item?.occupantType || item?.type || 'employee').trim().toLowerCase().slice(0, 40) || 'employee',
+      note: String(item?.note || '').trim().slice(0, 160)
+    }))
+    .filter(item => item.name);
+}
+
+function assignEmployees(db, floor, code, userIds = [], occupants = []) {
+  if (arguments.length === 3) {
+    userIds = code;
+    code = floor;
+    floor = '';
+  }
   const normalizedCode = normalizeCode(code);
+  const normalizedFloor = normalizeCode(floor);
   const { spaceId } = resolveSpace(db, normalizedCode);
-  if (!spaceId) return { error: 'SPACE_NOT_FOUND' };
   const ids = [...new Set((Array.isArray(userIds) ? userIds : []).map(value => String(value || '').trim()).filter(Boolean))];
   const users = ids.length
     ? db.prepare(`
@@ -547,21 +592,34 @@ function assignEmployees(db, code, userIds = []) {
         AND active = 1 AND deleted_at IS NULL
     `).all(...ids).map(row => row.id)
     : [];
+  const freeOccupants = normalizeOccupants(occupants);
+  if (!spaceId && !freeOccupants.length) return { error: 'SPACE_NOT_FOUND' };
   const ts = new Date().toISOString();
   db.transaction(() => {
-    db.prepare("UPDATE space_assignments SET deleted_at = ? WHERE space_id = ? AND assignment_type = 'employee' AND deleted_at IS NULL").run(ts, spaceId);
-    db.prepare("UPDATE users SET space_id = '', updated_at = ? WHERE space_id = ?").run(ts, spaceId);
-    const insert = db.prepare(`
-      INSERT INTO space_assignments (id,space_id,user_id,assignment_type,module,created_at,deleted_at)
-      VALUES (?,?,?,?,?,?,NULL)
+    if (spaceId) {
+      db.prepare("UPDATE space_assignments SET deleted_at = ? WHERE space_id = ? AND assignment_type = 'employee' AND deleted_at IS NULL").run(ts, spaceId);
+      db.prepare("UPDATE users SET space_id = '', updated_at = ? WHERE space_id = ?").run(ts, spaceId);
+      const insert = db.prepare(`
+        INSERT INTO space_assignments (id,space_id,user_id,assignment_type,module,created_at,deleted_at)
+        VALUES (?,?,?,?,?,?,NULL)
+      `);
+      const updateUser = db.prepare('UPDATE users SET space_id = ?, updated_at = ? WHERE id = ?');
+      for (const userId of users) {
+        insert.run(`spa-${crypto.randomBytes(6).toString('hex')}`, spaceId, userId, 'employee', '', ts);
+        updateUser.run(spaceId, ts, userId);
+      }
+    }
+    db.prepare('UPDATE map_point_occupants SET deleted_at = ?, updated_at = ? WHERE floor = ? AND code = ? AND deleted_at IS NULL')
+      .run(ts, ts, normalizedFloor, normalizedCode);
+    const insertOccupant = db.prepare(`
+      INSERT INTO map_point_occupants (id,floor,code,user_id,name,occupant_type,note,created_at,updated_at,deleted_at)
+      VALUES (?,?,?,?,?,?,?,?,?,NULL)
     `);
-    const updateUser = db.prepare('UPDATE users SET space_id = ?, updated_at = ? WHERE id = ?');
-    for (const userId of users) {
-      insert.run(`spa-${crypto.randomBytes(6).toString('hex')}`, spaceId, userId, 'employee', '', ts);
-      updateUser.run(spaceId, ts, userId);
+    for (const occupant of freeOccupants) {
+      insertOccupant.run(`mpo-${crypto.randomBytes(6).toString('hex')}`, normalizedFloor, normalizedCode, '', occupant.name, occupant.occupantType, occupant.note, ts, ts);
     }
   })();
-  return { spaceId, employees: employeesForSpace(db, spaceId) };
+  return { spaceId, employees: [...employeesForSpace(db, spaceId), ...pointOccupants(db, normalizedFloor, normalizedCode)] };
 }
 
 module.exports = { FLOOR_ASSETS, floorRows, pointRows, replaceFloorPoints, statusRows, auditRows, assignEmployees, typeFromCode, normalizeCode };
