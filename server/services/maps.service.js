@@ -511,23 +511,25 @@ function statusRows(db, floor, layers = []) {
 
 function auditRows(db, floor) {
   const rows = pointRows(db, floor).map(point => pointStatus(db, point));
-  const byLayer = rows.reduce((acc, point) => {
-    acc[point.layer] = acc[point.layer] || { total: 0, linked: 0, missing: 0 };
-    acc[point.layer].total += 1;
-    if (point.missingLocation) acc[point.layer].missing += 1;
-    else acc[point.layer].linked += 1;
+  const byPointKind = rows.reduce((acc, point) => {
+    const key = point.pointKind || 'location';
+    acc[key] = acc[key] || { total: 0, linked: 0, missing: 0 };
+    acc[key].total += 1;
+    if (point.missingLocation) acc[key].missing += 1;
+    else acc[key].linked += 1;
     return acc;
   }, {});
   const missing = rows
     .filter(point => point.missingLocation)
-    .map(point => ({ code: point.code, floor: point.floor, layer: point.layer, type: point.type }));
+    .map(point => ({ code: point.code, floor: point.floor, pointKind: point.pointKind || 'location', layer: point.layer, type: point.type }));
   return {
     floor: normalizeCode(floor),
     summary: {
       total: rows.length,
       linked: rows.length - missing.length,
       missing: missing.length,
-      byLayer
+      byPointKind,
+      byLayer: byPointKind
     },
     missing
   };

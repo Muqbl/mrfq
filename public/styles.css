@@ -2778,6 +2778,8 @@ tbody tr:hover td{background:var(--surface-2)}
 }
 .mapFloorTabs,.mapModeSwitch,.mapSide-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .mapLayerBar{justify-content:flex-start}
+.mapLayerBar--ops{background:var(--surface-2)}
+.mapFilterLabel{font-size:var(--fs-xs);font-weight:900;color:var(--muted);padding-inline:4px}
 .mapLayer{
   display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);
   background:var(--surface-2);border-radius:999px;padding:9px 12px;color:var(--ink-soft);
@@ -2865,15 +2867,23 @@ tbody tr:hover td{background:var(--surface-2)}
 .mapPin.hasEmployee::before{
   content:'';position:absolute;inset:-4px;border-radius:inherit;border:2px solid rgba(0,143,148,.24);
 }
-.mapPin--ok{background:var(--ok)}
-.mapPin--warn{background:var(--warn)}
-.mapPin--critical{background:var(--bad)}
-.mapPin--missing{background:var(--muted)}
-.mapPin--active{background:var(--brand)}
-.mapPin.occupied{background:var(--bad)}
-.mapPin.vacant{background:var(--ok)}
-.mapPin.occupied,.mapPin.vacant{box-shadow:0 3px 9px rgba(0,0,0,.24)}
-.mapPin.auto{width:18px;height:18px;border-style:dashed;box-shadow:0 0 0 4px rgba(230,158,51,.16),0 3px 9px rgba(0,0,0,.20)}
+.mapPin--kind-employee{background:#2f7f95}
+.mapPin--kind-location{background:var(--brand)}
+.mapPin--kind-restroom{background:#3b9cc4}
+.mapPin--kind-room{background:#7a5af8}
+.mapPin--kind-group{background:#5a6b6e}
+.mapPin--kind-camera{background:#343b45}
+.mapPin--kind-safety{background:#d85659}
+.mapPin--kind-asset{background:#8a5a2b}
+.mapPin.occupied::before,.mapPin.vacant::before{
+  content:'';position:absolute;inset:-4px;border-radius:inherit;border:2px solid rgba(47,127,149,.24);
+}
+.mapPin.vacant::before{border-style:dashed;border-color:rgba(90,107,110,.30)}
+.mapPin.hasOps{box-shadow:0 0 0 4px rgba(0,132,141,.16),0 3px 9px rgba(0,0,0,.24)}
+.mapPin.hasOps.mapPin-state-warn{box-shadow:0 0 0 4px rgba(230,158,51,.24),0 3px 9px rgba(0,0,0,.24)}
+.mapPin.hasOps.mapPin-state-critical{box-shadow:0 0 0 4px rgba(216,86,89,.28),0 3px 9px rgba(0,0,0,.24)}
+.mapPin.mapPin-state-missing{background:var(--muted)}
+.mapPin.auto{width:18px;height:18px;border-style:dashed}
 .mapPin.selected{outline:3px solid rgba(0,143,148,.24);z-index:5}
 .mapDrawer-empty{
   min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;

@@ -631,7 +631,8 @@ let mapState = {
   selectedCode:'',
   selectedPointCode:'',
   onlyUnplaced:false,
-  layers:{cleaning:true,maintenance:true,hospitality:true,safety:true,cameras:true,groups:true},
+  layers:{cleaning:true,maintenance:true,hospitality:true,safety:true,cameras:true},
+  pointKinds:{employee:true,location:true,restroom:true,room:true,group:true,camera:true,safety:true,asset:true},
   zoom:1,
   loaded:false,
   dirty:false
@@ -756,7 +757,7 @@ const UI_ACTION_NAMES = new Set([
   'runUiFlow','openGallery',
   'invSetTab','invShowWarehouseForm','invSaveWarehouse','invShowItemForm','invSaveItem',
   'invShowMovementForm','invSaveMovement',
-  'mapSetFloor','mapToggleLayer','mapSetMode','mapSelectCode','mapCanvasClick',
+  'mapSetFloor','mapToggleLayer','mapTogglePointKind','mapSetMode','mapSelectCode','mapCanvasClick',
   'mapDeletePoint','mapSavePoints','mapSelectPoint','mapShowAllCodes','mapShowUnplacedCodes',
   'mapRefreshData','mapZoomIn','mapZoomOut','mapZoomReset','showMapEmployeeModal','saveMapEmployees'
 ]);
@@ -2637,8 +2638,19 @@ function mapLayerMeta(){
     {key:'maintenance', icon:'tool', ar:'الصيانة', en:'Maintenance'},
     {key:'hospitality', icon:'coffee', ar:'الضيافة', en:'Hospitality'},
     {key:'safety', icon:'alert-triangle', ar:'السلامة', en:'Safety'},
-    {key:'cameras', icon:'camera', ar:'الكاميرات', en:'Cameras'},
-    {key:'groups', icon:'layers', ar:'المجموعات', en:'Groups'}
+    {key:'cameras', icon:'camera', ar:'الكاميرات', en:'Cameras'}
+  ];
+}
+function mapPointKindMeta(){
+  return [
+    {key:'employee', icon:'employee', ar:'الموظفون/المكاتب', en:'Employees/Offices'},
+    {key:'location', icon:'map-pin', ar:'المواقع', en:'Locations'},
+    {key:'restroom', icon:'map-pin', ar:'دورات المياه', en:'Restrooms'},
+    {key:'room', icon:'building', ar:'الغرف', en:'Rooms'},
+    {key:'group', icon:'layers', ar:'المجموعات', en:'Groups'},
+    {key:'camera', icon:'camera', ar:'الكاميرات', en:'Cameras'},
+    {key:'safety', icon:'alert-triangle', ar:'السلامة', en:'Safety'},
+    {key:'asset', icon:'building', ar:'الأصول', en:'Assets'}
   ];
 }
 function mapLayerLabel(key){
@@ -2678,6 +2690,16 @@ function mapLayerForCode(code=''){
   if(c.includes('-FS-')||c.includes('-FE-')||c.includes('-EXT-')) return 'safety';
   return 'cleaning';
 }
+function mapPointKindForCode(code=''){
+  const c=normalizeMapCode(code);
+  if(/-G\d+/i.test(c)) return 'group';
+  if(c.includes('-CAM-')) return 'camera';
+  if(c.includes('-FS-')||c.includes('-FE-')||c.includes('-EXT-')) return 'safety';
+  if(/-(WS|GM|M)-/i.test(c)) return 'employee';
+  if(c.includes('-BR-')||c.includes('-WC-')) return 'restroom';
+  if(c.includes('-MR-')) return 'room';
+  return 'location';
+}
 function mapEmployeesForCode(code=''){
   const c=normalizeMapCode(code);
   const isAssignable=/-(WS|GM|M|MR)-?/i.test(c);
@@ -2693,13 +2715,19 @@ function mapFloorCodes(){
   const codes=mapState.codes?.codes?.[mapState.floor] || [];
   const employeeCodes=Object.keys(mapState.employeeOffices?.employeesByCode || {}).filter(code=>normalizeMapCode(code).startsWith(`${mapState.floor}-`));
   const groupCodes=(data.locationGroups||[]).filter(g=>String(g.floor||'').toUpperCase()===mapState.floor).map(g=>g.id);
-  return Array.from(new Set([...codes,...employeeCodes,...groupCodes])).sort((a,b)=>String(a).localeCompare(String(b),'en',{numeric:true}));
+  const placedCodes=[...(mapState.points||[]),...(mapState.statusPoints||[])]
+    .filter(point=>normalizeMapCode(point.floor||mapState.floor)===mapState.floor)
+    .map(point=>point.code);
+  return Array.from(new Set([...codes,...employeeCodes,...groupCodes,...placedCodes].map(normalizeMapCode).filter(Boolean))).sort((a,b)=>String(a).localeCompare(String(b),'en',{numeric:true}));
 }
 function mapCurrentFloor(){
   return (mapState.floors||[]).find(f=>f.floor===mapState.floor) || {floor:mapState.floor,svg:''};
 }
 function mapActiveLayers(){
   return Object.entries(mapState.layers).filter(([,v])=>v).map(([k])=>k);
+}
+function mapActivePointKinds(){
+  return Object.entries(mapState.pointKinds).filter(([,v])=>v).map(([k])=>k);
 }
 function mapPointKey(point){
   return `${point.pointKind||point.layer||mapLayerForCode(point.code)}:${point.code}`;
@@ -2763,10 +2791,16 @@ function renderMapConsole(){
   const visibleCodes=mapState.onlyUnplaced ? codes.filter(c=>!placed.has(normalizeMapCode(c))) : codes;
   const unplacedCount=codes.filter(c=>!placed.has(normalizeMapCode(c))).length;
   const auditSummary=mapState.audit?.summary||{total:0,linked:0,missing:0};
-  const mapPoints=(mapState.mode==='edit'?mapState.points:mapState.statusPoints);
+  const activePointKinds=new Set(mapActivePointKinds());
+  const mapPoints=(mapState.mode==='edit'?mapState.points:mapState.statusPoints)
+    .filter(p=>activePointKinds.has(p.pointKind||'location'));
   const selected=mapPoints.find(p=>normalizeMapCode(p.code)===normalizeMapCode(mapState.selectedPointCode)) || mapState.statusPoints.find(p=>normalizeMapCode(p.code)===normalizeMapCode(mapState.selectedPointCode));
   const counts=mapLayerMeta().reduce((acc,m)=>{
     acc[m.key]=(mapState.statusPoints||[]).filter(p=>(p.operationalLayers||p.visibleLayers||[]).includes(m.key)).length;
+    return acc;
+  },{});
+  const kindCounts=mapPointKindMeta().reduce((acc,m)=>{
+    acc[m.key]=(mapState.statusPoints||[]).filter(p=>(p.pointKind||'location')===m.key).length;
     return acc;
   },{});
   const autoCount=(mapState.statusPoints||[]).filter(p=>p.source==='auto'||p.auto).length;
@@ -2784,6 +2818,13 @@ function renderMapConsole(){
     </div>
   </div>
   <div class="mapLayerBar">
+    <span class="mapFilterLabel">${lang==='ar'?'أنواع النقاط':'Point types'}</span>
+    ${mapPointKindMeta().map(m=>`<button class="mapLayer ${mapState.pointKinds[m.key]?'active':''}" ${uiAction('mapTogglePointKind',[m.key])}>
+      ${ic(m.icon,15)} <span>${lang==='ar'?m.ar:m.en}</span><b>${num(kindCounts[m.key]||0)}</b>
+    </button>`).join('')}
+  </div>
+  <div class="mapLayerBar mapLayerBar--ops">
+    <span class="mapFilterLabel">${lang==='ar'?'الحالات التشغيلية':'Operational status'}</span>
     ${mapLayerMeta().map(m=>`<button class="mapLayer ${mapState.layers[m.key]?'active':''}" ${uiAction('mapToggleLayer',[m.key])}>
       ${ic(m.icon,15)} <span>${lang==='ar'?m.ar:m.en}</span><b>${num(counts[m.key]||0)}</b>
     </button>`).join('')}
@@ -2847,7 +2888,8 @@ function renderMapConsole(){
             const employees=mapEmployeesForCode(p.code);
             const autoLabel=(p.source==='auto'||p.auto) ? (lang==='ar'?'نقطة تلقائية':'Auto point') : '';
             const title=[p.code, autoLabel, ...employees.map(e=>e.name)].filter(Boolean).join(' · ');
-            return `<button class="mapPin mapPin--${esc(p.level||'active')} ${mapOccupancyClass(p)} ${(p.source==='auto'||p.auto)?'auto':''} ${selected&&mapPointKey(selected)===mapPointKey(p)?'selected':''}" data-map-pin data-x="${Number(p.x)||0}" data-y="${Number(p.y)||0}" title="${esc(title)}" aria-label="${esc(title)}" ${uiAction('mapSelectPoint',[p.code])}></button>`;
+            const hasOps=(p.operationalLayers||p.visibleLayers||[]).some(layer=>mapState.layers[layer]!==false);
+            return `<button class="mapPin mapPin--kind-${esc(p.pointKind||'location')} mapPin-state-${esc(p.level||'ok')} ${hasOps?'hasOps':''} ${mapOccupancyClass(p)} ${(p.source==='auto'||p.auto)?'auto':''} ${selected&&mapPointKey(selected)===mapPointKey(p)?'selected':''}" data-map-pin data-x="${Number(p.x)||0}" data-y="${Number(p.y)||0}" title="${esc(title)}" aria-label="${esc(title)}" ${uiAction('mapSelectPoint',[p.code])}></button>`;
           }).join('')}
         </div>
       </div>
@@ -2926,6 +2968,10 @@ function mapToggleLayer(layer){
   renderMapConsole();
   mapRefreshData();
 }
+function mapTogglePointKind(kind){
+  mapState.pointKinds[kind]=!mapState.pointKinds[kind];
+  renderMapConsole();
+}
 function mapSetMode(mode){
   if(mode==='edit' && !canManageFacilities()) return toast(lang==='ar'?'لا تملك صلاحية تعديل الخرائط':'You cannot edit maps','bad');
   mapState.mode=mode;
@@ -2949,7 +2995,7 @@ function mapCanvasClick(event,target){
   const code=normalizeMapCode(mapState.selectedCode);
   const layer=mapLayerForCode(code);
   const existing=mapState.points.find(p=>normalizeMapCode(p.code)===code && (p.layer||mapLayerForCode(p.code))===layer);
-  const next={floor:mapState.floor,code,x:+x.toFixed(2),y:+y.toFixed(2),layer,type:mapTypeFromCode(code)};
+  const next={floor:mapState.floor,code,x:+x.toFixed(2),y:+y.toFixed(2),layer,type:mapTypeFromCode(code),pointKind:mapPointKindForCode(code)};
   if(existing) Object.assign(existing,next);
   else mapState.points.push(next);
   mapState.selectedPointCode=code;
