@@ -3200,8 +3200,11 @@ function mapSelectedStatusPoint(code){
 }
 function mapAssignableUsers(){
   const active=(data.users||[]).filter(u=>u.active!==false);
-  const employees=active.filter(u=>u.role==='employee');
-  return employees.length ? employees : active.filter(u=>!['system_admin'].includes(u.role));
+  const rank={system_admin:0,facility_manager:1,employee:2,cleaning_manager:3,maintenance_manager:3,hospitality_manager:3,cleaning_supervisor:4,maintenance_supervisor:4,hospitality_supervisor:4,cleaner:5,maintenance_worker:5,hospitality_worker:5};
+  return active.slice().sort((a,b)=>
+    (rank[a.role]??9)-(rank[b.role]??9) ||
+    String(a.name||a.username||'').localeCompare(String(b.name||b.username||''), lang==='ar'?'ar':'en')
+  );
 }
 function showMapEmployeeModal(code){
   if(!canManageFacilities()) return;
@@ -3218,7 +3221,7 @@ function showMapEmployeeModal(code){
         <input type="checkbox" value="${esc(user.id)}" ${assigned.has(user.id)?'checked':''} ${point.missingLocation?'disabled':''}>
         <span>${ic('user',14)}</span>
         <b>${esc(user.name)}</b>
-        <small>${esc(user.employeeNo||user.username||user.role)}</small>
+        <small>${esc(user.employeeNo||user.username||roleLabel(user.role))} · ${esc(roleLabel(user.role))}</small>
       </label>`).join('') || `<div class="emptyMini">${lang==='ar'?'لا يوجد مستخدمون نشطون':'No active users'}</div>`}
     </div>
     <div class="mapFreeOccupants">
@@ -3233,7 +3236,7 @@ function showMapEmployeeModal(code){
   </div>`;
   const foot=`<button class="btn" ${uiAction('saveMapEmployees',[point.code])}>${ic('check',15)} ${tr('save')}</button>
     <button class="btn secondary" ${uiAction('runUiFlow',['close-element','mapEmployeeModal'])}>${tr('cancel')}</button>`;
-  showModal('mapEmployeeModal', `${ic('users',16)} ${lang==='ar'?'تعديل شاغلي النقطة':'Edit point occupants'}`, body, foot, {narrow:true});
+  showModal('mapEmployeeModal', `${ic('users',16)} ${lang==='ar'?'تعديل شاغلي النقطة':'Edit point occupants'}`, body, foot, {wide:true});
 }
 function mapFreeOccupantRow(occupant={}){
   const type=occupant.occupantType||'contractor';

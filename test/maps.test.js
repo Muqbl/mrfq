@@ -42,9 +42,14 @@ function mapDb() {
     CREATE TABLE users (
       id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', username TEXT NOT NULL DEFAULT '',
       role TEXT NOT NULL DEFAULT '', employee_no TEXT NOT NULL DEFAULT '',
-      active INTEGER NOT NULL DEFAULT 1, deleted_at TEXT
+      active INTEGER NOT NULL DEFAULT 1, space_id TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL DEFAULT '', deleted_at TEXT
     );
-    CREATE TABLE space_assignments (space_id TEXT NOT NULL DEFAULT '', user_id TEXT NOT NULL DEFAULT '', assignment_type TEXT NOT NULL DEFAULT '', deleted_at TEXT);
+    CREATE TABLE space_assignments (
+      id TEXT PRIMARY KEY, space_id TEXT NOT NULL DEFAULT '', user_id TEXT NOT NULL DEFAULT '',
+      assignment_type TEXT NOT NULL DEFAULT '', module TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT '', deleted_at TEXT
+    );
     CREATE TABLE map_point_occupants (
       id TEXT PRIMARY KEY, floor TEXT NOT NULL DEFAULT '', code TEXT NOT NULL,
       user_id TEXT NOT NULL DEFAULT '', name TEXT NOT NULL DEFAULT '',
@@ -131,5 +136,24 @@ test('map assignments accept free-form point occupants without system users', ()
   const status = statusRows(db, 'MF', []);
   assert.equal(status.points[0].employees[0].name, 'أحمد المتعاقد');
   assert.equal(status.points[0].employees[0].source, 'free');
+  assert.equal(status.points[0].pointKind, 'employee');
+});
+
+test('map assignments accept system admin as a point occupant', () => {
+  const db = mapDb();
+  db.prepare("INSERT INTO locations (id,name_ar,floor) VALUES ('MF-WS-18','مكتب مدير النظام','MF')").run();
+  db.prepare("INSERT INTO spaces (id,code,name_ar) VALUES ('space-admin','MF-WS-18','مكتب مدير النظام')").run();
+  db.prepare("INSERT INTO location_space_map (location_id,space_id) VALUES ('MF-WS-18','space-admin')").run();
+  db.prepare("INSERT INTO map_points (floor,code,x,y,layer,type,point_kind) VALUES ('MF','MF-WS-18',45,45,'cleaning','WS','employee')").run();
+  db.prepare("INSERT INTO users (id,name,username,role,active) VALUES ('u-admin','مدير النظام','admin','system_admin',1)").run();
+
+  const saved = assignEmployees(db, 'MF', 'MF-WS-18', ['u-admin'], []);
+  assert.equal(saved.employees.length, 1);
+  assert.equal(saved.employees[0].id, 'u-admin');
+  assert.equal(saved.employees[0].name, 'مدير النظام');
+  assert.equal(saved.employees[0].role, 'system_admin');
+
+  const status = statusRows(db, 'MF', []);
+  assert.equal(status.points[0].employees[0].id, 'u-admin');
   assert.equal(status.points[0].pointKind, 'employee');
 });

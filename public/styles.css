@@ -2958,12 +2958,12 @@ tbody tr:hover td{background:var(--surface-2)}
 }
 .mapEmployeeList{display:flex;flex-direction:column;gap:8px;max-height:360px;overflow:auto}
 .mapEmployeeOption{
-  display:grid;grid-template-columns:18px 20px minmax(0,1fr) auto;align-items:center;gap:9px;
+  display:grid;grid-template-columns:18px 20px minmax(0,1fr) minmax(120px,auto);align-items:center;gap:9px;
   border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2);
   padding:10px 12px;cursor:pointer;
 }
 .mapEmployeeOption b{font-size:var(--fs-sm);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mapEmployeeOption small{font-size:var(--fs-xs);color:var(--muted);font-weight:800}
+.mapEmployeeOption small{font-size:var(--fs-xs);color:var(--muted);font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mapFreeOccupants{
   display:flex;flex-direction:column;gap:10px;border:1px solid var(--line);
   border-radius:var(--r-sm);background:var(--surface);padding:12px;
@@ -2978,9 +2978,13 @@ tbody tr:hover td{background:var(--surface-2)}
 .mapFreeOccupantRow .icon-btn{justify-self:flex-end}
 @media(min-width:980px){
   .mapFreeOccupantRow{
-    grid-template-columns:minmax(180px,1.1fr) minmax(140px,.75fr) minmax(180px,1fr) 38px;
+    grid-template-columns:minmax(0,1.1fr) minmax(120px,.75fr) minmax(0,1fr) 38px;
   }
   .mapFreeOccupantRow .icon-btn{justify-self:center}
+}
+@media(max-width:520px){
+  .mapEmployeeOption{grid-template-columns:18px 20px minmax(0,1fr)}
+  .mapEmployeeOption small{grid-column:3;white-space:normal}
 }
 .mapModuleList{display:flex;flex-direction:column;gap:8px}
 .mapModuleCard{
