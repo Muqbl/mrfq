@@ -925,6 +925,7 @@ tbody tr:hover td{background:var(--surface-2)}
   padding:14px 16px;border-bottom:1px solid var(--line);
 }
 .notifPanel-title{font-size:var(--fs-sm);font-weight:800;color:var(--ink)}
+.notifPanel-actions{display:flex;align-items:center;gap:10px}
 .notifPanel-clear{font-size:11px;color:var(--brand-mid);background:none;border:none;cursor:pointer;font-family:var(--font-body);padding:0}
 .notifPanel-clear:hover{text-decoration:underline}
 .notifPanel-list{max-height:360px;overflow-y:auto}

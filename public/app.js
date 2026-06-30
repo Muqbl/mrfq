@@ -764,7 +764,8 @@ const UI_ACTION_NAMES = new Set([
   'mapSetFloor','mapToggleLayer','mapTogglePointKind','mapSetMode','mapSelectCode','mapCanvasClick',
   'mapDeletePoint','mapSavePoints','mapSelectPoint','mapShowAllCodes','mapShowUnplacedCodes',
   'mapRefreshData','mapZoomIn','mapZoomOut','mapZoomReset','showMapEmployeeModal','saveMapEmployees',
-  'mapClearSelection','mapAddFreeOccupant','mapRemoveFreeOccupant','updateLocationModules'
+  'mapClearSelection','mapAddFreeOccupant','mapRemoveFreeOccupant','updateLocationModules',
+  'sendTestNotification'
 ]);
 function uiAction(name,args=[]){
   if(!UI_ACTION_NAMES.has(name)) throw new Error(`Unsupported UI action: ${name}`);
@@ -1177,6 +1178,24 @@ function realtimeNotify(soundType,title,body='',toastType=''){
   toast(title,toastType);
   updateAppBadge(1);
   showBrowserNotification(title,body||title,{tag:`${soundType}-${Date.now()}`});
+}
+async function sendTestNotification(){
+  unlockNotificationAudio();
+  const enabled=await ensureBrowserNotifications({prompt:true,announce:true});
+  realtimeNotify('new_ticket', lang==='ar'?'اختبار صوت وإشعار محلي':'Local sound and notification test', lang==='ar'?'إذا ظهر هذا فإشعارات الصفحة تعمل':'If this appears, page notifications work', 'ok');
+  if(!enabled) return;
+  try{
+    const result=await api('/push/test',{method:'POST',body:JSON.stringify({})});
+    if(result.sent>0){
+      toast(lang==='ar'?`تم إرسال اختبار Push (${result.sent})`:`Push test sent (${result.sent})`,'ok');
+    }else if(result.subscriptions>0){
+      toast(lang==='ar'?'يوجد اشتراك Push لكنه فشل، أعد تفعيل الإشعارات':'Push subscription exists but sending failed; re-enable notifications','bad');
+    }else{
+      toast(lang==='ar'?'لا يوجد اشتراك Push محفوظ لهذا المتصفح':'No Push subscription is saved for this browser','warn');
+    }
+  }catch(error){
+    toast(error.message||String(error),'bad');
+  }
 }
 
 /* ─── TOAST ──────────────────────────────────────────────────── */
@@ -4077,7 +4096,10 @@ function toggleNotif(e){
   panel.innerHTML=`
     <div class="notifPanel-head">
       <span class="notifPanel-title">${lang==='ar'?'الإشعارات':'Notifications'}${items.length?` (${items.length})`:''}</span>
-      ${items.length?`<button class="notifPanel-clear" ${uiAction('runUiFlow',['close-notifications-reports'])}>${lang==='ar'?'عرض الكل':'View all'}</button>`:''}
+      <div class="notifPanel-actions">
+        <button class="notifPanel-clear" ${uiAction('sendTestNotification',[])}>${lang==='ar'?'اختبار':'Test'}</button>
+        ${items.length?`<button class="notifPanel-clear" ${uiAction('runUiFlow',['close-notifications-reports'])}>${lang==='ar'?'عرض الكل':'View all'}</button>`:''}
+      </div>
     </div>
     <div class="notifPanel-list">
       ${items.length ? items.map(it=>`

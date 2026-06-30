@@ -1736,6 +1736,47 @@ const server = http.createServer(async (req, res) => {
         return ok ? send(res, 200, { ok: true }) : send(res, 400, { error: 'INVALID_SUBSCRIPTION' });
       }
 
+      if (req.method === 'POST' && url.pathname === '/api/push/test') {
+        const me = sessionGetUser(req);
+        if (!me) return send(res, 401, { error: 'UNAUTHORIZED' });
+        if (!isTrustedMutation(req)) return send(res, 403, { error: 'FORBIDDEN' });
+        const db = getDb();
+        ensureVapidKeys(db);
+        const subscriptions = db.prepare(`
+          SELECT * FROM push_subscriptions
+          WHERE user_id = ? AND deleted_at IS NULL
+        `).all(me.id);
+        const payload = JSON.stringify({
+          title: 'اختبار إشعارات مِرفق',
+          body: `تم إرسال اختبار إلى ${me.name || me.username}`,
+          icon: '/assets/logos/mrfq-logo-icon-light-v4.svg',
+          badge: '/assets/logos/mrfq-favicon.svg',
+          dir: 'rtl',
+          lang: 'ar',
+          tag: `push-test-${me.id}`,
+          url: '/',
+          timestamp: Date.now()
+        });
+        const results = await Promise.allSettled(subscriptions.map(sub => webpush.sendNotification({
+          endpoint: sub.endpoint,
+          keys: { p256dh: sub.p256dh, auth: sub.auth }
+        }, payload)));
+        results.forEach((result, index) => {
+          const statusCode = result.reason?.statusCode;
+          if (result.status === 'rejected' && [404, 410].includes(statusCode)) {
+            try {
+              db.prepare('UPDATE push_subscriptions SET deleted_at=?,updated_at=? WHERE id=?')
+                .run(now(), now(), subscriptions[index].id);
+            } catch {}
+          }
+        });
+        return send(res, 200, {
+          subscriptions: subscriptions.length,
+          sent: results.filter(result => result.status === 'fulfilled').length,
+          failed: results.filter(result => result.status === 'rejected').length
+        });
+      }
+
       /* ── PUBLIC HOSPITALITY: CREATE ORDER (no login required) ─── */
       if (req.method === 'POST' && url.pathname === '/api/public/hospitality/orders') {
         if (!checkRateLimit(ip)) return send(res, 429, { error: 'TOO_MANY_ATTEMPTS' });
