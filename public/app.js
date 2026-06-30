@@ -733,7 +733,7 @@ const UI_ACTION_NAMES = new Set([
   'showMenuItemFormModal','showCategoryFormModal','showKitchenFormModal','supVerify',
   'supEscalatePrompt','submitSupEscalation',
   'supReportEscalatePrompt','submitSupReportEscalation','supReviewPrompt','renderWorkspaceSwitcher','togglePwd','login','submitForcePassword',
-  'exitModule','showMobileNavMore','showAdminNavMore','showFmNavMore',
+  'exitModule','showMobileNavMore','showAdminNavMore','showFmNavMore','showMaintNavMore',
   'setEmployeeRequestChannel','saveSlaSettings','load','exportExcelReports',
   'exportPDFReports','submitRating','deleteReport','createTicket','editTicketModal',
   'deleteTicketConfirm','forwardTicketToSupervisor','saveEditTicket','submitComment','deleteComment',
@@ -2263,13 +2263,12 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
       {v:'worker-reports', label:lang==='ar'?'تقاريري':'Reports', icon:'reports', count:pendingReports, flow:['navigate','workerView','reports','worker-reports',isMaintenanceRole(role)?'renderMaintenanceWorker':'renderWorker'], active:workerView==='reports'}
     ];
   }else if(role==='maintenance_supervisor'){
-    showMore = false;
+    showMore = true;
     primary = [
       {v:'supervisor-dashboard',label:tr('dashboard'),icon:'dashboard',count:0,flow:['navigate','supervisorView','dashboard','supervisor-dashboard','renderMaintenanceSupervisor'],active:supervisorView==='dashboard'},
       {v:'supervisor-requests',label:lang==='ar'?'أوامر العمل':'Work Orders',icon:'tickets',count:openTickets,flow:['navigate','supervisorView','requests','supervisor-requests','renderMaintenanceSupervisor'],active:supervisorView==='requests'},
       {v:'supervisor-schedules',label:tr('maintSchedules'),icon:'clock',count:0,flow:['navigate','supervisorView','schedules','supervisor-schedules','renderMaintenanceSupervisor'],active:supervisorView==='schedules'},
-      {v:'supervisor-team',label:tr('maintTeam'),icon:'users',count:0,flow:['navigate','supervisorView','team','supervisor-team','renderMaintenanceSupervisor'],active:supervisorView==='team'},
-      {v:'supervisor-reports',label:lang==='ar'?'التقارير':'Reports',icon:'reports',count:pendingReports,flow:['navigate','supervisorView','reports','supervisor-reports','renderMaintenanceSupervisor'],active:supervisorView==='reports'}
+      {v:'supervisor-team',label:tr('maintTeam'),icon:'users',count:0,flow:['navigate','supervisorView','team','supervisor-team','renderMaintenanceSupervisor'],active:supervisorView==='team'}
     ];
   }else if(role==='cleaning_supervisor'){
     showMore = false;
@@ -2336,8 +2335,8 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
       ...(canManageFacilities()?[{v:'locations', label:tr('locations'), icon:'locations', count:0}]:[])
     ];
   }
-  const moreActive = isAdmin ? !primary.some(item=>item.v===view)
-    : (showMore && !primary.some(item=>item.active||activeKey===item.v));
+  const anyPrimaryActive = primary.some(item=>item.active || activeKey===item.v || (isAdmin && view===item.v));
+  const moreActive = showMore && !anyPrimaryActive;
   const navCount = primary.length + (showMore ? 1 : 0);
   return `<nav class="mobileBottomNav mobileBottomNav--count-${Math.max(2,Math.min(6,navCount))}" aria-label="${lang==='ar'?'تنقل الجوال':'Mobile navigation'}">
     ${primary.map(item=>`
@@ -2365,6 +2364,10 @@ function showMobileNavMore(){
     items = [
       {v:'hospmgr-reports', label:tr('hospReportsTab'), icon:'reports', active:hospManagerView==='reports', flow:['navigate','hospManagerView','reports','hospmgr-reports','renderAdminHospitality']},
       {v:'hospmgr-categories', label:tr('categoriesTitle'), icon:'layers', active:hospManagerView==='categories', flow:['navigate','hospManagerView','categories','hospmgr-categories','renderAdminHospitality']}
+    ];
+  }else if(me.role==='maintenance_supervisor'){
+    items = [
+      {v:'supervisor-reports', label:lang==='ar'?'التقارير':'Reports', icon:'reports', active:supervisorView==='reports', flow:['navigate','supervisorView','reports','supervisor-reports','renderMaintenanceSupervisor']}
     ];
   }else{
     items = [
@@ -7921,9 +7924,27 @@ function maintShell(me, content, opts={}){
       <main class="platform-main"><div class="pageAnim">${content}</div></main>
     </div>
     <nav class="mobileBottomNav mobileBottomNav--count-5" aria-label="${lang==='ar'?'تنقل الصيانة':'Maintenance navigation'}">
-      ${[['dashboard',tr('dashboard'),'dashboard'],['orders',tr('maintOrders'),'tickets'],['schedules',tr('maintSchedules'),'clock'],['assets',tr('maintAssets'),'building'],['team',tr('maintTeam'),'users']].map(([v,l,i])=>`<button class="mobileBottomNav-item${maintView===v?' active':''}" ${uiAction('runUiFlow',['navigate','maintView',v,null,renderFn])}><span class="mobileBottomNav-icon">${ic(i,18)}</span><span class="mobileBottomNav-label">${l}</span></button>`).join('')}
+      ${[['dashboard',tr('dashboard'),'dashboard'],['orders',tr('maintOrders'),'tickets'],['schedules',tr('maintSchedules'),'clock'],['assets',tr('maintAssets'),'building']].map(([v,l,i])=>`<button class="mobileBottomNav-item${maintView===v?' active':''}" ${uiAction('runUiFlow',['navigate','maintView',v,null,renderFn])}><span class="mobileBottomNav-icon">${ic(i,18)}</span><span class="mobileBottomNav-label">${l}</span></button>`).join('')}
+      <button class="mobileBottomNav-item${['dashboard','orders','schedules','assets'].includes(maintView)?'':' active'}" ${uiAction('showMaintNavMore',[])}><span class="mobileBottomNav-icon">${ic('menu',18)}</span><span class="mobileBottomNav-label">${lang==='ar'?'المزيد':'More'}</span></button>
     </nav>
   </div>`;
+}
+
+function showMaintNavMore(){
+  const items=[
+    {v:'team',label:tr('maintTeam'),icon:'users'},
+    {v:'reports',label:lang==='ar'?'تقارير الصيانة':'Maintenance Reports',icon:'reports'},
+    {v:'utilities',label:lang==='ar'?'فواتير الخدمات':'Utility Bills',icon:'droplet'},
+    {v:'parts',label:tr('maintParts'),icon:'tool'},
+    {v:'performance',label:tr('performance'),icon:'bar-chart'}
+  ];
+  const body=`<div class="mobileMoreGrid">
+    ${items.map(item=>`<button class="mobileMoreItem${maintView===item.v?' active':''}" ${uiAction('runUiFlow',['close-mobile-flow','maintView',item.v,null,maintLastRenderFn])}>
+      <span class="mobileMoreIcon">${ic(item.icon,18)}</span>
+      <span>${item.label}</span>
+    </button>`).join('')}
+  </div>`;
+  showModal('mobileNavModal', lang==='ar'?'التنقل':'Navigation', body, null, {narrow:true});
 }
 
 /* ── status badge helper for maintenance ─────────────────────── */
