@@ -455,9 +455,18 @@ function pointStatus(db, point) {
   const activeModules = Object.fromEntries(Object.entries(modules).filter(([, value]) => value));
   const employees = employeesForSpace(db, spaceId);
   const occupants = pointOccupants(db, point.floor, point.code);
+  const occupantByUserId = new Map(occupants.filter(item => item.userId).map(item => [item.userId, item]));
   const employeeRows = [
-    ...employees.map(user => ({ ...user, occupantType: 'employee', source: 'user' })),
-    ...occupants
+    ...employees.map(user => {
+      const saved = occupantByUserId.get(user.id);
+      return {
+        ...user,
+        occupantType: saved?.occupantType || 'employee',
+        note: saved?.note || 'authority',
+        source: 'user'
+      };
+    }),
+    ...occupants.filter(item => !item.userId)
   ];
   const missingLocation = !location && !space && !group;
   const pointKind = group
@@ -568,11 +577,12 @@ function auditRows(db, floor) {
 function normalizeOccupants(occupants = []) {
   return (Array.isArray(occupants) ? occupants : [])
     .map(item => ({
+      userId: String(item?.userId || '').trim().slice(0, 80),
       name: String(item?.name || '').trim().slice(0, 120),
       occupantType: String(item?.occupantType || item?.type || 'employee').trim().toLowerCase().slice(0, 40) || 'employee',
       note: String(item?.note || '').trim().slice(0, 160)
     }))
-    .filter(item => item.name);
+    .filter(item => item.name || item.userId);
 }
 
 function assignEmployees(db, floor, code, userIds = [], occupants = []) {
@@ -584,15 +594,29 @@ function assignEmployees(db, floor, code, userIds = [], occupants = []) {
   const normalizedCode = normalizeCode(code);
   const normalizedFloor = normalizeCode(floor);
   const { spaceId } = resolveSpace(db, normalizedCode);
-  const ids = [...new Set((Array.isArray(userIds) ? userIds : []).map(value => String(value || '').trim()).filter(Boolean))];
+  const incomingOccupants = normalizeOccupants(occupants);
+  const metadataIds = incomingOccupants.map(item => item.userId).filter(Boolean);
+  const ids = [...new Set([...(Array.isArray(userIds) ? userIds : []), ...metadataIds].map(value => String(value || '').trim()).filter(Boolean))];
   const users = ids.length
     ? db.prepare(`
-      SELECT id FROM users
+      SELECT id,name FROM users
       WHERE id IN (${ids.map(() => '?').join(',')})
         AND active = 1 AND deleted_at IS NULL
-    `).all(...ids).map(row => row.id)
+    `).all(...ids)
     : [];
-  const freeOccupants = normalizeOccupants(occupants);
+  const userById = new Map(users.map(row => [row.id, row]));
+  const validUserIds = ids.filter(id => userById.has(id));
+  const occupantByUserId = new Map(incomingOccupants.filter(item => item.userId && userById.has(item.userId)).map(item => [item.userId, item]));
+  const savedUserOccupants = validUserIds.map(userId => {
+    const saved = occupantByUserId.get(userId) || {};
+    return {
+      userId,
+      name: userById.get(userId)?.name || saved.name || '',
+      occupantType: saved.occupantType || 'employee',
+      note: saved.note || 'authority'
+    };
+  });
+  const freeOccupants = incomingOccupants.filter(item => !item.userId && item.name);
   if (!spaceId && !freeOccupants.length) return { error: 'SPACE_NOT_FOUND' };
   const ts = new Date().toISOString();
   db.transaction(() => {
@@ -604,7 +628,7 @@ function assignEmployees(db, floor, code, userIds = [], occupants = []) {
         VALUES (?,?,?,?,?,?,NULL)
       `);
       const updateUser = db.prepare('UPDATE users SET space_id = ?, updated_at = ? WHERE id = ?');
-      for (const userId of users) {
+      for (const userId of validUserIds) {
         insert.run(`spa-${crypto.randomBytes(6).toString('hex')}`, spaceId, userId, 'employee', '', ts);
         updateUser.run(spaceId, ts, userId);
       }
@@ -615,11 +639,28 @@ function assignEmployees(db, floor, code, userIds = [], occupants = []) {
       INSERT INTO map_point_occupants (id,floor,code,user_id,name,occupant_type,note,created_at,updated_at,deleted_at)
       VALUES (?,?,?,?,?,?,?,?,?,NULL)
     `);
-    for (const occupant of freeOccupants) {
-      insertOccupant.run(`mpo-${crypto.randomBytes(6).toString('hex')}`, normalizedFloor, normalizedCode, '', occupant.name, occupant.occupantType, occupant.note, ts, ts);
+    for (const occupant of [...savedUserOccupants, ...freeOccupants]) {
+      insertOccupant.run(`mpo-${crypto.randomBytes(6).toString('hex')}`, normalizedFloor, normalizedCode, occupant.userId || '', occupant.name, occupant.occupantType, occupant.note, ts, ts);
     }
   })();
-  return { spaceId, employees: [...employeesForSpace(db, spaceId), ...pointOccupants(db, normalizedFloor, normalizedCode)] };
+  const savedEmployees = employeesForSpace(db, spaceId);
+  const savedOccupants = pointOccupants(db, normalizedFloor, normalizedCode);
+  const savedByUserId = new Map(savedOccupants.filter(item => item.userId).map(item => [item.userId, item]));
+  return {
+    spaceId,
+    employees: [
+      ...savedEmployees.map(user => {
+        const saved = savedByUserId.get(user.id);
+        return {
+          ...user,
+          occupantType: saved?.occupantType || 'employee',
+          note: saved?.note || 'authority',
+          source: 'user'
+        };
+      }),
+      ...savedOccupants.filter(item => !item.userId)
+    ]
+  };
 }
 
 module.exports = { FLOOR_ASSETS, floorRows, pointRows, replaceFloorPoints, statusRows, auditRows, assignEmployees, typeFromCode, normalizeCode };

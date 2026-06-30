@@ -2958,12 +2958,16 @@ tbody tr:hover td{background:var(--surface-2)}
 }
 .mapEmployeeList{display:flex;flex-direction:column;gap:8px;max-height:360px;overflow:auto}
 .mapEmployeeOption{
-  display:grid;grid-template-columns:18px 20px minmax(0,1fr) minmax(120px,auto);align-items:center;gap:9px;
+  display:grid;grid-template-columns:18px 20px minmax(0,1fr) minmax(150px,.55fr);align-items:center;gap:9px;
   border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2);
   padding:10px 12px;cursor:pointer;
 }
 .mapEmployeeOption b{font-size:var(--fs-sm);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mapEmployeeOption small{font-size:var(--fs-xs);color:var(--muted);font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mapEmployeeAffiliation{
+  width:100%;min-width:0;min-height:42px;background:var(--surface);
+  border-radius:var(--r-sm);font-size:var(--fs-xs);font-weight:900;
+}
 .mapFreeOccupants{
   display:flex;flex-direction:column;gap:10px;border:1px solid var(--line);
   border-radius:var(--r-sm);background:var(--surface);padding:12px;
@@ -2991,6 +2995,7 @@ tbody tr:hover td{background:var(--surface-2)}
 @media(max-width:520px){
   .mapEmployeeOption{grid-template-columns:18px 20px minmax(0,1fr)}
   .mapEmployeeOption small{grid-column:3;white-space:normal}
+  .mapEmployeeAffiliation{grid-column:3}
 }
 .mapModuleList{display:flex;flex-direction:column;gap:8px}
 .mapModuleCard{

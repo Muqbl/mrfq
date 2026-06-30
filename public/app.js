@@ -1078,6 +1078,107 @@ async function api(path,opt={}){
   return window.MRFQApi.request(path,opt);
 }
 
+let mrfqServiceWorkerPromise=null;
+let mrfqPushSetupPromise=null;
+let mrfqAudioContext=null;
+let mrfqBadgeCount=0;
+
+function urlBase64ToUint8Array(value){
+  const padding='='.repeat((4 - value.length % 4) % 4);
+  const base64=(value + padding).replace(/-/g,'+').replace(/_/g,'/');
+  const raw=atob(base64);
+  return Uint8Array.from([...raw].map(char=>char.charCodeAt(0)));
+}
+function registerMrfqServiceWorker(){
+  if(!('serviceWorker' in navigator)) return Promise.resolve(null);
+  if(!mrfqServiceWorkerPromise){
+    mrfqServiceWorkerPromise=navigator.serviceWorker.register('/sw.js').then(()=>navigator.serviceWorker.ready).catch(()=>null);
+  }
+  return mrfqServiceWorkerPromise;
+}
+function unlockNotificationAudio(){
+  try{
+    const AudioCtor=window.AudioContext||window.webkitAudioContext;
+    if(!AudioCtor) return;
+    if(!mrfqAudioContext) mrfqAudioContext=new AudioCtor();
+    if(mrfqAudioContext.state==='suspended') mrfqAudioContext.resume();
+  }catch(_error){}
+}
+document.addEventListener('pointerdown', unlockNotificationAudio, { once:true });
+document.addEventListener('keydown', unlockNotificationAudio, { once:true });
+async function ensureBrowserNotifications({prompt=false,announce=false}={}){
+  if(!me) return false;
+  const registration=await registerMrfqServiceWorker();
+  if(!registration || !('Notification' in window)) {
+    if(announce) toast(lang==='ar'?'المتصفح لا يدعم إشعارات التطبيق':'Browser notifications are not supported','warn');
+    return false;
+  }
+  if(prompt && Notification.permission==='default') await Notification.requestPermission();
+  if(Notification.permission!=='granted') {
+    if(announce) toast(lang==='ar'?'فعّل إذن الإشعارات من المتصفح':'Enable notifications permission in the browser','warn');
+    return false;
+  }
+  if(!('PushManager' in window)) {
+    if(announce) toast(lang==='ar'?'تم تفعيل إشعارات الصفحة، لكن Push غير مدعوم في هذا المتصفح':'Page notifications enabled, but Push is not supported','warn');
+    return true;
+  }
+  if(!mrfqPushSetupPromise){
+    mrfqPushSetupPromise=(async()=>{
+      const key=await api('/push/public-key');
+      if(!key?.publicKey) return false;
+      const existing=await registration.pushManager.getSubscription();
+      const subscription=existing || await registration.pushManager.subscribe({
+        userVisibleOnly:true,
+        applicationServerKey:urlBase64ToUint8Array(key.publicKey)
+      });
+      await api('/push/subscribe',{method:'POST',body:JSON.stringify({subscription})});
+      return true;
+    })().catch(error=>{
+      mrfqPushSetupPromise=null;
+      if(announce) toast(error.message||String(error),'bad');
+      return false;
+    });
+  }
+  const ok=await mrfqPushSetupPromise;
+  if(ok && announce) toast(lang==='ar'?'تم تفعيل الإشعارات والصوت':'Notifications and sound enabled','ok');
+  return ok;
+}
+async function showBrowserNotification(title,body='',options={}){
+  try{
+    if(!('Notification' in window) || Notification.permission!=='granted') return;
+    const registration=await registerMrfqServiceWorker();
+    if(!registration) return;
+    registration.showNotification(String(title||'MRFQ'),{
+      body:String(body||title||''),
+      icon:'/assets/logos/mrfq-logo-icon-light-v4.svg',
+      badge:'/assets/logos/mrfq-favicon.svg',
+      dir:lang==='ar'?'rtl':'ltr',
+      lang:lang==='ar'?'ar':'en',
+      tag:options.tag || `mrfq-${Date.now()}`,
+      data:{url:options.url || location.href}
+    });
+  }catch(_error){}
+}
+function updateAppBadge(delta=1){
+  mrfqBadgeCount=Math.max(0,mrfqBadgeCount + delta);
+  try{
+    if(navigator.setAppBadge) navigator.setAppBadge(mrfqBadgeCount);
+  }catch(_error){}
+}
+function clearAppBadge(){
+  mrfqBadgeCount=0;
+  try{
+    if(navigator.clearAppBadge) navigator.clearAppBadge();
+    else if(navigator.setAppBadge) navigator.setAppBadge(0);
+  }catch(_error){}
+}
+function realtimeNotify(soundType,title,body='',toastType=''){
+  playSound(soundType);
+  toast(title,toastType);
+  updateAppBadge(1);
+  showBrowserNotification(title,body||title,{tag:`${soundType}-${Date.now()}`});
+}
+
 /* ─── TOAST ──────────────────────────────────────────────────── */
 function toast(msg,type=''){
   const el = document.createElement('div');
@@ -1137,7 +1238,11 @@ function updateSyncDot(){
 /* ─── SOUND NOTIFICATIONS ───────────────────────────────────── */
 function playSound(type){
   try{
-    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const AudioCtor=window.AudioContext||window.webkitAudioContext;
+    if(!AudioCtor) return;
+    const ctx=mrfqAudioContext || new AudioCtor();
+    mrfqAudioContext=ctx;
+    if(ctx.state==='suspended') ctx.resume();
     const osc=ctx.createOscillator();
     const gain=ctx.createGain();
     osc.connect(gain); gain.connect(ctx.destination);
@@ -1161,37 +1266,36 @@ function playSound(type){
 function connectSSE(){
   if(eventSource){ eventSource.close(); eventSource=null; }
   if(!me) return;
+  registerMrfqServiceWorker();
+  if('Notification' in window && Notification.permission==='granted') ensureBrowserNotifications();
   eventSource=new EventSource('/api/events');
   eventSource.addEventListener('report_created',e=>{
     const d=JSON.parse(e.data);
-    playSound('new_report');
-    toast(lang==='ar'?'تقرير جديد: '+d.report.locationNameAr:'New report: '+d.report.locationNameEn,'ok');
+    const title=lang==='ar'?'تقرير جديد':'New report';
+    const body=lang==='ar'?d.report.locationNameAr:d.report.locationNameEn;
+    realtimeNotify('new_report', `${title}: ${body||''}`.trim(), body, 'ok');
     load();
   });
   eventSource.addEventListener('report_reviewed',e=>{
     const d=JSON.parse(e.data);
     const st=d.report.approvalStatus;
-    playSound(st);
     const msgs={approved:lang==='ar'?'تم اعتماد التقرير':'Report approved',rejected:lang==='ar'?'تم رفض التقرير':'Report rejected',needs_recleaning:d.report.module==='maintenance'?(lang==='ar'?'مطلوب إعادة العمل':'Rework required'):(lang==='ar'?'مطلوب إعادة تنظيف':'Re-cleaning required')};
-    toast(msgs[st]||st, st==='approved'?'ok':'bad');
+    realtimeNotify(st, msgs[st]||st, d.report.locationNameAr||d.report.locationNameEn||'', st==='approved'?'ok':'bad');
     load();
   });
   eventSource.addEventListener('ticket_created',e=>{
     const d=JSON.parse(e.data);
-    playSound('new_ticket');
-    toast(lang==='ar'?'بلاغ جديد: '+d.ticket.title:'New ticket: '+d.ticket.title,'warn');
+    realtimeNotify('new_ticket', lang==='ar'?'بلاغ جديد: '+d.ticket.title:'New ticket: '+d.ticket.title, d.ticket.locationNameAr||d.ticket.locationNameEn||'', 'warn');
     load();
   });
   eventSource.addEventListener('ticket_waiting_verification',e=>{
-    playSound('approved');
-    toast(lang==='ar'?'بلاغ بانتظار التحقق':'Ticket awaiting verification','ok');
+    realtimeNotify('approved', lang==='ar'?'بلاغ بانتظار التحقق':'Ticket awaiting verification', '', 'ok');
     load();
   });
   eventSource.addEventListener('hospitality_order_created',e=>{
     const d=JSON.parse(e.data);
     if(['hospitality_supervisor','hospitality_manager','system_admin','facility_manager'].includes(me.role)){
-      playSound('new_ticket');
-      toast(lang==='ar'?'طلب ضيافة جديد: '+(d.order.referenceNo||''):'New hospitality order: '+(d.order.referenceNo||''),'warn');
+      realtimeNotify('new_ticket', lang==='ar'?'طلب ضيافة جديد: '+(d.order.referenceNo||''):'New hospitality order: '+(d.order.referenceNo||''), d.order.requesterName||'', 'warn');
     }
     load();
   });
@@ -1199,8 +1303,7 @@ function connectSSE(){
     const d=JSON.parse(e.data);
     if(me.role==='hospitality_worker' && d.order.assignedTo===me.id ||
        me.role==='employee' && d.order.requestedById===me.id){
-      playSound('new_report');
-      toast(lang==='ar'?'تحديث طلب الضيافة: '+hospStatusLabel(d.order.status):'Hospitality order updated: '+hospStatusLabel(d.order.status),'ok');
+      realtimeNotify('new_report', lang==='ar'?'تحديث طلب الضيافة: '+hospStatusLabel(d.order.status):'Hospitality order updated: '+hospStatusLabel(d.order.status), d.order.referenceNo||'', 'ok');
     }
     load();
   });
@@ -3243,19 +3346,28 @@ function showMapEmployeeModal(code){
   if(!canManageFacilities()) return;
   const point=mapSelectedStatusPoint(code);
   if(!point) return toast(lang==='ar'?'اختر نقطة أولاً':'Select a point first','bad');
-  const assigned=new Set((point.employees||[]).filter(e=>e.source!=='free').map(e=>e.id||e.userId).filter(Boolean));
+  const assignedUsers=(point.employees||[]).filter(e=>e.source!=='free');
+  const assigned=new Set(assignedUsers.map(e=>e.id||e.userId).filter(Boolean));
+  const occupantMetaByUserId=new Map(assignedUsers.map(e=>[e.id||e.userId,e]));
   const freeOccupants=(point.occupants||[]).filter(e=>e.source==='free'||!e.userId);
   const users=mapAssignableUsers();
   const body=`<div class="mapEmployeeModal">
     <div class="mapEmployeeModal-code">${esc(point.code)}</div>
     ${point.missingLocation?`<div class="mapLinkWarning">${ic('alert-triangle',14)} ${lang==='ar'?'الكود غير مربوط بمساحة، يمكنك حفظ أسماء حرة فقط.':'This code is not linked to a space; free-form occupants can still be saved.'}</div>`:''}
     <div class="mapEmployeeList">
-      ${users.map(user=>`<label class="mapEmployeeOption">
-        <input type="checkbox" value="${esc(user.id)}" ${assigned.has(user.id)?'checked':''} ${point.missingLocation?'disabled':''}>
+      ${users.map(user=>{
+        const meta=occupantMetaByUserId.get(user.id)||{};
+        const affiliation=normalizeMapOccupantAffiliation(meta.note) || normalizeMapOccupantAffiliation(meta.occupantType) || 'authority';
+        return `<label class="mapEmployeeOption">
+        <input type="checkbox" value="${esc(user.id)}" ${assigned.has(user.id)?'checked':''} ${point.missingLocation?'disabled':''} data-user-name="${esc(user.name||'')}">
         <span>${ic('user',14)}</span>
         <b>${esc(user.name)}</b>
         <small>${esc(user.employeeNo||user.username||roleLabel(user.role))} · ${esc(roleLabel(user.role))}</small>
-      </label>`).join('') || `<div class="emptyMini">${lang==='ar'?'لا يوجد مستخدمون نشطون':'No active users'}</div>`}
+        <select class="ctrl mapEmployeeAffiliation" data-user-affiliation title="${lang==='ar'?'صفة الشاغل في هذه النقطة':'Occupant affiliation for this point'}" ${point.missingLocation?'disabled':''}>
+          ${mapAffiliationOptions(affiliation)}
+        </select>
+      </label>`;
+      }).join('') || `<div class="emptyMini">${lang==='ar'?'لا يوجد مستخدمون نشطون':'No active users'}</div>`}
     </div>
     <div class="mapFreeOccupants">
       <div class="mapEmployees-head">
@@ -3270,6 +3382,13 @@ function showMapEmployeeModal(code){
   const foot=`<button class="btn" ${uiAction('saveMapEmployees',[point.code])}>${ic('check',15)} ${tr('save')}</button>
     <button class="btn secondary" ${uiAction('runUiFlow',['close-element','mapEmployeeModal'])}>${tr('cancel')}</button>`;
   showModal('mapEmployeeModal', `${ic('users',16)} ${lang==='ar'?'تعديل شاغلي النقطة':'Edit point occupants'}`, body, foot, {wide:true});
+}
+function mapAffiliationOptions(selected='authority'){
+  return [
+    ['authority',lang==='ar'?'موظف الهيئة':'Authority employee'],
+    ['contractor',lang==='ar'?'متعاقد':'Contractor'],
+    ['consultant',lang==='ar'?'استشاري':'Consultant']
+  ].map(([value,label])=>`<option value="${esc(value)}" ${selected===value?'selected':''}>${esc(label)}</option>`).join('');
 }
 function mapFreeOccupantRow(occupant={}){
   const legacyAffiliation=normalizeMapOccupantAffiliation(occupant.occupantType);
@@ -3327,6 +3446,15 @@ async function saveMapEmployees(code){
   const modal=document.getElementById('mapEmployeeModal');
   const checkedInputs=modal ? [...modal.querySelectorAll('input[type="checkbox"]:checked')] : [];
   const userIds=checkedInputs.map(input=>input.value);
+  const userOccupants=checkedInputs.map(input=>{
+    const row=input.closest('.mapEmployeeOption');
+    return {
+      userId: input.value,
+      name: input.dataset.userName || row?.querySelector('b')?.textContent || '',
+      occupantType: 'employee',
+      note: row?.querySelector('[data-user-affiliation]')?.value || 'authority'
+    };
+  });
   const occupants=modal ? [...modal.querySelectorAll('.mapFreeOccupantRow')].map(row=>{
     const occupantType=row.querySelector('[data-free-type]')?.value || 'employee';
     return {
@@ -3338,7 +3466,7 @@ async function saveMapEmployees(code){
   try{
     await api(`/maps/${encodeURIComponent(mapState.floor)}/assignments`,{
       method:'PUT',
-      body:JSON.stringify({code,userIds,occupants})
+      body:JSON.stringify({code,userIds,occupants:[...userOccupants,...occupants]})
     });
     modal?.remove();
     toast(tr('saved'),'ok');
@@ -3885,6 +4013,9 @@ function canDelete(){return['system_admin','facility_manager','cleaning_manager'
 /* ─── NOTIFICATION PANEL ─────────────────────────────────── */
 function toggleNotif(e){
   e.stopPropagation();
+  unlockNotificationAudio();
+  ensureBrowserNotifications({prompt:true,announce:true});
+  clearAppBadge();
   const btn=document.getElementById('tb-notif-btn');
   if(!btn) return;
   const existing=document.getElementById('notifPanel');

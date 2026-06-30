@@ -894,6 +894,22 @@ const MIGRATIONS = {
     WHERE service_modules = '';
     CREATE INDEX IF NOT EXISTS idx_locations_service_modules ON locations(service_modules);
   `,
+  /* ── v31: browser push subscriptions for PWA notifications ── */
+  31: `
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id         TEXT PRIMARY KEY,
+      user_id    TEXT NOT NULL,
+      endpoint   TEXT NOT NULL UNIQUE,
+      p256dh     TEXT NOT NULL,
+      auth       TEXT NOT NULL,
+      user_agent TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_push_subscriptions_active ON push_subscriptions(deleted_at);
+  `,
 };
 
 function _range(prefix, start, end) {

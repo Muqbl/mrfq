@@ -147,13 +147,18 @@ test('map assignments accept system admin as a point occupant', () => {
   db.prepare("INSERT INTO map_points (floor,code,x,y,layer,type,point_kind) VALUES ('MF','MF-WS-18',45,45,'cleaning','WS','employee')").run();
   db.prepare("INSERT INTO users (id,name,username,role,active) VALUES ('u-admin','مدير النظام','admin','system_admin',1)").run();
 
-  const saved = assignEmployees(db, 'MF', 'MF-WS-18', ['u-admin'], []);
+  const saved = assignEmployees(db, 'MF', 'MF-WS-18', ['u-admin'], [
+    { userId: 'u-admin', occupantType: 'employee', note: 'contractor' }
+  ]);
   assert.equal(saved.employees.length, 1);
   assert.equal(saved.employees[0].id, 'u-admin');
   assert.equal(saved.employees[0].name, 'مدير النظام');
   assert.equal(saved.employees[0].role, 'system_admin');
+  assert.equal(saved.employees[0].occupantType, 'employee');
+  assert.equal(saved.employees[0].note, 'contractor');
 
   const status = statusRows(db, 'MF', []);
   assert.equal(status.points[0].employees[0].id, 'u-admin');
+  assert.equal(status.points[0].employees[0].note, 'contractor');
   assert.equal(status.points[0].pointKind, 'employee');
 });

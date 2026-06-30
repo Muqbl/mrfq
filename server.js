@@ -3,6 +3,7 @@ const http   = require('http');
 const fs     = require('fs');
 const path   = require('path');
 const crypto = require('crypto');
+const webpush = require('web-push');
 const { getDb } = require('./db');
 const { isTrustedMutation } = require('./server/middleware/security');
 const permissions = require('./server/middleware/permissions');
@@ -1304,6 +1305,115 @@ function canReceiveReportEvent(user, report) {
   }
   return user.role === 'cleaner' && report.workerId === user.id;
 }
+function ensureVapidKeys(db = getDb()) {
+  const publicKeyRow = db.prepare("SELECT value FROM settings WHERE key='push_vapid_public_key'").get();
+  const privateKeyRow = db.prepare("SELECT value FROM settings WHERE key='push_vapid_private_key'").get();
+  if (publicKeyRow?.value && privateKeyRow?.value) {
+    webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:admin@mrfq.local', publicKeyRow.value, privateKeyRow.value);
+    return { publicKey: publicKeyRow.value, privateKey: privateKeyRow.value };
+  }
+  const keys = webpush.generateVAPIDKeys();
+  db.prepare('INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)').run('push_vapid_public_key', keys.publicKey);
+  db.prepare('INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)').run('push_vapid_private_key', keys.privateKey);
+  webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:admin@mrfq.local', keys.publicKey, keys.privateKey);
+  return keys;
+}
+function canReceiveHospitalityOrderEvent(user, order) {
+  if (!order || !user) return false;
+  if (['system_admin','facility_manager','hospitality_manager','hospitality_supervisor'].includes(user.role)) return true;
+  if (user.role === 'hospitality_worker') return order.assignedTo === user.id;
+  if (user.role === 'employee') return order.requestedById === user.id;
+  return false;
+}
+function pushAudienceUsers(db, event, payload) {
+  const rows = db.prepare('SELECT * FROM users WHERE active=1 AND deleted_at IS NULL').all().map(publicUser);
+  if (payload?.ticket) return rows.filter(user => canReceiveTicketEvent(user, payload.ticket));
+  if (payload?.report) return rows.filter(user => canReceiveReportEvent(user, payload.report));
+  if (payload?.order) return rows.filter(user => canReceiveHospitalityOrderEvent(user, payload.order));
+  return ['hospitality_menu_updated','hospitality_menu_category_updated','hospitality_kitchen_updated'].includes(event)
+    ? rows.filter(user => ['system_admin','facility_manager','hospitality_manager','hospitality_supervisor'].includes(user.role))
+    : [];
+}
+function pushNotice(event, payload) {
+  if (payload?.ticket) {
+    return {
+      title: event === 'ticket_waiting_verification' ? 'بلاغ بانتظار التحقق' : 'بلاغ جديد',
+      body: payload.ticket.title || payload.ticket.referenceNo || 'تم تحديث بلاغ',
+      tag: `ticket-${payload.ticket.id || event}`,
+      url: '/?notify=ticket'
+    };
+  }
+  if (payload?.report) {
+    const status = payload.report.approvalStatus || '';
+    const title = event === 'report_reviewed'
+      ? (status === 'approved' ? 'تم اعتماد التقرير' : status === 'needs_recleaning' ? 'مطلوب إعادة العمل' : 'تم رفض التقرير')
+      : 'تقرير جديد';
+    return {
+      title,
+      body: payload.report.locationNameAr || payload.report.locationNameEn || 'تم تحديث تقرير',
+      tag: `report-${payload.report.id || event}`,
+      url: '/?notify=report'
+    };
+  }
+  if (payload?.order) {
+    return {
+      title: event === 'hospitality_order_created' ? 'طلب ضيافة جديد' : 'تحديث طلب ضيافة',
+      body: payload.order.referenceNo || payload.order.requesterName || payload.order.status || 'تم تحديث طلب ضيافة',
+      tag: `hospitality-${payload.order.id || event}`,
+      url: '/?notify=hospitality'
+    };
+  }
+  return null;
+}
+function savePushSubscription(db, userId, raw, userAgent = '') {
+  const endpoint = sanitize(raw?.endpoint, 1000);
+  const p256dh = sanitize(raw?.keys?.p256dh, 300);
+  const auth = sanitize(raw?.keys?.auth, 300);
+  if (!endpoint || !p256dh || !auth) return false;
+  const ts = now();
+  db.prepare(`
+    INSERT INTO push_subscriptions (id,user_id,endpoint,p256dh,auth,user_agent,created_at,updated_at,deleted_at)
+    VALUES (?,?,?,?,?,?,?,?,NULL)
+    ON CONFLICT(endpoint) DO UPDATE SET
+      user_id=excluded.user_id,p256dh=excluded.p256dh,auth=excluded.auth,user_agent=excluded.user_agent,
+      updated_at=excluded.updated_at,deleted_at=NULL
+  `).run(newId('push'), userId, endpoint, p256dh, auth, sanitize(userAgent, 300), ts, ts);
+  return true;
+}
+function broadcastPush(event, payload) {
+  const notice = pushNotice(event, payload);
+  if (!notice) return;
+  try {
+    const db = getDb();
+    ensureVapidKeys(db);
+    const userIds = pushAudienceUsers(db, event, payload).map(user => user.id);
+    if (!userIds.length) return;
+    const subscriptions = db.prepare(`
+      SELECT * FROM push_subscriptions
+      WHERE deleted_at IS NULL AND user_id IN (${userIds.map(() => '?').join(',')})
+    `).all(...userIds);
+    const body = JSON.stringify({
+      ...notice,
+      icon: '/assets/logos/mrfq-logo-icon-light-v4.svg',
+      badge: '/assets/logos/mrfq-favicon.svg',
+      dir: 'rtl',
+      lang: 'ar',
+      timestamp: Date.now()
+    });
+    for (const sub of subscriptions) {
+      const subscription = { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } };
+      webpush.sendNotification(subscription, body).catch(error => {
+        if ([404, 410].includes(error?.statusCode)) {
+          try { db.prepare('UPDATE push_subscriptions SET deleted_at=?,updated_at=? WHERE id=?').run(now(), now(), sub.id); } catch {}
+        } else {
+          console.error('[push]', error?.message || error);
+        }
+      });
+    }
+  } catch (error) {
+    console.error('[push]', error?.message || error);
+  }
+}
 function broadcast(event, payload) {
   const msg = `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
   for (const c of sseClients) {
@@ -1311,6 +1421,7 @@ function broadcast(event, payload) {
     if (payload?.report && !canReceiveReportEvent(c.user, payload.report)) continue;
     try { c.res.write(msg); } catch { sseClients.delete(c); }
   }
+  broadcastPush(event, payload);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1606,6 +1717,23 @@ const server = http.createServer(async (req, res) => {
         }, 25_000);
         req.on('close', () => { clearInterval(hb); sseClients.delete(client); });
         return;
+      }
+
+      /* ── PUSH NOTIFICATIONS ────────────────────────────────── */
+      if (req.method === 'GET' && url.pathname === '/api/push/public-key') {
+        const me = sessionGetUser(req);
+        if (!me) return send(res, 401, { error: 'UNAUTHORIZED' });
+        const keys = ensureVapidKeys(getDb());
+        return send(res, 200, { publicKey: keys.publicKey });
+      }
+
+      if (req.method === 'POST' && url.pathname === '/api/push/subscribe') {
+        const me = sessionGetUser(req);
+        if (!me) return send(res, 401, { error: 'UNAUTHORIZED' });
+        if (!isTrustedMutation(req)) return send(res, 403, { error: 'FORBIDDEN' });
+        const b = await bodyJSON(req);
+        const ok = savePushSubscription(getDb(), me.id, b.subscription, ua);
+        return ok ? send(res, 200, { ok: true }) : send(res, 400, { error: 'INVALID_SUBSCRIPTION' });
       }
 
       /* ── PUBLIC HOSPITALITY: CREATE ORDER (no login required) ─── */
