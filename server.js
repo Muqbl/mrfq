@@ -1498,9 +1498,9 @@ const MAINT_RATING_RULES = {
 function normalizeMaintenanceTeam(db, technicianIds, leadTechnicianId = '') {
   const ids = [...new Set((technicianIds || []).map(id=>sanitize(id,50)).filter(Boolean))].slice(0,20);
   const technicians = ids.map(id => db.prepare(
-    "SELECT id,name FROM users WHERE id=? AND role='maintenance_worker' AND active=1 AND deleted_at IS NULL"
+    "SELECT id,name FROM users WHERE id=? AND active=1 AND deleted_at IS NULL"
   ).get(id)).filter(Boolean);
-  if (technicians.length !== ids.length) throw new Error('WORKER_NOT_FOUND');
+  if (technicians.length !== ids.length || ids.some(id => !userHasRole(db, id, 'maintenance_worker'))) throw new Error('WORKER_NOT_FOUND');
   const requestedLead=sanitize(leadTechnicianId,50);
   const lead=ids.includes(requestedLead)?requestedLead:(ids[0]||'');
   return { ids, technicians, lead };
@@ -2878,7 +2878,7 @@ const server = http.createServer(async (req, res) => {
         for(const [key,col] of Object.entries(maintFields)) if(b[key]!==undefined){sets.push(`${col}=?`);vals.push(['downtimeMins','laborCost'].includes(key)?Math.max(0,Number(b[key])||0):sanitize(b[key],1000));}
         if (b.assignedTo) {
           const w = db.prepare('SELECT * FROM users WHERE id = ? AND active=1 AND deleted_at IS NULL').get(b.assignedTo);
-          if (!w || w.role !== 'maintenance_worker') return send(res, 400, { error: 'WORKER_NOT_FOUND' });
+          if (!w || !userHasRole(db, w.id, 'maintenance_worker')) return send(res, 400, { error: 'WORKER_NOT_FOUND' });
           sets.push('assigned_to = ?'); sets.push('assigned_to_name = ?'); vals.push(w.id, w.name);
         }
         sets.push('updated_at = ?'); vals.push(now()); vals.push(id);

@@ -8535,13 +8535,16 @@ async function submitMaintenanceWorkerReport(ticketId){
 }
 
 function maintenanceWorkerChecks(selected=[]){
-  const workers=(data.users||[]).filter(u=>u.role==='maintenance_worker');
+  const workers=maintenanceWorkers();
   return workers.map(w=>`<label class="taskItem"><input type="checkbox" class="maint-tech-check" value="${w.id}" ${selected.includes(w.id)?'checked':''}><span class="taskItem-label">${esc(w.name)}</span></label>`).join('');
+}
+function maintenanceWorkers(){
+  return (data.users||[]).filter(u=>(u.roles||[u.role]).includes('maintenance_worker'));
 }
 function selectedMaintenanceTechnicians(){return [...document.querySelectorAll('.maint-tech-check:checked')].map(x=>x.value)}
 
 function showMaintenanceOrderForm(){
-  const md=maintenanceData(), workers=(data.users||[]).filter(u=>u.role==='maintenance_worker');
+  const md=maintenanceData(), workers=maintenanceWorkers();
   const body=`<div class="formGrid">${fc(tr('title'),inp('mwo-title',{value:lang==='ar'?'أمر صيانة جديد':'New maintenance order'}))}${fc(tr('location'),sel('mwo-location',(data.locations||[]).map(l=>({v:l.id,l:locName(l)}))))}${fc(lang==='ar'?'نوع الصيانة':'Maintenance Type',sel('mwo-type',[{v:'corrective',l:tr('corrective')},{v:'emergency',l:tr('emergency_maintenance')},{v:'preventive',l:tr('preventive')}]))}${fc(tr('reqCategory'),sel('mwo-category',MAINT_CATS.map(c=>({v:c,l:maintCatLabel(c)}))))}${fc(tr('maintAssets'),sel('mwo-asset',[{v:'',l:'—'},...(md.assets||[]).map(a=>({v:a.id,l:lang==='ar'?a.nameAr:a.nameEn||a.nameAr}))]))}${fc(tr('priority'),sel('mwo-priority',[{v:'high',l:tr('high')},{v:'medium',l:tr('medium'),sel:true},{v:'low',l:tr('low')}]))}</div>${fc(tr('description'),ta('mwo-desc','',{rows:3}))}<div class="field"><label>${tr('maintTeam')}</label><div class="taskChecklist">${maintenanceWorkerChecks()}</div></div>${fc(tr('leadTechnician'),sel('mwo-lead',[{v:'',l:'—'},...workers.map(w=>({v:w.id,l:w.name}))]))}`;
   const foot=`<button class="btn" ${uiAction('saveMaintenanceOrder',[])}>${ic('check',15)} ${tr('save')}</button><button class="btn secondary" ${uiAction('runUiFlow',['close-element','maintenanceOrderModal'])}>${tr('cancel')}</button>`;
   showModal('maintenanceOrderModal',tr('maintTicketCreate'),body,foot,{wide:true});
@@ -8551,7 +8554,7 @@ async function saveMaintenanceOrder(){
   try{await api('/maintenance-tickets',{method:'POST',body:JSON.stringify({title:document.getElementById('mwo-title').value,description:document.getElementById('mwo-desc').value,locationId:document.getElementById('mwo-location').value,maintenanceType:document.getElementById('mwo-type').value,category:document.getElementById('mwo-category').value,assetId:document.getElementById('mwo-asset').value,priority:document.getElementById('mwo-priority').value,technicianIds:techs,leadTechnicianId:document.getElementById('mwo-lead').value})});document.getElementById('maintenanceOrderModal')?.remove();toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}
 }
 function showMaintenanceTeamForm(orderId){
-  const current=maintenanceAssignees(orderId), selected=current.map(a=>a.technicianId), workers=(data.users||[]).filter(u=>u.role==='maintenance_worker');
+  const current=maintenanceAssignees(orderId), selected=current.map(a=>a.technicianId), workers=maintenanceWorkers();
   const body=`<div class="taskChecklist">${maintenanceWorkerChecks(selected)}</div>${fc(tr('leadTechnician'),sel('maint-team-lead',[{v:'',l:'—'},...workers.map(w=>({v:w.id,l:w.name,sel:current.some(a=>a.isLead&&a.technicianId===w.id)}))]))}`;
   const foot=`<button class="btn" ${uiAction('saveMaintenanceTeam',[(orderId)])}>${tr('save')}</button><button class="btn secondary" ${uiAction('runUiFlow',['close-element','maintenanceTeamModal'])}>${tr('cancel')}</button>`;
   showModal('maintenanceTeamModal',lang==='ar'?'إسناد فريق الصيانة':'Assign Maintenance Team',body,foot);
@@ -8559,14 +8562,14 @@ function showMaintenanceTeamForm(orderId){
 async function saveMaintenanceTeam(orderId){try{await api(`/maintenance-tickets/${orderId}/team`,{method:'POST',body:JSON.stringify({technicianIds:selectedMaintenanceTechnicians(),leadTechnicianId:document.getElementById('maint-team-lead').value})});document.getElementById('maintenanceTeamModal')?.remove();toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}}
 
 function showMaintenanceScheduleForm(){
-  const md=maintenanceData(), workers=(data.users||[]).filter(u=>u.role==='maintenance_worker');const tomorrow=new Date(Date.now()+86400000).toISOString().slice(0,16);
+  const md=maintenanceData(), workers=maintenanceWorkers();const tomorrow=new Date(Date.now()+86400000).toISOString().slice(0,16);
   const body=`<div class="formGrid">${fc(lang==='ar'?'اسم الخطة':'Plan Name',inp('mps-title',{value:lang==='ar'?'صيانة دورية':'Preventive maintenance'}))}${fc(tr('location'),sel('mps-location',(data.locations||[]).map(l=>({v:l.id,l:locName(l)}))))}${fc(tr('maintAssets'),sel('mps-asset',[{v:'',l:'—'},...(md.assets||[]).map(a=>({v:a.id,l:lang==='ar'?a.nameAr:a.nameEn||a.nameAr}))]))}${fc(tr('reqCategory'),sel('mps-category',MAINT_CATS.map(c=>({v:c,l:maintCatLabel(c)}))))}${fc(lang==='ar'?'التكرار':'Frequency',sel('mps-frequency',[{v:'daily',l:lang==='ar'?'يومي':'Daily'},{v:'weekly',l:lang==='ar'?'أسبوعي':'Weekly'},{v:'monthly',l:lang==='ar'?'شهري':'Monthly'},{v:'quarterly',l:lang==='ar'?'ربع سنوي':'Quarterly'},{v:'yearly',l:lang==='ar'?'سنوي':'Yearly'}]))}${fc(lang==='ar'?'التنفيذ القادم':'Next Run',inp('mps-next',{type:'datetime-local',value:tomorrow}))}${fc(lang==='ar'?'المدة المتوقعة بالدقائق':'Estimated Minutes',inp('mps-mins',{type:'number',value:60}))}</div>${fc(lang==='ar'?'قائمة الفحص — بند في كل سطر':'Checklist — one item per line',ta('mps-checklist',MAINT_TASKS.map(x=>lang==='ar'?x[0]:x[1]).join('\n'),{rows:5}))}<div class="field"><label>${tr('maintTeam')}</label><div class="taskChecklist">${maintenanceWorkerChecks()}</div></div>${fc(tr('leadTechnician'),sel('mps-lead',[{v:'',l:'—'},...workers.map(w=>({v:w.id,l:w.name}))]))}`;
   const foot=`<button class="btn" ${uiAction('saveMaintenanceSchedule',[])}>${tr('save')}</button><button class="btn secondary" ${uiAction('runUiFlow',['close-element','maintenanceScheduleModal'])}>${tr('cancel')}</button>`;showModal('maintenanceScheduleModal',tr('maintSchedules'),body,foot,{wide:true});
 }
 async function saveMaintenanceSchedule(){try{await api('/maintenance/schedules',{method:'POST',body:JSON.stringify({titleAr:document.getElementById('mps-title').value,locationId:document.getElementById('mps-location').value,assetIds:[document.getElementById('mps-asset').value].filter(Boolean),category:document.getElementById('mps-category').value,frequencyUnit:document.getElementById('mps-frequency').value,frequencyValue:1,nextRunAt:new Date(document.getElementById('mps-next').value).toISOString(),estimatedMins:Number(document.getElementById('mps-mins').value),checklist:document.getElementById('mps-checklist').value.split('\n').map(x=>x.trim()).filter(Boolean),defaultTechnicianIds:selectedMaintenanceTechnicians(),leadTechnicianId:document.getElementById('mps-lead').value})});document.getElementById('maintenanceScheduleModal')?.remove();toast(tr('saved'),'ok');await load();}catch(e){toast(e.message,'bad')}}
 function showMaintenanceScheduleTeamForm(id){
   const schedule=(maintenanceData().schedules||[]).find(s=>s.id===id);if(!schedule)return;
-  const workers=(data.users||[]).filter(u=>u.role==='maintenance_worker');
+  const workers=maintenanceWorkers();
   const body=`<div class="field"><label>${tr('maintTeam')}</label><div class="taskChecklist">${maintenanceWorkerChecks(schedule.defaultTechnicianIds||[])}</div></div>${fc(tr('leadTechnician'),sel('mps-team-lead',[{v:'',l:'—'},...workers.map(w=>({v:w.id,l:w.name,sel:w.id===schedule.leadTechnicianId}))]))}`;
   const foot=`<button class="btn" ${uiAction('saveMaintenanceScheduleTeam',[(id)])}>${tr('save')}</button><button class="btn secondary" ${uiAction('runUiFlow',['close-element','maintenanceScheduleTeamModal'])}>${tr('cancel')}</button>`;
   showModal('maintenanceScheduleTeamModal',lang==='ar'?'إسناد الصيانة الدورية':'Assign Preventive Maintenance',body,foot);
@@ -8648,7 +8651,7 @@ function maintStartTicket(id,renderFn){ maintUpdateTicket(id,{status:'in_progres
 function maintVerifyTicket(id,status,renderFn){ maintUpdateTicket(id,{status},renderFn); }
 
 function maintAssignTicket(id, renderFn){
-  const workers = (data.users||[]).filter(u=>u.role==='maintenance_worker');
+  const workers = maintenanceWorkers();
   const opts = workers.map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('');
   showModal('maintAssign', lang==='ar'?'تعيين فني':'Assign Technician',
     `<select id="maintWorkerSel" class="form-control">${opts}</select>`,
@@ -8685,7 +8688,7 @@ async function maintReviewReport(id, status, renderFn){
 function maintOpenTicketCreate(renderFn){
   const locOpts = (data.locations||[]).map(l=>`<option value="${l.id}">${esc(l.nameAr)}</option>`).join('');
   const catOpts = MAINT_CATS.map(c=>`<option value="${c}">${maintCatLabel(c)}</option>`).join('');
-  const workers = (data.users||[]).filter(u=>u.role==='maintenance_worker');
+  const workers = maintenanceWorkers();
   const workerOpts = `<option value="">${lang==='ar'?'— تعيين لاحقاً —':'— Assign later —'}</option>`+workers.map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('');
   showModal('maintCreate', tr('maintTicketCreate'),
     `<div class="form-group"><label>${lang==='ar'?'الموقع':'Location'}</label><select id="mcLoc" class="form-control">${locOpts}</select></div>

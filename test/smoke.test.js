@@ -691,6 +691,42 @@ test('maintenance: create roles and role-scoped bootstraps work', async () => {
   }
 });
 
+test('maintenance: secondary maintenance_worker role can be assigned as technician and lead', async () => {
+  const admin = await login('admin', PASSWORDS.admin);
+  const created = await admin('/api/users', { method:'POST', body:JSON.stringify({
+    username:'dual-maint-worker',
+    name:'فني صيانة بدور إضافي',
+    role:'employee',
+    password:PASSWORDS.worker
+  }) });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const added = await admin(`/api/users/${created.body.user.id}/roles`, {
+    method:'POST',
+    body:JSON.stringify({ role:'maintenance_worker' })
+  });
+  assert.equal(added.status, 200, JSON.stringify(added.body));
+
+  const manager = await login('maint-manager', PASSWORDS.worker);
+  const boot = await manager('/api/bootstrap');
+  assert.equal(boot.status, 200);
+  const user = boot.body.users.find(u => u.id === created.body.user.id);
+  assert.ok(user, 'secondary maintenance worker should be visible in maintenance bootstrap');
+  assert.ok(user.roles.includes('maintenance_worker'));
+
+  const order = await manager('/api/maintenance-tickets', { method:'POST', body:JSON.stringify({
+    title:'إسناد فني بدور إضافي',
+    locationId:boot.body.locations[0].id,
+    category:'general',
+    technicianIds:[created.body.user.id],
+    leadTechnicianId:created.body.user.id
+  }) });
+  assert.equal(order.status, 200, JSON.stringify(order.body));
+  const after = await manager('/api/bootstrap');
+  const assignee = after.body.maintenance.assignees.find(a => a.workOrderId === order.body.ticket.id && a.technicianId === created.body.user.id);
+  assert.ok(assignee, 'secondary maintenance worker should be saved as assignee');
+  assert.equal(assignee.isLead, true);
+});
+
 test('employee request channels can be controlled only by system admin', async () => {
   const admin = await login('admin', PASSWORDS.admin);
   const fm = await login('fm', PASSWORDS.fm);
