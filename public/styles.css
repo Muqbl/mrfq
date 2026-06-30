@@ -2963,11 +2963,13 @@ tbody tr:hover td{background:var(--surface-2)}
   border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2);
   padding:10px 12px;cursor:pointer;
 }
-.mapEmployeeOption b{font-size:var(--fs-sm);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mapEmployeeOption small{font-size:var(--fs-xs);color:var(--muted);font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mapEmployeeOption input[type="checkbox"]{grid-column:1;grid-row:1 / span 2;align-self:center}
+.mapEmployeeOption > span{grid-column:2;grid-row:1 / span 2;align-self:center}
+.mapEmployeeOption b{grid-column:3;grid-row:1;font-size:var(--fs-sm);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mapEmployeeOption small{grid-column:3;grid-row:2;font-size:var(--fs-xs);color:var(--muted);font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mapEmployeeAffiliation{
-  width:100%;min-width:0;min-height:42px;background:var(--surface);
-  border-radius:var(--r-sm);font-size:var(--fs-xs);font-weight:900;
+  grid-column:4;grid-row:1 / span 2;width:100%;min-width:0;min-height:42px;align-self:center;
+  background:var(--surface);border-radius:var(--r-sm);font-size:var(--fs-xs);font-weight:900;color:var(--ink);
 }
 .mapFreeOccupants{
   display:flex;flex-direction:column;gap:10px;border:1px solid var(--line);
@@ -2996,7 +2998,7 @@ tbody tr:hover td{background:var(--surface-2)}
 @media(max-width:520px){
   .mapEmployeeOption{grid-template-columns:18px 20px minmax(0,1fr)}
   .mapEmployeeOption small{grid-column:3;white-space:normal}
-  .mapEmployeeAffiliation{grid-column:3}
+  .mapEmployeeAffiliation{grid-column:3;grid-row:3;min-height:40px}
 }
 .mapModuleList{display:flex;flex-direction:column;gap:8px}
 .mapModuleCard{
