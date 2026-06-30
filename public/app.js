@@ -2809,7 +2809,7 @@ function mapOccupancyClass(point){
   const code=normalizeMapCode(point.code);
   const assignable=/-(WS|GM|M|MR)-?/i.test(code);
   if(!assignable) return '';
-  return ((point.employees||[]).length || mapEmployeesForCode(code).length) ? 'occupied' : 'vacant';
+  return (point.employees||[]).length ? 'occupied' : 'vacant';
 }
 function mapFloorCodes(){
   const codes=mapState.codes?.codes?.[mapState.floor] || [];
@@ -3072,7 +3072,7 @@ function mapOperationalStatusLabel(label='', level=''){
 }
 function mapSelectedPanel(point,overlay=false){
   const modules=point.modules||{};
-  const employees=(point.employees||[]).length ? point.employees : mapEmployeesForCode(point.code);
+  const employees=point.employees||[];
   const displayName=point.location?.nameAr||point.location?.nameEn||point.space?.nameAr||point.space?.nameEn||point.group?.nameAr||point.group?.nameEn||point.nameAr||point.nameEn||point.code;
   const [kindLabel, kindIcon]=mapPointKindLabel(point.pointKind||'location');
   const moduleCards=mapLayerMeta().filter(m=>modules[m.key]).map(m=>{

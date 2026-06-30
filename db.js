@@ -2,6 +2,7 @@
 const Database = require('better-sqlite3');
 const path     = require('path');
 const fs       = require('fs');
+const crypto   = require('crypto');
 
 const DB_FILE = process.env.DB_PATH || path.join(__dirname, 'data.db');
 
@@ -25,6 +26,7 @@ function _open() {
 
   _migrate(db);
   _seedPlanLocationGroups(db);
+  _importLegacyEmployeeOffices(db);
   return db;
 }
 
@@ -977,6 +979,73 @@ function _seedPlanLocationGroups(db) {
       for (const locationId of members) insertMember.run(id, ts, locationId);
     }
     db.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES ('plan_location_groups_seeded','1')").run();
+  })();
+}
+
+function _normalizeLegacyMapCode(value) {
+  const arabicDigits = '٠١٢٣٤٥٦٧٨٩';
+  const easternDigits = '۰۱۲۳۴۵۶۷۸۹';
+  return String(value || '')
+    .replace(/[٠-٩]/g, digit => String(arabicDigits.indexOf(digit)))
+    .replace(/[۰-۹]/g, digit => String(easternDigits.indexOf(digit)))
+    .replace(/[–—]/g, '-')
+    .trim()
+    .toUpperCase();
+}
+
+function _legacyOccupantMeta(status = '') {
+  const value = String(status || '').trim().toLowerCase();
+  if (['متدرب', 'trainee'].includes(value)) return { occupantType: 'trainee', note: '' };
+  if (['متعاقد', 'contractor', 'مقاول'].includes(value)) return { occupantType: 'employee', note: 'contractor' };
+  if (['استشاري', 'أستشاري', 'إستشاري', 'consultant'].includes(value)) return { occupantType: 'employee', note: 'consultant' };
+  return { occupantType: 'employee', note: 'authority' };
+}
+
+function _importLegacyEmployeeOffices(db) {
+  const imported = db.prepare("SELECT value FROM settings WHERE key='legacy_employee_offices_imported'").get();
+  if (imported?.value === '1') return;
+
+  const sourcePath = path.join(__dirname, 'public', 'map-data', 'employee_offices.json');
+  if (!fs.existsSync(sourcePath)) return;
+
+  let payload;
+  try {
+    payload = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
+  } catch {
+    return;
+  }
+
+  const employeesByCode = payload?.employeesByCode || {};
+  const activeOccupants = db.prepare(`
+    SELECT 1 FROM map_point_occupants
+    WHERE floor = ? AND code = ? AND deleted_at IS NULL
+    LIMIT 1
+  `);
+  const insertOccupant = db.prepare(`
+    INSERT OR IGNORE INTO map_point_occupants
+      (id,floor,code,user_id,name,occupant_type,note,created_at,updated_at,deleted_at)
+    VALUES (?,?,?,?,?,?,?,?,?,NULL)
+  `);
+  const ts = new Date().toISOString();
+
+  db.transaction(() => {
+    for (const [rawCode, occupants] of Object.entries(employeesByCode)) {
+      const code = _normalizeLegacyMapCode(rawCode);
+      const floor = code.split('-')[0] || '';
+      if (!code || !floor || activeOccupants.get(floor, code)) continue;
+
+      (Array.isArray(occupants) ? occupants : []).forEach((occupant, index) => {
+        const name = String(occupant?.name || '').trim();
+        if (!name || name === 'لم يحدد بعد') return;
+        const { occupantType, note } = _legacyOccupantMeta(occupant?.status);
+        const digest = crypto.createHash('sha1')
+          .update(`${floor}:${code}:${name}:${occupant?.sourceRow || index}`)
+          .digest('hex')
+          .slice(0, 16);
+        insertOccupant.run(`legacy-${digest}`, floor, code, '', name, occupantType, note, ts, ts);
+      });
+    }
+    db.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES ('legacy_employee_offices_imported','1')").run();
   })();
 }
 
