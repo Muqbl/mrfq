@@ -2978,6 +2978,9 @@ tbody tr:hover td{background:var(--surface-2)}
   width:100%;min-width:0;min-height:46px;background:var(--surface);
   border-radius:var(--r-sm);font-size:var(--fs-sm);font-weight:800;
 }
+.mapFreeOccupantRow.noAffiliation [data-free-affiliation]{
+  color:transparent;cursor:not-allowed;background:var(--surface-3);
+}
 .mapFreeOccupantRow .icon-btn{justify-self:flex-end}
 @media(min-width:980px){
   .mapFreeOccupantRow{

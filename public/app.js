@@ -785,6 +785,10 @@ document.addEventListener('click',event=>{
   if(['runUiFlow','mapCanvasClick','mapSelectPoint','mapRemoveFreeOccupant'].includes(name)) args.push(event,target);
   Reflect.apply(handler,window,args);
 });
+document.addEventListener('change',event=>{
+  const freeType=event.target.closest?.('[data-free-type]');
+  if(freeType) mapSyncFreeOccupantRow(freeType.closest('.mapFreeOccupantRow'));
+});
 const UI_RENDERER_NAMES = new Set([
   'render','renderWorker','renderMaintenanceWorker','renderEmployee','renderSupervisor',
   'renderMaintenanceSupervisor','renderHospitalitySupervisor','renderHospitalityManager',
@@ -3020,11 +3024,27 @@ function mapOccupantAffiliationLabel(value='authority'){
   const item=labels[String(value||'authority').toLowerCase()]||labels.authority;
   return lang==='ar'?item[0]:item[1];
 }
+function normalizeMapOccupantAffiliation(value=''){
+  const raw=String(value||'').trim().toLowerCase();
+  if(['authority','الهيئة','موظف الهيئة','employee_authority'].includes(raw)) return 'authority';
+  if(['contractor','متعاقد','مقاول'].includes(raw)) return 'contractor';
+  if(['consultant','استشاري','إستشاري'].includes(raw)) return 'consultant';
+  return '';
+}
+function normalizeMapOccupantType(type='employee', note=''){
+  const raw=String(type||'employee').trim().toLowerCase();
+  if(['contractor','consultant'].includes(raw)) return 'employee';
+  if(['trainee','متدرب'].includes(raw)) return 'trainee';
+  if(['other','أخرى','اخرى'].includes(raw)) return 'other';
+  return 'employee';
+}
 function mapFreeOccupantDisplayMeta(occupant={}){
-  const legacyAffiliation={contractor:'contractor',consultant:'consultant'}[String(occupant.occupantType||'').toLowerCase()];
-  const type=legacyAffiliation?'employee':(occupant.occupantType||'employee');
-  const affiliation=occupant.note || legacyAffiliation || 'authority';
-  return `${mapOccupantTypeLabel(type)} · ${mapOccupantAffiliationLabel(affiliation)}`;
+  const legacyAffiliation=normalizeMapOccupantAffiliation(occupant.occupantType);
+  const type=normalizeMapOccupantType(occupant.occupantType, occupant.note);
+  const affiliation=type==='employee'
+    ? (normalizeMapOccupantAffiliation(occupant.note) || legacyAffiliation || 'authority')
+    : '';
+  return [mapOccupantTypeLabel(type), affiliation ? mapOccupantAffiliationLabel(affiliation) : ''].filter(Boolean).join(' · ');
 }
 function mapOperationalStatusLabel(label='', level=''){
   const key=String(label||level||'').trim().toLowerCase().replace(/\s+/g,'_');
@@ -3252,25 +3272,38 @@ function showMapEmployeeModal(code){
   showModal('mapEmployeeModal', `${ic('users',16)} ${lang==='ar'?'تعديل شاغلي النقطة':'Edit point occupants'}`, body, foot, {wide:true});
 }
 function mapFreeOccupantRow(occupant={}){
-  const legacyAffiliation={contractor:'contractor',consultant:'consultant'}[String(occupant.occupantType||'').toLowerCase()];
-  const type=legacyAffiliation?'employee':(occupant.occupantType||'employee');
-  const affiliation=occupant.note || legacyAffiliation || 'authority';
+  const legacyAffiliation=normalizeMapOccupantAffiliation(occupant.occupantType);
+  const type=normalizeMapOccupantType(occupant.occupantType, occupant.note);
+  const affiliation=type==='employee' ? (normalizeMapOccupantAffiliation(occupant.note) || legacyAffiliation || 'authority') : '';
   const typeOptions=[
     ['employee',lang==='ar'?'موظف':'Employee'],
     ['trainee',lang==='ar'?'متدرب':'Trainee'],
     ['other',lang==='ar'?'أخرى':'Other']
   ];
   const affiliationOptions=[
+    ['',lang==='ar'?'':''],
     ['authority',lang==='ar'?'الهيئة':'Authority'],
     ['contractor',lang==='ar'?'متعاقد':'Contractor'],
     ['consultant',lang==='ar'?'استشاري':'Consultant']
   ];
-  return `<div class="mapFreeOccupantRow">
+  return `<div class="mapFreeOccupantRow${type==='employee'?'':' noAffiliation'}">
     <input class="ctrl" data-free-name value="${esc(occupant.name||'')}" placeholder="${lang==='ar'?'الاسم':'Name'}">
     <select class="ctrl" data-free-type title="${lang==='ar'?'نوع الشاغل':'Occupant type'}">${typeOptions.map(([value,label])=>`<option value="${esc(value)}" ${type===value?'selected':''}>${esc(label)}</option>`).join('')}</select>
-    <select class="ctrl" data-free-affiliation title="${lang==='ar'?'الجهة':'Affiliation'}">${affiliationOptions.map(([value,label])=>`<option value="${esc(value)}" ${affiliation===value?'selected':''}>${esc(label)}</option>`).join('')}</select>
+    <select class="ctrl" data-free-affiliation title="${lang==='ar'?'الجهة':'Affiliation'}" ${type==='employee'?'':'disabled'}>${affiliationOptions.map(([value,label])=>`<option value="${esc(value)}" ${affiliation===value?'selected':''}>${esc(label)}</option>`).join('')}</select>
     <button class="icon-btn" ${uiAction('mapRemoveFreeOccupant',[])} title="${tr('delete')}">${ic('trash',14)}</button>
   </div>`;
+}
+function mapSyncFreeOccupantRow(row){
+  if(!row) return;
+  const type=row.querySelector('[data-free-type]')?.value || 'employee';
+  const affiliation=row.querySelector('[data-free-affiliation]');
+  const needsAffiliation=type==='employee';
+  row.classList.toggle('noAffiliation', !needsAffiliation);
+  if(affiliation){
+    affiliation.disabled=!needsAffiliation;
+    if(needsAffiliation && !affiliation.value) affiliation.value='authority';
+    if(!needsAffiliation) affiliation.value='';
+  }
 }
 function mapAddFreeOccupant(){
   const host=document.querySelector('#mapEmployeeModal [data-free-occupants]');
@@ -3286,6 +3319,7 @@ function mapRemoveFreeOccupant(event,target){
     const affiliation=row.querySelector('[data-free-affiliation]');
     if(type) type.value='employee';
     if(affiliation) affiliation.value='authority';
+    mapSyncFreeOccupantRow(row);
   }
 }
 async function saveMapEmployees(code){
@@ -3293,11 +3327,14 @@ async function saveMapEmployees(code){
   const modal=document.getElementById('mapEmployeeModal');
   const checkedInputs=modal ? [...modal.querySelectorAll('input[type="checkbox"]:checked')] : [];
   const userIds=checkedInputs.map(input=>input.value);
-  const occupants=modal ? [...modal.querySelectorAll('.mapFreeOccupantRow')].map(row=>({
-    name: row.querySelector('[data-free-name]')?.value || '',
-    occupantType: row.querySelector('[data-free-type]')?.value || 'employee',
-    note: row.querySelector('[data-free-affiliation]')?.value || 'authority'
-  })).filter(item=>item.name.trim()) : [];
+  const occupants=modal ? [...modal.querySelectorAll('.mapFreeOccupantRow')].map(row=>{
+    const occupantType=row.querySelector('[data-free-type]')?.value || 'employee';
+    return {
+      name: row.querySelector('[data-free-name]')?.value || '',
+      occupantType,
+      note: occupantType==='employee' ? (row.querySelector('[data-free-affiliation]')?.value || 'authority') : ''
+    };
+  }).filter(item=>item.name.trim()) : [];
   try{
     await api(`/maps/${encodeURIComponent(mapState.floor)}/assignments`,{
       method:'PUT',
