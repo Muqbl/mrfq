@@ -1306,16 +1306,32 @@ function canReceiveReportEvent(user, report) {
   return user.role === 'cleaner' && report.workerId === user.id;
 }
 function ensureVapidKeys(db = getDb()) {
+  const subject = process.env.VAPID_SUBJECT || 'mailto:admin@mrfq.local';
+  // Prefer keys from environment variables so they stay stable across redeploys
+  // even when the database is recreated. Persist them into settings so the rest
+  // of the system has a single consistent source of truth.
+  const envPublic = process.env.VAPID_PUBLIC_KEY;
+  const envPrivate = process.env.VAPID_PRIVATE_KEY;
+  if (envPublic && envPrivate) {
+    const publicKeyRow = db.prepare("SELECT value FROM settings WHERE key='push_vapid_public_key'").get();
+    const privateKeyRow = db.prepare("SELECT value FROM settings WHERE key='push_vapid_private_key'").get();
+    if (publicKeyRow?.value !== envPublic || privateKeyRow?.value !== envPrivate) {
+      db.prepare('INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)').run('push_vapid_public_key', envPublic);
+      db.prepare('INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)').run('push_vapid_private_key', envPrivate);
+    }
+    webpush.setVapidDetails(subject, envPublic, envPrivate);
+    return { publicKey: envPublic, privateKey: envPrivate };
+  }
   const publicKeyRow = db.prepare("SELECT value FROM settings WHERE key='push_vapid_public_key'").get();
   const privateKeyRow = db.prepare("SELECT value FROM settings WHERE key='push_vapid_private_key'").get();
   if (publicKeyRow?.value && privateKeyRow?.value) {
-    webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:admin@mrfq.local', publicKeyRow.value, privateKeyRow.value);
+    webpush.setVapidDetails(subject, publicKeyRow.value, privateKeyRow.value);
     return { publicKey: publicKeyRow.value, privateKey: privateKeyRow.value };
   }
   const keys = webpush.generateVAPIDKeys();
   db.prepare('INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)').run('push_vapid_public_key', keys.publicKey);
   db.prepare('INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)').run('push_vapid_private_key', keys.privateKey);
-  webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:admin@mrfq.local', keys.publicKey, keys.privateKey);
+  webpush.setVapidDetails(subject, keys.publicKey, keys.privateKey);
   return keys;
 }
 function canReceiveHospitalityOrderEvent(user, order) {
@@ -1403,7 +1419,9 @@ function broadcastPush(event, payload) {
     for (const sub of subscriptions) {
       const subscription = { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } };
       webpush.sendNotification(subscription, body).catch(error => {
-        if ([404, 410].includes(error?.statusCode)) {
+        // 404/410: endpoint gone. 403: VAPID credentials no longer match this
+        // subscription (e.g. keys rotated) — it can never succeed again, so retire it.
+        if ([403, 404, 410].includes(error?.statusCode)) {
           try { db.prepare('UPDATE push_subscriptions SET deleted_at=?,updated_at=? WHERE id=?').run(now(), now(), sub.id); } catch {}
         } else {
           console.error('[push]', error?.message || error);
@@ -1763,7 +1781,7 @@ const server = http.createServer(async (req, res) => {
         }, payload)));
         results.forEach((result, index) => {
           const statusCode = result.reason?.statusCode;
-          if (result.status === 'rejected' && [404, 410].includes(statusCode)) {
+          if (result.status === 'rejected' && [403, 404, 410].includes(statusCode)) {
             try {
               db.prepare('UPDATE push_subscriptions SET deleted_at=?,updated_at=? WHERE id=?')
                 .run(now(), now(), subscriptions[index].id);

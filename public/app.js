@@ -1090,6 +1090,16 @@ function urlBase64ToUint8Array(value){
   const raw=atob(base64);
   return Uint8Array.from([...raw].map(char=>char.charCodeAt(0)));
 }
+function appServerKeyMatches(subscription,serverKey){
+  try{
+    const current=subscription?.options?.applicationServerKey;
+    if(!current) return false;
+    const bytes=new Uint8Array(current);
+    if(bytes.length!==serverKey.length) return false;
+    for(let i=0;i<bytes.length;i++){ if(bytes[i]!==serverKey[i]) return false; }
+    return true;
+  }catch(_error){ return false; }
+}
 function registerMrfqServiceWorker(){
   if(!('serviceWorker' in navigator)) return Promise.resolve(null);
   if(!mrfqServiceWorkerPromise){
@@ -1127,10 +1137,17 @@ async function ensureBrowserNotifications({prompt=false,announce=false}={}){
     mrfqPushSetupPromise=(async()=>{
       const key=await api('/push/public-key');
       if(!key?.publicKey) return false;
-      const existing=await registration.pushManager.getSubscription();
+      const serverKey=urlBase64ToUint8Array(key.publicKey);
+      let existing=await registration.pushManager.getSubscription();
+      // If an old subscription is tied to a different VAPID key (e.g. server keys
+      // rotated or DB recreated) it can never receive pushes — drop it and resubscribe.
+      if(existing && !appServerKeyMatches(existing,serverKey)){
+        try{ await existing.unsubscribe(); }catch(_error){}
+        existing=null;
+      }
       const subscription=existing || await registration.pushManager.subscribe({
         userVisibleOnly:true,
-        applicationServerKey:urlBase64ToUint8Array(key.publicKey)
+        applicationServerKey:serverKey
       });
       await api('/push/subscribe',{method:'POST',body:JSON.stringify({subscription})});
       return true;

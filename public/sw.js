@@ -23,6 +23,36 @@ self.addEventListener('push', event => {
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
+function urlBase64ToUint8Array(value) {
+  const padding = '='.repeat((4 - value.length % 4) % 4);
+  const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(char => char.charCodeAt(0)));
+}
+
+// The browser can silently rotate a push subscription; re-subscribe with the
+// current VAPID key and report it to the server so background pushes keep working.
+self.addEventListener('pushsubscriptionchange', event => {
+  event.waitUntil((async () => {
+    try {
+      const res = await fetch('/api/push/public-key', { credentials: 'include' });
+      if (!res.ok) return;
+      const { publicKey } = await res.json();
+      if (!publicKey) return;
+      const subscription = await self.registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey)
+      });
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription })
+      });
+    } catch (_error) {}
+  })());
+});
+
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   const targetUrl = new URL(event.notification.data?.url || '/', self.location.origin).href;
