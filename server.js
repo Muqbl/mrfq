@@ -722,6 +722,15 @@ function dbMaintenanceOrderParts(workOrderIds = null) {
   }));
 }
 
+function dbUtilityBills() {
+  return getDb().prepare(`SELECT * FROM utility_bills WHERE deleted_at IS NULL ORDER BY created_at`).all().map(b => ({
+    id:b.id, utility:b.utility, buildingType:b.building_type, beneficiary:b.beneficiary,
+    customerNo:b.customer_no, invoiceNo:b.invoice_no, periodFrom:b.period_from, periodTo:b.period_to,
+    amountBefore:b.amount_before, tax:b.tax, total:b.amount_before + b.tax,
+    createdBy:b.created_by, createdAt:b.created_at, updatedAt:b.updated_at
+  }));
+}
+
 function maintenancePayload(me, tickets) {
   const ids = tickets.map(t => t.id);
   return {
@@ -729,7 +738,8 @@ function maintenancePayload(me, tickets) {
     schedules: dbMaintenanceSchedules(),
     parts: dbMaintenanceParts(),
     assignees: dbMaintenanceAssignees(ids),
-    orderParts: dbMaintenanceOrderParts(ids)
+    orderParts: dbMaintenanceOrderParts(ids),
+    utilityBills: dbUtilityBills()
   };
 }
 
@@ -2770,6 +2780,83 @@ const server = http.createServer(async (req, res) => {
         logEvent(db,'part.deleted','part',id,me,{id},'maintenance');
         return send(res,200,{parts:dbMaintenanceParts()});
       }
+      /* ── UTILITY BILLS (water / electricity) ──────────────────── */
+      if (url.pathname === '/api/maintenance/utility-bills' || /^\/api\/maintenance\/utility-bills\/[^/]+$/.test(url.pathname)) {
+        const canWrite = ['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role);
+        const normUtility = v => String(v) === 'electricity' ? 'electricity' : 'water';
+        const normBuilding = v => String(v) === 'main' ? 'main' : 'sub';
+        const billFrom = b => {
+          const amountBefore = Math.max(0, Number(b.amountBefore) || 0);
+          const tax = (b.tax === undefined || b.tax === null || b.tax === '')
+            ? Math.round(amountBefore * 0.15 * 100) / 100
+            : Math.max(0, Number(b.tax) || 0);
+          return {
+            utility: normUtility(b.utility), buildingType: normBuilding(b.buildingType),
+            beneficiary: sanitize(b.beneficiary, 160), customerNo: sanitize(b.customerNo, 60),
+            invoiceNo: sanitize(b.invoiceNo, 60), periodFrom: sanitize(b.periodFrom, 30),
+            periodTo: sanitize(b.periodTo, 30), amountBefore, tax
+          };
+        };
+
+        if (req.method === 'POST' && url.pathname === '/api/maintenance/utility-bills') {
+          if (!canWrite) return send(res, 403, { error: 'FORBIDDEN' });
+          const b = await bodyJSON(req);
+          // Bulk import path: { bills: [...] } — upsert by invoiceNo.
+          if (Array.isArray(b.bills)) {
+            const ts = now();
+            const upsert = db.transaction(rows => {
+              for (const raw of rows) {
+                const v = billFrom(raw);
+                if (!v.invoiceNo && !v.amountBefore) continue;
+                const existing = v.invoiceNo
+                  ? db.prepare('SELECT id FROM utility_bills WHERE invoice_no=? AND deleted_at IS NULL').get(v.invoiceNo)
+                  : null;
+                if (existing) {
+                  db.prepare(`UPDATE utility_bills SET utility=?,building_type=?,beneficiary=?,customer_no=?,
+                    period_from=?,period_to=?,amount_before=?,tax=?,updated_at=? WHERE id=?`)
+                    .run(v.utility, v.buildingType, v.beneficiary, v.customerNo, v.periodFrom, v.periodTo, v.amountBefore, v.tax, ts, existing.id);
+                } else {
+                  db.prepare(`INSERT INTO utility_bills
+                    (id,utility,building_type,beneficiary,customer_no,invoice_no,period_from,period_to,amount_before,tax,created_by,created_at,updated_at)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+                    .run(newId('ub'), v.utility, v.buildingType, v.beneficiary, v.customerNo, v.invoiceNo, v.periodFrom, v.periodTo, v.amountBefore, v.tax, me.id, ts, ts);
+                }
+              }
+            });
+            upsert(b.bills);
+            return send(res, 200, { utilityBills: dbUtilityBills() });
+          }
+          // Single create.
+          const v = billFrom(b);
+          if (!v.invoiceNo || !v.amountBefore) return send(res, 400, { error: 'MISSING_FIELDS' });
+          const ts = now();
+          db.prepare(`INSERT INTO utility_bills
+            (id,utility,building_type,beneficiary,customer_no,invoice_no,period_from,period_to,amount_before,tax,created_by,created_at,updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+            .run(newId('ub'), v.utility, v.buildingType, v.beneficiary, v.customerNo, v.invoiceNo, v.periodFrom, v.periodTo, v.amountBefore, v.tax, me.id, ts, ts);
+          return send(res, 200, { utilityBills: dbUtilityBills() });
+        }
+
+        if (req.method === 'PUT' && /^\/api\/maintenance\/utility-bills\/[^/]+$/.test(url.pathname)) {
+          if (!canWrite) return send(res, 403, { error: 'FORBIDDEN' });
+          const id = sanitize(url.pathname.split('/').pop(), 50);
+          if (!db.prepare('SELECT 1 FROM utility_bills WHERE id=? AND deleted_at IS NULL').get(id)) return send(res, 404, { error: 'BILL_NOT_FOUND' });
+          const v = billFrom(await bodyJSON(req));
+          db.prepare(`UPDATE utility_bills SET utility=?,building_type=?,beneficiary=?,customer_no=?,invoice_no=?,
+            period_from=?,period_to=?,amount_before=?,tax=?,updated_at=? WHERE id=?`)
+            .run(v.utility, v.buildingType, v.beneficiary, v.customerNo, v.invoiceNo, v.periodFrom, v.periodTo, v.amountBefore, v.tax, now(), id);
+          return send(res, 200, { utilityBills: dbUtilityBills() });
+        }
+
+        if (req.method === 'DELETE' && /^\/api\/maintenance\/utility-bills\/[^/]+$/.test(url.pathname)) {
+          if (!canWrite) return send(res, 403, { error: 'FORBIDDEN' });
+          const id = sanitize(url.pathname.split('/').pop(), 50);
+          if (!db.prepare('SELECT 1 FROM utility_bills WHERE id=? AND deleted_at IS NULL').get(id)) return send(res, 404, { error: 'BILL_NOT_FOUND' });
+          db.prepare('UPDATE utility_bills SET deleted_at=?,updated_at=? WHERE id=?').run(now(), now(), id);
+          return send(res, 200, { utilityBills: dbUtilityBills() });
+        }
+      }
+
       if (req.method === 'POST' && /^\/api\/maintenance-tickets\/[^/]+\/parts$/.test(url.pathname)) {
         if (!['system_admin','facility_manager','maintenance_manager','maintenance_supervisor','maintenance_worker'].includes(me.role)) return send(res,403,{error:'FORBIDDEN'});
         const orderId=sanitize(url.pathname.split('/')[3],50);const b=await bodyJSON(req);

@@ -910,6 +910,28 @@ const MIGRATIONS = {
     CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
     CREATE INDEX IF NOT EXISTS idx_push_subscriptions_active ON push_subscriptions(deleted_at);
   `,
+
+  /* ── v32: utility bills (water / electricity) dashboard ──────── */
+  32: `
+    CREATE TABLE IF NOT EXISTS utility_bills (
+      id            TEXT PRIMARY KEY,
+      utility       TEXT NOT NULL DEFAULT 'water',   -- water | electricity
+      building_type TEXT NOT NULL DEFAULT 'sub',     -- sub | main
+      beneficiary   TEXT NOT NULL DEFAULT '',
+      customer_no   TEXT NOT NULL DEFAULT '',
+      invoice_no    TEXT NOT NULL DEFAULT '',
+      period_from   TEXT NOT NULL DEFAULT '',
+      period_to     TEXT NOT NULL DEFAULT '',
+      amount_before REAL NOT NULL DEFAULT 0,
+      tax           REAL NOT NULL DEFAULT 0,
+      created_by    TEXT NOT NULL DEFAULT '',
+      created_at    TEXT NOT NULL,
+      updated_at    TEXT NOT NULL,
+      deleted_at    TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_utility_bills_active  ON utility_bills(deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_utility_bills_utility ON utility_bills(utility);
+  `,
 };
 
 function _range(prefix, start, end) {

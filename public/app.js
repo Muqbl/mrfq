@@ -510,6 +510,7 @@ const IC = {
   dashboard:`<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>`,
   reports:`<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
   tickets:`<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+  droplet:`<svg viewBox="0 0 24 24"><path d="M12 2.7 6.8 9a7 7 0 1 0 10.4 0L12 2.7Z"/><path d="M9.5 14.5a2.6 2.6 0 0 0 2.5 2"/></svg>`,
   locations:`<svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
   assignments:`<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
   users:`<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
@@ -765,7 +766,8 @@ const UI_ACTION_NAMES = new Set([
   'mapDeletePoint','mapSavePoints','mapSelectPoint','mapShowAllCodes','mapShowUnplacedCodes',
   'mapRefreshData','mapZoomIn','mapZoomOut','mapZoomReset','showMapEmployeeModal','saveMapEmployees',
   'mapClearSelection','mapAddFreeOccupant','mapRemoveFreeOccupant','updateLocationModules',
-  'sendTestNotification'
+  'sendTestNotification',
+  'showUtilityBillForm','saveUtilityBill','deleteUtilityBill','triggerUtilityImport','exportUtilityBills'
 ]);
 function uiAction(name,args=[]){
   if(!UI_ACTION_NAMES.has(name)) throw new Error(`Unsupported UI action: ${name}`);
@@ -812,6 +814,7 @@ function runUiFlow(flow,...values){
     else if(scope==='hospSupervisorView') hospSupervisorView=value;
     else if(scope==='hospManagerView') hospManagerView=value;
     else if(scope==='maintView') maintView=value;
+    else if(scope==='utilityFilter') utilityFilter=value;
     else if(scope==='reportFilter') reportFilter=value;
     else if(scope==='locsFloorFilter') locsFloorFilter=value;
     else if(scope==='locsTypeFilter') locsTypeFilter=value;
@@ -7877,6 +7880,8 @@ function maintCatLabel(cat){ return tr(cat) || cat; }
 const MAINT_CAT_ICONS = { electrical:'alert', plumbing:'locations', hvac:'sync', civil:'building', general:'list' };
 
 let maintView = 'dashboard';
+let utilityFilter = 'water';
+let maintLastRenderFn = 'renderMaintenanceManager';
 let maintWorkerView = 'tasks';
 let maintTicketModal = false;
 let maintReportModal = false;
@@ -7891,6 +7896,7 @@ function maintShell(me, content, opts={}){
   const openTickets=openTicketCount('maintenance');
   const pendingReports=pendingReportCount('maintenance');
   const renderFn=opts.renderFn||'renderMaintenanceManager';
+  maintLastRenderFn=renderFn;
   const item=(v,label,icon,count=0)=>`<button class="navBtn${maintView===v?' active':''}" ${uiAction('runUiFlow',['navigate','maintView',v,`maint-${v}`,renderFn])}>
     <span class="navBtn-icon">${ic(icon,18)}</span><span class="navBtn-label">${label}</span>
     ${count?`<span class="countBubble navBtn-badge">${num(count)}</span>`:''}</button>`;
@@ -7903,6 +7909,7 @@ function maintShell(me, content, opts={}){
           ${item('orders',tr('maintOrders'),'tickets',openTickets)}
           ${item('schedules',tr('maintSchedules'),'clock')}
           ${item('reports',lang==='ar'?'تقارير الصيانة':'Maintenance Reports','reports',pendingReports)}
+          ${item('utilities',lang==='ar'?'فواتير الخدمات':'Utility Bills','droplet')}
         </div>
         <div class="nav-section"><span class="nav-section-label">${tr('management')}</span>
           ${item('assets',tr('maintAssets'),'building')}
@@ -8299,8 +8306,249 @@ function maintenancePageContent(){
     :maintView==='team'?maintenanceTeamPage()
     :maintView==='parts'?maintenancePartsPage()
     :maintView==='reports'?maintenanceReportsPage()
+    :maintView==='utilities'?maintenanceUtilitiesPage()
     :maintView==='performance'?maintenancePerformancePage()
     :maintenanceOperationsDashboard();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   UTILITY BILLS (water / electricity) — dashboard, CRUD, Excel
+   ═══════════════════════════════════════════════════════════════ */
+const UTILITY_MONTHS_AR=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+function utilityBills(){return (maintenanceData().utilityBills||[]).filter(b=>b.utility===utilityFilter)}
+function utilityCanEdit(){return ['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role)}
+function ubNum(s){const v=parseFloat(String(s==null?'':s).replace(/,/g,''));return isNaN(v)?0:v}
+function ubFmt(n){return Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function utilityLabel(u){return u==='electricity'?(lang==='ar'?'الكهرباء':'Electricity'):(lang==='ar'?'المياه':'Water')}
+function utilityBuildingLabel(t){return t==='main'?(lang==='ar'?'المبنى الرئيسي':'Main Building'):(lang==='ar'?'المبنى الفرعي':'Sub Building')}
+function utilityAgg(bills){
+  let sB=0,sT=0,mB=0,mT=0,sC=0,mC=0; const subRows=[];
+  bills.forEach(b=>{const be=ubNum(b.amountBefore),t=ubNum(b.tax);
+    if(b.buildingType==='main'){mB+=be;mT+=t;mC++}else{sB+=be;sT+=t;sC++;subRows.push(b)}});
+  const parse=s=>{const p=String(s||'').split('/');return p.length===3?new Date(+p[2],+p[1]-1,+p[0]):new Date(0)};
+  subRows.sort((a,b)=>parse(a.periodFrom)-parse(b.periodFrom));
+  return {subTotal:sB+sT,mainTotal:mB+mT,subBefore:sB,mainBefore:mB,subTax:sT,mainTax:mT,subCount:sC,mainCount:mC,
+    grand:sB+sT+mB+mT,
+    trendLabels:subRows.map(r=>UTILITY_MONTHS_AR[parse(r.periodFrom).getMonth()]||''),
+    trendValues:subRows.map(r=>ubNum(r.amountBefore)+ubNum(r.tax))};
+}
+
+/* lazy self-hosted vendor loader (CSP-safe — same origin) */
+const _vendorPromises={};
+function loadVendorScript(src){
+  if(_vendorPromises[src]) return _vendorPromises[src];
+  _vendorPromises[src]=new Promise((resolve,reject)=>{
+    const s=document.createElement('script'); s.src=src;
+    s.onload=()=>resolve(); s.onerror=()=>{ _vendorPromises[src]=null; reject(new Error('فشل تحميل '+src)); };
+    document.head.appendChild(s);
+  });
+  return _vendorPromises[src];
+}
+async function ensureECharts(){ if(window.echarts) return; await loadVendorScript('/vendor/echarts.min.js'); }
+async function ensureXLSX(){ if(window.XLSX) return; await loadVendorScript('/vendor/xlsx.full.min.js'); }
+
+function maintenanceUtilitiesPage(){
+  const canEdit=utilityCanEdit();
+  const bills=utilityBills();
+  const a=utilityAgg(bills);
+  const tab=(u,label)=>`<button class="segBtn${utilityFilter===u?' active':''}" ${uiAction('runUiFlow',['navigate','utilityFilter',u,null,maintLastRenderFn])}>${label}</button>`;
+  const toolbar=`<div class="pageActions">
+    ${canEdit?`<button class="btn" ${uiAction('showUtilityBillForm',[''])}>${ic('plus',15)} ${lang==='ar'?'إضافة فاتورة':'Add Bill'}</button>`:''}
+    ${canEdit?`<button class="btn secondary" ${uiAction('triggerUtilityImport',[])}>${ic('download',15)} ${lang==='ar'?'استيراد Excel':'Import Excel'}</button>`:''}
+    <button class="btn secondary" ${uiAction('exportUtilityBills',[])}>${ic('download',15)} ${lang==='ar'?'تصدير Excel':'Export Excel'}</button>
+  </div>`;
+  const kpis=`<div class="kpiGrid kpiGrid--4">
+    ${kpiCard(ubFmt(a.grand),lang==='ar'?'الإجمالي بعد الضريبة (ريال)':'Total after tax (SAR)','reports','brand')}
+    ${kpiCard(ubFmt(a.subBefore+a.mainBefore),lang==='ar'?'المبلغ قبل الضريبة':'Amount before tax','box','ok')}
+    ${kpiCard(ubFmt(a.subTax+a.mainTax),lang==='ar'?'الضريبة المضافة (15%)':'VAT (15%)','alert','gold')}
+    ${kpiCard(num(a.subCount+a.mainCount),`${lang==='ar'?'عدد الفواتير':'Bills'} · ${lang==='ar'?'فرعي':'sub'} ${a.subCount} + ${lang==='ar'?'رئيسي':'main'} ${a.mainCount}`,'list','warn')}
+  </div>`;
+  const charts=`<div class="contentGrid contentGrid--2">
+    <div class="card"><div class="card-title">${lang==='ar'?'إجمالي الفواتير حسب المبنى':'Total by building'}</div><div id="ubChartBars" class="ubChart"></div></div>
+    <div class="card"><div class="card-title">${lang==='ar'?'نسبة كل مبنى':'Share by building'}</div><div id="ubChartDonut" class="ubChart"></div></div>
+  </div>
+  <div class="card"><div class="card-title">${lang==='ar'?'تطور قيمة الفواتير الشهرية — المبنى الفرعي':'Monthly trend — sub building'}</div><div id="ubChartTrend" class="ubChart"></div></div>
+  <div class="card"><div class="card-title">${lang==='ar'?'عدد الفواتير حسب المبنى':'Bill count by building'}</div><div id="ubChartCount" class="ubChart ubChart--short"></div></div>`;
+  const rows=bills.map((b,i)=>`<tr>
+    <td>${i+1}</td>
+    <td><span class="badge ${b.buildingType==='main'?'gold':'badge-info'}">${utilityBuildingLabel(b.buildingType)}</span></td>
+    <td>${esc(b.customerNo||'')}</td>
+    <td>${esc(b.invoiceNo||'')}</td>
+    <td>${esc(b.periodFrom||'')}</td>
+    <td>${esc(b.periodTo||'')}</td>
+    <td>${ubFmt(b.amountBefore)}</td>
+    <td>${ubFmt(b.tax)}</td>
+    <td><b>${ubFmt(ubNum(b.amountBefore)+ubNum(b.tax))}</b></td>
+    ${canEdit?`<td class="usersTable-actions">
+      <button class="btn secondary sm" ${uiAction('showUtilityBillForm',[(b.id)])}>${ic('edit',13)}</button>
+      <button class="btn danger sm iconOnlyBtn" ${uiAction('deleteUtilityBill',[(b.id)])} title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)}</button>
+    </td>`:''}
+  </tr>`).join('');
+  const table=`<div class="card">
+    <div class="card-title">${lang==='ar'?'سجل الفواتير':'Bills register'}</div>
+    <div class="dataTable-wrap"><table class="dataTable">
+      <thead><tr>
+        <th>${lang==='ar'?'م':'#'}</th><th>${lang==='ar'?'المبنى':'Building'}</th>
+        <th>${lang==='ar'?'رقم العميل':'Customer'}</th><th>${lang==='ar'?'رقم الفاتورة':'Invoice'}</th>
+        <th>${lang==='ar'?'من':'From'}</th><th>${lang==='ar'?'إلى':'To'}</th>
+        <th>${lang==='ar'?'قبل الضريبة':'Before tax'}</th><th>${lang==='ar'?'الضريبة':'VAT'}</th>
+        <th>${lang==='ar'?'الإجمالي':'Total'}</th>${canEdit?`<th>${lang==='ar'?'إجراءات':'Actions'}</th>`:''}
+      </tr></thead>
+      <tbody>${rows||`<tr><td colspan="${canEdit?10:9}"><div class="empty-state"><div class="empty-title">${lang==='ar'?'لا توجد فواتير':'No bills'}</div></div></td></tr>`}</tbody>
+      <tfoot><tr>
+        <td colspan="6">${lang==='ar'?'الإجمالي العام':'Grand total'} (${num(a.subCount+a.mainCount)})</td>
+        <td><b>${ubFmt(a.subBefore+a.mainBefore)}</b></td><td><b>${ubFmt(a.subTax+a.mainTax)}</b></td>
+        <td><b>${ubFmt(a.grand)}</b></td>${canEdit?'<td></td>':''}
+      </tr></tfoot>
+    </table></div>
+  </div>`;
+  setTimeout(()=>initUtilityCharts(),0);
+  return `<div class="pageHeader">
+      <div><div class="pageTitle">${lang==='ar'?'فواتير الخدمات':'Utility Bills'}</div>
+        <div class="pageSub">${lang==='ar'?'متابعة فواتير المياه والكهرباء — المبنى الرئيسي والفرعي':'Water & electricity bills — main and sub buildings'}</div></div>
+      ${toolbar}
+    </div>
+    <div class="segGroup">${tab('water',lang==='ar'?'المياه':'Water')}${tab('electricity',lang==='ar'?'الكهرباء':'Electricity')}</div>
+    ${kpis}${charts}${table}`;
+}
+
+async function initUtilityCharts(){
+  if(maintView!=='utilities') return;
+  try{ await ensureECharts(); }catch(_e){ return; }
+  if(maintView!=='utilities' || !window.echarts) return;
+  const ec=window.echarts;
+  const FONT="'IBM Plex Sans Arabic',sans-serif";
+  const TEAL='#00848D',GREEN='#00A488',DEEP='#005257',NAVY='#002F56',AMBER='#E69E33',AQUA='#75CEC8';
+  const a=utilityAgg(utilityBills());
+  const moneyF=v=>Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const money=v=>Number(v).toLocaleString('en-US');
+  const tip={backgroundColor:'#fff',borderColor:'#e4ecee',borderWidth:1,textStyle:{color:NAVY,fontFamily:FONT,fontSize:13},extraCssText:'box-shadow:0 6px 20px rgba(0,82,87,.14);border-radius:10px;direction:rtl;'};
+  const mk=id=>{const el=document.getElementById(id); if(!el) return null; const c=ec.getInstanceByDom(el)||ec.init(el); return c;};
+  const bars=mk('ubChartBars'); if(bars) bars.setOption({textStyle:{fontFamily:FONT},grid:{left:8,right:18,top:24,bottom:8,containLabel:true},
+    tooltip:{...tip,trigger:'axis',axisPointer:{type:'shadow'},valueFormatter:v=>moneyF(v)+' ﷼'},
+    xAxis:{type:'category',data:[utilityBuildingLabel('sub'),utilityBuildingLabel('main')],axisTick:{show:false},axisLine:{lineStyle:{color:'#cdd9dc'}},axisLabel:{color:'#33424b',fontFamily:FONT,fontWeight:600}},
+    yAxis:{type:'value',splitLine:{lineStyle:{color:'#eef3f3'}},axisLabel:{color:'#9aa7ae',fontFamily:FONT,formatter:v=>money(v)}},
+    series:[{type:'bar',barWidth:'44%',itemStyle:{borderRadius:[10,10,0,0]},
+      data:[{value:+a.subTotal.toFixed(2),itemStyle:{color:new ec.graphic.LinearGradient(0,0,0,1,[{offset:0,color:GREEN},{offset:1,color:DEEP}])}},
+            {value:+a.mainTotal.toFixed(2),itemStyle:{color:new ec.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'#F0B860'},{offset:1,color:AMBER}])}}],
+      label:{show:true,position:'top',color:NAVY,fontWeight:700,fontFamily:FONT,formatter:p=>moneyF(p.value)}}]});
+  const donut=mk('ubChartDonut'); if(donut) donut.setOption({textStyle:{fontFamily:FONT},
+    tooltip:{...tip,trigger:'item',formatter:p=>`${p.name}<br/><b>${moneyF(p.value)} ﷼</b> (${p.percent}%)`},
+    legend:{bottom:0,icon:'circle',textStyle:{color:'#5b6b75',fontFamily:FONT}},
+    series:[{type:'pie',radius:['54%','80%'],center:['50%','44%'],padAngle:2,itemStyle:{borderRadius:7,borderColor:'#fff',borderWidth:2},
+      label:{show:true,position:'center',formatter:(lang==='ar'?'الإجمالي\n':'Total\n')+moneyF(a.grand),color:NAVY,fontWeight:700,fontSize:15,fontFamily:FONT,lineHeight:22},labelLine:{show:false},
+      data:[{value:+a.subTotal.toFixed(2),name:utilityBuildingLabel('sub'),itemStyle:{color:TEAL}},
+            {value:+a.mainTotal.toFixed(2),name:utilityBuildingLabel('main'),itemStyle:{color:AMBER}}]}]},true);
+  const trend=mk('ubChartTrend'); if(trend) trend.setOption({textStyle:{fontFamily:FONT},grid:{left:8,right:24,top:26,bottom:8,containLabel:true},
+    tooltip:{...tip,trigger:'axis',valueFormatter:v=>moneyF(v)+' ﷼'},
+    xAxis:{type:'category',data:a.trendLabels,boundaryGap:false,axisTick:{show:false},axisLine:{lineStyle:{color:'#cdd9dc'}},axisLabel:{color:'#6b7a83',fontFamily:FONT}},
+    yAxis:{type:'value',splitLine:{lineStyle:{color:'#eef3f3'}},axisLabel:{color:'#9aa7ae',fontFamily:FONT,formatter:v=>money(v)}},
+    series:[{type:'line',smooth:true,symbol:'circle',symbolSize:9,data:a.trendValues.map(v=>+v.toFixed(2)),lineStyle:{width:3,color:TEAL},itemStyle:{color:TEAL,borderColor:'#fff',borderWidth:2},
+      areaStyle:{color:new ec.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(0,164,136,.30)'},{offset:1,color:'rgba(0,164,136,.02)'}])}}]},true);
+  const count=mk('ubChartCount'); if(count) count.setOption({textStyle:{fontFamily:FONT},grid:{left:8,right:44,top:8,bottom:6,containLabel:true},
+    tooltip:{...tip,trigger:'axis',axisPointer:{type:'shadow'}},
+    xAxis:{type:'value',minInterval:1,splitLine:{lineStyle:{color:'#eef3f3'}},axisLabel:{color:'#9aa7ae',fontFamily:FONT}},
+    yAxis:{type:'category',data:[utilityBuildingLabel('main'),utilityBuildingLabel('sub')],axisTick:{show:false},axisLine:{show:false},axisLabel:{color:'#33424b',fontFamily:FONT,fontWeight:600}},
+    series:[{type:'bar',barWidth:24,itemStyle:{borderRadius:[0,9,9,0]},data:[{value:a.mainCount,itemStyle:{color:AMBER}},{value:a.subCount,itemStyle:{color:TEAL}}],
+      label:{show:true,position:'right',color:NAVY,fontWeight:700,fontFamily:FONT}}]});
+}
+
+function showUtilityBillForm(id){
+  const b=id?utilityBills().find(x=>x.id===id):null;
+  const t=b||{buildingType:'sub',customerNo:'',invoiceNo:'',periodFrom:'',periodTo:'',amountBefore:'',beneficiary:''};
+  const body=`<div class="formGrid">
+    ${fc(lang==='ar'?'نوع الخدمة':'Utility',sel('ub-utility',[{v:'water',l:utilityLabel('water'),sel:utilityFilter==='water'},{v:'electricity',l:utilityLabel('electricity'),sel:utilityFilter==='electricity'}]))}
+    ${fc(lang==='ar'?'نوع المبنى':'Building',sel('ub-building',[{v:'sub',l:utilityBuildingLabel('sub'),sel:t.buildingType==='sub'},{v:'main',l:utilityBuildingLabel('main'),sel:t.buildingType==='main'}]))}
+    ${fc(lang==='ar'?'الجهة المستفيدة':'Beneficiary',inp('ub-beneficiary',{value:t.beneficiary||''}))}
+    ${fc(lang==='ar'?'رقم العميل':'Customer No.',inp('ub-cust',{value:t.customerNo||''}))}
+    ${fc(lang==='ar'?'رقم الفاتورة':'Invoice No.',inp('ub-inv',{value:t.invoiceNo||''}))}
+    ${fc(lang==='ar'?'فترة الاستهلاك من':'Period from',inp('ub-from',{value:t.periodFrom||'',placeholder:'يوم/شهر/سنة'}))}
+    ${fc(lang==='ar'?'فترة الاستهلاك إلى':'Period to',inp('ub-to',{value:t.periodTo||'',placeholder:'يوم/شهر/سنة'}))}
+    ${fc(lang==='ar'?'المبلغ قبل الضريبة (ريال)':'Amount before tax (SAR)',inp('ub-before',{value:t.amountBefore!==''&&t.amountBefore!=null?String(ubNum(t.amountBefore)):'',type:'number'}))}
+  </div>
+  <div class="pageSub" style="margin-top:8px">${lang==='ar'?'الضريبة (15%) والإجمالي يُحتسبان تلقائياً عند الحفظ.':'VAT (15%) and total are computed automatically on save.'}</div>`;
+  showModal('utilityBillModal',id?(lang==='ar'?'تعديل فاتورة':'Edit Bill'):(lang==='ar'?'إضافة فاتورة':'Add Bill'),body,
+    `<button class="btn" ${uiAction('saveUtilityBill',[(id||'')])}>${tr('save')}</button><button class="btn secondary" ${uiAction('runUiFlow',['close-element','utilityBillModal'])}>${tr('cancel')}</button>`);
+}
+
+async function saveUtilityBill(id){
+  const g=x=>document.getElementById(x)?.value||'';
+  const payload={utility:g('ub-utility'),buildingType:g('ub-building'),beneficiary:g('ub-beneficiary'),
+    customerNo:g('ub-cust'),invoiceNo:g('ub-inv'),periodFrom:g('ub-from'),periodTo:g('ub-to'),amountBefore:Number(g('ub-before'))||0};
+  if(!payload.invoiceNo.trim()||!payload.amountBefore){toast(lang==='ar'?'أدخل رقم الفاتورة والمبلغ قبل الضريبة':'Enter invoice number and amount','warn');return}
+  try{
+    if(id) await api('/maintenance/utility-bills/'+id,{method:'PUT',body:JSON.stringify(payload)});
+    else await api('/maintenance/utility-bills',{method:'POST',body:JSON.stringify(payload)});
+    document.getElementById('utilityBillModal')?.remove();
+    utilityFilter=payload.utility;
+    toast(tr('saved'),'ok');
+    await load();
+  }catch(e){toast(e.message,'bad')}
+}
+
+async function deleteUtilityBill(id){
+  const b=utilityBills().find(x=>x.id===id);
+  if(!confirm(lang==='ar'?`حذف فاتورة "${b?.invoiceNo||id}"؟`:`Delete bill "${b?.invoiceNo||id}"?`))return;
+  try{await api('/maintenance/utility-bills/'+id,{method:'DELETE'});toast(lang==='ar'?'تم الحذف':'Deleted','ok');await load();}catch(e){toast(e.message,'bad')}
+}
+
+function triggerUtilityImport(){
+  const input=document.createElement('input');
+  input.type='file'; input.accept='.xlsx,.xls';
+  input.onchange=()=>{ const f=input.files&&input.files[0]; if(f) handleUtilityImport(f); };
+  input.click();
+}
+
+async function handleUtilityImport(file){
+  try{
+    toast(lang==='ar'?'جارٍ قراءة الملف…':'Reading file…');
+    await ensureXLSX();
+    const buf=await file.arrayBuffer();
+    const wb=window.XLSX.read(buf,{type:'array'});
+    const H={building:'نوع المبنى',beneficiary:'الجهة المستفيدة',cust:'رقم العميل',inv:'رقم الفاتورة',from:'فترة الاستهلاك من',to:'فترة الاستهلاك إلى',before:'المبلغ قبل الضريبة',tax:'الضريبة المضافة'};
+    const out=[];
+    wb.SheetNames.forEach(name=>{
+      if(String(name).indexOf('ملخص')>=0) return;
+      const rows=window.XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:false,defval:''});
+      const hr=rows.findIndex(r=>Array.isArray(r)&&r.some(c=>String(c).indexOf('رقم الفاتورة')>=0)); if(hr<0) return;
+      const head=rows[hr].map(c=>String(c).trim()); const idx={}; Object.keys(H).forEach(k=>{idx[k]=head.findIndex(c=>c.indexOf(H[k])>=0)});
+      const sheetMain=String(name).indexOf('رئيسي')>=0;
+      const g=(row,k)=>idx[k]>=0?String(row[idx[k]]||'').trim():'';
+      for(let i=hr+1;i<rows.length;i++){ const row=rows[i]; if(!row) continue;
+        const inv=g(row,'inv'); if(!inv) continue;
+        const bt=g(row,'building'); const isMain=bt.indexOf('رئيسي')>=0||(bt===''&&sheetMain);
+        out.push({utility:utilityFilter,buildingType:isMain?'main':'sub',beneficiary:g(row,'beneficiary'),
+          customerNo:g(row,'cust'),invoiceNo:inv,periodFrom:g(row,'from'),periodTo:g(row,'to'),
+          amountBefore:ubNum(g(row,'before')),tax:ubNum(g(row,'tax'))||null}); }
+    });
+    if(!out.length){toast(lang==='ar'?'لم يتم العثور على فواتير مطابقة':'No matching bills found','warn');return}
+    await api('/maintenance/utility-bills',{method:'POST',body:JSON.stringify({bills:out})});
+    toast(lang==='ar'?`تم استيراد ${out.length} فاتورة`:`Imported ${out.length} bills`,'ok');
+    await load();
+  }catch(e){toast((lang==='ar'?'تعذّر الاستيراد: ':'Import failed: ')+e.message,'bad')}
+}
+
+async function exportUtilityBills(){
+  try{
+    await ensureXLSX();
+    const X=window.XLSX; const bills=utilityBills(); const a=utilityAgg(bills);
+    const head=['م','نوع المبنى','الجهة المستفيدة','رقم العميل','رقم الفاتورة','فترة الاستهلاك من','فترة الاستهلاك إلى','المبلغ قبل الضريبة','الضريبة المضافة','الإجمالي بعد الضريبة'];
+    const build=(list,label)=>{const aoa=[head];
+      list.forEach((r,i)=>aoa.push([i+1,utilityBuildingLabel(r.buildingType),r.beneficiary,r.customerNo,r.invoiceNo,r.periodFrom,r.periodTo,ubNum(r.amountBefore),ubNum(r.tax),ubNum(r.amountBefore)+ubNum(r.tax)]));
+      const sB=list.reduce((s,r)=>s+ubNum(r.amountBefore),0),sT=list.reduce((s,r)=>s+ubNum(r.tax),0);
+      aoa.push(['',label,'','','','','',sB,sT,sB+sT]);
+      const ws=X.utils.aoa_to_sheet(aoa); ws['!cols']=[{wch:5},{wch:14},{wch:28},{wch:13},{wch:16},{wch:14},{wch:14},{wch:15},{wch:13},{wch:16}]; return ws;};
+    const subs=bills.filter(r=>r.buildingType!=='main'),mains=bills.filter(r=>r.buildingType==='main');
+    const wb=X.utils.book_new();
+    X.utils.book_append_sheet(wb,build(subs,'الإجمالي'),'المبنى الفرعي');
+    X.utils.book_append_sheet(wb,build(mains,'الإجمالي'),'المبنى الرئيسي');
+    const sum=[['نوع المبنى','عدد الفواتير','إجمالي قبل الضريبة','إجمالي الضريبة','الإجمالي بعد الضريبة'],
+      ['المبنى الفرعي',a.subCount,a.subBefore,a.subTax,a.subTotal],['المبنى الرئيسي',a.mainCount,a.mainBefore,a.mainTax,a.mainTotal],
+      ['الإجمالي العام',a.subCount+a.mainCount,a.subBefore+a.mainBefore,a.subTax+a.mainTax,a.grand]];
+    const wsS=X.utils.aoa_to_sheet(sum); wsS['!cols']=[{wch:16},{wch:12},{wch:20},{wch:18},{wch:20}];
+    X.utils.book_append_sheet(wb,wsS,'ملخص');
+    X.writeFile(wb,`فواتير_${utilityFilter==='electricity'?'الكهرباء':'المياه'}.xlsx`);
+  }catch(e){toast((lang==='ar'?'تعذّر التصدير: ':'Export failed: ')+e.message,'bad')}
 }
 
 function maintenanceOperationsDashboard(){
