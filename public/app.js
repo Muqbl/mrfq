@@ -1848,6 +1848,7 @@ function renderFieldTabs(){
       ${mk(supervisorView==='schedules','clock',tr('maintSchedules'),tabFlow('supervisorView','schedules','supervisor-schedules','renderMaintenanceSupervisor'))}
       ${mk(supervisorView==='team','users',tr('maintTeam'),tabFlow('supervisorView','team','supervisor-team','renderMaintenanceSupervisor'),workers)}
       ${mk(supervisorView==='reports','reports',lang==='ar'?'تقارير الصيانة':'Maintenance Reports',tabFlow('supervisorView','reports','supervisor-reports','renderMaintenanceSupervisor'),pendingReports)}
+      ${mk(supervisorView==='utilities','droplet',lang==='ar'?'فواتير الخدمات':'Utility Bills',tabFlow('supervisorView','utilities','supervisor-utilities','renderMaintenanceSupervisor'))}
     </div>`;
   }
   if(me.role==='cleaning_supervisor'){
@@ -2367,7 +2368,8 @@ function showMobileNavMore(){
     ];
   }else if(me.role==='maintenance_supervisor'){
     items = [
-      {v:'supervisor-reports', label:lang==='ar'?'التقارير':'Reports', icon:'reports', active:supervisorView==='reports', flow:['navigate','supervisorView','reports','supervisor-reports','renderMaintenanceSupervisor']}
+      {v:'supervisor-reports', label:lang==='ar'?'التقارير':'Reports', icon:'reports', active:supervisorView==='reports', flow:['navigate','supervisorView','reports','supervisor-reports','renderMaintenanceSupervisor']},
+      {v:'supervisor-utilities', label:lang==='ar'?'فواتير الخدمات':'Utility Bills', icon:'droplet', active:supervisorView==='utilities', flow:['navigate','supervisorView','utilities','supervisor-utilities','renderMaintenanceSupervisor']}
     ];
   }else{
     items = [
@@ -8292,6 +8294,7 @@ function renderMaintenanceSupervisor(){
     :supervisorView==='schedules'?maintenanceSchedulesPage()
     :supervisorView==='team'?maintenanceSupervisorTeam()
     :supervisorView==='reports'?reports()
+    :supervisorView==='utilities'?maintenanceUtilitiesPage()
     :maintenanceSupervisorDashboard();
   app.innerHTML=fieldShell(me,content,{sync:true,noSticky:true});
 }
@@ -8434,9 +8437,9 @@ function maintenanceUtilitiesPage(){
 }
 
 async function initUtilityCharts(){
-  if(maintView!=='utilities') return;
+  if(!document.getElementById('ubChartBars')) return;
   try{ await ensureECharts(); }catch(_e){ return; }
-  if(maintView!=='utilities' || !window.echarts) return;
+  if(!document.getElementById('ubChartBars') || !window.echarts) return;
   const ec=window.echarts;
   const FONT="'IBM Plex Sans Arabic',sans-serif";
   const TEAL='#00848D',GREEN='#00A488',DEEP='#005257',NAVY='#002F56',AMBER='#E69E33',AQUA='#75CEC8';
