@@ -767,7 +767,7 @@ const UI_ACTION_NAMES = new Set([
   'mapRefreshData','mapZoomIn','mapZoomOut','mapZoomReset','showMapEmployeeModal','saveMapEmployees',
   'mapClearSelection','mapAddFreeOccupant','mapRemoveFreeOccupant','updateLocationModules',
   'sendTestNotification',
-  'showUtilityBillForm','saveUtilityBill','deleteUtilityBill','triggerUtilityImport','exportUtilityBills'
+  'showUtilityBillForm','saveUtilityBill','deleteUtilityBill','triggerUtilityImport','exportUtilityBills','setUtilityTrendBuilding'
 ]);
 function uiAction(name,args=[]){
   if(!UI_ACTION_NAMES.has(name)) throw new Error(`Unsupported UI action: ${name}`);
@@ -7886,6 +7886,7 @@ const MAINT_CAT_ICONS = { electrical:'alert', plumbing:'locations', hvac:'sync',
 
 let maintView = 'dashboard';
 let utilityFilter = 'water';
+let utilityTrendBuilding = 'all';
 let maintLastRenderFn = 'renderMaintenanceManager';
 let maintWorkerView = 'tasks';
 let maintTicketModal = false;
@@ -8356,6 +8357,18 @@ function utilityAgg(bills){
     trendLabels:subRows.map(r=>UTILITY_MONTHS_AR[parse(r.periodFrom).getMonth()]||''),
     trendValues:subRows.map(r=>ubNum(r.amountBefore)+ubNum(r.tax))};
 }
+function utilityTrendSeries(bills, building){
+  const parse=s=>{const p=String(s||'').split('/');return p.length===3?new Date(+p[2],+p[1]-1,+p[0]):new Date(0)};
+  if(building==='all'){
+    const map=new Map();
+    bills.forEach(b=>{const d=parse(b.periodFrom);const key=d.getFullYear()+'-'+d.getMonth();
+      const cur=map.get(key)||{d,sum:0};cur.sum+=ubNum(b.amountBefore)+ubNum(b.tax);map.set(key,cur)});
+    const arr=[...map.values()].sort((a,b)=>a.d-b.d);
+    return {labels:arr.map(x=>UTILITY_MONTHS_AR[x.d.getMonth()]||''),values:arr.map(x=>x.sum)};
+  }
+  const rows=bills.filter(b=>b.buildingType===building).slice().sort((a,b)=>parse(a.periodFrom)-parse(b.periodFrom));
+  return {labels:rows.map(r=>UTILITY_MONTHS_AR[parse(r.periodFrom).getMonth()]||''),values:rows.map(r=>ubNum(r.amountBefore)+ubNum(r.tax))};
+}
 
 /* lazy self-hosted vendor loader (CSP-safe — same origin) */
 const _vendorPromises={};
@@ -8387,11 +8400,18 @@ function maintenanceUtilitiesPage(){
     ${kpiCard(ubFmt(a.subTax+a.mainTax),lang==='ar'?'الضريبة المضافة (15%)':'VAT (15%)','alert','gold')}
     ${kpiCard(num(a.subCount+a.mainCount),`${lang==='ar'?'عدد الفواتير':'Bills'} · ${lang==='ar'?'فرعي':'sub'} ${a.subCount} + ${lang==='ar'?'رئيسي':'main'} ${a.mainCount}`,'list','warn')}
   </div>`;
+  const trendTab=(v,label)=>`<button class="segBtn segBtn--sm${utilityTrendBuilding===v?' active':''}" data-ub-trend="${v}" ${uiAction('setUtilityTrendBuilding',[(v)])}>${label}</button>`;
   const charts=`<div class="contentGrid contentGrid--2">
     <div class="card"><div class="card-title">${lang==='ar'?'إجمالي الفواتير حسب المبنى':'Total by building'}</div><div id="ubChartBars" class="ubChart"></div></div>
     <div class="card"><div class="card-title">${lang==='ar'?'نسبة كل مبنى':'Share by building'}</div><div id="ubChartDonut" class="ubChart"></div></div>
   </div>
-  <div class="card"><div class="card-title">${lang==='ar'?'تطور قيمة الفواتير الشهرية — المبنى الفرعي':'Monthly trend — sub building'}</div><div id="ubChartTrend" class="ubChart"></div></div>
+  <div class="card">
+    <div class="ubCardHead">
+      <div class="card-title">${lang==='ar'?'تطور قيمة الفواتير الشهرية':'Monthly bill trend'}</div>
+      <div class="segGroup segGroup--sm">${trendTab('all',lang==='ar'?'الكل':'All')}${trendTab('sub',lang==='ar'?'الفرعي':'Sub')}${trendTab('main',lang==='ar'?'الرئيسي':'Main')}</div>
+    </div>
+    <div id="ubChartTrend" class="ubChart"></div>
+  </div>
   <div class="card"><div class="card-title">${lang==='ar'?'عدد الفواتير حسب المبنى':'Bill count by building'}</div><div id="ubChartCount" class="ubChart ubChart--short"></div></div>`;
   const rows=bills.map((b,i)=>`<tr>
     <td>${i+1}</td>
@@ -8433,7 +8453,7 @@ function maintenanceUtilitiesPage(){
       ${toolbar}
     </div>
     <div class="segGroup">${tab('water',lang==='ar'?'المياه':'Water')}${tab('electricity',lang==='ar'?'الكهرباء':'Electricity')}</div>
-    ${kpis}${charts}${table}`;
+    <div class="utilityStack">${kpis}${charts}${table}</div>`;
 }
 
 async function initUtilityCharts(){
@@ -8463,18 +8483,27 @@ async function initUtilityCharts(){
       label:{show:true,position:'center',formatter:(lang==='ar'?'الإجمالي\n':'Total\n')+moneyF(a.grand),color:NAVY,fontWeight:700,fontSize:15,fontFamily:FONT,lineHeight:22},labelLine:{show:false},
       data:[{value:+a.subTotal.toFixed(2),name:utilityBuildingLabel('sub'),itemStyle:{color:TEAL}},
             {value:+a.mainTotal.toFixed(2),name:utilityBuildingLabel('main'),itemStyle:{color:AMBER}}]}]},true);
+  const ts=utilityTrendSeries(utilityBills(), utilityTrendBuilding);
+  const trendColor=utilityTrendBuilding==='main'?AMBER:TEAL;
+  const trendRGB=utilityTrendBuilding==='main'?'230,158,51':'0,164,136';
   const trend=mk('ubChartTrend'); if(trend) trend.setOption({textStyle:{fontFamily:FONT},grid:{left:8,right:24,top:26,bottom:8,containLabel:true},
     tooltip:{...tip,trigger:'axis',valueFormatter:v=>moneyF(v)+' ﷼'},
-    xAxis:{type:'category',data:a.trendLabels,boundaryGap:false,axisTick:{show:false},axisLine:{lineStyle:{color:'#cdd9dc'}},axisLabel:{color:'#6b7a83',fontFamily:FONT}},
+    xAxis:{type:'category',data:ts.labels,boundaryGap:false,axisTick:{show:false},axisLine:{lineStyle:{color:'#cdd9dc'}},axisLabel:{color:'#6b7a83',fontFamily:FONT}},
     yAxis:{type:'value',splitLine:{lineStyle:{color:'#eef3f3'}},axisLabel:{color:'#9aa7ae',fontFamily:FONT,formatter:v=>money(v)}},
-    series:[{type:'line',smooth:true,symbol:'circle',symbolSize:9,data:a.trendValues.map(v=>+v.toFixed(2)),lineStyle:{width:3,color:TEAL},itemStyle:{color:TEAL,borderColor:'#fff',borderWidth:2},
-      areaStyle:{color:new ec.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(0,164,136,.30)'},{offset:1,color:'rgba(0,164,136,.02)'}])}}]},true);
+    series:[{type:'line',smooth:true,symbol:'circle',symbolSize:9,data:ts.values.map(v=>+v.toFixed(2)),lineStyle:{width:3,color:trendColor},itemStyle:{color:trendColor,borderColor:'#fff',borderWidth:2},
+      areaStyle:{color:new ec.graphic.LinearGradient(0,0,0,1,[{offset:0,color:`rgba(${trendRGB},.30)`},{offset:1,color:`rgba(${trendRGB},.02)`}])}}]},true);
   const count=mk('ubChartCount'); if(count) count.setOption({textStyle:{fontFamily:FONT},grid:{left:8,right:44,top:8,bottom:6,containLabel:true},
     tooltip:{...tip,trigger:'axis',axisPointer:{type:'shadow'}},
     xAxis:{type:'value',minInterval:1,splitLine:{lineStyle:{color:'#eef3f3'}},axisLabel:{color:'#9aa7ae',fontFamily:FONT}},
     yAxis:{type:'category',data:[utilityBuildingLabel('main'),utilityBuildingLabel('sub')],axisTick:{show:false},axisLine:{show:false},axisLabel:{color:'#33424b',fontFamily:FONT,fontWeight:600}},
     series:[{type:'bar',barWidth:24,itemStyle:{borderRadius:[0,9,9,0]},data:[{value:a.mainCount,itemStyle:{color:AMBER}},{value:a.subCount,itemStyle:{color:TEAL}}],
       label:{show:true,position:'right',color:NAVY,fontWeight:700,fontFamily:FONT}}]});
+}
+
+function setUtilityTrendBuilding(b){
+  utilityTrendBuilding=b;
+  document.querySelectorAll('[data-ub-trend]').forEach(el=>el.classList.toggle('active', el.getAttribute('data-ub-trend')===b));
+  initUtilityCharts();
 }
 
 function showUtilityBillForm(id){
