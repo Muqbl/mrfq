@@ -3005,13 +3005,26 @@ function mapEmptyPanel(){
 function mapOccupantTypeLabel(type='employee'){
   const labels={
     employee:['موظف','Employee'],
-    contractor:['متعاقد','Contractor'],
-    consultant:['استشاري','Consultant'],
     trainee:['متدرب','Trainee'],
     other:['أخرى','Other']
   };
   const item=labels[String(type||'employee').toLowerCase()]||labels.other;
   return lang==='ar'?item[0]:item[1];
+}
+function mapOccupantAffiliationLabel(value='authority'){
+  const labels={
+    authority:['موظف الهيئة','Authority employee'],
+    contractor:['متعاقد','Contractor'],
+    consultant:['استشاري','Consultant']
+  };
+  const item=labels[String(value||'authority').toLowerCase()]||labels.authority;
+  return lang==='ar'?item[0]:item[1];
+}
+function mapFreeOccupantDisplayMeta(occupant={}){
+  const legacyAffiliation={contractor:'contractor',consultant:'consultant'}[String(occupant.occupantType||'').toLowerCase()];
+  const type=legacyAffiliation?'employee':(occupant.occupantType||'employee');
+  const affiliation=occupant.note || legacyAffiliation || 'authority';
+  return `${mapOccupantTypeLabel(type)} · ${mapOccupantAffiliationLabel(affiliation)}`;
 }
 function mapOperationalStatusLabel(label='', level=''){
   const key=String(label||level||'').trim().toLowerCase().replace(/\s+/g,'_');
@@ -3072,7 +3085,7 @@ function mapSelectedPanel(point,overlay=false){
         <strong>${lang==='ar'?'الشاغلون':'Occupants'}</strong>
         ${canManageFacilities()?`<button class="icon-btn" ${uiAction('showMapEmployeeModal',[point.code])} title="${lang==='ar'?'تعديل الشاغلين':'Edit occupants'}">${ic('edit',14)}</button>`:''}
       </div>
-      ${employees.length ? employees.map(e=>`<span>${ic('user',13)} ${esc(e.name)} <small>${esc(mapOccupantTypeLabel(e.occupantType||'employee'))}${e.status?` · ${esc(e.status)}`:''}${e.note?` · ${esc(e.note)}`:''}</small></span>`).join('') : `<em>${lang==='ar'?'لا يوجد شاغل مسجل لهذا الكود':'No occupant registered for this code'}</em>`}
+      ${employees.length ? employees.map(e=>`<span>${ic('user',13)} ${esc(e.name)} <small>${esc(mapFreeOccupantDisplayMeta(e))}${e.status?` · ${esc(e.status)}`:''}</small></span>`).join('') : `<em>${lang==='ar'?'لا يوجد شاغل مسجل لهذا الكود':'No occupant registered for this code'}</em>`}
     </div>
     <div class="mapModuleList">${moduleCards || `<div class="emptyMini">${lang==='ar'?'لا توجد بيانات تشغيلية لهذه النقطة':'No operational data for this point'}</div>`}</div>
     ${mapState.mode==='edit'?`<button class="btn danger wide" ${uiAction('mapDeletePoint',[point.code, point.layer||mapLayerForCode(point.code)])}>${ic('trash',15)} ${tr('delete')}</button>`:''}
@@ -3239,18 +3252,23 @@ function showMapEmployeeModal(code){
   showModal('mapEmployeeModal', `${ic('users',16)} ${lang==='ar'?'تعديل شاغلي النقطة':'Edit point occupants'}`, body, foot, {wide:true});
 }
 function mapFreeOccupantRow(occupant={}){
-  const type=occupant.occupantType||'contractor';
-  const options=[
+  const legacyAffiliation={contractor:'contractor',consultant:'consultant'}[String(occupant.occupantType||'').toLowerCase()];
+  const type=legacyAffiliation?'employee':(occupant.occupantType||'employee');
+  const affiliation=occupant.note || legacyAffiliation || 'authority';
+  const typeOptions=[
     ['employee',lang==='ar'?'موظف':'Employee'],
-    ['contractor',lang==='ar'?'متعاقد':'Contractor'],
-    ['consultant',lang==='ar'?'استشاري':'Consultant'],
     ['trainee',lang==='ar'?'متدرب':'Trainee'],
     ['other',lang==='ar'?'أخرى':'Other']
   ];
+  const affiliationOptions=[
+    ['authority',lang==='ar'?'الهيئة':'Authority'],
+    ['contractor',lang==='ar'?'متعاقد':'Contractor'],
+    ['consultant',lang==='ar'?'استشاري':'Consultant']
+  ];
   return `<div class="mapFreeOccupantRow">
     <input class="ctrl" data-free-name value="${esc(occupant.name||'')}" placeholder="${lang==='ar'?'الاسم':'Name'}">
-    <select class="ctrl" data-free-type>${options.map(([value,label])=>`<option value="${esc(value)}" ${type===value?'selected':''}>${esc(label)}</option>`).join('')}</select>
-    <input class="ctrl" data-free-note value="${esc(occupant.note||'')}" placeholder="${lang==='ar'?'ملاحظة':'Note'}">
+    <select class="ctrl" data-free-type title="${lang==='ar'?'نوع الشاغل':'Occupant type'}">${typeOptions.map(([value,label])=>`<option value="${esc(value)}" ${type===value?'selected':''}>${esc(label)}</option>`).join('')}</select>
+    <select class="ctrl" data-free-affiliation title="${lang==='ar'?'الجهة':'Affiliation'}">${affiliationOptions.map(([value,label])=>`<option value="${esc(value)}" ${affiliation===value?'selected':''}>${esc(label)}</option>`).join('')}</select>
     <button class="icon-btn" ${uiAction('mapRemoveFreeOccupant',[])} title="${tr('delete')}">${ic('trash',14)}</button>
   </div>`;
 }
@@ -3262,7 +3280,13 @@ function mapRemoveFreeOccupant(event,target){
   const row=target.closest('.mapFreeOccupantRow');
   const host=target.closest('[data-free-occupants]');
   if(row && host && host.querySelectorAll('.mapFreeOccupantRow').length>1) row.remove();
-  else if(row) row.querySelectorAll('input').forEach(input=>input.value='');
+  else if(row){
+    row.querySelectorAll('input').forEach(input=>input.value='');
+    const type=row.querySelector('[data-free-type]');
+    const affiliation=row.querySelector('[data-free-affiliation]');
+    if(type) type.value='employee';
+    if(affiliation) affiliation.value='authority';
+  }
 }
 async function saveMapEmployees(code){
   if(!canManageFacilities()) return;
@@ -3272,7 +3296,7 @@ async function saveMapEmployees(code){
   const occupants=modal ? [...modal.querySelectorAll('.mapFreeOccupantRow')].map(row=>({
     name: row.querySelector('[data-free-name]')?.value || '',
     occupantType: row.querySelector('[data-free-type]')?.value || 'employee',
-    note: row.querySelector('[data-free-note]')?.value || ''
+    note: row.querySelector('[data-free-affiliation]')?.value || 'authority'
   })).filter(item=>item.name.trim()) : [];
   try{
     await api(`/maps/${encodeURIComponent(mapState.floor)}/assignments`,{
