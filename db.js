@@ -25,6 +25,10 @@ function _open() {
   db.pragma('synchronous = NORMAL');
 
   _migrate(db);
+  _ensureTicketReferenceNumbers(db);
+  _ensureReportReferenceNumbers(db);
+  _ensureReferenceNumberIntegrity(db);
+  _ensureReferenceNumberConstraints(db);
   _seedPlanLocationGroups(db);
   _importLegacyEmployeeOffices(db);
   return db;
@@ -932,7 +936,169 @@ const MIGRATIONS = {
     CREATE INDEX IF NOT EXISTS idx_utility_bills_active  ON utility_bills(deleted_at);
     CREATE INDEX IF NOT EXISTS idx_utility_bills_utility ON utility_bills(utility);
   `,
+
+  /* ── v33: report public reference numbers ─────────────────── */
+  33: `
+    ALTER TABLE reports ADD COLUMN reference_no TEXT NOT NULL DEFAULT '';
+    CREATE INDEX IF NOT EXISTS idx_reports_reference_no ON reports(reference_no);
+  `,
 };
+
+function _nextReferenceNumber(db, prefix = 'CLN') {
+  const upper = String(prefix || 'CLN').toUpperCase();
+  const lower = upper.toLowerCase();
+  const year = new Date().getFullYear();
+  const key = `${lower}_ref_seq_${year}`;
+  const setting = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+  let maxSeq = parseInt(setting?.value || '0', 10) || 0;
+
+  const rows = db.prepare(`
+    SELECT reference_no FROM tickets WHERE reference_no LIKE ?
+    UNION ALL
+    SELECT reference_no FROM reports WHERE reference_no LIKE ?
+  `).all(`${upper}-${year}-%`, `${upper}-${year}-%`);
+  for (const row of rows) {
+    const seq = parseInt(String(row.reference_no || '').split('-').pop(), 10);
+    if (Number.isFinite(seq) && seq > maxSeq) maxSeq = seq;
+  }
+
+  const nextSeq = maxSeq + 1;
+  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, String(nextSeq));
+  return `${upper}-${year}-${String(nextSeq).padStart(6, '0')}`;
+}
+
+function _ensureReportReferenceNumbers(db) {
+  const hasReference = db.prepare('PRAGMA table_info(reports)').all().some(col => col.name === 'reference_no');
+  if (!hasReference) return;
+  const rows = db.prepare(`
+    SELECT id
+    FROM reports
+    WHERE (reference_no IS NULL OR reference_no = '')
+    ORDER BY created_at ASC, id ASC
+  `).all();
+  if (!rows.length) return;
+
+  const update = db.prepare('UPDATE reports SET reference_no = ? WHERE id = ?');
+  db.transaction(() => {
+    for (const row of rows) update.run(_nextReferenceNumber(db), row.id);
+  })();
+  console.log(`[db] assigned reference numbers to ${rows.length} reports`);
+}
+
+function _ticketReferencePrefix(row) {
+  return row?.module === 'maintenance' ? 'MNT' : 'CLN';
+}
+
+function _referencePrefix(referenceNo, fallback = 'CLN') {
+  const prefix = String(referenceNo || '').split('-')[0];
+  return /^[A-Z]{2,5}$/i.test(prefix) ? prefix.toUpperCase() : fallback;
+}
+
+function _ensureTicketReferenceNumbers(db) {
+  const hasReference = db.prepare('PRAGMA table_info(tickets)').all().some(col => col.name === 'reference_no');
+  if (!hasReference) return;
+  const rows = db.prepare(`
+    SELECT id, module
+    FROM tickets
+    WHERE (reference_no IS NULL OR reference_no = '')
+    ORDER BY created_at ASC, id ASC
+  `).all();
+  if (!rows.length) return;
+
+  const update = db.prepare('UPDATE tickets SET reference_no = ? WHERE id = ?');
+  db.transaction(() => {
+    for (const row of rows) update.run(_nextReferenceNumber(db, _ticketReferencePrefix(row)), row.id);
+  })();
+  console.log(`[db] assigned reference numbers to ${rows.length} tickets`);
+}
+
+function _ensureReferenceNumberIntegrity(db) {
+  const ticketHasReference = db.prepare('PRAGMA table_info(tickets)').all().some(col => col.name === 'reference_no');
+  const reportHasReference = db.prepare('PRAGMA table_info(reports)').all().some(col => col.name === 'reference_no');
+  if (!ticketHasReference || !reportHasReference) return;
+
+  const rows = db.prepare(`
+    SELECT 'ticket' AS entity, id, reference_no, module, created_at
+    FROM tickets
+    WHERE COALESCE(reference_no, '') != ''
+    UNION ALL
+    SELECT 'report' AS entity, id, reference_no, module, created_at
+    FROM reports
+    WHERE COALESCE(reference_no, '') != ''
+    ORDER BY reference_no ASC, created_at ASC, entity ASC, id ASC
+  `).all();
+  const seen = new Set();
+  const duplicates = [];
+  for (const row of rows) {
+    const key = String(row.reference_no || '').toUpperCase();
+    if (!key) continue;
+    if (seen.has(key)) duplicates.push(row);
+    else seen.add(key);
+  }
+  if (!duplicates.length) return;
+
+  const updateTicket = db.prepare('UPDATE tickets SET reference_no = ? WHERE id = ?');
+  const updateReport = db.prepare('UPDATE reports SET reference_no = ? WHERE id = ?');
+  db.transaction(() => {
+    for (const row of duplicates) {
+      const prefix = row.entity === 'ticket' ? _referencePrefix(row.reference_no, _ticketReferencePrefix(row)) : 'CLN';
+      const next = _nextReferenceNumber(db, prefix);
+      if (row.entity === 'ticket') updateTicket.run(next, row.id);
+      else updateReport.run(next, row.id);
+    }
+  })();
+  console.log(`[db] reassigned ${duplicates.length} duplicate reference numbers`);
+}
+
+function _ensureReferenceNumberConstraints(db) {
+  const ticketHasReference = db.prepare('PRAGMA table_info(tickets)').all().some(col => col.name === 'reference_no');
+  const reportHasReference = db.prepare('PRAGMA table_info(reports)').all().some(col => col.name === 'reference_no');
+  if (!ticketHasReference || !reportHasReference) return;
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_tickets_reference_no_unique
+      ON tickets(reference_no)
+      WHERE reference_no != '';
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_reports_reference_no_unique
+      ON reports(reference_no)
+      WHERE reference_no != '';
+
+    CREATE TRIGGER IF NOT EXISTS trg_tickets_reference_no_unique_reports_insert
+    BEFORE INSERT ON tickets
+    WHEN NEW.reference_no != '' AND EXISTS (
+      SELECT 1 FROM reports WHERE reference_no = NEW.reference_no
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'DUPLICATE_REFERENCE_NO');
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS trg_tickets_reference_no_unique_reports_update
+    BEFORE UPDATE OF reference_no ON tickets
+    WHEN NEW.reference_no != '' AND EXISTS (
+      SELECT 1 FROM reports WHERE reference_no = NEW.reference_no
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'DUPLICATE_REFERENCE_NO');
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS trg_reports_reference_no_unique_tickets_insert
+    BEFORE INSERT ON reports
+    WHEN NEW.reference_no != '' AND EXISTS (
+      SELECT 1 FROM tickets WHERE reference_no = NEW.reference_no
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'DUPLICATE_REFERENCE_NO');
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS trg_reports_reference_no_unique_tickets_update
+    BEFORE UPDATE OF reference_no ON reports
+    WHEN NEW.reference_no != '' AND EXISTS (
+      SELECT 1 FROM tickets WHERE reference_no = NEW.reference_no
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'DUPLICATE_REFERENCE_NO');
+    END;
+  `);
+}
 
 function _range(prefix, start, end) {
   const width = String(end).length;

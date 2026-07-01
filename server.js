@@ -342,7 +342,7 @@ function deleteMenuImage(filename) {
   try { if (fp.startsWith(MENU_IMAGES_DIR) && fs.existsSync(fp)) fs.unlinkSync(fp); } catch {}
 }
 
-const PHOTO_TYPE_WHITELIST = ['before', 'after', 'general'];
+const PHOTO_TYPE_WHITELIST = ['before', 'after', 'general', 'escalation'];
 
 /** Like processPhotos but sets photo_type after storing. */
 function processPhotosTyped(raw, uploadedBy, reportId = null, ticketId = null, photoType = 'general') {
@@ -977,6 +977,9 @@ function reportRow(r) {
   const afterPhotos = allPhotos
     .filter((_, i) => (allTypes[i] || 'general') === 'after')
     .map(f => `/uploads/${f}`);
+  const escalationPhotos = allPhotos
+    .filter((_, i) => (allTypes[i] || 'general') === 'escalation')
+    .map(f => `/uploads/${f}`);
   return {
     id:               r.id,
     workerId:         r.worker_id,
@@ -988,6 +991,7 @@ function reportRow(r) {
     status:           r.status,
     tasks:            JSON.parse(r.tasks || '[]'),
     notes:            r.notes,
+    referenceNo:      r.reference_no || '',
     createdAt:        r.created_at,
     approvalStatus:   r.approval_status,
     approvedBy:       r.approved_by,
@@ -998,7 +1002,8 @@ function reportRow(r) {
     module:           r.module || 'cleaning',
     photos,
     beforePhotos,
-    afterPhotos
+    afterPhotos,
+    escalationPhotos
   };
 }
 
@@ -1315,6 +1320,78 @@ function canReceiveReportEvent(user, report) {
   }
   return user.role === 'cleaner' && report.workerId === user.id;
 }
+
+function isRestroomLocation(loc) {
+  const id = String(loc?.id || '').toLowerCase();
+  const type = String(loc?.type || '').toLowerCase();
+  const name = `${loc?.name_ar || ''} ${loc?.name_en || ''}`.toLowerCase();
+  return type === 'restroom' || type === 'bathroom' || id.includes('-wc-') || id.includes('-br-') ||
+    name.includes('restroom') || name.includes('bathroom') || name.includes('دورة مياه');
+}
+
+function parentRestroomId(locationId) {
+  const id = String(locationId || '').trim();
+  const m = /^(.+-(?:BR|WC)-\d+)-[A-Z]$/i.exec(id);
+  return m ? m[1] : '';
+}
+
+function hourlyRestroomReportLocations(db, locations) {
+  const byId = new Map(locations.map(loc => [String(loc.id || '').toUpperCase(), loc]));
+  const excludedUnitIds = new Set();
+  const groups = db.prepare(`
+    SELECT g.id AS group_id, gm.location_id
+    FROM location_groups g
+    JOIN location_group_members gm ON gm.group_id = g.id
+    WHERE g.active = 1
+      AND g.deleted_at IS NULL
+      AND lower(g.type) IN ('restroom','bathroom')
+  `).all();
+  for (const row of groups) {
+    const groupId = String(row.group_id || '').toUpperCase();
+    const memberId = String(row.location_id || '').toUpperCase();
+    if (groupId && memberId && groupId !== memberId && byId.has(groupId)) {
+      excludedUnitIds.add(memberId);
+    }
+  }
+  for (const loc of locations) {
+    const parentId = parentRestroomId(loc.id).toUpperCase();
+    if (!parentId) continue;
+    const parent = byId.get(parentId);
+    if (parent && isRestroomLocation(parent)) excludedUnitIds.add(String(loc.id || '').toUpperCase());
+  }
+  return locations.filter(loc => isRestroomLocation(loc) && !excludedUnitIds.has(String(loc.id || '').toUpperCase()));
+}
+
+function hourlyRestroomParentLocation(db, locationId) {
+  const id = String(locationId || '').trim();
+  if (!id) return null;
+  const groupRow = db.prepare(`
+    SELECT parent.*
+    FROM location_group_members gm
+    JOIN location_groups g ON g.id = gm.group_id
+      AND g.active = 1
+      AND g.deleted_at IS NULL
+      AND lower(g.type) IN ('restroom','bathroom')
+    JOIN locations parent ON parent.id = g.id
+      AND parent.active = 1
+      AND parent.deleted_at IS NULL
+    WHERE gm.location_id = ?
+      AND UPPER(g.id) != UPPER(gm.location_id)
+    LIMIT 1
+  `).get(id);
+  if (groupRow && isRestroomLocation(groupRow)) return groupRow;
+
+  const parentId = parentRestroomId(id);
+  if (!parentId || parentId.toUpperCase() === id.toUpperCase()) return null;
+  const parent = db.prepare(`
+    SELECT * FROM locations
+    WHERE UPPER(id) = UPPER(?)
+      AND active = 1
+      AND deleted_at IS NULL
+    LIMIT 1
+  `).get(parentId);
+  return parent && isRestroomLocation(parent) ? parent : null;
+}
 function ensureVapidKeys(db = getDb()) {
   const subject = process.env.VAPID_SUBJECT || 'mailto:admin@mrfq.local';
   // Prefer keys from environment variables so they stay stable across redeploys
@@ -1353,6 +1430,7 @@ function canReceiveHospitalityOrderEvent(user, order) {
 }
 function pushAudienceUsers(db, event, payload) {
   const rows = db.prepare('SELECT * FROM users WHERE active=1 AND deleted_at IS NULL').all().map(publicUser);
+  if (payload?.workerOnly && payload?.ticket) return rows.filter(user => user.id === payload.ticket.assignedTo);
   if (payload?.ticket) return rows.filter(user => canReceiveTicketEvent(user, payload.ticket));
   if (payload?.report) return rows.filter(user => canReceiveReportEvent(user, payload.report));
   if (payload?.order) return rows.filter(user => canReceiveHospitalityOrderEvent(user, payload.order));
@@ -1371,7 +1449,9 @@ function pushNotice(event, payload) {
   }
   if (payload?.report) {
     const status = payload.report.approvalStatus || '';
-    const title = event === 'report_reviewed'
+    const title = event === 'report_note_added'
+      ? 'ملاحظة على التقرير'
+      : event === 'report_reviewed'
       ? (status === 'approved' ? 'تم اعتماد التقرير' : status === 'needs_recleaning' ? 'مطلوب إعادة العمل' : 'تم رفض التقرير')
       : 'تقرير جديد';
     return {
@@ -1445,6 +1525,7 @@ function broadcastPush(event, payload) {
 function broadcast(event, payload) {
   const msg = `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
   for (const c of sseClients) {
+    if (payload?.workerOnly && payload?.ticket && c.user.id !== payload.ticket.assignedTo) continue;
     if (payload?.ticket && !canReceiveTicketEvent(c.user, payload.ticket)) continue;
     if (payload?.report && !canReceiveReportEvent(c.user, payload.report)) continue;
     try { c.res.write(msg); } catch { sseClients.delete(c); }
@@ -1461,12 +1542,26 @@ function csvCell(v) { return '"' + String(v ?? '').replace(/"/g, '""') + '"'; }
    REFERENCE NUMBER GENERATOR  (CLN-YYYY-XXXXXX)
    ═══════════════════════════════════════════════════════════════ */
 function generateRefNo(db, prefix = 'CLN') {
+  const upper = String(prefix || 'CLN').toUpperCase();
   const year = new Date().getFullYear();
-  const key  = `${prefix.toLowerCase()}_ref_seq_${year}`;
+  const key  = `${upper.toLowerCase()}_ref_seq_${year}`;
   const row  = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
-  const seq  = parseInt(row?.value || '0', 10) + 1;
-  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, String(seq));
-  return `${prefix.toUpperCase()}-${year}-${String(seq).padStart(6, '0')}`;
+  let maxSeq = parseInt(row?.value || '0', 10) || 0;
+  const like = `${upper}-${year}-%`;
+  const refs = db.prepare(`
+    SELECT reference_no FROM tickets WHERE reference_no LIKE ?
+    UNION ALL
+    SELECT reference_no FROM reports WHERE reference_no LIKE ?
+    UNION ALL
+    SELECT reference_no FROM hospitality_orders WHERE reference_no LIKE ?
+  `).all(like, like, like);
+  for (const ref of refs) {
+    const seq = parseInt(String(ref.reference_no || '').split('-').pop(), 10);
+    if (Number.isFinite(seq) && seq > maxSeq) maxSeq = seq;
+  }
+  const nextSeq = maxSeq + 1;
+  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, String(nextSeq));
+  return `${upper}-${year}-${String(nextSeq).padStart(6, '0')}`;
 }
 
 function logEvent(db, eventType, entityType, entityId, actor, payload = {}, module = 'cleaning') {
@@ -1584,11 +1679,277 @@ function generateScheduledMaintenance(db, schedule, actor = null) {
   return id;
 }
 
+function currentRiyadhSlot(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Riyadh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    hour12: false
+  }).formatToParts(date).reduce((acc, part) => {
+    if (part.type !== 'literal') acc[part.type] = part.value;
+    return acc;
+  }, {});
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
+}
+
+function hourlyRestroomTicketDescription(slotKey = '') {
+  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2})$/.exec(String(slotKey || ''));
+  const time = match ? `${match[2]}:00` : '';
+  return time
+    ? `تقرير تلقائي مجدول لدورة المياه - الساعة ${time}`
+    : 'تقرير تلقائي مجدول لدورة المياه';
+}
+
+function generateHourlyRestroomCleaningTickets(db) {
+  syncAutoRestroomTicketDescriptions(db);
+  syncAutoRestroomTicketGroups(db);
+  syncAutoRestroomTicketRoutes(db);
+  const slot = currentRiyadhSlot();
+  if (slot.hour < 7 || slot.hour > 14) return;
+  const slotKey = `${slot.date}T${String(slot.hour).padStart(2, '0')}`;
+  const last = db.prepare("SELECT value FROM settings WHERE key='cleaning_restroom_hourly_report_last_slot'").get();
+  if (last?.value === slotKey) return;
+
+  const locations = hourlyRestroomReportLocations(db, db.prepare(`
+    SELECT * FROM locations
+    WHERE active = 1 AND deleted_at IS NULL
+      AND (
+        type IN ('restroom','bathroom')
+        OR lower(id) LIKE '%-wc-%'
+        OR lower(id) LIKE '%-br-%'
+        OR name_ar LIKE '%دورة مياه%'
+        OR lower(name_en) LIKE '%restroom%'
+        OR lower(name_en) LIKE '%bathroom%'
+      )
+    ORDER BY floor, zone, name_ar
+  `).all());
+  if (!locations.length) {
+    db.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES ('cleaning_restroom_hourly_report_last_slot',?)").run(slotKey);
+    return;
+  }
+
+  const ts = now();
+  const inserted = [];
+  const insert = db.prepare(`
+    INSERT INTO tickets
+      (id,title,description,location_id,location_name_ar,location_name_en,
+       assigned_to,assigned_to_name,supervisor_id,supervisor_name,created_by,created_by_id,status,priority,category,
+       reference_no,notes,sla_deadline,created_at,updated_at,module)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+  `);
+  for (const loc of locations) {
+    const assignment = autoAssignCleaningRoute(loc.id, db);
+    if (!assignment) continue;
+    const exists = db.prepare(`
+      SELECT 1 FROM tickets
+      WHERE location_id=? AND category='restroom' AND module='cleaning'
+        AND created_by_id='system-hourly-restroom' AND notes=?
+        AND deleted_at IS NULL
+      LIMIT 1
+    `).get(loc.id, slotKey);
+    if (exists) continue;
+    const id = newId('t');
+    insert.run(
+      id,
+      'تقرير نظافة دورة مياه',
+      hourlyRestroomTicketDescription(slotKey),
+      loc.id,
+      loc.name_ar,
+      loc.name_en,
+      assignment.id,
+      assignment.name,
+      assignment.supervisorId || '',
+      assignment.supervisorName || '',
+      'النظام',
+      'system-hourly-restroom',
+      'assigned',
+      'medium',
+      'restroom',
+      generateRefNo(db),
+      slotKey,
+      computeSlaDeadline('restroom'),
+      ts,
+      ts,
+      'cleaning'
+    );
+    const ticket = ticketRow(db.prepare(`
+      SELECT t.*, NULL AS photo_files, NULL AS photo_types FROM tickets t WHERE t.id=?
+    `).get(id));
+    inserted.push(ticket);
+  }
+
+  db.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES ('cleaning_restroom_hourly_report_last_slot',?)").run(slotKey);
+  inserted.forEach(ticket => {
+    broadcast('ticket_created', { ticket, workerOnly: true });
+    logEvent(db, 'ticket.auto_restroom_hourly', 'ticket', ticket.id, { id: '', role: 'system' }, {
+      slot: slotKey,
+      locationId: ticket.locationId,
+      assignedTo: ticket.assignedTo,
+      supervisorId: ticket.supervisorId
+    });
+  });
+  if (inserted.length) console.log(`[cleaning-hourly] generated ${inserted.length} restroom tickets for ${slotKey}`);
+}
+
+function syncAutoRestroomTicketDescriptions(db) {
+  const result = db.prepare(`
+    UPDATE tickets
+    SET description = CASE
+          WHEN notes GLOB '????-??-??T??'
+            THEN 'تقرير تلقائي مجدول لدورة المياه - الساعة ' || substr(notes, 12, 2) || ':00'
+          ELSE 'تقرير تلقائي مجدول لدورة المياه'
+        END,
+        updated_at = ?
+    WHERE module = 'cleaning'
+      AND category = 'restroom'
+      AND created_by_id = 'system-hourly-restroom'
+      AND (
+        description LIKE 'تقرير تلقائي لدورة المياه - %'
+        OR description = 'تقرير تلقائي مجدول لدورة المياه'
+      )
+      AND deleted_at IS NULL
+  `).run(now());
+  if (result.changes) console.log(`[cleaning-hourly] normalized ${result.changes} restroom ticket descriptions`);
+}
+
+function syncAutoRestroomTicketGroups(db) {
+  const rows = db.prepare(`
+    SELECT id, location_id, notes
+    FROM tickets
+    WHERE module = 'cleaning'
+      AND category = 'restroom'
+      AND created_by_id = 'system-hourly-restroom'
+      AND status NOT IN ('completed','rejected','cancelled')
+      AND deleted_at IS NULL
+    ORDER BY created_at ASC
+    LIMIT 500
+  `).all();
+  if (!rows.length) return;
+
+  const findExisting = db.prepare(`
+    SELECT id
+    FROM tickets
+    WHERE id != ?
+      AND location_id = ?
+      AND category = 'restroom'
+      AND module = 'cleaning'
+      AND created_by_id = 'system-hourly-restroom'
+      AND notes = ?
+      AND deleted_at IS NULL
+    LIMIT 1
+  `);
+  const softDelete = db.prepare('UPDATE tickets SET deleted_at=?, updated_at=? WHERE id=?');
+  const updateToParent = db.prepare(`
+    UPDATE tickets
+    SET location_id=?,
+        location_name_ar=?,
+        location_name_en=?,
+        assigned_to=?,
+        assigned_to_name=?,
+        supervisor_id=?,
+        supervisor_name=?,
+        updated_at=?
+    WHERE id=?
+  `);
+
+  const ts = now();
+  let changed = 0;
+  for (const row of rows) {
+    const parent = hourlyRestroomParentLocation(db, row.location_id);
+    if (!parent) continue;
+    const parentId = parent.id;
+    if (String(parentId).toUpperCase() === String(row.location_id || '').toUpperCase()) continue;
+    const existing = findExisting.get(row.id, parentId, row.notes || '');
+    if (existing) {
+      softDelete.run(ts, ts, row.id);
+      changed += 1;
+      continue;
+    }
+    const route = autoAssignCleaningRoute(parentId, db) || {};
+    updateToParent.run(
+      parentId,
+      parent.name_ar,
+      parent.name_en,
+      route.id || '',
+      route.name || '',
+      route.supervisorId || '',
+      route.supervisorName || '',
+      ts,
+      row.id
+    );
+    changed += 1;
+  }
+  if (changed) console.log(`[cleaning-hourly] normalized ${changed} restroom unit tickets to group tickets`);
+}
+
+function autoAssignCleaningRoute(locationId, db) {
+  return db.prepare(`
+    SELECT a.worker_id AS id, u.name,
+      a.supervisor_id AS supervisorId,
+      COALESCE(s.name, '') AS supervisorName,
+      (SELECT COUNT(*) FROM tickets
+       WHERE assigned_to = a.worker_id
+         AND module = 'cleaning'
+         AND status NOT IN ('completed','rejected','cancelled')
+         AND deleted_at IS NULL) AS open_count
+    FROM assignments a
+    JOIN users u ON u.id = a.worker_id
+      AND u.active = 1 AND u.deleted_at IS NULL
+      AND (
+        u.role = 'cleaner'
+        OR EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'cleaner')
+      )
+    LEFT JOIN users s ON s.id = a.supervisor_id
+      AND s.active = 1 AND s.deleted_at IS NULL
+      AND (
+        s.role = 'cleaning_supervisor'
+        OR EXISTS (SELECT 1 FROM user_roles sr WHERE sr.user_id = s.id AND sr.role = 'cleaning_supervisor')
+      )
+    WHERE a.location_id = ?
+      AND (a.module IS NULL OR a.module = 'cleaning')
+    ORDER BY open_count ASC, CASE WHEN a.supervisor_id != '' THEN 0 ELSE 1 END
+    LIMIT 1
+  `).get(locationId) || null;
+}
+
+function syncAutoRestroomTicketRoutes(db) {
+  const rows = db.prepare(`
+    SELECT id, location_id
+    FROM tickets
+    WHERE module = 'cleaning'
+      AND category = 'restroom'
+      AND created_by_id = 'system-hourly-restroom'
+      AND status NOT IN ('completed','rejected','cancelled')
+      AND deleted_at IS NULL
+      AND (supervisor_id = '' OR supervisor_id IS NULL OR assigned_to IS NULL OR assigned_to = '')
+    LIMIT 200
+  `).all();
+  if (!rows.length) return;
+  const update = db.prepare(`
+    UPDATE tickets
+    SET assigned_to = COALESCE(NULLIF(assigned_to, ''), ?),
+        assigned_to_name = CASE WHEN assigned_to IS NULL OR assigned_to = '' THEN ? ELSE assigned_to_name END,
+        supervisor_id = CASE WHEN supervisor_id IS NULL OR supervisor_id = '' THEN ? ELSE supervisor_id END,
+        supervisor_name = CASE WHEN supervisor_id IS NULL OR supervisor_id = '' THEN ? ELSE supervisor_name END,
+        updated_at = ?
+    WHERE id = ?
+  `);
+  const ts = now();
+  for (const row of rows) {
+    const route = autoAssignCleaningRoute(row.location_id, db);
+    if (!route) continue;
+    update.run(route.id, route.name, route.supervisorId || '', route.supervisorName || '', ts, row.id);
+  }
+}
+
 // Periodic SLA breach check, escalation, and recurring tasks — every 5 minutes
 setInterval(() => {
   try {
     const db = getDb();
     const ts = now();
+    generateHourlyRestroomCleaningTickets(db);
 
     // 1. Mark newly breached tickets
     db.prepare(
@@ -1646,6 +2007,11 @@ setInterval(() => {
     }
   } catch (e) { console.error('[sla-check]', e.message); }
 }, 300_000);
+
+setTimeout(() => {
+  try { generateHourlyRestroomCleaningTickets(getDb()); }
+  catch (e) { console.error('[cleaning-hourly-startup]', e.message); }
+}, 5_000);
 
 /* ═══════════════════════════════════════════════════════════════
    AUTO-ASSIGNMENT
@@ -1910,9 +2276,9 @@ const server = http.createServer(async (req, res) => {
         if (!canReview(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const reports = dbReports();
         const rows = [
-          ['id','worker','location','status','approval','created_at','notes'],
+          ['id','reference_no','worker','location','status','approval','created_at','notes'],
           ...reports.map(r => [
-            r.id, r.worker_name, r.location_name_en || r.location_name_ar,
+            r.id, r.reference_no || '', r.worker_name, r.location_name_en || r.location_name_ar,
             r.status, r.approval_status, r.created_at, r.notes
           ])
         ];
@@ -2217,6 +2583,7 @@ const server = http.createServer(async (req, res) => {
         const ts            = now();
         const priority      = ['high','medium','low'].includes(b.priority) ? b.priority : 'medium';
         const category      = sanitize(b.category || 'general', 50);
+        const refNo         = generateRefNo(db);
         const slaDeadline   = computeSlaDeadline(category);
         const initialStatus = worker ? 'assigned' : 'submitted';
         db.prepare(`
@@ -2228,7 +2595,7 @@ const server = http.createServer(async (req, res) => {
                sanitize(b.description, 1000), loc.id, loc.name_ar, loc.name_en,
                worker?.id || null, worker?.name || '',
                supervisor?.id || '', supervisor?.name || '',
-               me.name, me.id, initialStatus, priority, category, '', '', slaDeadline, ts, ts);
+               me.name, me.id, initialStatus, priority, category, refNo, '', slaDeadline, ts, ts);
         const ticket = ticketRow(db.prepare(`
           SELECT t.*, NULL AS photo_files FROM tickets t WHERE t.id = ?
         `).get(id));
@@ -2395,13 +2762,14 @@ const server = http.createServer(async (req, res) => {
         const tasks  = Array.isArray(b.tasks) ? b.tasks.map(t => sanitize(t, 200)).slice(0, 50) : [];
         const id     = newId('r');
         const ts     = now();
+        const refNo  = generateRefNo(db);
         const status = ['completed','needs_followup'].includes(b.status) ? b.status : 'completed';
         db.prepare(`
           INSERT INTO reports (id,worker_id,worker_name,location_id,location_name_ar,location_name_en,
-            location_type,status,tasks,notes,approval_status,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,'pending',?,?)
+            location_type,status,tasks,notes,reference_no,approval_status,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,'pending',?,?)
         `).run(id, me.id, me.name, loc.id, loc.name_ar, loc.name_en,
-               loc.type, status, JSON.stringify(tasks), sanitize(b.notes, 1000), ts, ts);
+               loc.type, status, JSON.stringify(tasks), sanitize(b.notes, 1000), refNo, ts, ts);
         // Support before/after typed photos, fallback to legacy `photos` as 'general'
         if (Array.isArray(b.beforePhotos) && b.beforePhotos.length) {
           processPhotosTyped(b.beforePhotos, me.id, id, null, 'before');
@@ -2426,35 +2794,47 @@ const server = http.createServer(async (req, res) => {
 
       /* ── REPORTS: REVIEW ────────────────────────────────────── */
       if (req.method === 'POST' && /^\/api\/reports\/[^/]+\/escalate$/.test(url.pathname)) {
-        if (me.role !== 'cleaning_supervisor') return send(res, 403, { error: 'FORBIDDEN' });
+        if (!['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const id = sanitize(url.pathname.split('/')[3], 50);
         const b = await bodyJSON(req);
         const r = db.prepare("SELECT * FROM reports WHERE id = ? AND module = 'cleaning' AND deleted_at IS NULL").get(id);
         if (!r) return send(res, 404, { error: 'REPORT_NOT_FOUND' });
-        const scope = cleaningSupervisorScope(me.id, dbAssignments(), { strict: true });
-        if (!scope.workerIds.has(r.worker_id) && !scope.locationIds.has(r.location_id)) {
-          return send(res, 403, { error: 'FORBIDDEN' });
+        if (me.role === 'cleaning_supervisor') {
+          const scope = cleaningSupervisorScope(me.id, dbAssignments(), { strict: true });
+          if (!scope.workerIds.has(r.worker_id) && !scope.locationIds.has(r.location_id)) {
+            return send(res, 403, { error: 'FORBIDDEN' });
+          }
         }
-        if (r.approval_status !== 'pending') return send(res, 400, { error: 'ALREADY_REVIEWED' });
         const savedPhotos = processPhotosTyped(Array.isArray(b.photos) ? b.photos : [], me.id, id, null, 'escalation');
         if (!savedPhotos.length) return send(res, 400, { error: 'PHOTO_REQUIRED' });
         const note = sanitize(b.note || b.notes || '', 500).trim();
         const reviewTs = now();
-        db.prepare(`
-          UPDATE reports SET approval_status='needs_recleaning', approved_by=?, approved_at=?, review_note=?, updated_at=? WHERE id=?
-        `).run(me.name, reviewTs, note, reviewTs, id);
+        if (r.approval_status === 'pending') {
+          db.prepare(`
+            UPDATE reports SET approval_status='needs_recleaning', approved_by=?, approved_at=?, review_note=?, updated_at=? WHERE id=?
+          `).run(me.name, reviewTs, note, reviewTs, id);
+        } else if (note) {
+          const mergedNote = [r.review_note, `${me.name}: ${note}`].filter(Boolean).join('\n');
+          db.prepare('UPDATE reports SET review_note=?, updated_at=? WHERE id=?').run(mergedNote, reviewTs, id);
+        } else {
+          db.prepare('UPDATE reports SET updated_at=? WHERE id=?').run(reviewTs, id);
+        }
         db.prepare(`
           INSERT INTO approval_history
             (entity_type, entity_id, level, approver_id, approver_role, action, notes, created_at)
-          VALUES ('report', ?, 1, ?, ?, 'needs_recleaning', ?, ?)
-        `).run(id, me.id, me.role, note, reviewTs);
+          VALUES ('report', ?, 1, ?, ?, ?, ?, ?)
+        `).run(id, me.id, me.role, r.approval_status === 'pending' ? 'needs_recleaning' : 'note_added', note, reviewTs);
         const report = reportRow(db.prepare(`
           SELECT r.*, GROUP_CONCAT(p.filename) AS photo_files, GROUP_CONCAT(p.photo_type) AS photo_types
           FROM reports r LEFT JOIN photos p ON p.report_id=r.id AND p.deleted_at IS NULL
           WHERE r.id=? GROUP BY r.id
         `).get(id));
-        broadcast('report_reviewed', { report, reviewedBy: me.name });
-        logEvent(db, 'report.escalated_by_supervisor', 'report', id, me, { status: 'needs_recleaning', note, photoCount: savedPhotos.length });
+        broadcast(r.approval_status === 'pending' ? 'report_reviewed' : 'report_note_added', { report, reviewedBy: me.name });
+        logEvent(db, 'report.note_with_photo', 'report', id, me, {
+          status: report.approvalStatus,
+          note,
+          photoCount: savedPhotos.length
+        });
         return send(res, 200, { report });
       }
 
@@ -3023,12 +3403,13 @@ const server = http.createServer(async (req, res) => {
         const tasks  = Array.isArray(b.tasks) ? b.tasks.map(t => sanitize(t,200)).slice(0,50) : [];
         const id     = newId('mr');
         const ts     = now();
+        const refNo  = generateRefNo(db);
         db.prepare(`
           INSERT INTO reports (id,worker_id,worker_name,location_id,location_name_ar,location_name_en,
-            location_type,status,tasks,notes,approval_status,module,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,'pending','maintenance',?,?)
+            location_type,status,tasks,notes,reference_no,approval_status,module,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,'pending','maintenance',?,?)
         `).run(id, me.id, me.name, loc.id, loc.name_ar, loc.name_en,
-               loc.type, 'completed', JSON.stringify(tasks), sanitize(b.notes,1000), ts, ts);
+               loc.type, 'completed', JSON.stringify(tasks), sanitize(b.notes,1000), refNo, ts, ts);
         if (Array.isArray(b.beforePhotos) && b.beforePhotos.length)
           processPhotosTyped(b.beforePhotos, me.id, id, null, 'before');
         if (Array.isArray(b.afterPhotos) && b.afterPhotos.length)

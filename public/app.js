@@ -580,6 +580,7 @@ let cameraMode = 'general'; // 'before' | 'after' | 'general'
 let editUserId = null, currentTicketId = null;
 let resetPasswordUserId = null;
 let reportFilter = 'all';
+let reportDateFilter = '';
 let operationsDays = 30;
 let employeeServiceType = '';
 let employeeHistoryFilter = 'all';
@@ -791,6 +792,10 @@ document.addEventListener('click',event=>{
 document.addEventListener('change',event=>{
   const freeType=event.target.closest?.('[data-free-type]');
   if(freeType) mapSyncFreeOccupantRow(freeType.closest('.mapFreeOccupantRow'));
+  if(event.target?.id==='reportDateFilter'){
+    reportDateFilter=event.target.value||'';
+    render();
+  }
 });
 const UI_RENDERER_NAMES = new Set([
   'render','renderWorker','renderMaintenanceWorker','renderEmployee','renderSupervisor',
@@ -829,6 +834,7 @@ function runUiFlow(flow,...values){
   };
   if(flow==='stop-propagation'){event.stopPropagation();return}
   if(flow==='close-element'){document.getElementById(String(values[0]||''))?.remove();return}
+  if(flow==='report-date-clear'){reportDateFilter='';render();return}
   if(flow==='toggle-notifications'){toggleNotif(event);return}
   if(flow==='app-back'){appBack();return}
   if(flow==='exit-module'){exitModule();return}
@@ -992,6 +998,7 @@ document.addEventListener('change',event=>{
   }
   if(action==='toggle-task') event.target.closest('.taskItem')?.classList.toggle('checked',event.target.checked);
   if(action==='menu-item-image') onMenuItemImageSelected(event);
+  if(action==='report-note-images') onReportNoteImagesSelected(event);
 });
 document.addEventListener('error',event=>{
   const target=event.target;
@@ -1320,6 +1327,11 @@ function connectSSE(){
     const st=d.report.approvalStatus;
     const msgs={approved:lang==='ar'?'تم اعتماد التقرير':'Report approved',rejected:lang==='ar'?'تم رفض التقرير':'Report rejected',needs_recleaning:d.report.module==='maintenance'?(lang==='ar'?'مطلوب إعادة العمل':'Rework required'):(lang==='ar'?'مطلوب إعادة تنظيف':'Re-cleaning required')};
     realtimeNotify(st, msgs[st]||st, d.report.locationNameAr||d.report.locationNameEn||'', st==='approved'?'ok':'bad');
+    load();
+  });
+  eventSource.addEventListener('report_note_added',e=>{
+    const d=JSON.parse(e.data);
+    realtimeNotify('new_report', lang==='ar'?'ملاحظة على التقرير':'Report note', d.report.locationNameAr||d.report.locationNameEn||'', 'warn');
     load();
   });
   eventSource.addEventListener('ticket_created',e=>{
@@ -3916,6 +3928,16 @@ function imgList(r){return (r.photos&&r.photos.length?r.photos:(r.photo?[r.photo
 function taskSetFor(type){return isMaintenanceRole()?MAINT_TASKS:(type==='restroom'?TASKS.restroom:TASKS.default)}
 function taskLabel(task){return Array.isArray(task) ? (lang==='ar'?task[0]:task[1]) : task}
 function taskDone(tasks,pair){return (tasks||[]).includes(pair[0])||(tasks||[]).includes(pair[1])}
+function reportDayKey(ts){
+  if(!ts) return '';
+  try{
+    const d=new Date(ts);
+    const y=d.getFullYear();
+    const m=String(d.getMonth()+1).padStart(2,'0');
+    const day=String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }catch{return String(ts).slice(0,10)}
+}
 
 function reports(){
   const maintenanceContext=isMaintenanceRole()||adminModuleContext==='maintenance'||(data.reports||[]).some(r=>r.module==='maintenance')&&!(data.reports||[]).some(r=>r.module==='cleaning');
@@ -3940,6 +3962,7 @@ function reports(){
   const moduleFilter=maintenanceContext?'maintenance':'cleaning';
   const filtered = (data.reports||[]).filter(r=>{
     if((r.module||'cleaning')!==moduleFilter) return false;
+    if(reportDateFilter && reportDayKey(r.createdAt)!==reportDateFilter) return false;
     if(reportFilter==='all') return true;
     if(reportFilter==='new' || reportFilter==='pending') {
       return (r.approvalStatus||'pending')==='pending_approval'||(r.approvalStatus||'pending')==='pending';
@@ -3966,6 +3989,10 @@ function reports(){
 <div class="filterBar reportTabs">
   <div class="filterChips">
     ${filters.map(f=>`<button class="filterChip${reportFilter===f.key?' active':''}" ${uiAction('runUiFlow',['navigate','reportFilter',f.key,null,'render'])}>${f.label}</button>`).join('')}
+  </div>
+  <div class="reportDateTools">
+    <input id="reportDateFilter" class="form-control ctrl-sm" type="date" value="${esc(reportDateFilter)}" aria-label="${lang==='ar'?'فلترة تاريخ التقرير':'Report date filter'}">
+    ${reportDateFilter?`<button class="btn secondary sm" ${uiAction('runUiFlow',['report-date-clear'])}>${lang==='ar'?'مسح التاريخ':'Clear date'}</button>`:''}
   </div>
 </div>
 ${filtered.length===0
@@ -4011,14 +4038,14 @@ function reportCard(r,full){
   const st = r.approvalStatus||'pending_approval';
   const q = qualityScore(r);
   const rating = reportOverallRating(r);
-  const tasks = taskSetFor(r.locationType);
   const totalPhotos = imgs.length;
   const isCleaningReport=(r.module||'cleaning')==='cleaning';
-  const canSupervisorEscalateReport=isCleaningReport&&me.role==='cleaning_supervisor';
+  const canEscalateReport=isCleaningReport&&['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(me.role);
   return`<article class="reportCard">
     <div class="reportCard-body"  class="u-cursor-pointer" ${uiAction('openReportDetail',[(r.id)])} role="button" tabindex="0">
       <div>
         <div class="reportCard-loc">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</div>
+        ${r.referenceNo?`<div class="ticketCard-ref">${esc(r.referenceNo)}</div>`:''}
         <div class="reportCard-meta">${ic('users',12)} ${esc(r.workerName)} &nbsp;·&nbsp; ${fmt(r.createdAt)} &nbsp;·&nbsp; ${tr(r.locationType||'other')}</div>
       </div>
       <div class="u-flex-wrap-gap-6">
@@ -4031,14 +4058,16 @@ function reportCard(r,full){
     </div>
     ${(()=>{
       const showReview=full&&canReview()&&['pending','pending_approval'].includes(st);
+      const showReportNote=full&&canEscalateReport;
       const showDelete=full&&canDelete();
-      if(!showReview&&!showDelete) return '';
+      if(!showReview&&!showReportNote&&!showDelete) return '';
       return `<div class="reportCard-actions" ${uiAction('runUiFlow',['stop-propagation'])}>
         ${showReview?`<button class="btn ok sm action-btn" ${uiAction('reviewReport',[(r.id),'approved'])}>${ic('check',13)} ${tr('approve')}</button>
-        ${canSupervisorEscalateReport
-          ? `<button class="btn warn sm action-btn" ${uiAction('supReportEscalatePrompt',[(r.id)])}>${ic('camera',13)} ${lang==='ar'?'تصعيد':'Escalate'}</button>`
+        ${showReportNote
+          ? `<button class="btn warn sm action-btn" ${uiAction('supReportEscalatePrompt',[(r.id)])}>${ic('camera',13)} ${lang==='ar'?'ملاحظة':'Note'}</button>`
           : `<button class="btn warn sm action-btn" ${uiAction('reviewReport',[(r.id),'needs_recleaning'])}>${ic('flip',13)} ${r.module==='maintenance'?(lang==='ar'?'إعادة العمل':'Rework'):tr('reclean')}</button>`}
         ${r.module==='maintenance'?`<button class="btn danger sm action-btn" ${uiAction('reviewReport',[(r.id),'rejected'])}>${ic('x',13)} ${tr('reject')}</button>`:''}`:''}
+        ${!showReview&&showReportNote?`<button class="btn warn sm action-btn" ${uiAction('supReportEscalatePrompt',[(r.id)])}>${ic('camera',13)} ${lang==='ar'?'ملاحظة':'Note'}</button>`:''}
         ${showDelete?`<button class="btn danger sm action-btn" ${uiAction('deleteReport',[(r.id)])} aria-label="${lang==='ar'?'حذف التقرير':'Delete report'}" title="${lang==='ar'?'حذف':'Delete'}">${ic('trash',13)} ${lang==='ar'?'حذف':'Delete'}</button>`:''}
       </div>`;
     })()}
@@ -4621,6 +4650,7 @@ function _eventLabel(eventType){
     'report.approved':      lang==='ar'?'تمت الموافقة':'Approved',
     'report.rejected':      lang==='ar'?'تم الرفض':'Rejected',
     'report.reclean_required': lang==='ar'?'طلب إعادة تنظيف':'Reclean requested',
+    'report.note_with_photo': lang==='ar'?'ملاحظة بصورة على التقرير':'Report note with photo',
     'report.deleted':       lang==='ar'?'تم حذف التقرير':'Report deleted',
     'hospitality.submitted':lang==='ar'?'تم إنشاء طلب الضيافة':'Hospitality order submitted',
     'hospitality.assigned': lang==='ar'?'تم إسناد طلب الضيافة':'Hospitality order assigned',
@@ -4734,8 +4764,9 @@ async function openReportDetail(id){
   if(!r) return;
   const before = r.beforePhotos||[];
   const after  = r.afterPhotos||[];
+  const escalation = r.escalationPhotos||[];
   const allImgs = imgList(r);
-  const hasTyped = before.length||after.length;
+  const hasTyped = before.length||after.length||escalation.length;
   const tasks = taskSetFor(r.locationType);
   const st = r.approvalStatus||'pending';
   const stCls = st==='approved'?'ok':st==='rejected'||st==='needs_recleaning'?'bad':'warn';
@@ -4743,6 +4774,7 @@ async function openReportDetail(id){
   <div class="detailModal">
     <div class="detailModal-section">
       <div class="detailModal-grid2">
+        ${r.referenceNo?`<div><span class="detailLabel">${lang==='ar'?'رقم التقرير':'Report ID'}</span><span class="detailVal">${esc(r.referenceNo)}</span></div>`:''}
         <div><span class="detailLabel">${lang==='ar'?'الموقع':'Location'}</span><span class="detailVal">${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}</span></div>
         <div><span class="detailLabel">${r.module==='maintenance'?(lang==='ar'?'الفني':'Technician'):(lang==='ar'?'العامل':'Worker')}</span><span class="detailVal">${ic('users',12)} ${esc(r.workerName)}</span></div>
         <div><span class="detailLabel">${lang==='ar'?'الحالة':'Status'}</span><span class="badge ${stCls}">${reportStatusLabel(r)}</span></div>
@@ -4766,6 +4798,7 @@ async function openReportDetail(id){
         ${hasTyped?`
           ${before.length?`<div><div class="photoGroup-label u-mb-6">${ic('camera',12)} ${r.module==='maintenance'?(lang==='ar'?'صور قبل الصيانة':'Before Maintenance Photos'):tr('beforePhotos')}</div><div class="detailModal-photos">${before.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" ${uiAction('openGallery',[before,i])} alt="">`).join('')}</div></div>`:''}
           ${after.length?`<div><div class="photoGroup-label ok u-mb-6">${ic('check',12)} ${r.module==='maintenance'?(lang==='ar'?'صور بعد الصيانة':'After Maintenance Photos'):tr('afterPhotos')}</div><div class="detailModal-photos">${after.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" ${uiAction('openGallery',[after,i])} alt="">`).join('')}</div></div>`:''}
+          ${escalation.length?`<div><div class="photoGroup-label warn u-mb-6">${ic('alert',12)} ${lang==='ar'?'صور الملاحظة':'Note Photos'}</div><div class="detailModal-photos">${escalation.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" ${uiAction('openGallery',[escalation,i])} alt="">`).join('')}</div></div>`:''}
         `:allImgs.map((src,i)=>`<img src="${src}" class="detailModal-photo" loading="lazy" ${uiAction('openGallery',[allImgs,i])} alt="">`).join('')}
       </div>`:
       `<div class="text-muted-xs-py-4">${lang==='ar'?'لا توجد صور':'No photos'}</div>`}
@@ -6287,16 +6320,6 @@ function startForm(){
     </div>
 
     <div class="wCard">
-      <div class="wCard-title">${ic('camera',16)} ${tr('beforePhotos')}</div>
-      <p class="text-muted-xs-mb-12">${tr('beforePhotoHint')}</p>
-      <button class="cameraBtn" ${uiAction('openCamera',['before'])}>
-        ${ic('camera',22)}
-        <span>${tr('addPhoto')} — ${tr('beforePhotos')}</span>
-      </button>
-      <div id="beforePreviews" class="photoGrid u-mt-12"></div>
-    </div>
-
-    <div class="wCard">
       <div class="wCard-title">${ic('check',16)} ${tr('step2')}</div>
       <div class="taskChecklist">
         ${tasks.map((p,i)=>`
@@ -6360,16 +6383,6 @@ function startGroupForm(group, locCode){
         {v:'completed',l:tr('completed')},
         {v:'needs_followup',l:tr('needs_followup')}
       ]), {cls:'field-spaced'})}
-    </div>
-
-    <div class="wCard">
-      <div class="wCard-title">${ic('camera',16)} ${tr('beforePhotos')}</div>
-      <p class="text-muted-xs-mb-12">${tr('beforePhotoHint')}</p>
-      <button class="cameraBtn" ${uiAction('openCamera',['before'])}>
-        ${ic('camera',22)}
-        <span>${tr('addPhoto')} — ${tr('beforePhotos')}</span>
-      </button>
-      <div id="beforePreviews" class="photoGrid u-mt-12"></div>
     </div>
 
     <div class="wCard">
@@ -6871,18 +6884,18 @@ async function closeQRScanner(){
 
 /* ─── SUBMIT REPORT ──────────────────────────────────────────── */
 async function submitReport(locationId){
-  const hasPhotos = currentBeforePhotos.length||currentAfterPhotos.length||currentPhotos.length;
+  const hasPhotos = currentAfterPhotos.length||currentPhotos.length;
   if(!hasPhotos) return toast(tr('photoRequired'),'bad');
   const btn = document.querySelector('.submitBtn');
   if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner u-spinner-24"></div>`}
-  const usesTyped = currentBeforePhotos.length||currentAfterPhotos.length;
+  const usesTyped = currentAfterPhotos.length;
   const payload = {
     locationId,
     status:document.getElementById('wkStatus')?.value||'completed',
     notes:document.getElementById('wkNotes')?.value||'',
     tasks:[...document.querySelectorAll('.taskCheck:checked')].map(x=>x.value),
     ...(usesTyped
-      ? { beforePhotos: currentBeforePhotos, afterPhotos: currentAfterPhotos }
+      ? { afterPhotos: currentAfterPhotos }
       : { photos: currentPhotos })
   };
   if(currentTicketId){
@@ -6917,17 +6930,17 @@ async function submitGroupReport(){
   const group = currentGroupReport;
   const memberIds = group?.memberIds||[];
   if(memberIds.length < 2) return toast(lang==='ar'?'لا توجد مجموعة صالحة للإرسال':'No valid group to submit','bad');
-  const hasPhotos = currentBeforePhotos.length||currentAfterPhotos.length||currentPhotos.length;
+  const hasPhotos = currentAfterPhotos.length||currentPhotos.length;
   if(!hasPhotos) return toast(tr('photoRequired'),'bad');
   const btn = document.querySelector('.submitBtn');
   if(btn){btn.disabled=true;btn.innerHTML=`<div class="spinner u-spinner-24"></div>`}
-  const usesTyped = currentBeforePhotos.length||currentAfterPhotos.length;
+  const usesTyped = currentAfterPhotos.length;
   const basePayload = {
     status:document.getElementById('wkStatus')?.value||'completed',
     notes:document.getElementById('wkNotes')?.value||'',
     tasks:[...document.querySelectorAll('.taskCheck:checked')].map(x=>x.value),
     ...(usesTyped
-      ? { beforePhotos: currentBeforePhotos, afterPhotos: currentAfterPhotos }
+      ? { afterPhotos: currentAfterPhotos }
       : { photos: currentPhotos })
   };
   const payloads = memberIds.map(locationId=>({...basePayload, locationId}));
@@ -8026,6 +8039,7 @@ function maintReportsList(reports, opts={}){
         ${r.photos.length?`<span class="badge badge-info">${ic('camera',12)} ${r.photos.length}</span>`:''}
       </div>
       <div class="reportCard-worker">${ic('user',13)} ${esc(r.workerName)} — ${esc(r.locationNameAr)}</div>
+      ${r.referenceNo?`<div class="ticketCard-ref">${esc(r.referenceNo)}</div>`:''}
       ${r.tasks.length?`<div class="reportCard-tasks">${ic('check',12)} ${r.tasks.length} ${lang==='ar'?'مهمة':'tasks'}</div>`:''}
       ${canReview && r.approvalStatus==='pending'?`
         <div class="reportCard-actions" ${uiAction('runUiFlow',['stop-propagation'])}>
@@ -9768,6 +9782,35 @@ function renderEscalationPhotoPrev(){
   </div>`).join('');
 }
 
+function readFileAsDataUrl(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result);
+    reader.onerror=()=>reject(reader.error||new Error('FILE_READ_FAILED'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function onReportNoteImagesSelected(event){
+  const files=[...(event.target.files||[])].filter(f=>/^image\//.test(f.type));
+  if(!files.length) return;
+  const remaining=Math.max(0,10-currentPhotos.length);
+  if(!remaining) return toast(lang==='ar'?'وصلت للحد الأعلى للصور':'Maximum photos reached','warn');
+  try{
+    for(const file of files.slice(0,remaining)){
+      const dataUrl=await readFileAsDataUrl(file);
+      const compacted=await compactImage(dataUrl,1280,.78);
+      currentPhotos.push(compacted);
+    }
+    renderEscalationPhotoPrev();
+    toast(lang==='ar'?'تمت إضافة الصورة':'Image added','ok');
+  }catch(e){
+    toast(lang==='ar'?'تعذر قراءة الصورة':'Could not read image','bad');
+  }finally{
+    event.target.value='';
+  }
+}
+
 function supEscalatePrompt(ticketId){
   currentPhotos=[];
   window._ticketEscalationMode=true;
@@ -9805,21 +9848,25 @@ function supReportEscalatePrompt(reportId){
   window._ticketEscalationMode=true;
   const body=`
     <div class="field">
-      <label>${lang==='ar'?'ملاحظات التصعيد':'Escalation notes'}</label>
-      ${ta('rep-esc-note','',{rows:3,placeholder:lang==='ar'?'اكتب سبب تصعيد التقرير أو الملاحظة...':'Write the report escalation reason or note...'})}
+      <label>${lang==='ar'?'ملاحظة التقرير':'Report note'}</label>
+      ${ta('rep-esc-note','',{rows:3,placeholder:lang==='ar'?'اكتب الملاحظة التي ستصل للعامل...':'Write the note that will be sent to the worker...'})}
     </div>
     <div class="field">
-      <label>${lang==='ar'?'صورة التصعيد إلزامية':'Escalation photo is required'}</label>
-      <button class="cameraBtn" ${uiAction('openCamera',['general'])}>${ic('camera',20)}<span>${lang==='ar'?'التقاط صورة':'Take Photo'}</span></button>
+      <label>${lang==='ar'?'صورة الملاحظة من الاستديو إلزامية':'Note image from gallery is required'}</label>
+      <label class="cameraBtn fileUploadBtn" for="reportNoteImageFile">
+        ${ic('image',20)}
+        <span>${lang==='ar'?'اختيار صورة من الاستديو':'Choose image from gallery'}</span>
+      </label>
+      <input class="fileInputHidden" type="file" id="reportNoteImageFile" accept="image/png,image/jpeg,image/webp,image/*" multiple data-ui-change="report-note-images">
       <div id="escalationPhotoPrev" class="photoGrid u-mt-10"></div>
     </div>`;
-  const foot=`<button class="btn warn" ${uiAction('submitSupReportEscalation',[(reportId)])}>${ic('camera',14)} ${lang==='ar'?'تصعيد':'Escalate'}</button>
+  const foot=`<button class="btn warn" ${uiAction('submitSupReportEscalation',[(reportId)])}>${ic('camera',14)} ${lang==='ar'?'إرسال الملاحظة':'Send note'}</button>
     <button class="btn secondary" ${uiAction('runUiFlow',['close-element','reportEscalationModal'])}>${tr('cancel')}</button>`;
-  showModal('reportEscalationModal', `${ic('camera',16)} ${lang==='ar'?'تصعيد التقرير':'Escalate Report'}`, body, foot);
+  showModal('reportEscalationModal', `${ic('camera',16)} ${lang==='ar'?'ملاحظة على التقرير':'Report Note'}`, body, foot);
 }
 
 async function submitSupReportEscalation(reportId){
-  if(!currentPhotos.length) return toast(lang==='ar'?'صورة التصعيد إلزامية':'Escalation photo is required','bad');
+  if(!currentPhotos.length) return toast(lang==='ar'?'صورة الملاحظة إلزامية':'Note photo is required','bad');
   try{
     await api(`/reports/${reportId}/escalate`,{method:'POST',body:JSON.stringify({
       note:document.getElementById('rep-esc-note')?.value||'',
@@ -9829,7 +9876,7 @@ async function submitSupReportEscalation(reportId){
     currentPhotos=[]; window._ticketEscalationMode=false;
     await load();
     if(me.role==='cleaning_supervisor') renderSupervisor(); else render();
-    toast(lang==='ar'?'تم التصعيد':'Escalated','ok');
+    toast(lang==='ar'?'تم إرسال الملاحظة':'Note sent','ok');
   }catch(e){ toast(e.message,'bad'); }
 }
 
