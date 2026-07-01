@@ -4084,6 +4084,23 @@ function qualityBars(entries){
       <div class="printChart-colLabel">${esc(e.label)}</div>
     </div>`).join('')}</div>`;
 }
+function reportQualityGrade(score){
+  if(score>=90) return lang==='ar'?'ممتاز':'Excellent';
+  if(score>=80) return lang==='ar'?'جيد جدا':'Very good';
+  if(score>=70) return lang==='ar'?'جيد':'Good';
+  if(score>=60) return lang==='ar'?'بحاجة متابعة':'Needs follow-up';
+  return lang==='ar'?'منخفض':'Low';
+}
+function reportExecutiveNarrative(analytics, period){
+  const approved = analytics.statuses.approved || 0;
+  const escalated = analytics.statuses.needs_recleaning || 0;
+  const pending = analytics.statuses.pending || 0;
+  const topLocation = analytics.topLocations[0];
+  if(lang==='ar'){
+    return `يعرض هذا التقرير أداء النظافة للفترة ${period}. تم تسجيل ${analytics.total} تقرير، بمتوسط جودة ${analytics.averageQuality}% وتصنيف ${reportQualityGrade(analytics.averageQuality)}. عدد التقارير المعتمدة ${approved}، والتقارير المصعدة ${escalated}، والتقارير قيد المراجعة ${pending}.${topLocation?` أكثر موقع تكرارا هو ${topLocation.label} بعدد ${topLocation.count} تقرير.`:''}`;
+  }
+  return `This report summarizes cleaning performance for ${period}. It includes ${analytics.total} reports with an average quality score of ${analytics.averageQuality}% (${reportQualityGrade(analytics.averageQuality)}). Approved reports: ${approved}; escalated reports: ${escalated}; pending reports: ${pending}.${topLocation?` The most frequent location is ${topLocation.label} with ${topLocation.count} reports.`:''}`;
+}
 
 function reports(){
   const maintenanceContext=reportModuleContext()==='maintenance';
@@ -4337,9 +4354,13 @@ function openReportExportModal(type='pdf'){
     </div>
     <div class="field field-wide">
       <label>${lang==='ar'?'محتوى التقرير':'Report content'}</label>
+      <label class="toggleLine">
+        <input id="repExportIncludeTable" type="checkbox" ${kind==='pdf'?'checked':''} ${kind==='csv'?'disabled':''}>
+        <span>${lang==='ar'?'تضمين الجدول التفصيلي داخل PDF':'Include detailed table in the PDF'}</span>
+      </label>
       <div class="text-muted-sm">${lang==='ar'
-        ? 'سيتم تطبيق فلتر الحالة الحالي، مع النطاق الزمني المحدد هنا.'
-        : 'The current status filter will be applied with this date range.'}</div>
+        ? 'سيتم تطبيق فلتر الحالة الحالي، مع النطاق الزمني المحدد هنا. يمكن إصدار تقرير تنفيذي بدون جدول عند إلغاء الخيار.'
+        : 'The current status filter will be applied with this date range. Clear the option for an executive-only report without rows.'}</div>
     </div>
   </div>`;
   const footer = `<button class="btn" ${uiAction(kind==='csv'?'exportReportsCsvFromModal':'exportReportsPdfFromModal',[])}>
@@ -4381,6 +4402,12 @@ function reportExportRangeFromModal(){
   return fixed;
 }
 
+function reportExportOptionsFromModal(){
+  return {
+    includeTable: document.getElementById('repExportIncludeTable')?.checked !== false
+  };
+}
+
 function reportExportItemsFromModal(){
   const range = reportExportRangeFromModal();
   return { range, items: filteredReports({ from: range.from, to: range.to }) };
@@ -4419,6 +4446,7 @@ function exportPDFReports(){
 
 function exportReportsPdfFromModal(){
   const { range, items } = reportExportItemsFromModal();
+  const options = reportExportOptionsFromModal();
   document.getElementById('reportExportModal')?.remove();
   const analytics = reportAnalytics(items);
   const statusEntries = ['approved','pending','needs_recleaning','rejected']
@@ -4433,21 +4461,53 @@ function exportReportsPdfFromModal(){
   const dir=lang==='ar'?'rtl':'ltr';
   const period = reportPeriodLabel(range.from, range.to);
   const statusLabel = reportFilter==='all' ? (lang==='ar'?'كل الحالات':'All statuses') : reportStatusPrintLabel(reportFilter==='new'?'pending':reportFilter);
+  const detailSection = options.includeTable ? `
+<section class="detailPage printPage">
+<div class="header">
+  <div><div class="brand">مِرفق — MRFQ</div><div class="meta">${tr('reports')} · ${period} · ${items.length} ${lang==='ar'?'تقرير':'records'}</div></div>
+  <div class="meta">${lang==='ar'?'مُصدَّر بواسطة: ':'Exported by: '}${esc(me.name)}</div>
+</div>
+<table><thead><tr>
+  <th>#</th><th>${lang==='ar'?'رقم التقرير':'Report ID'}</th><th>${tr('worker')}</th><th>${tr('location')}</th>
+  <th>${lang==='ar'?'الجودة':'Quality'}</th><th>${lang==='ar'?'الاعتماد':'Approval'}</th><th>${lang==='ar'?'الصور':'Photos'}</th><th>${tr('time')}</th>
+</tr></thead><tbody>
+${items.map((r,i)=>{
+  const st=r.approvalStatus||'pending_approval';
+  const cls=st==='approved'?'ok':st==='rejected'||st==='needs_recleaning'?'bad':'warn';
+  return`<tr><td>${i+1}</td><td class="no-wrap">${esc(r.referenceNo||r.id)}</td><td>${esc(r.workerName)}</td>
+    <td>${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}<br><small class="text-gray-8a">${tr(r.locationType||'other')}</small></td>
+    <td>${qualityScore(r)}%</td>
+    <td class="${cls}">${reportStatusLabel(r)}</td>
+    <td>${imgList(r).length}</td>
+    <td class="no-wrap">${fmt(r.createdAt)}</td>
+  </tr>${r.notes?`<tr><td></td><td colspan="7" class="note-row">${esc(r.notes)}</td></tr>`:''}`;
+}).join('')}
+</tbody></table>
+<div class="footer">مِرفق — MRFQ · ${new Date().toISOString().slice(0,10)}</div>
+</section>` : '';
   const html=`<!DOCTYPE html><html lang="${lang}" dir="${dir}"><head><meta charset="utf-8">
 <title>MRFQ — ${tr('reports')}</title>
 <link rel="stylesheet" href="/css/print.css"></head><body>
-<section class="cover">
+<section class="cover printPage">
+  <div class="cover-mark">${lang==='ar'?'تقرير تنفيذي':'Executive Report'}</div>
   <div class="cover-brand">MRFQ — مرفق</div>
-  <h1>${lang==='ar'?'تقرير النظافة التنفيذي':'Executive Cleaning Report'}</h1>
-  <div class="cover-meta">${period} · ${statusLabel}</div>
+  <h1>${lang==='ar'?'تقرير أداء النظافة':'Cleaning Performance Report'}</h1>
+  <div class="cover-meta">${period}</div>
+  <div class="cover-line"></div>
+  <div class="cover-grid">
+    <div><span>${lang==='ar'?'نطاق الحالة':'Status scope'}</span><strong>${esc(statusLabel)}</strong></div>
+    <div><span>${lang==='ar'?'عدد التقارير':'Report count'}</span><strong>${num(analytics.total)}</strong></div>
+    <div><span>${lang==='ar'?'تصنيف الجودة':'Quality grade'}</span><strong>${reportQualityGrade(analytics.averageQuality)}</strong></div>
+  </div>
   <div class="cover-issued">${lang==='ar'?'مُصدَّر بواسطة':'Exported by'}: ${esc(me.name)} · ${fmtFull(new Date())}</div>
 </section>
 
-<section class="summaryPage">
+<section class="summaryPage printPage">
   <div class="header compact">
     <div><div class="brand">مِرفق — MRFQ</div><div class="meta">${lang==='ar'?'ملخص تنفيذي':'Executive Summary'} · ${period}</div></div>
     <div class="meta">${analytics.total} ${lang==='ar'?'تقرير':'records'}</div>
   </div>
+  <div class="executiveNarrative">${esc(reportExecutiveNarrative(analytics, period))}</div>
   <div class="kpiGrid">
     <div class="kpiBox"><span>${lang==='ar'?'إجمالي التقارير':'Total reports'}</span><strong>${num(analytics.total)}</strong></div>
     <div class="kpiBox"><span>${lang==='ar'?'متوسط الجودة':'Avg quality'}</span><strong>${num(analytics.averageQuality)}%</strong></div>
@@ -4478,33 +4538,11 @@ function exportReportsPdfFromModal(){
       <div class="insightLine"><span>${lang==='ar'?'أعلى جودة':'Highest quality'}</span><strong>${topWorker?`${esc(topWorker.label)} · ${num(topWorker.quality)}%`:'—'}</strong></div>
       <div class="insightLine"><span>${lang==='ar'?'أقل جودة':'Lowest quality'}</span><strong>${lowWorker?`${esc(lowWorker.label)} · ${num(lowWorker.quality)}%`:'—'}</strong></div>
       <div class="insightLine"><span>${lang==='ar'?'فلتر الحالة':'Status filter'}</span><strong>${esc(statusLabel)}</strong></div>
+      <div class="insightLine"><span>${lang==='ar'?'الجدول التفصيلي':'Detailed table'}</span><strong>${options.includeTable?(lang==='ar'?'مرفق':'Included'):(lang==='ar'?'غير مرفق':'Not included')}</strong></div>
     </div>
   </div>
 </section>
-
-<section class="detailPage">
-<div class="header">
-  <div><div class="brand">مِرفق — MRFQ</div><div class="meta">${tr('reports')} · ${period} · ${items.length} ${lang==='ar'?'تقرير':'records'}</div></div>
-  <div class="meta">${lang==='ar'?'مُصدَّر بواسطة: ':'Exported by: '}${esc(me.name)}</div>
-</div>
-<table><thead><tr>
-  <th>#</th><th>${lang==='ar'?'رقم التقرير':'Report ID'}</th><th>${tr('worker')}</th><th>${tr('location')}</th>
-  <th>${lang==='ar'?'الجودة':'Quality'}</th><th>${lang==='ar'?'الاعتماد':'Approval'}</th><th>${lang==='ar'?'الصور':'Photos'}</th><th>${tr('time')}</th>
-</tr></thead><tbody>
-${items.map((r,i)=>{
-  const st=r.approvalStatus||'pending_approval';
-  const cls=st==='approved'?'ok':st==='rejected'||st==='needs_recleaning'?'bad':'warn';
-  return`<tr><td>${i+1}</td><td class="no-wrap">${esc(r.referenceNo||r.id)}</td><td>${esc(r.workerName)}</td>
-    <td>${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}<br><small class="text-gray-8a">${tr(r.locationType||'other')}</small></td>
-    <td>${qualityScore(r)}%</td>
-    <td class="${cls}">${reportStatusLabel(r)}</td>
-    <td>${imgList(r).length}</td>
-    <td class="no-wrap">${fmt(r.createdAt)}</td>
-  </tr>${r.notes?`<tr><td></td><td colspan="7" class="note-row">${esc(r.notes)}</td></tr>`:''}`;
-}).join('')}
-</tbody></table>
-<div class="footer">مِرفق — MRFQ · ${new Date().toISOString().slice(0,10)}</div>
-</section>
+${detailSection}
 </body></html>`;
   const w=window.open('','_blank','width=900,height=700');
   w.document.write(html);
