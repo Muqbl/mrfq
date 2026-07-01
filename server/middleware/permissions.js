@@ -14,7 +14,7 @@ const canEditModuleRole = (role, targetRole) => Boolean(MODULE_TEAMS[role]?.has(
 const canViewExecutiveReports = role => ['system_admin', 'facility_manager'].includes(role);
 const canManageSystemSettings = role => role === 'system_admin';
 const canManageFacilities = role => ['system_admin', 'facility_manager'].includes(role);
-const canViewUsers = role => canManageGlobalUsers(role) || canManageModuleTeam(role) || role === ADMIN_COORDINATOR_ROLE;
+const canViewUsers = role => canManageGlobalUsers(role) || canManageModuleTeam(role);
 const canViewFacilities = role => canManageFacilities(role) || role === ADMIN_COORDINATOR_ROLE;
 const canViewAuditLog = role => ['system_admin', ADMIN_COORDINATOR_ROLE].includes(role);
 const canExportReports = role => [

@@ -307,10 +307,22 @@ test('system administrative coordinator is read-only admin with follow-up access
   assert.equal(boot.status, 200);
   assert.equal(boot.body.user.role, 'system_administrative_coordinator');
   assert.ok(Array.isArray(boot.body.users));
+  assert.equal(boot.body.users.length, 0);
   assert.ok(Array.isArray(boot.body.locations));
   assert.ok(Array.isArray(boot.body.tickets));
   assert.ok(Array.isArray(boot.body.reports));
+  assert.ok(Array.isArray(boot.body.hospitalityOrders));
+  assert.ok(boot.body.maintenance);
   assert.ok(boot.body.cleaningAutoRestroom);
+
+  const maps = await coordinator('/api/maps/floors');
+  assert.equal(maps.status, 200);
+
+  const forbiddenMapEdit = await coordinator('/api/maps/MF/points', {
+    method: 'PUT',
+    body: JSON.stringify({ points: [] })
+  });
+  assert.equal(forbiddenMapEdit.status, 403);
 
   const csv = await coordinator('/api/reports.csv');
   assert.equal(csv.status, 200);

@@ -1165,12 +1165,12 @@ function buildBootstrap(me) {
   const visibleHospitalityOrders = me.role === 'hospitality_supervisor'
     ? hospitalityOrdersForSupervisor(me, allHospitalityOrders, assignments)
     : hospitalityOrdersForRole(me, allHospitalityOrders);
-  const allRecurringTasks    = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(me.role)
+  const allRecurringTasks    = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor',ADMIN_COORDINATOR_ROLE].includes(me.role)
     ? dbRecurringTasks() : [];
   const cleaningAutoRestroom = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor',ADMIN_COORDINATOR_ROLE].includes(me.role)
     ? cleaningRestroomAutoStatus(getDb()) : null;
 
-  const maintenance = ['system_admin','facility_manager','maintenance_manager','maintenance_supervisor','maintenance_worker'].includes(me.role)
+  const maintenance = ['system_admin','facility_manager','maintenance_manager','maintenance_supervisor','maintenance_worker',ADMIN_COORDINATOR_ROLE].includes(me.role)
     ? maintenancePayload(me, visibleMaintenanceTickets) : {};
   const base = { user: publicUser(me), locations, locationGroups, zones, settings, recurringTasks: allRecurringTasks, cleaningAutoRestroom, maintenance };
   const hospitalityOrders = visibleHospitalityOrders;
@@ -1282,7 +1282,7 @@ function buildBootstrap(me) {
   if (me.role === ADMIN_COORDINATOR_ROLE) {
     return {
       ...base,
-      users:       users.map(publicUser),
+      users:       [],
       assignments,
       tickets:     allTickets,
       reports:     allReports,
@@ -3091,7 +3091,7 @@ const server = http.createServer(async (req, res) => {
 
       /* ── RECURRING TASKS: LIST ──────────────────────────────── */
       if (req.method === 'GET' && url.pathname === '/api/recurring-tasks') {
-        if (!['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(me.role))
+        if (!['system_admin','facility_manager','cleaning_manager','cleaning_supervisor',ADMIN_COORDINATOR_ROLE].includes(me.role))
           return send(res, 403, { error: 'FORBIDDEN' });
         return send(res, 200, { recurringTasks: dbRecurringTasks() });
       }

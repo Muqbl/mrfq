@@ -16,7 +16,7 @@
     canViewExecutiveReports: role => ['system_admin', 'facility_manager'].includes(role),
     canManageSystemSettings: role => role === 'system_admin',
     canManageFacilities,
-    canViewUsers: role => canManageGlobalUsers(role) || canManageModuleTeam(role) || role === ADMIN_COORDINATOR_ROLE,
+    canViewUsers: role => canManageGlobalUsers(role) || canManageModuleTeam(role),
     canViewFacilities: role => canManageFacilities(role) || role === ADMIN_COORDINATOR_ROLE,
     canViewAuditLog: role => ['system_admin', ADMIN_COORDINATOR_ROLE].includes(role),
     canExportReports: role => [

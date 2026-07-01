@@ -10,7 +10,7 @@ const permissions = require('../middleware/permissions');
 const clean = (value, max = 100) => String(value ?? '').trim().slice(0, max);
 const id = prefix => `${prefix}-${crypto.randomBytes(6).toString('hex')}`;
 const moduleForRole = role => String(role).startsWith('maintenance_') ? 'maintenance' : String(role).startsWith('hospitality_') ? 'hospitality' : 'cleaning';
-const canAccessFacilities = role => ['system_admin', 'facility_manager'].includes(role);
+const canAccessFacilities = role => permissions.canViewFacilities(role);
 
 async function handlePlatformRoutes({ req, res, url, me, db, send, bodyJSON }) {
   const path = url.pathname;

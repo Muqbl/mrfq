@@ -1085,7 +1085,7 @@ function pickRouteValue(value, allowed, fallback){
 
 function normalizeRouteState(){
   if(!me) return;
-  if(!['system_admin','facility_manager'].includes(me.role)) adminModuleContext = null;
+  if(!canAccessPlatformConsole()) adminModuleContext = null;
   if(adminModuleContext && moduleDefinition(adminModuleContext)?.status!=='active') adminModuleContext = null;
 
   const adminViews = ['dashboard','modules','users','roles','locations','facilities','assets','maps','products','kitchens','inventory','reports','audit','settings','recurringTasks'];
@@ -1098,10 +1098,13 @@ function normalizeRouteState(){
 
   if(me.role==='system_admin' && !adminModuleContext) adminView = pickRouteValue(adminView, adminViews, 'dashboard');
   if(me.role==='facility_manager' && !adminModuleContext) adminView = pickRouteValue(adminView, fmViews, 'dashboard');
+  if(isAdministrativeCoordinator() && !adminModuleContext) {
+    adminView = pickRouteValue(adminView, ['dashboard','modules','locations','maps','reports','audit'], 'dashboard');
+  }
   if(adminModuleContext==='cleaning') view = pickRouteValue(view, cleaningViews, 'dashboard');
   else view = pickRouteValue(view, mainViews, 'dashboard');
   if(isAdministrativeCoordinator()){
-    const coordinatorViews = ['dashboard','reports','tickets','locations','users','audit'];
+    const coordinatorViews = ['dashboard','reports','tickets','locations','recurringTasks','audit'];
     view = pickRouteValue(view, coordinatorViews, 'dashboard');
   }
 
@@ -1612,12 +1615,12 @@ function pendingReportCount(module=activeTicketModule(), items=data?.reports||[]
   return (items||[]).filter(r=>reportMatchesModule(r,module) && ['pending','pending_approval'].includes(r.approvalStatus||'pending')).length;
 }
 function isAdministrativeCoordinator(role=me?.role){return role===ADMIN_COORDINATOR_ROLE}
-function canUsers(){return canManageGlobalUsers()||canManageModuleTeam()||isAdministrativeCoordinator()}
+function canUsers(){return canManageGlobalUsers()||canManageModuleTeam()}
 function canManageUsers(){return canManageGlobalUsers()||canManageModuleTeam()}
 function canManage(){return ['system_admin','facility_manager','cleaning_manager','maintenance_manager'].includes(me.role)}
 function canTicket(){return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','maintenance_manager','maintenance_supervisor'].includes(me.role)}
 function canReview(){return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','maintenance_manager','maintenance_supervisor'].includes(me.role)}
-function canAccessPlatformConsole(){return ['system_admin','facility_manager'].includes(me.role)}
+function canAccessPlatformConsole(){return ['system_admin','facility_manager',ADMIN_COORDINATOR_ROLE].includes(me.role)}
 function canAccessGlobalSettings(){return me.role==='system_admin'}
 function canAccessRolesPermissions(){return me.role==='system_admin'}
 function canManageGlobalUsers(){return me.role==='system_admin'}
@@ -1629,6 +1632,13 @@ function canViewFacilities(){return window.MRFQPermissions.canViewFacilities(me.
 function canViewAuditLog(){return window.MRFQPermissions.canViewAuditLog(me.role)}
 function canExportReports(){return window.MRFQPermissions.canExportReports(me.role)}
 function canViewCleaningTeam(){return me.role==='cleaning_manager'}
+function canViewRecurringTasks(){
+  return ['cleaning_manager','cleaning_supervisor'].includes(me.role)
+    || (adminModuleContext==='cleaning' && ['system_admin','facility_manager',ADMIN_COORDINATOR_ROLE].includes(me.role));
+}
+function canManageRecurringTasks(){
+  return ['system_admin','facility_manager','cleaning_manager'].includes(me.role) && !isAdministrativeCoordinator();
+}
 function canManageHospitalityMenu(){return ['system_admin','hospitality_manager'].includes(me.role)}
 function canHospitalityAssign(){return ['system_admin','facility_manager','hospitality_manager','hospitality_supervisor'].includes(me.role)}
 function canHospitalityDelete(){return ['system_admin','facility_manager','hospitality_manager'].includes(me.role)}
@@ -2038,10 +2048,10 @@ function renderFieldTabs(){
       ${mk(hospManagerView==='kitchens','building',tr('kitchensTitle'),tabFlow('hospManagerView','kitchens','hospmgr-kitchens','renderHospitalityManager'))}
     </div>`;
   }
-  if(['system_admin','facility_manager'].includes(me.role) && adminModuleContext==='hospitality'){
+  if(canAccessPlatformConsole() && adminModuleContext==='hospitality'){
     const orders = data?.hospitalityOrders||[];
     const newCount = orders.filter(o=>o.status==='submitted').length;
-    const canManage = me.role==='system_admin';
+    const canManage = canManageHospitalityMenu();
     return `<div class="fieldTabs" role="tablist">
       ${mk(hospManagerView==='dashboard','dashboard',tr('hospDashboardTab'),tabFlow('hospManagerView','dashboard','hospmgr-dashboard','renderAdminHospitality'))}
       ${mk(hospManagerView==='orders','coffee',tr('hospOrdersTab'),tabFlow('hospManagerView','orders','hospmgr-orders','renderAdminHospitality'),newCount)}
@@ -2154,10 +2164,10 @@ function render(){
   if(me.role==='maintenance_worker') return renderMaintenanceWorker();
   if(me.role==='maintenance_supervisor') return renderMaintenanceSupervisor();
   if(me.role==='maintenance_manager') return renderMaintenanceManager();
-  if(['system_admin','facility_manager'].includes(me.role) && adminModuleContext==='maintenance') return renderAdminMaintenance();
+  if(canAccessPlatformConsole() && adminModuleContext==='maintenance') return renderAdminMaintenance();
   if(me.role==='system_admin' && !adminModuleContext) return renderSystemAdmin();
-  if(me.role==='facility_manager' && !adminModuleContext) return renderFacilityConsole();
-  if(['system_admin','facility_manager'].includes(me.role) && adminModuleContext==='hospitality') return renderAdminHospitality();
+  if(['facility_manager',ADMIN_COORDINATOR_ROLE].includes(me.role) && !adminModuleContext) return renderFacilityConsole();
+  if(canAccessPlatformConsole() && adminModuleContext==='hospitality') return renderAdminHospitality();
   setDoc();
   if(_lastView==='users' && view!=='users'){ usersSearch=''; usersRoleFilter='all'; usersStatusFilter='all'; }
   if(_lastView==='locations' && view!=='locations'){ locsFloorFilter='all'; }
@@ -2166,7 +2176,8 @@ function render(){
   if(view==='locations' && !canViewFacilities()) view='dashboard';
   if(view==='users' && !canUsers()) view='dashboard';
   if(view==='audit' && !canViewAuditLog()) view='dashboard';
-  if(isAdministrativeCoordinator() && ['assignments','recurringTasks','performance'].includes(view)) view='dashboard';
+  if(isAdministrativeCoordinator() && ['assignments','performance'].includes(view)) view='dashboard';
+  if(view==='recurringTasks' && !canViewRecurringTasks()) view='dashboard';
   if(view==='performance'){
     shell(`<div class="u-text-center-p-40">${ic('clock',28)}</div>`);
     performance().then(html=>{
@@ -2322,7 +2333,7 @@ function shell(content){
           ${!isAdministrativeCoordinator()?navItem('assignments',tr('assignments'),'assignments',0):''}
           ${canUsers()?navItem('users',canViewCleaningTeam()?tr('cleaningTeam'):tr('users'),'users',0):''}
           ${canReview()?navItem('performance',tr('performance'),'bar-chart',0):''}
-          ${['cleaning_manager','cleaning_supervisor'].includes(me.role)?navItem('recurringTasks',lang==='ar'?'مهام متكررة':'Recurring','refresh',0):''}
+          ${canViewRecurringTasks()?navItem('recurringTasks',lang==='ar'?'التشغيل التلقائي':'Automation','refresh',0):''}
           ${canViewAuditLog()?navItem('audit',tr('auditLog'),'list',0):''}
         </div>
       </div>
@@ -2442,7 +2453,7 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
       {v:'hospmgr-products', label:tr('productsTitle'), icon:'coffee', count:0, flow:['navigate','hospManagerView','products','hospmgr-products','renderHospitalityManager'], active:hospManagerView==='products'},
       {v:'hospmgr-kitchens', label:tr('kitchensTitle'), icon:'building', count:0, flow:['navigate','hospManagerView','kitchens','hospmgr-kitchens','renderHospitalityManager'], active:hospManagerView==='kitchens'}
     ];
-  }else if(adminModuleContext==='hospitality' && ['system_admin','facility_manager'].includes(role)){
+  }else if(adminModuleContext==='hospitality' && canAccessPlatformConsole()){
     const orders = data?.hospitalityOrders||[];
     const newCount = orders.filter(o=>o.status==='submitted').length;
     const canManage = canManageHospitalityMenu();
@@ -2490,7 +2501,7 @@ function showMobileNavMore(){
       {v:'hospmgr-reports', label:tr('hospReportsTab'), icon:'reports', active:hospManagerView==='reports', flow:['navigate','hospManagerView','reports','hospmgr-reports','renderHospitalityManager']},
       {v:'hospmgr-categories', label:tr('categoriesTitle'), icon:'layers', active:hospManagerView==='categories', flow:['navigate','hospManagerView','categories','hospmgr-categories','renderHospitalityManager']}
     ];
-  }else if(adminModuleContext==='hospitality' && ['system_admin','facility_manager'].includes(me.role) && canManageHospitalityMenu()){
+  }else if(adminModuleContext==='hospitality' && canAccessPlatformConsole() && canManageHospitalityMenu()){
     items = [
       {v:'hospmgr-reports', label:tr('hospReportsTab'), icon:'reports', active:hospManagerView==='reports', flow:['navigate','hospManagerView','reports','hospmgr-reports','renderAdminHospitality']},
       {v:'hospmgr-categories', label:tr('categoriesTitle'), icon:'layers', active:hospManagerView==='categories', flow:['navigate','hospManagerView','categories','hospmgr-categories','renderAdminHospitality']}
@@ -2668,7 +2679,7 @@ function showAdminNavMore(){
    ═══════════════════════════════════════════════════════════════ */
 function renderFacilityConsole(){
   setDoc();
-  if(adminView==='facilities'){
+  if(adminView==='facilities' && !isAdministrativeCoordinator()){
     fmShell(platformFacilitiesPage());
     window.MRFQFacilities.load('#facilitiesPlatformHost',lang);
     return;
@@ -2680,7 +2691,7 @@ function renderFacilityConsole(){
     else if(facilitiesSubView==='spaces') loadFacilitiesSpaces();
     return;
   }
-  if(adminView==='inventory'){
+  if(adminView==='inventory' && !isAdministrativeCoordinator()){
     fmShell(inventoryPage());
     if(inventoryTab==='movements') loadInventoryMovements();
     return;
@@ -2691,6 +2702,7 @@ function renderFacilityConsole(){
     reports: operationsOverview,
     assets: adminAssets,
     maps: adminMaps,
+    audit: adminAuditLog,
     recurringTasks: recurringTasksPage
   }[adminView] || adminDashboard;
   fmShell(fn());
@@ -2704,15 +2716,15 @@ function fmShell(content){
     <aside class="platform-sidebar">
       <div class="sidebarInner">
         <div class="nav-section">
-          <span class="nav-section-label">${tr('facilityConsole')}</span>
+          <span class="nav-section-label">${isAdministrativeCoordinator()?tr(ADMIN_COORDINATOR_ROLE):tr('facilityConsole')}</span>
           ${adminNavItem('dashboard',tr('dashboard'),'dashboard')}
           ${adminNavItem('modules',tr('modules'),'layers')}
           ${adminNavItem('locations',tr('locations'),'locations')}
-          ${adminNavItem('inventory',tr('inventory'),'box')}
+          ${!isAdministrativeCoordinator()?adminNavItem('inventory',tr('inventory'),'box'):''}
           ${adminNavItem('reports',tr('generalReports'),'reports')}
-          ${adminNavItem('assets',tr('assets'),'building')}
+          ${!isAdministrativeCoordinator()?adminNavItem('assets',tr('assets'),'building'):''}
           ${adminNavItem('maps',tr('maps'),'map-pin')}
-          ${adminNavItem('recurringTasks',lang==='ar'?'مهام متكررة':'Recurring Tasks','refresh')}
+          ${isAdministrativeCoordinator()?adminNavItem('audit',tr('auditLog'),'list'):adminNavItem('recurringTasks',lang==='ar'?'مهام متكررة':'Recurring Tasks','refresh')}
         </div>
       </div>
     </aside>
@@ -2756,10 +2768,11 @@ function renderFmMobileBottomNav(){
 
 function showFmNavMore(){
   const items = [
-    {v:'inventory', label:tr('inventory'), icon:'box'},
+    ...(!isAdministrativeCoordinator()?[{v:'inventory', label:tr('inventory'), icon:'box'}]:[]),
     {v:'reports', label:tr('generalReports'), icon:'reports'},
-    {v:'assets', label:tr('assets'), icon:'building'},
-    {v:'maps', label:tr('maps'), icon:'map-pin'}
+    ...(!isAdministrativeCoordinator()?[{v:'assets', label:tr('assets'), icon:'building'}]:[]),
+    {v:'maps', label:tr('maps'), icon:'map-pin'},
+    ...(isAdministrativeCoordinator()?[{v:'audit', label:tr('auditLog'), icon:'list'}]:[])
   ];
   const body = `<div class="mobileMoreGrid">
     ${items.map(item=>`<button class="mobileMoreItem${adminView===item.v?' active':''}" ${uiAction('runUiFlow',['close-mobile-admin',item.v])}>
@@ -2797,7 +2810,9 @@ function adminDashboard(){
   const greeting = lang==='ar'
     ? (hour<12?'صباح الخير':'مساء الخير')
     : (hour<12?'Good morning':'Good afternoon');
-  const roleContext = me.role==='facility_manager'
+  const roleContext = isAdministrativeCoordinator()
+    ? (lang==='ar'?`${tr(ADMIN_COORDINATOR_ROLE)} · مركز اطلاع الموديلات`:`${tr(ADMIN_COORDINATOR_ROLE)} · Modules Overview`)
+    : me.role==='facility_manager'
     ? (lang==='ar'?`${tr('facility_manager')} · لوحة المرافق`:`${tr('facility_manager')} · Facility Console`)
     : (lang==='ar'?`${tr('system_admin')} · لوحة النظام`:`${tr('system_admin')} · System Dashboard`);
   const summaryText = lang==='ar'
@@ -2820,10 +2835,10 @@ function adminDashboard(){
       <div class="dashHero-stat-val">${num(activeModulesCount)}/${num(MODULES.length)}</div>
       <div class="dashHero-stat-lbl">${tr('activeModules')}</div>
     </div>
-    <div class="dashHero-stat">
+    ${!isAdministrativeCoordinator()?`<div class="dashHero-stat">
       <div class="dashHero-stat-val">${num(activeUsersCount)}</div>
       <div class="dashHero-stat-lbl">${tr('activeUsers')}</div>
-    </div>
+    </div>`:''}
     <div class="dashHero-stat">
       <div class="dashHero-stat-val">${num(slaPct)}%</div>
       <div class="dashHero-stat-lbl">${tr('sla')}</div>
@@ -2834,7 +2849,7 @@ function adminDashboard(){
 <div class="kpiGrid kpiGrid--5">
   ${kpiCard(num(openTickets),tr('openTickets'),'tickets','bad')}
   ${kpiCard(`${num(activeModulesCount)}/${num(MODULES.length)}`,tr('activeModules'),'layers','brand')}
-  ${kpiCard(num(activeUsersCount),tr('activeUsers'),'users','ok')}
+  ${!isAdministrativeCoordinator()?kpiCard(num(activeUsersCount),tr('activeUsers'),'users','ok'):''}
   ${kpiCard(num(slaPct)+'%',tr('sla'),'analytics','gold')}
   ${kpiCard(num(criticalTickets),tr('criticalTickets'),'alert-triangle',criticalTickets>0?'bad':'ok')}
 </div>
@@ -2925,7 +2940,7 @@ function moduleCard(m){
     const slaPct = Math.max(10,100-Math.min(100,openTickets*18));
     stats = `<div class="moduleCard-stats">
       <span>${num(openTickets)} ${tr('openTickets')}</span>
-      <span>${num(cleaningUsers)} ${tr('usersCount')}</span>
+      ${!isAdministrativeCoordinator()?`<span>${num(cleaningUsers)} ${tr('usersCount')}</span>`:''}
       <span>${num(slaPct)}% ${tr('sla')}</span>
     </div>`;
   }
@@ -4008,7 +4023,6 @@ function dash(){
 </div>
 
 <!-- BOTTOM ROW: recent reports + activity feed -->
-${cleaningAutoRestroomCard()}
 <div class="contentGrid">
   <div class="card">
     <div class="card-head">
@@ -5015,11 +5029,11 @@ function recurringTasksPage(){
     <div class="pageSub">${tasks.length} ${lang==='ar'?'مهمة':'tasks'}</div>
   </div>
   <div class="pageActions">
-    <button class="btn sm" ${uiAction('runUiFlow',['toggle-flag','showRecurringCreate','toggle'])}>${ic('plus',14)} ${lang==='ar'?'إضافة':'Add'}</button>
+    ${canManageRecurringTasks()?`<button class="btn sm" ${uiAction('runUiFlow',['toggle-flag','showRecurringCreate','toggle'])}>${ic('plus',14)} ${lang==='ar'?'إضافة':'Add'}</button>`:''}
   </div>
 </div>
 ${cleaningAutoRestroomCard()}
-${showRecurringCreate?`
+${showRecurringCreate&&canManageRecurringTasks()?`
 <div class="card u-mb-16">
   <div class="card-head"><span class="card-title">${ic('plus',14)} ${lang==='ar'?'مهمة متكررة جديدة':'New Recurring Task'}</span></div>
   <div class="formGrid">
@@ -5055,8 +5069,10 @@ ${tasks.length?`
           <td class="text-size-xs">${fmt(t.nextRunAt)}</td>
           <td><span class="badge ${t.active?'ok':''}">${t.active?(lang==='ar'?'نشط':'Active'):(lang==='ar'?'متوقف':'Paused')}</span></td>
           <td class="u-flex-end-gap-6">
+            ${canManageRecurringTasks()?`
             <button class="btn secondary sm" ${uiAction('toggleRecurring',[(t.id),(!t.active)])}>${t.active?(lang==='ar'?'إيقاف':'Pause'):(lang==='ar'?'تفعيل':'Resume')}</button>
             <button class="btn danger sm" ${uiAction('deleteRecurring',[(t.id)])}>${ic('trash',13)}</button>
+            `:''}
           </td>
         </tr>`).join('')}
       </tbody>
@@ -5888,7 +5904,7 @@ function assignments(){
   const userRoles = u => Array.isArray(u.roles) && u.roles.length ? u.roles : [u.role];
   const workers = (data.users||[]).filter(u=>userRoles(u).includes(workerRoles[module]));
   const supervisors = (data.users||[]).filter(u=>userRoles(u).includes(supervisorRoles[module]));
-  const canSwitchModule = ['system_admin','facility_manager'].includes(me.role) && !adminModuleContext;
+  const canSwitchModule = canAccessPlatformConsole() && !adminModuleContext;
   const noWorkersMsg = lang==='ar'
     ? `لا يوجد عمال في قسم ${moduleLabels[module]} حالياً. أضف عامل من المستخدمين أولاً.`
     : `No ${moduleLabels[module]} workers yet. Add a worker from Users first.`;
@@ -9117,7 +9133,7 @@ function maintenanceOrdersPage(){
 function maintenanceOrderCard(t){
   const team=maintenanceAssignees(t.id), parts=maintenanceOrderParts(t.id), asset=(maintenanceData().assets||[]).find(a=>a.id===t.assetId);
   const terminal=['completed','rejected','cancelled'].includes(t.status);
-  const renderFn=me.role==='maintenance_supervisor'?'renderMaintenanceSupervisor':['system_admin','facility_manager'].includes(me.role)?'renderAdminMaintenance':'renderMaintenanceManager';
+  const renderFn=me.role==='maintenance_supervisor'?'renderMaintenanceSupervisor':canAccessPlatformConsole()?'renderAdminMaintenance':'renderMaintenanceManager';
   const canManageOrder=['system_admin','facility_manager','maintenance_manager','maintenance_supervisor'].includes(me.role);
   const canDel=['system_admin','facility_manager','maintenance_manager'].includes(me.role);
   return `<div class="ticketCard">
