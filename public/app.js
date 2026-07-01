@@ -581,6 +581,7 @@ let editUserId = null, currentTicketId = null;
 let resetPasswordUserId = null;
 let reportFilter = 'all';
 let reportDateFilter = '';
+let reportExportRange = { from: '', to: '' };
 let operationsDays = 30;
 let employeeServiceType = '';
 let employeeHistoryFilter = 'all';
@@ -736,7 +737,9 @@ const UI_ACTION_NAMES = new Set([
   'supReportEscalatePrompt','submitSupReportEscalation','supReviewPrompt','renderWorkspaceSwitcher','togglePwd','login','submitForcePassword',
   'exitModule','showMobileNavMore','showAdminNavMore','showFmNavMore','showMaintNavMore',
   'setEmployeeRequestChannel','saveSlaSettings','load','exportExcelReports',
-  'exportPDFReports','submitRating','deleteReport','createTicket','editTicketModal',
+  'exportPDFReports','openReportExportModal','applyReportExportPreset',
+  'exportReportsCsvFromModal','exportReportsPdfFromModal',
+  'submitRating','deleteReport','createTicket','editTicketModal',
   'deleteTicketConfirm','forwardTicketToSupervisor','saveEditTicket','submitComment','deleteComment',
   'createRecurringTask','toggleRecurring','deleteRecurring','deleteZone','addZone','addLoc',
   'deleteLocConfirm','filterAssignFloor','toggleAssignFloorFilter','setVisibleAssignChecks',
@@ -3938,9 +3941,152 @@ function reportDayKey(ts){
     return `${y}-${m}-${day}`;
   }catch{return String(ts).slice(0,10)}
 }
+function localDateInputValue(date=new Date()){
+  const d = new Date(date);
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function reportModuleContext(){
+  return isMaintenanceRole()||adminModuleContext==='maintenance'||(data.reports||[]).some(r=>r.module==='maintenance')&&!(data.reports||[]).some(r=>r.module==='cleaning')
+    ? 'maintenance'
+    : 'cleaning';
+}
+function reportDateBounds(from='',to=''){
+  const start = from ? new Date(`${from}T00:00:00`) : null;
+  const end = to ? new Date(`${to}T23:59:59.999`) : null;
+  return { start, end };
+}
+function reportInDateRange(r, from='', to=''){
+  const { start, end } = reportDateBounds(from, to);
+  const d = new Date(r.createdAt);
+  if(start && d < start) return false;
+  if(end && d > end) return false;
+  return true;
+}
+function reportMatchesStatus(r, filter=reportFilter){
+  if(filter==='all') return true;
+  if(filter==='new' || filter==='pending') {
+    return (r.approvalStatus||'pending')==='pending_approval'||(r.approvalStatus||'pending')==='pending';
+  }
+  return r.approvalStatus===filter;
+}
+function filteredReports(opts={}){
+  const moduleFilter = opts.moduleFilter || reportModuleContext();
+  const statusFilter = opts.statusFilter || reportFilter;
+  const from = opts.from ?? (reportDateFilter || '');
+  const to = opts.to ?? (reportDateFilter || '');
+  return (data.reports||[]).filter(r=>{
+    if((r.module||'cleaning')!==moduleFilter) return false;
+    if((from || to) && !reportInDateRange(r, from, to)) return false;
+    return reportMatchesStatus(r, statusFilter);
+  });
+}
+function reportExportDefaults(){
+  const today = localDateInputValue();
+  const from = reportExportRange.from || reportDateFilter || today;
+  const to = reportExportRange.to || reportDateFilter || today;
+  return { from, to };
+}
+function monthStartValue(date=new Date()){
+  const d = new Date(date);
+  d.setDate(1);
+  return localDateInputValue(d);
+}
+function previousMonthRange(){
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth()-1);
+  const first = localDateInputValue(d);
+  d.setMonth(d.getMonth()+1);
+  d.setDate(0);
+  return { from:first, to:localDateInputValue(d) };
+}
+function reportPeriodLabel(from='',to=''){
+  if(from&&to&&from===to) return from;
+  if(from&&to) return `${from} - ${to}`;
+  if(from) return lang==='ar'?`من ${from}`:`From ${from}`;
+  if(to) return lang==='ar'?`حتى ${to}`:`Until ${to}`;
+  return lang==='ar'?'كل الفترات':'All dates';
+}
+function reportStatusKey(r){
+  const st = r.approvalStatus || 'pending';
+  return st==='pending_approval' ? 'pending' : st;
+}
+function reportStatusPrintLabel(key){
+  const labels = {
+    pending: lang==='ar'?'بانتظار المراجعة':'Pending',
+    approved: lang==='ar'?'معتمد':'Approved',
+    rejected: lang==='ar'?'مرفوض':'Rejected',
+    needs_recleaning: lang==='ar'?'مصعد':'Escalated'
+  };
+  return labels[key] || tr(key);
+}
+function reportAnalytics(items){
+  const total = items.length;
+  const statuses = {};
+  const byType = {};
+  const byDay = {};
+  const byLocation = {};
+  const byWorker = {};
+  let qualitySum = 0;
+  let photoTotal = 0;
+  for(const r of items){
+    const q = qualityScore(r);
+    qualitySum += q;
+    photoTotal += imgList(r).length;
+    const st = reportStatusKey(r);
+    statuses[st] = (statuses[st]||0)+1;
+    const type = tr(r.locationType||'other');
+    byType[type] = (byType[type]||0)+1;
+    const day = reportDayKey(r.createdAt);
+    if(!byDay[day]) byDay[day] = { count:0, quality:0 };
+    byDay[day].count += 1;
+    byDay[day].quality += q;
+    const loc = lang==='ar'?r.locationNameAr:r.locationNameEn;
+    if(!byLocation[loc]) byLocation[loc] = { count:0, quality:0 };
+    byLocation[loc].count += 1;
+    byLocation[loc].quality += q;
+    const worker = r.workerName || (lang==='ar'?'غير محدد':'Unknown');
+    if(!byWorker[worker]) byWorker[worker] = { count:0, quality:0 };
+    byWorker[worker].count += 1;
+    byWorker[worker].quality += q;
+  }
+  const averageQuality = total ? Math.round(qualitySum/total) : 0;
+  const coveredLocations = Object.keys(byLocation).length;
+  const topLocations = Object.entries(byLocation)
+    .map(([label,v])=>({label,count:v.count,quality:Math.round(v.quality/v.count)}))
+    .sort((a,b)=>b.count-a.count||a.quality-b.quality).slice(0,5);
+  const workerRank = Object.entries(byWorker)
+    .map(([label,v])=>({label,count:v.count,quality:Math.round(v.quality/v.count)}))
+    .filter(x=>x.count>=1)
+    .sort((a,b)=>b.quality-a.quality||b.count-a.count);
+  const dailyQuality = Object.entries(byDay)
+    .sort(([a],[b])=>a.localeCompare(b))
+    .map(([label,v])=>({label:label.slice(5),count:v.count,quality:Math.round(v.quality/v.count)}));
+  return { total, statuses, byType, dailyQuality, averageQuality, coveredLocations, photoTotal, topLocations, workerRank };
+}
+function chartBars(entries, opts={}){
+  const max = Math.max(1, ...entries.map(e=>e.value));
+  return `<div class="printChart-bars">${entries.map(e=>`
+    <div class="printChart-row">
+      <div class="printChart-label">${esc(e.label)}</div>
+      <div class="printChart-track"><div class="printChart-fill ${esc(opts.cls||'')}" style="width:${Math.max(3,Math.round((e.value/max)*100))}%"></div></div>
+      <div class="printChart-value">${esc(e.display ?? e.value)}</div>
+    </div>`).join('')}</div>`;
+}
+function qualityBars(entries){
+  return `<div class="printChart-columns">${entries.slice(-14).map(e=>`
+    <div class="printChart-col">
+      <div class="printChart-colValue">${num(e.quality)}%</div>
+      <div class="printChart-colTrack"><div class="printChart-colFill" style="height:${Math.max(4,e.quality)}%"></div></div>
+      <div class="printChart-colLabel">${esc(e.label)}</div>
+    </div>`).join('')}</div>`;
+}
 
 function reports(){
-  const maintenanceContext=isMaintenanceRole()||adminModuleContext==='maintenance'||(data.reports||[]).some(r=>r.module==='maintenance')&&!(data.reports||[]).some(r=>r.module==='cleaning');
+  const maintenanceContext=reportModuleContext()==='maintenance';
   const maintFilterKeys=['pending','approved','rejected','needs_recleaning','all'];
   const cleaningFilterKeys=['new','pending','approved','needs_recleaning','all'];
   // Reset filter if it belongs to the opposite context (e.g. 'new' chip doesn't exist in maintenance)
@@ -3959,16 +4105,7 @@ function reports(){
     {key:'needs_recleaning',label:lang==='ar'?'مصعد':'Escalated'},
     {key:'all',label:tr('filterAll')},
   ];
-  const moduleFilter=maintenanceContext?'maintenance':'cleaning';
-  const filtered = (data.reports||[]).filter(r=>{
-    if((r.module||'cleaning')!==moduleFilter) return false;
-    if(reportDateFilter && reportDayKey(r.createdAt)!==reportDateFilter) return false;
-    if(reportFilter==='all') return true;
-    if(reportFilter==='new' || reportFilter==='pending') {
-      return (r.approvalStatus||'pending')==='pending_approval'||(r.approvalStatus||'pending')==='pending';
-    }
-    return r.approvalStatus===reportFilter;
-  });
+  const filtered = filteredReports();
   return`
 <div class="pageHeader">
   <div class="pageHeader-left">
@@ -3980,8 +4117,8 @@ function reports(){
     ${me.role!=='cleaning_supervisor'?`<details class="exportMenu">
       <summary class="btn secondary sm">${ic('reports',14)} ${lang==='ar'?'تصدير':'Export'}</summary>
       <div class="exportMenu-list">
-        <button ${uiAction('exportExcelReports',[])}>${ic('arrow',14)} ${lang==='ar'?'Excel':'Excel'}</button>
-        <button ${uiAction('exportPDFReports',[])}>${ic('reports',14)} ${lang==='ar'?'PDF':'PDF'}</button>
+        <button ${uiAction('openReportExportModal',['csv'])}>${ic('arrow',14)} ${lang==='ar'?'Excel':'Excel'}</button>
+        <button ${uiAction('openReportExportModal',['pdf'])}>${ic('reports',14)} ${lang==='ar'?'PDF':'PDF'}</button>
       </div>
     </details>`:''}
   </div>
@@ -4182,61 +4319,192 @@ async function deleteReport(id){
   await load();
 }
 
+function openReportExportModal(type='pdf'){
+  const defaults = reportExportDefaults();
+  const kind = type === 'csv' ? 'csv' : 'pdf';
+  const body = `<div class="formGrid reportExportForm">
+    ${fc(lang==='ar'?'من تاريخ':'From date',`<input id="repExportFrom" class="ctrl" type="date" value="${esc(defaults.from)}">`)}
+    ${fc(lang==='ar'?'إلى تاريخ':'To date',`<input id="repExportTo" class="ctrl" type="date" value="${esc(defaults.to)}">`)}
+    <div class="field field-wide">
+      <label>${lang==='ar'?'اختصارات النطاق':'Date presets'}</label>
+      <div class="reportExportPresets">
+        <button class="btn secondary sm" ${uiAction('applyReportExportPreset',['today'])}>${lang==='ar'?'اليوم':'Today'}</button>
+        <button class="btn secondary sm" ${uiAction('applyReportExportPreset',['yesterday'])}>${lang==='ar'?'أمس':'Yesterday'}</button>
+        <button class="btn secondary sm" ${uiAction('applyReportExportPreset',['7days'])}>${lang==='ar'?'آخر 7 أيام':'Last 7 days'}</button>
+        <button class="btn secondary sm" ${uiAction('applyReportExportPreset',['month'])}>${lang==='ar'?'هذا الشهر':'This month'}</button>
+        <button class="btn secondary sm" ${uiAction('applyReportExportPreset',['prevMonth'])}>${lang==='ar'?'الشهر السابق':'Previous month'}</button>
+      </div>
+    </div>
+    <div class="field field-wide">
+      <label>${lang==='ar'?'محتوى التقرير':'Report content'}</label>
+      <div class="text-muted-sm">${lang==='ar'
+        ? 'سيتم تطبيق فلتر الحالة الحالي، مع النطاق الزمني المحدد هنا.'
+        : 'The current status filter will be applied with this date range.'}</div>
+    </div>
+  </div>`;
+  const footer = `<button class="btn" ${uiAction(kind==='csv'?'exportReportsCsvFromModal':'exportReportsPdfFromModal',[])}>
+      ${ic(kind==='csv'?'arrow':'reports',14)} ${kind==='csv'?(lang==='ar'?'تصدير Excel':'Export Excel'):(lang==='ar'?'تصدير PDF':'Export PDF')}
+    </button>
+    <button class="btn secondary" ${uiAction('runUiFlow',['close-element','reportExportModal'])}>${tr('cancel')}</button>`;
+  showModal('reportExportModal', `${ic('reports',16)} ${lang==='ar'?'إعداد التقرير':'Report export'}`, body, footer, {wide:true});
+}
+
+function applyReportExportPreset(preset){
+  const today = new Date();
+  let from = localDateInputValue(today);
+  let to = from;
+  if(preset==='yesterday'){
+    const d = new Date();
+    d.setDate(d.getDate()-1);
+    from = to = localDateInputValue(d);
+  } else if(preset==='7days'){
+    const d = new Date();
+    d.setDate(d.getDate()-6);
+    from = localDateInputValue(d);
+  } else if(preset==='month'){
+    from = monthStartValue(today);
+  } else if(preset==='prevMonth'){
+    const range = previousMonthRange();
+    from = range.from; to = range.to;
+  }
+  const fromEl = document.getElementById('repExportFrom');
+  const toEl = document.getElementById('repExportTo');
+  if(fromEl) fromEl.value = from;
+  if(toEl) toEl.value = to;
+}
+
+function reportExportRangeFromModal(){
+  const from = document.getElementById('repExportFrom')?.value || '';
+  const to = document.getElementById('repExportTo')?.value || '';
+  const fixed = from && to && from > to ? { from: to, to: from } : { from, to };
+  reportExportRange = fixed;
+  return fixed;
+}
+
+function reportExportItemsFromModal(){
+  const range = reportExportRangeFromModal();
+  return { range, items: filteredReports({ from: range.from, to: range.to }) };
+}
+
 function exportExcelReports(){
-  const items=(data.reports||[]).filter(r=>{
-    if(reportFilter==='all') return true;
-    if(reportFilter==='pending') return (r.approvalStatus||'pending')==='pending_approval'||(r.approvalStatus||'pending')==='pending';
-    return r.approvalStatus===reportFilter;
-  });
+  openReportExportModal('csv');
+}
+
+function exportReportsCsvFromModal(){
+  const { range, items } = reportExportItemsFromModal();
   const headers=lang==='ar'
-    ? ['#','العامل','الموقع','النوع','الحالة','الجودة','الاعتماد','التاريخ','الملاحظات']
-    : ['#','Worker','Location','Type','Status','Quality','Approval','Date','Notes'];
+    ? ['#','رقم التقرير','العامل','الموقع','النوع','الحالة','الجودة','الاعتماد','الصور','التاريخ','الملاحظات']
+    : ['#','Report ID','Worker','Location','Type','Status','Quality','Approval','Photos','Date','Notes'];
   const rows=[headers,...items.map((r,i)=>[
-    i+1, r.workerName,
+    i+1, r.referenceNo||r.id, r.workerName,
     lang==='ar'?r.locationNameAr:r.locationNameEn,
     tr(r.locationType||'other'),
     tr(r.status), qualityScore(r)+'%',
     tr(r.approvalStatus||'pending_approval'),
+    imgList(r).length,
     fmt(r.createdAt), r.notes||''
   ])];
   const csv='﻿'+rows.map(row=>row.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
-  a.download=`mrfq-reports-${new Date().toISOString().slice(0,10)}.csv`;
+  a.download=`mrfq-reports-${range.from||'all'}-${range.to||'all'}.csv`;
   a.click();
+  document.getElementById('reportExportModal')?.remove();
   toast(lang==='ar'?'تم تصدير الملف':'File exported','ok');
 }
 
 function exportPDFReports(){
-  const items=(data.reports||[]).filter(r=>{
-    if(reportFilter==='all') return true;
-    if(reportFilter==='pending') return (r.approvalStatus||'pending')==='pending_approval'||(r.approvalStatus||'pending')==='pending';
-    return r.approvalStatus===reportFilter;
-  });
+  openReportExportModal('pdf');
+}
+
+function exportReportsPdfFromModal(){
+  const { range, items } = reportExportItemsFromModal();
+  document.getElementById('reportExportModal')?.remove();
+  const analytics = reportAnalytics(items);
+  const statusEntries = ['approved','pending','needs_recleaning','rejected']
+    .map(key=>({label:reportStatusPrintLabel(key),value:analytics.statuses[key]||0}))
+    .filter(x=>x.value>0);
+  const typeEntries = Object.entries(analytics.byType)
+    .map(([label,value])=>({label,value}))
+    .sort((a,b)=>b.value-a.value).slice(0,6);
+  const topLocationEntries = analytics.topLocations.map(x=>({label:x.label,value:x.count,display:`${x.count} · ${x.quality}%`}));
+  const topWorker = analytics.workerRank[0];
+  const lowWorker = analytics.workerRank.length>1 ? analytics.workerRank[analytics.workerRank.length-1] : null;
   const dir=lang==='ar'?'rtl':'ltr';
+  const period = reportPeriodLabel(range.from, range.to);
+  const statusLabel = reportFilter==='all' ? (lang==='ar'?'كل الحالات':'All statuses') : reportStatusPrintLabel(reportFilter==='new'?'pending':reportFilter);
   const html=`<!DOCTYPE html><html lang="${lang}" dir="${dir}"><head><meta charset="utf-8">
 <title>MRFQ — ${tr('reports')}</title>
 <link rel="stylesheet" href="/css/print.css"></head><body>
+<section class="cover">
+  <div class="cover-brand">MRFQ — مرفق</div>
+  <h1>${lang==='ar'?'تقرير النظافة التنفيذي':'Executive Cleaning Report'}</h1>
+  <div class="cover-meta">${period} · ${statusLabel}</div>
+  <div class="cover-issued">${lang==='ar'?'مُصدَّر بواسطة':'Exported by'}: ${esc(me.name)} · ${fmtFull(new Date())}</div>
+</section>
+
+<section class="summaryPage">
+  <div class="header compact">
+    <div><div class="brand">مِرفق — MRFQ</div><div class="meta">${lang==='ar'?'ملخص تنفيذي':'Executive Summary'} · ${period}</div></div>
+    <div class="meta">${analytics.total} ${lang==='ar'?'تقرير':'records'}</div>
+  </div>
+  <div class="kpiGrid">
+    <div class="kpiBox"><span>${lang==='ar'?'إجمالي التقارير':'Total reports'}</span><strong>${num(analytics.total)}</strong></div>
+    <div class="kpiBox"><span>${lang==='ar'?'متوسط الجودة':'Avg quality'}</span><strong>${num(analytics.averageQuality)}%</strong></div>
+    <div class="kpiBox"><span>${lang==='ar'?'المواقع المغطاة':'Covered locations'}</span><strong>${num(analytics.coveredLocations)}</strong></div>
+    <div class="kpiBox"><span>${lang==='ar'?'إجمالي الصور':'Total photos'}</span><strong>${num(analytics.photoTotal)}</strong></div>
+  </div>
+  <div class="chartGrid">
+    <div class="chartCard">
+      <h2>${lang==='ar'?'توزيع الاعتماد':'Approval distribution'}</h2>
+      ${statusEntries.length?chartBars(statusEntries,{cls:'status'}):`<div class="emptyPrint">${lang==='ar'?'لا توجد بيانات':'No data'}</div>`}
+    </div>
+    <div class="chartCard">
+      <h2>${lang==='ar'?'التقارير حسب نوع الموقع':'Reports by location type'}</h2>
+      ${typeEntries.length?chartBars(typeEntries,{cls:'type'}):`<div class="emptyPrint">${lang==='ar'?'لا توجد بيانات':'No data'}</div>`}
+    </div>
+  </div>
+  <div class="chartCard wide">
+    <h2>${lang==='ar'?'متوسط الجودة اليومي':'Daily average quality'}</h2>
+    ${analytics.dailyQuality.length?qualityBars(analytics.dailyQuality):`<div class="emptyPrint">${lang==='ar'?'لا توجد بيانات':'No data'}</div>`}
+  </div>
+  <div class="chartGrid">
+    <div class="chartCard">
+      <h2>${lang==='ar'?'أكثر المواقع تكرارا':'Most frequent locations'}</h2>
+      ${topLocationEntries.length?chartBars(topLocationEntries,{cls:'location'}):`<div class="emptyPrint">${lang==='ar'?'لا توجد بيانات':'No data'}</div>`}
+    </div>
+    <div class="chartCard insightCard">
+      <h2>${lang==='ar'?'مؤشرات العاملين':'Worker indicators'}</h2>
+      <div class="insightLine"><span>${lang==='ar'?'أعلى جودة':'Highest quality'}</span><strong>${topWorker?`${esc(topWorker.label)} · ${num(topWorker.quality)}%`:'—'}</strong></div>
+      <div class="insightLine"><span>${lang==='ar'?'أقل جودة':'Lowest quality'}</span><strong>${lowWorker?`${esc(lowWorker.label)} · ${num(lowWorker.quality)}%`:'—'}</strong></div>
+      <div class="insightLine"><span>${lang==='ar'?'فلتر الحالة':'Status filter'}</span><strong>${esc(statusLabel)}</strong></div>
+    </div>
+  </div>
+</section>
+
+<section class="detailPage">
 <div class="header">
-  <div><div class="brand">مِرفق — MRFQ</div><div class="meta">${tr('reports')} · ${fmtDate(new Date())} · ${items.length} ${lang==='ar'?'تقرير':'records'}</div></div>
+  <div><div class="brand">مِرفق — MRFQ</div><div class="meta">${tr('reports')} · ${period} · ${items.length} ${lang==='ar'?'تقرير':'records'}</div></div>
   <div class="meta">${lang==='ar'?'مُصدَّر بواسطة: ':'Exported by: '}${esc(me.name)}</div>
 </div>
 <table><thead><tr>
-  <th>#</th><th>${tr('worker')}</th><th>${tr('location')}</th>
-  <th>${lang==='ar'?'الجودة':'Quality'}</th><th>${lang==='ar'?'الاعتماد':'Approval'}</th><th>${tr('time')}</th>
+  <th>#</th><th>${lang==='ar'?'رقم التقرير':'Report ID'}</th><th>${tr('worker')}</th><th>${tr('location')}</th>
+  <th>${lang==='ar'?'الجودة':'Quality'}</th><th>${lang==='ar'?'الاعتماد':'Approval'}</th><th>${lang==='ar'?'الصور':'Photos'}</th><th>${tr('time')}</th>
 </tr></thead><tbody>
 ${items.map((r,i)=>{
   const st=r.approvalStatus||'pending_approval';
   const cls=st==='approved'?'ok':st==='rejected'||st==='needs_recleaning'?'bad':'warn';
-  return`<tr><td>${i+1}</td><td>${esc(r.workerName)}</td>
+  return`<tr><td>${i+1}</td><td class="no-wrap">${esc(r.referenceNo||r.id)}</td><td>${esc(r.workerName)}</td>
     <td>${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}<br><small class="text-gray-8a">${tr(r.locationType||'other')}</small></td>
     <td>${qualityScore(r)}%</td>
     <td class="${cls}">${reportStatusLabel(r)}</td>
+    <td>${imgList(r).length}</td>
     <td class="no-wrap">${fmt(r.createdAt)}</td>
-  </tr>${r.notes?`<tr><td></td><td colspan="5" class="note-row">${esc(r.notes)}</td></tr>`:''}`;
+  </tr>${r.notes?`<tr><td></td><td colspan="7" class="note-row">${esc(r.notes)}</td></tr>`:''}`;
 }).join('')}
 </tbody></table>
 <div class="footer">مِرفق — MRFQ · ${new Date().toISOString().slice(0,10)}</div>
+</section>
 </body></html>`;
   const w=window.open('','_blank','width=900,height=700');
   w.document.write(html);

@@ -957,6 +957,9 @@ tbody tr:hover td{background:var(--surface-2)}
 }
 .reportDateTools{display:flex;align-items:center;gap:8px;margin-inline-start:auto}
 .reportDateTools input{width:150px}
+.reportExportForm .field-wide{grid-column:1/-1}
+.reportExportPresets{display:flex;flex-wrap:wrap;gap:8px}
+.text-muted-sm{font-size:12px;color:var(--muted);line-height:1.7}
 
 /* Sync */
 .tb-sync{
@@ -2139,6 +2142,7 @@ tbody tr:hover td{background:var(--surface-2)}
   .reportTabs .filterChip{flex:0 0 auto;min-width:86px}
   .reportDateTools{width:100%;margin-inline-start:0}
   .reportDateTools input{flex:1;width:auto}
+  .reportExportPresets .btn{flex:1 1 130px}
   .usersFilterBar input.ctrl,.usersFilterBar select.ctrl,.filterBar .ctrl,.ctrl-flex{
     width:100%;min-width:0;min-height:46px;
   }
