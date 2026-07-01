@@ -40,6 +40,7 @@ let maintenanceScheduleId;
 let maintenanceTeamOrderId;
 let employeeMaintenanceTicketId;
 let employeeCleaningTicketId;
+let administrativeCoordinatorId;
 
 /* ── cookie-aware fetch helper ─────────────────────────────────── */
 function client() {
@@ -288,6 +289,63 @@ test('role: manager can manage users, supervisor cannot', async () => {
   const rMgr = await manager('/api/users', { method: 'POST', body: JSON.stringify(newUser) });
   assert.equal(rMgr.status, 200);
   tmpUserId = rMgr.body.user.id;
+});
+
+test('system administrative coordinator is read-only admin with follow-up access', async () => {
+  const admin = await login('admin', PASSWORDS.admin);
+  const created = await admin('/api/users', { method: 'POST', body: JSON.stringify({
+    username: 'admin-coordinator',
+    name: 'Administrative Coordinator',
+    password: 'CoordPass123!',
+    role: 'system_administrative_coordinator'
+  }) });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  administrativeCoordinatorId = created.body.user.id;
+
+  const coordinator = await login('admin-coordinator', 'CoordPass123!');
+  const boot = await coordinator('/api/bootstrap');
+  assert.equal(boot.status, 200);
+  assert.equal(boot.body.user.role, 'system_administrative_coordinator');
+  assert.ok(Array.isArray(boot.body.users));
+  assert.ok(Array.isArray(boot.body.locations));
+  assert.ok(Array.isArray(boot.body.tickets));
+  assert.ok(Array.isArray(boot.body.reports));
+  assert.ok(boot.body.cleaningAutoRestroom);
+
+  const csv = await coordinator('/api/reports.csv');
+  assert.equal(csv.status, 200);
+
+  const ticket = boot.body.tickets[0] || (await admin('/api/tickets', { method: 'POST', body: JSON.stringify({
+    locationId: 'lobby-gf',
+    title: 'Coordinator permission smoke',
+    description: 'permission smoke',
+    priority: 'medium',
+    supervisorId: 'u-s1'
+  }) })).body.ticket;
+  assert.ok(ticket?.id);
+
+  const comment = await coordinator(`/api/tickets/${ticket.id}/comments`, {
+    method: 'POST',
+    body: JSON.stringify({ body: 'متابعة إدارية' })
+  });
+  assert.equal(comment.status, 200, JSON.stringify(comment.body));
+
+  const deleteOwnComment = await coordinator(`/api/comments/${comment.body.comment.id}`, { method: 'DELETE' });
+  assert.equal(deleteOwnComment.status, 403);
+
+  const createUser = await coordinator('/api/users', { method: 'POST', body: JSON.stringify({
+    username: 'coord-denied',
+    name: 'Denied',
+    password: 'Denied123!',
+    role: 'employee'
+  }) });
+  assert.equal(createUser.status, 403);
+
+  const settings = await coordinator('/api/settings', { method: 'POST', body: JSON.stringify({ frequency_minutes: 90 }) });
+  assert.equal(settings.status, 403);
+
+  const deleteTicket = await coordinator(`/api/tickets/${ticket.id}`, { method: 'DELETE' });
+  assert.equal(deleteTicket.status, 403);
 });
 
 test('cleaning_manager bootstrap is scoped to cleaning users only', async () => {

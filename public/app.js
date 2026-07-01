@@ -4,7 +4,8 @@
    ══════════════════════════════════════════════════════════════ */
 
 /* ─── CONSTANTS ──────────────────────────────────────────────── */
-const ROLES = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','cleaner','employee','hospitality_manager','hospitality_supervisor','hospitality_worker','maintenance_manager','maintenance_supervisor','maintenance_worker'];
+const ADMIN_COORDINATOR_ROLE = 'system_administrative_coordinator';
+const ROLES = ['system_admin','facility_manager',ADMIN_COORDINATOR_ROLE,'cleaning_manager','cleaning_supervisor','cleaner','employee','hospitality_manager','hospitality_supervisor','hospitality_worker','maintenance_manager','maintenance_supervisor','maintenance_worker'];
 const TYPES = ['restroom','lobby','office','meeting_room','pantry','corridor','prayer_room','elevator','entrance','parking','outdoor','safety_asset','camera','other'];
 
 // ===== Facility Constants =====
@@ -57,7 +58,7 @@ const T = {
     name:'الاسم',username:'اسم المستخدم',password:'كلمة المرور',role:'الصلاحية',
     employeeNo:'رقم الموظف',save:'حفظ',addUser:'إضافة مستخدم',edit:'تعديل',cancel:'إلغاء',
     activeUser:'نشط',inactive:'معطل',
-    system_admin:'مدير النظام',facility_manager:'مدير المرافق',
+    system_admin:'مدير النظام',facility_manager:'مدير المرافق',system_administrative_coordinator:'منسق إداري للنظام',
     cleaning_manager:'مدير النظافة',cleaning_supervisor:'مشرف النظافة',cleaner:'عامل نظافة',
     hospitality_manager:'مدير الضيافة',hospitality_supervisor:'مشرف الضيافة',hospitality_worker:'عامل ضيافة',
     maintenance_manager:'مدير الصيانة',maintenance_supervisor:'مشرف الصيانة',maintenance_worker:'فني صيانة',
@@ -286,7 +287,7 @@ const T = {
     name:'Name',username:'Username',password:'Password',role:'Role',
     employeeNo:'Employee No.',save:'Save',addUser:'Add User',edit:'Edit',cancel:'Cancel',
     activeUser:'Active',inactive:'Inactive',
-    system_admin:'System Admin',facility_manager:'Facility Manager',
+    system_admin:'System Admin',facility_manager:'Facility Manager',system_administrative_coordinator:'System Administrative Coordinator',
     cleaning_manager:'Cleaning Manager',cleaning_supervisor:'Supervisor',cleaner:'Cleaner',
     hospitality_manager:'Hospitality Manager',hospitality_supervisor:'Hospitality Supervisor',hospitality_worker:'Hospitality Worker',
     worker:'Worker',location:'Location',time:'Time',status:'Status',
@@ -1089,7 +1090,7 @@ function normalizeRouteState(){
 
   const adminViews = ['dashboard','modules','users','roles','locations','facilities','assets','maps','products','kitchens','inventory','reports','audit','settings','recurringTasks'];
   const fmViews = ['dashboard','modules','locations','facilities','assets','maps','inventory','reports','recurringTasks'];
-  const mainViews = ['dashboard','reports','tickets','locations','assignments','users','recurringTasks','performance'];
+  const mainViews = ['dashboard','reports','tickets','locations','assignments','users','recurringTasks','performance','audit'];
   const cleaningViews = ['dashboard','reports','tickets','locations','assignments','users','recurringTasks','performance'];
   const supervisorViews = ['dashboard','requests','reports','team','schedules','utilities'];
   const maintViews = ['dashboard','orders','schedules','assets','parts','team','reports','performance','utilities'];
@@ -1099,6 +1100,10 @@ function normalizeRouteState(){
   if(me.role==='facility_manager' && !adminModuleContext) adminView = pickRouteValue(adminView, fmViews, 'dashboard');
   if(adminModuleContext==='cleaning') view = pickRouteValue(view, cleaningViews, 'dashboard');
   else view = pickRouteValue(view, mainViews, 'dashboard');
+  if(isAdministrativeCoordinator()){
+    const coordinatorViews = ['dashboard','reports','tickets','locations','users','audit'];
+    view = pickRouteValue(view, coordinatorViews, 'dashboard');
+  }
 
   if(me.role==='employee') employeeView = pickRouteValue(employeeView, ['home','new','history'], 'home');
   if(me.role==='cleaner') workerView = pickRouteValue(workerView, ['task','assigned','reports'], 'task');
@@ -1606,7 +1611,8 @@ function openTicketCount(module=activeTicketModule(), items=data?.tickets||[]){
 function pendingReportCount(module=activeTicketModule(), items=data?.reports||[]){
   return (items||[]).filter(r=>reportMatchesModule(r,module) && ['pending','pending_approval'].includes(r.approvalStatus||'pending')).length;
 }
-function canUsers(){return canManageGlobalUsers()||canManageModuleTeam()}
+function isAdministrativeCoordinator(role=me?.role){return role===ADMIN_COORDINATOR_ROLE}
+function canUsers(){return canManageGlobalUsers()||canManageModuleTeam()||isAdministrativeCoordinator()}
 function canManageUsers(){return canManageGlobalUsers()||canManageModuleTeam()}
 function canManage(){return ['system_admin','facility_manager','cleaning_manager','maintenance_manager'].includes(me.role)}
 function canTicket(){return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','maintenance_manager','maintenance_supervisor'].includes(me.role)}
@@ -1619,6 +1625,9 @@ function canManageModuleTeam(){return window.MRFQPermissions.canManageModuleTeam
 function canViewExecutiveReports(){return window.MRFQPermissions.canViewExecutiveReports(me.role)}
 function canManageSystemSettings(){return window.MRFQPermissions.canManageSystemSettings(me.role)}
 function canManageFacilities(){return window.MRFQPermissions.canManageFacilities(me.role)}
+function canViewFacilities(){return window.MRFQPermissions.canViewFacilities(me.role)}
+function canViewAuditLog(){return window.MRFQPermissions.canViewAuditLog(me.role)}
+function canExportReports(){return window.MRFQPermissions.canExportReports(me.role)}
 function canViewCleaningTeam(){return me.role==='cleaning_manager'}
 function canManageHospitalityMenu(){return ['system_admin','hospitality_manager'].includes(me.role)}
 function canHospitalityAssign(){return ['system_admin','facility_manager','hospitality_manager','hospitality_supervisor'].includes(me.role)}
@@ -1759,7 +1768,7 @@ function locationStatusCardMeta(status){
 }
 
 function roleBadgeClass(role){
-  return {system_admin:'role-admin',facility_manager:'role-fm',cleaning_manager:'role-cleaning-manager',cleaning_supervisor:'role-cs',cleaner:'role-cleaner',hospitality_manager:'role-cleaning-manager',hospitality_supervisor:'role-cs',hospitality_worker:'role-cleaner',maintenance_manager:'role-cleaning-manager',maintenance_supervisor:'role-cs',maintenance_worker:'role-cleaner'}[role]||'';
+  return {system_admin:'role-admin',facility_manager:'role-fm',system_administrative_coordinator:'role-fm',cleaning_manager:'role-cleaning-manager',cleaning_supervisor:'role-cs',cleaner:'role-cleaner',hospitality_manager:'role-cleaning-manager',hospitality_supervisor:'role-cs',hospitality_worker:'role-cleaner',maintenance_manager:'role-cleaning-manager',maintenance_supervisor:'role-cs',maintenance_worker:'role-cleaner'}[role]||'';
 }
 
 
@@ -2154,8 +2163,10 @@ function render(){
   if(_lastView==='locations' && view!=='locations'){ locsFloorFilter='all'; }
   if(_lastView==='assignments' && view!=='assignments'){ assignFloorFilter='all'; assignFloorFilters=['all']; }
   _lastView = view;
-  // Facilities (locations) management is restricted to system admin / facility manager.
-  if(view==='locations' && !canManageFacilities()) view='dashboard';
+  if(view==='locations' && !canViewFacilities()) view='dashboard';
+  if(view==='users' && !canUsers()) view='dashboard';
+  if(view==='audit' && !canViewAuditLog()) view='dashboard';
+  if(isAdministrativeCoordinator() && ['assignments','recurringTasks','performance'].includes(view)) view='dashboard';
   if(view==='performance'){
     shell(`<div class="u-text-center-p-40">${ic('clock',28)}</div>`);
     performance().then(html=>{
@@ -2164,7 +2175,7 @@ function render(){
     });
     return;
   }
-  const fn = {dashboard:dash,reports:reports,tickets:tickets,locations:locations,assignments:assignments,users:users,recurringTasks:recurringTasksPage}[view]||dash;
+  const fn = {dashboard:dash,reports:reports,tickets:tickets,locations:locations,assignments:assignments,users:users,recurringTasks:recurringTasksPage,audit:adminAuditLog}[view]||dash;
   shell(fn());
   if(view==='assignments') setTimeout(fillAssign, 0);
 }
@@ -2307,11 +2318,12 @@ function shell(content){
         </div>
         <div class="nav-section">
           <span class="nav-section-label">${tr('management')}</span>
-          ${canManageFacilities()?navItem('locations',tr('locations'),'locations',0):''}
-          ${navItem('assignments',tr('assignments'),'assignments',0)}
+          ${canViewFacilities()?navItem('locations',tr('locations'),'locations',0):''}
+          ${!isAdministrativeCoordinator()?navItem('assignments',tr('assignments'),'assignments',0):''}
           ${canUsers()?navItem('users',canViewCleaningTeam()?tr('cleaningTeam'):tr('users'),'users',0):''}
           ${canReview()?navItem('performance',tr('performance'),'bar-chart',0):''}
           ${['cleaning_manager','cleaning_supervisor'].includes(me.role)?navItem('recurringTasks',lang==='ar'?'مهام متكررة':'Recurring','refresh',0):''}
+          ${canViewAuditLog()?navItem('audit',tr('auditLog'),'list',0):''}
         </div>
       </div>
     </aside>
@@ -2349,7 +2361,7 @@ function countBubble(value, tone='brand'){
 
 function renderMobileBottomNav(openTickets=0, pendingReports=0){
   const role = me?.role || '';
-  const isAdmin = !['employee','cleaner','cleaning_supervisor'].includes(role) && (canManage() || canReview() || role==='cleaning_manager' || role==='facility_manager');
+  const isAdmin = !['employee','cleaner','cleaning_supervisor'].includes(role) && (canManage() || canReview() || role==='cleaning_manager' || role==='facility_manager' || isAdministrativeCoordinator(role));
   const activeKey = mobileNavActive || view;
   let primary = [];
   let showMore = isAdmin;
@@ -2450,7 +2462,7 @@ function renderMobileBottomNav(openTickets=0, pendingReports=0){
       {v:'dashboard', label:tr('dashboard'), icon:'dashboard', count:0},
       {v:'tickets', label:tr('tickets'), icon:'tickets', count:openTickets},
       {v:'reports', label:tr('reports'), icon:'reports', count:pendingReports},
-      ...(canManageFacilities()?[{v:'locations', label:tr('locations'), icon:'locations', count:0}]:[])
+      ...(canViewFacilities()?[{v:'locations', label:tr('locations'), icon:'locations', count:0}]:[])
     ];
   }
   const anyPrimaryActive = primary.some(item=>item.active || activeKey===item.v || (isAdmin && view===item.v));
@@ -2493,10 +2505,11 @@ function showMobileNavMore(){
       {v:'dashboard', label:tr('dashboard'), icon:'dashboard'},
       {v:'tickets', label:tr('tickets'), icon:'tickets'},
       {v:'reports', label:tr('reports'), icon:'reports'},
-      ...(canManageFacilities()?[{v:'locations', label:tr('locations'), icon:'locations'}]:[]),
-      {v:'assignments', label:tr('assignments'), icon:'assignments'},
+      ...(canViewFacilities()?[{v:'locations', label:tr('locations'), icon:'locations'}]:[]),
+      ...(!isAdministrativeCoordinator()?[{v:'assignments', label:tr('assignments'), icon:'assignments'}]:[]),
       ...(canUsers()?[{v:'users', label:canViewCleaningTeam()?tr('cleaningTeam'):tr('users'), icon:'users'}]:[]),
-      ...(canReview()?[{v:'performance', label:tr('performance'), icon:'bar-chart'}]:[])
+      ...(canReview()?[{v:'performance', label:tr('performance'), icon:'bar-chart'}]:[]),
+      ...(canViewAuditLog()?[{v:'audit', label:tr('auditLog'), icon:'list'}]:[])
     ];
   }
   const body = `<div class="mobileMoreGrid">
@@ -2940,6 +2953,7 @@ function adminRoles(){
   const ROLE_INFO = [
     {role:'system_admin', descAr:'صلاحية كاملة على المنصة: كل الأقسام، المستخدمون، الأدوار، الإعدادات العامة.', descEn:'Full platform access: all modules, users, roles, and global settings.'},
     {role:'facility_manager', descAr:'إدارة عامة للمرافق والمواقع وملخصات تشغيلية حسب الصلاحيات المتاحة.', descEn:'General facilities and locations management with available operational summaries.'},
+    {role:'system_administrative_coordinator', descAr:'متابعة إدارية محدودة: عرض البلاغات والتقارير والمرافق والمستخدمين وسجل النشاط، مع منع الحذف والإعدادات والاعتماد النهائي.', descEn:'Limited administrative follow-up: views requests, reports, facilities, users, and activity logs without delete, settings, or final approval access.'},
     {role:'cleaning_manager', descAr:'إدارة كاملة لوحدة النظافة: البلاغات، العمال، التقارير، الأداء.', descEn:'Full management of the Cleaning Module: tickets, workers, reports, performance.'},
     {role:'cleaning_supervisor', descAr:'إشراف ميداني على بلاغات النظافة والتحقق من التقارير.', descEn:'Field supervision of cleaning tickets and report verification.'},
     {role:'cleaner', descAr:'تنفيذ مهام التنظيف المسندة ورفع التقارير بالصور.', descEn:'Performs assigned cleaning tasks and submits photo reports.'},
@@ -3497,7 +3511,7 @@ function mapSelectedStatusPoint(code){
 }
 function mapAssignableUsers(){
   const active=(data.users||[]).filter(u=>u.active!==false);
-  const rank={system_admin:0,facility_manager:1,employee:2,cleaning_manager:3,maintenance_manager:3,hospitality_manager:3,cleaning_supervisor:4,maintenance_supervisor:4,hospitality_supervisor:4,cleaner:5,maintenance_worker:5,hospitality_worker:5};
+  const rank={system_admin:0,facility_manager:1,system_administrative_coordinator:2,employee:2,cleaning_manager:3,maintenance_manager:3,hospitality_manager:3,cleaning_supervisor:4,maintenance_supervisor:4,hospitality_supervisor:4,cleaner:5,maintenance_worker:5,hospitality_worker:5};
   return active.slice().sort((a,b)=>
     (rank[a.role]??9)-(rank[b.role]??9) ||
     String(a.name||a.username||'').localeCompare(String(b.name||b.username||''), lang==='ar'?'ar':'en')
@@ -3841,6 +3855,35 @@ function workerWeightedScore(w){
   return Math.round(approval*0.4 + supScore*0.3 + mgrScore*0.2 + workload*0.1);
 }
 
+function cleaningAutoRestroomCard(){
+  const auto = data.cleaningAutoRestroom;
+  if(!auto) return '';
+  const ready = auto.ready || [];
+  const missing = auto.missing || [];
+  const settings = auto.settings || {};
+  const last = (auto.lastRuns || [])[0];
+  const period = `${String(settings.startHour ?? 7).padStart(2,'0')}:00 - ${String(settings.endHour ?? 14).padStart(2,'0')}:00`;
+  return `<div class="card u-mb-16">
+    <div class="card-head">
+      <span class="card-title">${ic('refresh',16)} ${lang==='ar'?'جاهزية التقرير التلقائي لدورات المياه':'Restroom Auto Report Readiness'}</span>
+      <span class="badge ${settings.enabled!==false?'ok':'bad'}">${settings.enabled!==false?(lang==='ar'?'نشط':'Enabled'):(lang==='ar'?'متوقف':'Disabled')}</span>
+    </div>
+    <div class="perfStatGrid">
+      <div class="perfStatRow"><span class="perfStatLabel">${lang==='ar'?'وقت التشغيل':'Run window'}</span><span class="perfStatValue">${period}</span></div>
+      <div class="perfStatRow"><span class="perfStatLabel">${lang==='ar'?'جاهزة':'Ready'}</span><span class="perfStatValue">${num(ready.length)}</span></div>
+      <div class="perfStatRow"><span class="perfStatLabel">${lang==='ar'?'ربط ناقص':'Missing assignment'}</span><span class="perfStatValue">${num(missing.length)}</span></div>
+      <div class="perfStatRow"><span class="perfStatLabel">${lang==='ar'?'آخر تشغيل':'Last run'}</span><span class="perfStatValue">${last?`${esc(last.slotKey)} · ${num(last.generatedCount)} / ${num(last.skippedCount)}`:'—'}</span></div>
+    </div>
+    ${missing.length?`<div class="u-mt-12">
+      <div class="text-muted-11 u-mb-8">${lang==='ar'?'لن يصدر تقرير تلقائي لهذه المواقع حتى يكتمل ربط العامل والمشرف:':'No auto report is generated until worker and supervisor are assigned:'}</div>
+      <div class="chips-row">
+        ${missing.slice(0,8).map(x=>`<span class="badge bad">${esc(x.locationId)}</span>`).join('')}
+        ${missing.length>8?`<span class="badge">+${num(missing.length-8)}</span>`:''}
+      </div>
+    </div>`:''}
+  </div>`;
+}
+
 function dash(){
   const s = stats();
   const days = [6,5,4,3,2,1,0].map(i=>{
@@ -3965,6 +4008,7 @@ function dash(){
 </div>
 
 <!-- BOTTOM ROW: recent reports + activity feed -->
+${cleaningAutoRestroomCard()}
 <div class="contentGrid">
   <div class="card">
     <div class="card-head">
@@ -4898,14 +4942,14 @@ async function refreshComments(){
     list.innerHTML=`<div class="empty-state u-py-16"><div class="empty-icon">${ic('chat',24)}</div><div class="empty-title text-size-sm">${lang==='ar'?'لا توجد تعليقات بعد':'No comments yet'}</div></div>`;
     return;
   }
-  const roleLabel = r => ({system_admin:lang==='ar'?'مدير النظام':'Admin',facility_manager:lang==='ar'?'مدير المرافق':'FM',cleaning_manager:lang==='ar'?'مدير النظافة':'Cleaning Mgr',cleaning_supervisor:lang==='ar'?'مشرف نظافة':'Cleaning Sup',cleaner:lang==='ar'?'عامل نظافة':'Cleaner',maintenance_manager:lang==='ar'?'مدير الصيانة':'Maint. Mgr',maintenance_supervisor:lang==='ar'?'مشرف صيانة':'Maint. Sup',maintenance_worker:lang==='ar'?'فني صيانة':'Technician',employee:lang==='ar'?'موظف':'Employee'}[r]||r);
+  const roleLabel = r => ({system_admin:lang==='ar'?'مدير النظام':'Admin',facility_manager:lang==='ar'?'مدير المرافق':'FM',system_administrative_coordinator:lang==='ar'?'منسق إداري':'Admin Coordinator',cleaning_manager:lang==='ar'?'مدير النظافة':'Cleaning Mgr',cleaning_supervisor:lang==='ar'?'مشرف نظافة':'Cleaning Sup',cleaner:lang==='ar'?'عامل نظافة':'Cleaner',maintenance_manager:lang==='ar'?'مدير الصيانة':'Maint. Mgr',maintenance_supervisor:lang==='ar'?'مشرف صيانة':'Maint. Sup',maintenance_worker:lang==='ar'?'فني صيانة':'Technician',employee:lang==='ar'?'موظف':'Employee'}[r]||r);
   list.innerHTML = comments.map(c=>`
     <div class="commentItem${c.userId===me.id?' commentItem--mine':''}">
       <div class="commentItem-header">
         <span class="commentItem-name">${esc(c.userName)}</span>
         <span class="commentItem-role">${esc(roleLabel(c.userRole))}</span>
         <span class="commentItem-time">${fmt(c.createdAt)}</span>
-        ${(c.userId===me.id||['system_admin','facility_manager','cleaning_manager','maintenance_manager','maintenance_supervisor'].includes(me.role))
+        ${(!isAdministrativeCoordinator()&&(c.userId===me.id||['system_admin','facility_manager','cleaning_manager','maintenance_manager','maintenance_supervisor'].includes(me.role)))
           ?`<button class="commentItem-del" ${uiAction('deleteComment',[(c.id)])} title="${lang==='ar'?'حذف':'Delete'}">×</button>`:''}
       </div>
       <div class="commentItem-body">${esc(c.body)}</div>
@@ -4974,6 +5018,7 @@ function recurringTasksPage(){
     <button class="btn sm" ${uiAction('runUiFlow',['toggle-flag','showRecurringCreate','toggle'])}>${ic('plus',14)} ${lang==='ar'?'إضافة':'Add'}</button>
   </div>
 </div>
+${cleaningAutoRestroomCard()}
 ${showRecurringCreate?`
 <div class="card u-mb-16">
   <div class="card-head"><span class="card-title">${ic('plus',14)} ${lang==='ar'?'مهمة متكررة جديدة':'New Recurring Task'}</span></div>

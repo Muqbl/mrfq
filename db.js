@@ -942,6 +942,29 @@ const MIGRATIONS = {
     ALTER TABLE reports ADD COLUMN reference_no TEXT NOT NULL DEFAULT '';
     CREATE INDEX IF NOT EXISTS idx_reports_reference_no ON reports(reference_no);
   `,
+
+  /* ── v34: cleaning hourly restroom run audit ───────────────── */
+  34: `
+    INSERT OR IGNORE INTO settings VALUES ('cleaning_restroom_hourly_enabled', '1');
+    INSERT OR IGNORE INTO settings VALUES ('cleaning_restroom_hourly_start_hour', '7');
+    INSERT OR IGNORE INTO settings VALUES ('cleaning_restroom_hourly_end_hour', '14');
+
+    CREATE TABLE IF NOT EXISTS cleaning_auto_runs (
+      id              TEXT PRIMARY KEY,
+      slot_key        TEXT NOT NULL,
+      run_type        TEXT NOT NULL DEFAULT 'restroom_hourly',
+      status          TEXT NOT NULL DEFAULT 'completed',
+      generated_count INTEGER NOT NULL DEFAULT 0,
+      skipped_count   INTEGER NOT NULL DEFAULT 0,
+      skipped_payload TEXT NOT NULL DEFAULT '[]',
+      created_at      TEXT NOT NULL,
+      updated_at      TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_cleaning_auto_runs_slot_type
+      ON cleaning_auto_runs(slot_key, run_type);
+    CREATE INDEX IF NOT EXISTS idx_cleaning_auto_runs_created
+      ON cleaning_auto_runs(created_at);
+  `,
 };
 
 function _nextReferenceNumber(db, prefix = 'CLN') {

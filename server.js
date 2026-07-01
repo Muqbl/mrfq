@@ -23,7 +23,8 @@ const MAX_PHOTO_BYTES    = 5_242_880;  // 5 MB per photo
 const MAX_PHOTOS         = 10;
 const PUBLIC             = path.join(__dirname, 'public');
 const UPLOADS_DIR        = process.env.UPLOADS_PATH || path.join(__dirname, 'uploads');
-const ALLOWED_ROLES      = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor','cleaner','employee','hospitality_manager','hospitality_supervisor','hospitality_worker','maintenance_manager','maintenance_supervisor','maintenance_worker'];
+const ADMIN_COORDINATOR_ROLE = permissions.ADMIN_COORDINATOR_ROLE;
+const ALLOWED_ROLES      = ['system_admin','facility_manager',ADMIN_COORDINATOR_ROLE,'cleaning_manager','cleaning_supervisor','cleaner','employee','hospitality_manager','hospitality_supervisor','hospitality_worker','maintenance_manager','maintenance_supervisor','maintenance_worker'];
 
 /* ═══════════════════════════════════════════════════════════════
    TICKET STATUS STATE MACHINE
@@ -480,8 +481,12 @@ const mapLocationGroup = g => g ? {
 function canManageGlobalUsers(role) { return permissions.canManageGlobalUsers(role); }
 function canManageModuleTeam(role) { return permissions.canManageModuleTeam(role); }
 function canManageUsers(role) { return canManageGlobalUsers(role) || canManageModuleTeam(role); }
+function canViewUsers(role) { return permissions.canViewUsers(role); }
 function canManageSystem(role){ return permissions.canManageSystemSettings(role); }
 function canManageFacilities(role){ return permissions.canManageFacilities(role); }
+function canViewFacilities(role){ return permissions.canViewFacilities(role); }
+function canViewAuditLog(role){ return permissions.canViewAuditLog(role); }
+function canExportReports(role){ return permissions.canExportReports(role); }
 function canCreateTickets(role){ return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(role); }
 function canReview(role)       { return ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(role); }
 function canDelete(role)       { return ['system_admin','facility_manager','cleaning_manager'].includes(role); }
@@ -491,6 +496,7 @@ function allowedRoleEditor(editorRole, targetRole) {
 }
 
 function moduleForRole(role) {
+  if (['system_admin', 'facility_manager', ADMIN_COORDINATOR_ROLE, 'employee'].includes(role)) return 'system';
   if (String(role || '').startsWith('maintenance_')) return 'maintenance';
   if (String(role || '').startsWith('hospitality_')) return 'hospitality';
   return 'cleaning';
@@ -593,6 +599,11 @@ function dbSettings() {
     employeeCleaningRequestsEnabled: s.employee_cleaning_requests_enabled !== '0',
     employeeMaintenanceRequestsEnabled: s.employee_maintenance_requests_enabled !== '0',
     employeeHospitalityRequestsEnabled: s.employee_hospitality_requests_enabled !== '0',
+    cleaningRestroomHourly: {
+      enabled: s.cleaning_restroom_hourly_enabled !== '0',
+      startHour: Math.max(0, Math.min(23, parseInt(s.cleaning_restroom_hourly_start_hour, 10) || 7)),
+      endHour: Math.max(0, Math.min(23, parseInt(s.cleaning_restroom_hourly_end_hour, 10) || 14))
+    },
     slaMins: {
       emergency:    parseInt(s.sla_mins_emergency,   10) || SLA_MINS.emergency,
       spill:        parseInt(s.sla_mins_spill,        10) || SLA_MINS.spill,
@@ -1156,10 +1167,12 @@ function buildBootstrap(me) {
     : hospitalityOrdersForRole(me, allHospitalityOrders);
   const allRecurringTasks    = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor'].includes(me.role)
     ? dbRecurringTasks() : [];
+  const cleaningAutoRestroom = ['system_admin','facility_manager','cleaning_manager','cleaning_supervisor',ADMIN_COORDINATOR_ROLE].includes(me.role)
+    ? cleaningRestroomAutoStatus(getDb()) : null;
 
   const maintenance = ['system_admin','facility_manager','maintenance_manager','maintenance_supervisor','maintenance_worker'].includes(me.role)
     ? maintenancePayload(me, visibleMaintenanceTickets) : {};
-  const base = { user: publicUser(me), locations, locationGroups, zones, settings, recurringTasks: allRecurringTasks, maintenance };
+  const base = { user: publicUser(me), locations, locationGroups, zones, settings, recurringTasks: allRecurringTasks, cleaningAutoRestroom, maintenance };
   const hospitalityOrders = visibleHospitalityOrders;
 
   if (me.role === 'employee') {
@@ -1266,6 +1279,17 @@ function buildBootstrap(me) {
       hospitalityOrders
     };
   }
+  if (me.role === ADMIN_COORDINATOR_ROLE) {
+    return {
+      ...base,
+      users:       users.map(publicUser),
+      assignments,
+      tickets:     allTickets,
+      reports:     allReports,
+      hospitalityOrders,
+      inventory:   {}
+    };
+  }
   // system_admin / facility_manager — full view across all modules
   const inventory = {
     warehouses:     dbWarehouses(),
@@ -1289,7 +1313,7 @@ function buildBootstrap(me) {
 const sseClients = new Set();
 function canReceiveTicketEvent(user, ticket) {
   if (!ticket || !user) return false;
-  if (['system_admin','facility_manager'].includes(user.role)) return true;
+  if (['system_admin','facility_manager',ADMIN_COORDINATOR_ROLE].includes(user.role)) return true;
   if (user.role === 'employee') return ticket.createdById === user.id;
   if (ticket.module === 'maintenance') {
     if (user.role === 'maintenance_manager') return true;
@@ -1306,7 +1330,7 @@ function canReceiveTicketEvent(user, ticket) {
 }
 function canReceiveReportEvent(user, report) {
   if (!report || !user) return false;
-  if (['system_admin','facility_manager'].includes(user.role)) return true;
+  if (['system_admin','facility_manager',ADMIN_COORDINATOR_ROLE].includes(user.role)) return true;
   if (report.module === 'maintenance') {
     if (user.role === 'maintenance_manager') return true;
     if (user.role === 'maintenance_supervisor') {
@@ -1702,17 +1726,25 @@ function hourlyRestroomTicketDescription(slotKey = '') {
     : 'تقرير تلقائي مجدول لدورة المياه';
 }
 
-function generateHourlyRestroomCleaningTickets(db) {
-  syncAutoRestroomTicketDescriptions(db);
-  syncAutoRestroomTicketGroups(db);
-  syncAutoRestroomTicketRoutes(db);
-  const slot = currentRiyadhSlot();
-  if (slot.hour < 7 || slot.hour > 14) return;
-  const slotKey = `${slot.date}T${String(slot.hour).padStart(2, '0')}`;
-  const last = db.prepare("SELECT value FROM settings WHERE key='cleaning_restroom_hourly_report_last_slot'").get();
-  if (last?.value === slotKey) return;
+function cleaningRestroomHourlySettings(db) {
+  const rows = db.prepare(`
+    SELECT key, value FROM settings
+    WHERE key IN (
+      'cleaning_restroom_hourly_enabled',
+      'cleaning_restroom_hourly_start_hour',
+      'cleaning_restroom_hourly_end_hour'
+    )
+  `).all();
+  const s = Object.fromEntries(rows.map(r => [r.key, r.value]));
+  return {
+    enabled: s.cleaning_restroom_hourly_enabled !== '0',
+    startHour: Math.max(0, Math.min(23, parseInt(s.cleaning_restroom_hourly_start_hour, 10) || 7)),
+    endHour: Math.max(0, Math.min(23, parseInt(s.cleaning_restroom_hourly_end_hour, 10) || 14))
+  };
+}
 
-  const locations = hourlyRestroomReportLocations(db, db.prepare(`
+function cleaningRestroomCandidateLocations(db) {
+  return hourlyRestroomReportLocations(db, db.prepare(`
     SELECT * FROM locations
     WHERE active = 1 AND deleted_at IS NULL
       AND (
@@ -1725,6 +1757,60 @@ function generateHourlyRestroomCleaningTickets(db) {
       )
     ORDER BY floor, zone, name_ar
   `).all());
+}
+
+function cleaningRestroomAutoStatus(db) {
+  const settings = cleaningRestroomHourlySettings(db);
+  const ready = [];
+  const missing = [];
+  for (const loc of cleaningRestroomCandidateLocations(db)) {
+    const route = autoAssignCleaningRoute(loc.id, db, { requireSupervisor: true });
+    const item = {
+      locationId: loc.id,
+      locationNameAr: loc.name_ar,
+      locationNameEn: loc.name_en,
+      floor: loc.floor,
+      workerId: route?.id || '',
+      workerName: route?.name || '',
+      supervisorId: route?.supervisorId || '',
+      supervisorName: route?.supervisorName || ''
+    };
+    if (route) ready.push(item);
+    else missing.push({ ...item, reason: 'missing_worker_or_supervisor' });
+  }
+  let lastRuns = [];
+  try {
+    lastRuns = db.prepare(`
+      SELECT * FROM cleaning_auto_runs
+      WHERE run_type = 'restroom_hourly'
+      ORDER BY created_at DESC
+      LIMIT 20
+    `).all().map(row => ({
+      id: row.id,
+      slotKey: row.slot_key,
+      status: row.status,
+      generatedCount: row.generated_count,
+      skippedCount: row.skipped_count,
+      skipped: safeJson(row.skipped_payload),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }));
+  } catch {}
+  return { settings, ready, missing, lastRuns };
+}
+
+function generateHourlyRestroomCleaningTickets(db) {
+  syncAutoRestroomTicketDescriptions(db);
+  syncAutoRestroomTicketGroups(db);
+  syncAutoRestroomTicketRoutes(db);
+  const slot = currentRiyadhSlot();
+  const autoSettings = cleaningRestroomHourlySettings(db);
+  if (!autoSettings.enabled || slot.hour < autoSettings.startHour || slot.hour > autoSettings.endHour) return;
+  const slotKey = `${slot.date}T${String(slot.hour).padStart(2, '0')}`;
+  const last = db.prepare("SELECT value FROM settings WHERE key='cleaning_restroom_hourly_report_last_slot'").get();
+  if (last?.value === slotKey) return;
+
+  const locations = cleaningRestroomCandidateLocations(db);
   if (!locations.length) {
     db.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES ('cleaning_restroom_hourly_report_last_slot',?)").run(slotKey);
     return;
@@ -1732,6 +1818,7 @@ function generateHourlyRestroomCleaningTickets(db) {
 
   const ts = now();
   const inserted = [];
+  const skipped = [];
   const insert = db.prepare(`
     INSERT INTO tickets
       (id,title,description,location_id,location_name_ar,location_name_en,
@@ -1740,8 +1827,11 @@ function generateHourlyRestroomCleaningTickets(db) {
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `);
   for (const loc of locations) {
-    const assignment = autoAssignCleaningRoute(loc.id, db);
-    if (!assignment) continue;
+    const assignment = autoAssignCleaningRoute(loc.id, db, { requireSupervisor: true });
+    if (!assignment) {
+      skipped.push({ locationId: loc.id, locationNameAr: loc.name_ar, locationNameEn: loc.name_en, reason: 'missing_worker_or_supervisor' });
+      continue;
+    }
     const exists = db.prepare(`
       SELECT 1 FROM tickets
       WHERE location_id=? AND category='restroom' AND module='cleaning'
@@ -1781,6 +1871,23 @@ function generateHourlyRestroomCleaningTickets(db) {
   }
 
   db.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES ('cleaning_restroom_hourly_report_last_slot',?)").run(slotKey);
+  try {
+    db.prepare(`
+      INSERT OR REPLACE INTO cleaning_auto_runs
+        (id,slot_key,run_type,status,generated_count,skipped_count,skipped_payload,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?)
+    `).run(
+      `car-${slotKey.replace(/[^0-9A-Za-z]/g, '')}`,
+      slotKey,
+      'restroom_hourly',
+      skipped.length ? 'completed_with_skips' : 'completed',
+      inserted.length,
+      skipped.length,
+      JSON.stringify(skipped),
+      ts,
+      ts
+    );
+  } catch (e) { console.error('[cleaning-hourly-run-log]', e.message); }
   inserted.forEach(ticket => {
     broadcast('ticket_created', { ticket, workerOnly: true });
     logEvent(db, 'ticket.auto_restroom_hourly', 'ticket', ticket.id, { id: '', role: 'system' }, {
@@ -1867,7 +1974,7 @@ function syncAutoRestroomTicketGroups(db) {
       changed += 1;
       continue;
     }
-    const route = autoAssignCleaningRoute(parentId, db) || {};
+    const route = autoAssignCleaningRoute(parentId, db, { requireSupervisor: true }) || {};
     updateToParent.run(
       parentId,
       parent.name_ar,
@@ -1884,8 +1991,8 @@ function syncAutoRestroomTicketGroups(db) {
   if (changed) console.log(`[cleaning-hourly] normalized ${changed} restroom unit tickets to group tickets`);
 }
 
-function autoAssignCleaningRoute(locationId, db) {
-  return db.prepare(`
+function autoAssignCleaningRoute(locationId, db, opts = {}) {
+  const route = db.prepare(`
     SELECT a.worker_id AS id, u.name,
       a.supervisor_id AS supervisorId,
       COALESCE(s.name, '') AS supervisorName,
@@ -1912,6 +2019,8 @@ function autoAssignCleaningRoute(locationId, db) {
     ORDER BY open_count ASC, CASE WHEN a.supervisor_id != '' THEN 0 ELSE 1 END
     LIMIT 1
   `).get(locationId) || null;
+  if (opts.requireSupervisor && (!route?.id || !route.supervisorId || !route.supervisorName)) return null;
+  return route;
 }
 
 function syncAutoRestroomTicketRoutes(db) {
@@ -1938,7 +2047,7 @@ function syncAutoRestroomTicketRoutes(db) {
   `);
   const ts = now();
   for (const row of rows) {
-    const route = autoAssignCleaningRoute(row.location_id, db);
+    const route = autoAssignCleaningRoute(row.location_id, db, { requireSupervisor: true });
     if (!route) continue;
     update.run(route.id, route.name, route.supervisorId || '', route.supervisorName || '', ts, row.id);
   }
@@ -2273,7 +2382,7 @@ const server = http.createServer(async (req, res) => {
 
       /* ── REPORTS CSV ────────────────────────────────────────── */
       if (req.method === 'GET' && url.pathname === '/api/reports.csv') {
-        if (!canReview(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
+        if (!canReview(me.role) && !canExportReports(me.role)) return send(res, 403, { error: 'FORBIDDEN' });
         const reports = dbReports();
         const rows = [
           ['id','reference_no','worker','location','status','approval','created_at','notes'],
@@ -2899,6 +3008,13 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { ok: true, settings: dbSettings() });
       }
 
+      /* ── CLEANING AUTO RESTROOM: STATUS ─────────────────────── */
+      if (req.method === 'GET' && url.pathname === '/api/cleaning/auto-restroom/status') {
+        if (!['system_admin','facility_manager','cleaning_manager','cleaning_supervisor',ADMIN_COORDINATOR_ROLE].includes(me.role))
+          return send(res, 403, { error: 'FORBIDDEN' });
+        return send(res, 200, { cleaningAutoRestroom: cleaningRestroomAutoStatus(db) });
+      }
+
       /* ── TICKET ACTIVITY ───────────────────────────────────── */
       if (req.method === 'GET' && /^\/api\/tickets\/[^/]+\/activity$/.test(url.pathname)) {
         const ticketId = sanitize(url.pathname.split('/')[3], 50);
@@ -2957,6 +3073,7 @@ const server = http.createServer(async (req, res) => {
         db.prepare(
           'INSERT INTO ticket_comments (id,ticket_id,user_id,user_name,user_role,body,created_at) VALUES (?,?,?,?,?,?,?)'
         ).run(id, ticketId, me.id, me.name, me.role, body, ts2);
+        logEvent(db, 'ticket.comment.added', 'ticket', ticketId, me, { commentId: id, body });
         return send(res, 200, { comment: { id, ticketId, userId: me.id, userName: me.name, userRole: me.role, body, createdAt: ts2 } });
       }
 
@@ -2965,6 +3082,7 @@ const server = http.createServer(async (req, res) => {
         const cid = sanitize(url.pathname.split('/').pop(), 50);
         const c   = db.prepare('SELECT * FROM ticket_comments WHERE id=? AND deleted_at IS NULL').get(cid);
         if (!c) return send(res, 404, { error: 'NOT_FOUND' });
+        if (me.role === ADMIN_COORDINATOR_ROLE) return send(res, 403, { error: 'FORBIDDEN' });
         const canDel = c.user_id === me.id || ['system_admin','facility_manager','cleaning_manager','maintenance_manager','maintenance_supervisor'].includes(me.role);
         if (!canDel) return send(res, 403, { error: 'FORBIDDEN' });
         db.prepare('UPDATE ticket_comments SET deleted_at=? WHERE id=?').run(now(), cid);
