@@ -4044,10 +4044,12 @@ function reportAnalytics(items){
     if(!byDay[day]) byDay[day] = { count:0, quality:0 };
     byDay[day].count += 1;
     byDay[day].quality += q;
-    const loc = lang==='ar'?r.locationNameAr:r.locationNameEn;
-    if(!byLocation[loc]) byLocation[loc] = { count:0, quality:0 };
-    byLocation[loc].count += 1;
-    byLocation[loc].quality += q;
+    const locCode = r.locationId || '';
+    const locName = lang==='ar'?r.locationNameAr:r.locationNameEn;
+    const locKey = locCode || locName;
+    if(!byLocation[locKey]) byLocation[locKey] = { code:locCode, label:locName, count:0, quality:0 };
+    byLocation[locKey].count += 1;
+    byLocation[locKey].quality += q;
     const worker = r.workerName || (lang==='ar'?'غير محدد':'Unknown');
     if(!byWorker[worker]) byWorker[worker] = { count:0, quality:0 };
     byWorker[worker].count += 1;
@@ -4056,7 +4058,7 @@ function reportAnalytics(items){
   const averageQuality = total ? Math.round(qualitySum/total) : 0;
   const coveredLocations = Object.keys(byLocation).length;
   const topLocations = Object.entries(byLocation)
-    .map(([label,v])=>({label,count:v.count,quality:Math.round(v.quality/v.count)}))
+    .map(([,v])=>({code:v.code,label:v.label,count:v.count,quality:Math.round(v.quality/v.count)}))
     .sort((a,b)=>b.count-a.count||a.quality-b.quality).slice(0,5);
   const workerRank = Object.entries(byWorker)
     .map(([label,v])=>({label,count:v.count,quality:Math.round(v.quality/v.count)}))
@@ -4064,7 +4066,7 @@ function reportAnalytics(items){
     .sort((a,b)=>b.quality-a.quality||b.count-a.count);
   const dailyQuality = Object.entries(byDay)
     .sort(([a],[b])=>a.localeCompare(b))
-    .map(([label,v])=>({label:label.slice(5),count:v.count,quality:Math.round(v.quality/v.count)}));
+    .map(([label,v])=>({label:label.slice(5),fullDate:label,count:v.count,quality:Math.round(v.quality/v.count)}));
   return { total, statuses, byType, dailyQuality, averageQuality, coveredLocations, photoTotal, topLocations, workerRank };
 }
 function chartBars(entries, opts={}){
@@ -4077,11 +4079,23 @@ function chartBars(entries, opts={}){
     </div>`).join('')}</div>`;
 }
 function qualityBars(entries){
-  return `<div class="printChart-columns">${entries.slice(-14).map(e=>`
-    <div class="printChart-col">
-      <div class="printChart-colValue">${num(e.quality)}%</div>
-      <div class="printChart-colTrack"><div class="printChart-colFill" style="height:${Math.max(4,e.quality)}%"></div></div>
-      <div class="printChart-colLabel">${esc(e.label)}</div>
+  return `<div class="qualityTrend">${entries.slice(-7).map(e=>`
+    <div class="qualityDay">
+      <div class="qualityDay-head"><strong>${num(e.count)}</strong><span>${lang==='ar'?'تقرير':'reports'}</span></div>
+      <div class="qualityDay-track"><div class="qualityDay-fill ${e.quality>=85?'good':e.quality>=70?'mid':'low'}" style="height:${Math.max(5,e.quality)}%"></div></div>
+      <div class="qualityDay-foot"><strong>${num(e.quality)}%</strong><span>${esc(e.label)}</span></div>
+    </div>`).join('')}</div>`;
+}
+function topLocationBars(entries){
+  const max = Math.max(1, ...entries.map(e=>e.count));
+  return `<div class="locationBars">${entries.map(e=>`
+    <div class="locationBar-row">
+      <div class="locationBar-main">
+        <strong>${esc(e.code||'—')}</strong>
+        <span>${esc(e.label||'')}</span>
+      </div>
+      <div class="locationBar-track"><div class="locationBar-fill" style="width:${Math.max(7,Math.round((e.count/max)*100))}%"></div></div>
+      <div class="locationBar-value">${num(e.count)} · ${num(e.quality)}%</div>
     </div>`).join('')}</div>`;
 }
 function reportQualityGrade(score){
@@ -4455,7 +4469,6 @@ function exportReportsPdfFromModal(){
   const typeEntries = Object.entries(analytics.byType)
     .map(([label,value])=>({label,value}))
     .sort((a,b)=>b.value-a.value).slice(0,6);
-  const topLocationEntries = analytics.topLocations.map(x=>({label:x.label,value:x.count,display:`${x.count} · ${x.quality}%`}));
   const topWorker = analytics.workerRank[0];
   const lowWorker = analytics.workerRank.length>1 ? analytics.workerRank[analytics.workerRank.length-1] : null;
   const dir=lang==='ar'?'rtl':'ltr';
@@ -4488,53 +4501,45 @@ ${items.map((r,i)=>{
   const html=`<!DOCTYPE html><html lang="${lang}" dir="${dir}"><head><meta charset="utf-8">
 <title>MRFQ — ${tr('reports')}</title>
 <link rel="stylesheet" href="/css/print.css"></head><body>
-<section class="cover printPage">
-  <div class="cover-mark">${lang==='ar'?'تقرير تنفيذي':'Executive Report'}</div>
-  <div class="cover-brand">MRFQ — مرفق</div>
-  <h1>${lang==='ar'?'تقرير أداء النظافة':'Cleaning Performance Report'}</h1>
-  <div class="cover-meta">${period}</div>
-  <div class="cover-line"></div>
-  <div class="cover-grid">
-    <div><span>${lang==='ar'?'نطاق الحالة':'Status scope'}</span><strong>${esc(statusLabel)}</strong></div>
-    <div><span>${lang==='ar'?'عدد التقارير':'Report count'}</span><strong>${num(analytics.total)}</strong></div>
-    <div><span>${lang==='ar'?'تصنيف الجودة':'Quality grade'}</span><strong>${reportQualityGrade(analytics.averageQuality)}</strong></div>
+<section class="dashboardReport printPage">
+  <div class="reportTopbar">
+    <div>
+      <div class="brand">MRFQ — مرفق</div>
+      <div class="meta">${lang==='ar'?'تقرير أداء النظافة':'Cleaning Performance Report'} · ${period}</div>
+    </div>
+    <div class="reportTopbar-side">
+      <strong>${esc(statusLabel)}</strong>
+      <span>${lang==='ar'?'مُصدَّر بواسطة':'Exported by'} ${esc(me.name)} · ${fmtFull(new Date())}</span>
+    </div>
   </div>
-  <div class="cover-issued">${lang==='ar'?'مُصدَّر بواسطة':'Exported by'}: ${esc(me.name)} · ${fmtFull(new Date())}</div>
-</section>
-
-<section class="summaryPage printPage">
-  <div class="header compact">
-    <div><div class="brand">مِرفق — MRFQ</div><div class="meta">${lang==='ar'?'ملخص تنفيذي':'Executive Summary'} · ${period}</div></div>
-    <div class="meta">${analytics.total} ${lang==='ar'?'تقرير':'records'}</div>
-  </div>
-  <div class="executiveNarrative">${esc(reportExecutiveNarrative(analytics, period))}</div>
   <div class="kpiGrid">
-    <div class="kpiBox"><span>${lang==='ar'?'إجمالي التقارير':'Total reports'}</span><strong>${num(analytics.total)}</strong></div>
-    <div class="kpiBox"><span>${lang==='ar'?'متوسط الجودة':'Avg quality'}</span><strong>${num(analytics.averageQuality)}%</strong></div>
-    <div class="kpiBox"><span>${lang==='ar'?'المواقع المغطاة':'Covered locations'}</span><strong>${num(analytics.coveredLocations)}</strong></div>
-    <div class="kpiBox"><span>${lang==='ar'?'إجمالي الصور':'Total photos'}</span><strong>${num(analytics.photoTotal)}</strong></div>
+    <div class="kpiBox kpi-teal"><span>${lang==='ar'?'إجمالي التقارير':'Total reports'}</span><strong>${num(analytics.total)}</strong><i></i></div>
+    <div class="kpiBox kpi-mint"><span>${lang==='ar'?'متوسط الجودة':'Avg quality'}</span><strong>${num(analytics.averageQuality)}%</strong><i></i></div>
+    <div class="kpiBox kpi-amber"><span>${lang==='ar'?'المواقع المغطاة':'Covered locations'}</span><strong>${num(analytics.coveredLocations)}</strong><i></i></div>
+    <div class="kpiBox kpi-coral"><span>${lang==='ar'?'إجمالي الصور':'Total photos'}</span><strong>${num(analytics.photoTotal)}</strong><i></i></div>
   </div>
-  <div class="chartGrid">
-    <div class="chartCard">
-      <h2>${lang==='ar'?'توزيع الاعتماد':'Approval distribution'}</h2>
-      ${statusEntries.length?chartBars(statusEntries,{cls:'status'}):`<div class="emptyPrint">${lang==='ar'?'لا توجد بيانات':'No data'}</div>`}
+  <div class="dashboardGrid">
+    <div class="chartCard dailyQualityCard">
+      <div class="chartCard-title"><h2>${lang==='ar'?'متوسط الجودة اليومي':'Daily average quality'}</h2><span>${analytics.dailyQuality.length} ${lang==='ar'?'أيام':'days'}</span></div>
+      ${analytics.dailyQuality.length?qualityBars(analytics.dailyQuality):`<div class="emptyPrint">${lang==='ar'?'لا توجد بيانات':'No data'}</div>`}
     </div>
     <div class="chartCard">
-      <h2>${lang==='ar'?'التقارير حسب نوع الموقع':'Reports by location type'}</h2>
+      <div class="chartCard-title"><h2>${lang==='ar'?'توزيع الاعتماد':'Approval distribution'}</h2><span>${statusLabel}</span></div>
+      ${statusEntries.length?chartBars(statusEntries,{cls:'status'}):`<div class="emptyPrint">${lang==='ar'?'لا توجد بيانات':'No data'}</div>`}
+    </div>
+    <div class="chartCard locationCard">
+      <div class="chartCard-title"><h2>${lang==='ar'?'أكثر المواقع تكرارا':'Most frequent locations'}</h2><span>${lang==='ar'?'بالترميز':'with code'}</span></div>
+      ${analytics.topLocations.length?topLocationBars(analytics.topLocations):`<div class="emptyPrint">${lang==='ar'?'لا توجد بيانات':'No data'}</div>`}
+    </div>
+    <div class="chartCard">
+      <div class="chartCard-title"><h2>${lang==='ar'?'التقارير حسب نوع الموقع':'Reports by location type'}</h2><span>${lang==='ar'?'توزيع':'Breakdown'}</span></div>
       ${typeEntries.length?chartBars(typeEntries,{cls:'type'}):`<div class="emptyPrint">${lang==='ar'?'لا توجد بيانات':'No data'}</div>`}
     </div>
   </div>
-  <div class="chartCard wide">
-    <h2>${lang==='ar'?'متوسط الجودة اليومي':'Daily average quality'}</h2>
-    ${analytics.dailyQuality.length?qualityBars(analytics.dailyQuality):`<div class="emptyPrint">${lang==='ar'?'لا توجد بيانات':'No data'}</div>`}
-  </div>
-  <div class="chartGrid">
-    <div class="chartCard">
-      <h2>${lang==='ar'?'أكثر المواقع تكرارا':'Most frequent locations'}</h2>
-      ${topLocationEntries.length?chartBars(topLocationEntries,{cls:'location'}):`<div class="emptyPrint">${lang==='ar'?'لا توجد بيانات':'No data'}</div>`}
-    </div>
+  <div class="bottomGrid">
+    <div class="executiveNarrative">${esc(reportExecutiveNarrative(analytics, period))}</div>
     <div class="chartCard insightCard">
-      <h2>${lang==='ar'?'مؤشرات العاملين':'Worker indicators'}</h2>
+      <div class="chartCard-title"><h2>${lang==='ar'?'مؤشرات العاملين':'Worker indicators'}</h2><span>${reportQualityGrade(analytics.averageQuality)}</span></div>
       <div class="insightLine"><span>${lang==='ar'?'أعلى جودة':'Highest quality'}</span><strong>${topWorker?`${esc(topWorker.label)} · ${num(topWorker.quality)}%`:'—'}</strong></div>
       <div class="insightLine"><span>${lang==='ar'?'أقل جودة':'Lowest quality'}</span><strong>${lowWorker?`${esc(lowWorker.label)} · ${num(lowWorker.quality)}%`:'—'}</strong></div>
       <div class="insightLine"><span>${lang==='ar'?'فلتر الحالة':'Status filter'}</span><strong>${esc(statusLabel)}</strong></div>
