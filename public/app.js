@@ -1069,6 +1069,98 @@ function needsWorkspaceSelection(){
   // Only prompt if this is a fresh session (not if user already chose)
   return !workspaceSelected;
 }
+
+const ROUTE_STORAGE_PREFIX = 'mrfq:lastRoute:';
+let routeStateRestoredKey = '';
+
+function routeStorageKey(){
+  if(!me) return '';
+  return `${ROUTE_STORAGE_PREFIX}${me.id||me.username||'user'}:${me.role||'default'}`;
+}
+
+function pickRouteValue(value, allowed, fallback){
+  return allowed.includes(value) ? value : fallback;
+}
+
+function normalizeRouteState(){
+  if(!me) return;
+  if(!['system_admin','facility_manager'].includes(me.role)) adminModuleContext = null;
+  if(adminModuleContext && moduleDefinition(adminModuleContext)?.status!=='active') adminModuleContext = null;
+
+  const adminViews = ['dashboard','modules','users','roles','locations','facilities','assets','maps','products','kitchens','inventory','reports','audit','settings','recurringTasks'];
+  const fmViews = ['dashboard','modules','locations','facilities','assets','maps','inventory','reports','recurringTasks'];
+  const mainViews = ['dashboard','reports','tickets','locations','assignments','users','recurringTasks','performance'];
+  const cleaningViews = ['dashboard','reports','tickets','locations','assignments','users','recurringTasks','performance'];
+  const supervisorViews = ['dashboard','requests','reports','team','schedules','utilities'];
+  const maintViews = ['dashboard','orders','schedules','assets','parts','team','reports','performance','utilities'];
+  const hospManagerViews = ['dashboard','orders','reports','products','categories','kitchens'];
+
+  if(me.role==='system_admin' && !adminModuleContext) adminView = pickRouteValue(adminView, adminViews, 'dashboard');
+  if(me.role==='facility_manager' && !adminModuleContext) adminView = pickRouteValue(adminView, fmViews, 'dashboard');
+  if(adminModuleContext==='cleaning') view = pickRouteValue(view, cleaningViews, 'dashboard');
+  else view = pickRouteValue(view, mainViews, 'dashboard');
+
+  if(me.role==='employee') employeeView = pickRouteValue(employeeView, ['home','new','history'], 'home');
+  if(me.role==='cleaner') workerView = pickRouteValue(workerView, ['task','assigned','reports'], 'task');
+  if(['cleaning_supervisor','maintenance_supervisor'].includes(me.role)) supervisorView = pickRouteValue(supervisorView, supervisorViews, 'dashboard');
+  if(me.role==='hospitality_supervisor') hospSupervisorView = pickRouteValue(hospSupervisorView, ['dashboard','orders','team'], 'dashboard');
+  if(me.role==='hospitality_manager' || adminModuleContext==='hospitality') hospManagerView = pickRouteValue(hospManagerView, hospManagerViews, 'dashboard');
+  if(adminModuleContext==='hospitality' && !canManageHospitalityMenu() && ['products','categories','kitchens'].includes(hospManagerView)) hospManagerView = 'dashboard';
+  if(['maintenance_manager','maintenance_supervisor'].includes(me.role) || adminModuleContext==='maintenance') maintView = pickRouteValue(maintView, maintViews, 'dashboard');
+  if(me.role==='maintenance_worker') maintWorkerView = pickRouteValue(maintWorkerView, ['tasks','upcoming','history','myreports','team'], 'tasks');
+  facilitiesSubView = pickRouteValue(facilitiesSubView, ['locations','groups','heatmap','hierarchy','spaces'], 'locations');
+}
+
+function saveRouteState(){
+  if(!me || needsWorkspaceSelection()) return;
+  normalizeRouteState();
+  const key = routeStorageKey();
+  if(!key) return;
+  try{
+    localStorage.setItem(key, JSON.stringify({
+      view, adminView, adminModuleContext, mobileNavActive,
+      employeeView, employeeServiceType, employeeHistoryFilter,
+      workerView, supervisorView, hospSupervisorView, hospManagerView,
+      maintView, maintWorkerView, facilitiesSubView, inventoryTab,
+      reportFilter, reportDateFilter, locsFloorFilter, locsTypeFilter,
+      assignModule, assignTypeFilter, empHospCatFilter
+    }));
+  }catch(e){}
+}
+
+function restoreRouteState(){
+  const key = routeStorageKey();
+  if(!key || routeStateRestoredKey===key) return;
+  routeStateRestoredKey = key;
+  try{
+    const saved = JSON.parse(localStorage.getItem(key)||'null');
+    if(!saved || typeof saved!=='object') return;
+    if(typeof saved.view==='string') view = saved.view;
+    if(typeof saved.adminView==='string') adminView = saved.adminView;
+    if(typeof saved.adminModuleContext==='string' || saved.adminModuleContext===null) adminModuleContext = saved.adminModuleContext;
+    if(typeof saved.mobileNavActive==='string') mobileNavActive = saved.mobileNavActive;
+    if(typeof saved.employeeView==='string') employeeView = saved.employeeView;
+    if(typeof saved.employeeServiceType==='string') employeeServiceType = saved.employeeServiceType;
+    if(typeof saved.employeeHistoryFilter==='string') employeeHistoryFilter = saved.employeeHistoryFilter;
+    if(typeof saved.workerView==='string') workerView = saved.workerView;
+    if(typeof saved.supervisorView==='string') supervisorView = saved.supervisorView;
+    if(typeof saved.hospSupervisorView==='string') hospSupervisorView = saved.hospSupervisorView;
+    if(typeof saved.hospManagerView==='string') hospManagerView = saved.hospManagerView;
+    if(typeof saved.maintView==='string') maintView = saved.maintView;
+    if(typeof saved.maintWorkerView==='string') maintWorkerView = saved.maintWorkerView;
+    if(typeof saved.facilitiesSubView==='string') facilitiesSubView = saved.facilitiesSubView;
+    if(typeof saved.inventoryTab==='string') inventoryTab = saved.inventoryTab;
+    if(typeof saved.reportFilter==='string') reportFilter = saved.reportFilter;
+    if(typeof saved.reportDateFilter==='string') reportDateFilter = saved.reportDateFilter;
+    if(typeof saved.locsFloorFilter==='string') locsFloorFilter = saved.locsFloorFilter;
+    if(typeof saved.locsTypeFilter==='string') locsTypeFilter = saved.locsTypeFilter;
+    if(typeof saved.assignModule==='string') assignModule = saved.assignModule;
+    if(typeof saved.assignTypeFilter==='string') assignTypeFilter = saved.assignTypeFilter;
+    if(typeof saved.empHospCatFilter==='string') empHospCatFilter = saved.empHospCatFilter;
+    normalizeRouteState();
+  }catch(e){}
+}
+
 async function switchWorkspace(role){
   try{
     const b = await api('/workspace', { method:'POST', body: JSON.stringify({ workspace: role }) });
@@ -1076,6 +1168,11 @@ async function switchWorkspace(role){
     sessionStorage.setItem('wsSelected','1');
     me = b.user; data = b;
     view = 'dashboard';
+    adminView = 'dashboard';
+    adminModuleContext = null;
+    mobileNavActive = 'dashboard';
+    routeStateRestoredKey = routeStorageKey();
+    saveRouteState();
     render();
   }catch(e){ toast(e.message||'Error','bad'); }
 }
@@ -1452,6 +1549,7 @@ async function load(){
     const b = await api('/bootstrap');
     data=b; me=b.user;
     if(me.roles && me.roles.length > 1 && sessionStorage.getItem('wsSelected')) workspaceSelected=true;
+    restoreRouteState();
     render(); connectSSE();
     requestBrowserNotif();
     checkNewBreaches();
@@ -1471,12 +1569,15 @@ async function login(){
   }
 }
 async function logout(){
+  const key = routeStorageKey();
+  if(key) localStorage.removeItem(key);
   try{ await api('/logout',{method:'POST'}); }catch{ /* server already cleared session */ }
   me=null;data=null;forcePasswordChange=false;workspaceSelected=false;
   adminModuleContext=null;adminView='dashboard';
   sessionStorage.removeItem('wsSelected');
   if(eventSource){eventSource.close();eventSource=null;}
   viewHistory=[];
+  routeStateRestoredKey='';
   loginPage();
 }
 function switchLang(){lang=lang==='ar'?'en':'ar';localStorage.lang=lang;setDoc();render()}
@@ -2034,6 +2135,7 @@ function render(){
   if(!me||!data) return loginPage();
   // Workspace selection screen for multi-role users
   if(needsWorkspaceSelection()) return renderWorkspaceSelector();
+  saveRouteState();
   if(me.role==='cleaner') return renderWorker();
   if(me.role==='employee') return renderEmployee();
   if(me.role==='cleaning_supervisor') return renderSupervisor();
@@ -6463,6 +6565,7 @@ function invalidLocationToast(raw){
 
 
 function renderWorker(){
+  saveRouteState();
   setDoc();
   const assigned = ((data.assignments||[]).find(a=>a.workerId===me.id)?.locationIds)||[];
   const locs = (data.locations||[]).filter(l=>!assigned.length||assigned.includes(l.id));
@@ -7285,6 +7388,7 @@ async function submitGroupReport(){
    EMPLOYEE PORTAL — /order/cleaning
    ═══════════════════════════════════════════════════════════════ */
 function renderEmployee(){
+  saveRouteState();
   setDoc();
   const myOrders = (data.tickets||[]).filter(t=>t.createdById===me.id);
   const myHospOrders = data.hospitalityOrders||[];
@@ -7716,6 +7820,7 @@ async function submitEmployeeOrder(){
    HOSPITALITY — Worker View (Phase 4b)
    ═══════════════════════════════════════════════════════════════ */
 function renderHospitalityWorker(){
+  saveRouteState();
   setDoc();
   const allOrders = (data.hospitalityOrders||[]).slice().sort((a,b)=>new Date(a.createdAt||0)-new Date(b.createdAt||0));
   const active = allOrders.filter(o=>!['delivered','completed','cancelled','rejected'].includes(o.status));
@@ -8095,6 +8200,7 @@ function hospManagerDashboardHtml(orders, workers){
 }
 
 function renderHospitalitySupervisor(){
+  saveRouteState();
   setDoc();
   const orders = data.hospitalityOrders||[];
   const workers = (data.users||[]).filter(u=>(u.roles||[u.role]).includes('hospitality_worker'));
@@ -8138,6 +8244,7 @@ function renderHospitalitySupervisor(){
 }
 
 async function renderHospitalityManager(){
+  saveRouteState();
   setDoc();
   const orders = data.hospitalityOrders||[];
   const workers = (data.users||[]).filter(u=>(u.roles||[u.role]).includes('hospitality_worker'));
@@ -8170,6 +8277,7 @@ async function renderHospitalityManager(){
    system_admin: full dashboard/orders/reports/products/kitchens (same as hospitality_manager)
    facility_manager: operational overview only — no products/kitchens management ──── */
 async function renderAdminHospitality(){
+  saveRouteState();
   setDoc();
   const canManage = canManageHospitalityMenu();
   if(!canManage && ['products','categories','kitchens'].includes(hospManagerView)) hospManagerView = 'dashboard';
@@ -8398,6 +8506,7 @@ function maintDashboard(tickets, reports, opts={}){
 
 /* ── renderMaintenanceWorker ──────────────────────────────────── */
 function renderMaintenanceWorker(){
+  saveRouteState();
   setDoc();
   const md=maintenanceData();
   const maintenanceTickets=(data.tickets||[]).filter(t=>ticketMatchesModule(t,'maintenance'));
@@ -8615,6 +8724,7 @@ function maintenanceSupervisorTeam(){
 }
 
 function renderMaintenanceSupervisor(){
+  saveRouteState();
   setDoc();
   const content=supervisorView==='requests'?maintenanceSupervisorRequests()
     :supervisorView==='schedules'?maintenanceSchedulesPage()
@@ -8627,11 +8737,13 @@ function renderMaintenanceSupervisor(){
 
 /* ── renderMaintenanceManager ─────────────────────────────────── */
 function renderMaintenanceManager(){
+  saveRouteState();
   setDoc();
   maintShell(me,maintenancePageContent(),{renderFn:'renderMaintenanceManager'});
 }
 
 function renderAdminMaintenance(){
+  saveRouteState();
   setDoc();
   const fullData = data;
   data = {
@@ -9895,6 +10007,7 @@ ${scored.map((w,i)=>`<tr>
    SUPERVISOR WORKSPACE
    ═══════════════════════════════════════════════════════════════ */
 function renderSupervisor(){
+  saveRouteState();
   setDoc();
   const allTickets = data.tickets||[];
   const submitted   = allTickets.filter(t=>t.status==='submitted');
