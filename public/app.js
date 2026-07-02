@@ -3889,7 +3889,18 @@ function qualityScore(r){
   if(!hasRequiredPhoto || ['pending','pending_approval'].includes(st)) return null;
 
   const photoScore = 25;
-  const reviewScore = st==='approved' ? 45 : st==='needs_recleaning' ? 15 : 0;
+  const ratings = [r.ratingSupervisor,r.ratingManager].map(Number).filter(v=>Number.isFinite(v)&&v>=1&&v<=5);
+  let reviewScore = 0;
+  if(st==='approved'){
+    if(ratings.length){
+      const avgRating = ratings.reduce((sum,value)=>sum+value,0)/ratings.length;
+      reviewScore = Math.round(avgRating/5*45);
+    }else{
+      reviewScore = (r.reviewNote||'').trim() ? 38 : 30;
+    }
+  }else if(st==='needs_recleaning'){
+    reviewScore = ratings.length ? Math.min(15, Math.round((ratings[0]/5)*20)) : 10;
+  }
   const expectedTasks = taskSetFor(r.locationType||'other');
   const taskScore = expectedTasks.length
     ? Math.round(expectedTasks.filter(task=>taskDone(r.tasks||[],task)).length / expectedTasks.length * 20)
@@ -3907,9 +3918,22 @@ function qualityBreakdown(r){
   const doneTasks = expectedTasks.length
     ? expectedTasks.filter(task=>taskDone(r.tasks||[],task)).length
     : (r.tasks||[]).length;
-  const review = ['pending','pending_approval'].includes(st)
-    ? null
-    : (st==='approved' ? 45 : st==='needs_recleaning' ? 15 : 0);
+  const ratings = [r.ratingSupervisor,r.ratingManager].map(Number).filter(v=>Number.isFinite(v)&&v>=1&&v<=5);
+  let review = null;
+  if(!['pending','pending_approval'].includes(st)){
+    if(st==='approved'){
+      if(ratings.length){
+        const avgRating = ratings.reduce((sum,value)=>sum+value,0)/ratings.length;
+        review = Math.round(avgRating/5*45);
+      }else{
+        review = (r.reviewNote||'').trim() ? 38 : 30;
+      }
+    }else if(st==='needs_recleaning'){
+      review = ratings.length ? Math.min(15, Math.round((ratings[0]/5)*20)) : 10;
+    }else{
+      review = 0;
+    }
+  }
   const tasks = expectedTasks.length
     ? Math.round(doneTasks / expectedTasks.length * 20)
     : (doneTasks ? 20 : 0);
@@ -3920,6 +3944,7 @@ function qualityBreakdown(r){
   if(['pending','pending_approval'].includes(st)) reasons.push(lang==='ar'?'بانتظار الاعتماد':'Pending review');
   if(st==='needs_recleaning') reasons.push(lang==='ar'?'مطلوب إعادة تنظيف':'Reclean required');
   if(st==='rejected') reasons.push(lang==='ar'?'مرفوض':'Rejected');
+  if(st==='approved'&&!ratings.length&&!(r.reviewNote||'').trim()) reasons.push(lang==='ar'?'لا يوجد تقييم نجوم أو ملاحظة مشرف':'No star rating or supervisor note');
   if(expectedTasks.length && doneTasks < expectedTasks.length) reasons.push(lang==='ar'?'مهام ناقصة':'Checklist incomplete');
   if(needsDocumentation && !(r.notes||r.reviewNote)) reasons.push(lang==='ar'?'توثيق ناقص':'Documentation missing');
   return { photo: hasRequiredPhoto ? 25 : 0, review, tasks, docs, total: qualityScore(r), reasons };
@@ -5369,7 +5394,7 @@ async function openReportDetail(id){
       <div class="detailModal-sectionTitle">${ic('star',14)} ${tr('quality')} <span class="badge gold">${qualityLabel(r)}</span></div>
       <div class="detailModal-grid2">
         <div><span class="detailLabel">${lang==='ar'?'صورة بعد التنفيذ':'After photo'}</span><span class="detailVal">${num(qb.photo)}/25</span></div>
-        <div><span class="detailLabel">${lang==='ar'?'قرار الاعتماد':'Review decision'}</span><span class="detailVal">${qb.review==null?(lang==='ar'?'بانتظار المراجعة':'Pending review'):`${num(qb.review)}/45`}</span></div>
+        <div><span class="detailLabel">${lang==='ar'?'تقييم/اعتماد':'Rating/Review'}</span><span class="detailVal">${qb.review==null?(lang==='ar'?'بانتظار المراجعة':'Pending review'):`${num(qb.review)}/45`}</span></div>
         <div><span class="detailLabel">${lang==='ar'?'اكتمال المهام':'Checklist'}</span><span class="detailVal">${num(qb.tasks)}/20</span></div>
         <div><span class="detailLabel">${lang==='ar'?'التوثيق':'Documentation'}</span><span class="detailVal">${num(qb.docs)}/10</span></div>
       </div>

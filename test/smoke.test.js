@@ -573,6 +573,9 @@ test('supervisor approves report (pending -> approved)', async () => {
   const r = await supervisor('/api/reports/review', { method: 'POST', body: JSON.stringify({ id: reportId, status: 'approved', note: 'جيد' }) });
   assert.equal(r.status, 200);
   assert.equal(r.body.report.approvalStatus, 'approved');
+  const perf = await supervisor('/api/performance');
+  const workerMetric = perf.body.metrics.find(w => w.id === 'u-w3');
+  assert.ok(workerMetric.avgQuality < 100, 'approved report should still need star rating for 100 quality');
 });
 
 test('report review: re-reviewing an already-reviewed report is rejected (400 ALREADY_REVIEWED)', async () => {
@@ -617,6 +620,7 @@ test('cleaning_supervisor can rate supervisor type', async () => {
   const supervisor = await login('supervisor1', PASSWORDS.supervisor);
   const r = await supervisor('/api/reports/rate', { method: 'POST', body: JSON.stringify({ id: reportId, ratingType: 'supervisor', value: 5 }) });
   assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.ok, true);
 });
 
 test('cleaning_supervisor cannot rate manager type (403)', async () => {

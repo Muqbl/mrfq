@@ -1030,7 +1030,20 @@ function reportQualityScore(r) {
   if (!hasRequiredPhoto || approval === 'pending') return null;
 
   const photoScore = 25;
-  const reviewScore = approval === 'approved' ? 45 : approval === 'needs_recleaning' ? 15 : 0;
+  const ratings = [r.rating_supervisor, r.rating_manager]
+    .map(Number)
+    .filter(v => Number.isFinite(v) && v >= 1 && v <= 5);
+  let reviewScore = 0;
+  if (approval === 'approved') {
+    if (ratings.length) {
+      const avgRating = ratings.reduce((sum, value) => sum + value, 0) / ratings.length;
+      reviewScore = Math.round(avgRating / 5 * 45);
+    } else {
+      reviewScore = (r.review_note || '').trim() ? 38 : 30;
+    }
+  } else if (approval === 'needs_recleaning') {
+    reviewScore = ratings.length ? Math.min(15, Math.round((ratings[0] / 5) * 20)) : 10;
+  }
   let tasks = [];
   try { tasks = JSON.parse(r.tasks || '[]'); } catch { tasks = []; }
   const expectedTasks = r.location_type === 'restroom' ? 6 : 5;
