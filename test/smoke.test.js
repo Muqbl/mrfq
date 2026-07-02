@@ -473,6 +473,13 @@ test('worker completes ticket -> waiting_verification', async () => {
 
 test('worker submits cleaning report with before/after photos', async () => {
   const worker3 = await login('worker3', PASSWORDS.worker);
+  const missingAfter = await worker3('/api/reports', { method: 'POST', body: JSON.stringify({
+    locationId: 'lobby-gf', tasks: ['floor'], notes: 'بدون صورة بعد',
+    beforePhotos: [TINY_PNG]
+  }) });
+  assert.equal(missingAfter.status, 400);
+  assert.equal(missingAfter.body.error, 'PHOTO_REQUIRED');
+
   const r = await worker3('/api/reports', { method: 'POST', body: JSON.stringify({
     locationId: 'lobby-gf', tasks: ['floor', 'mirrors'], notes: 'تقرير اختبار',
     beforePhotos: [TINY_PNG], afterPhotos: [TINY_PNG]
@@ -482,6 +489,20 @@ test('worker submits cleaning report with before/after photos', async () => {
   assert.ok(r.body.report.beforePhotos.length >= 1);
   assert.ok(r.body.report.afterPhotos.length >= 1);
   reportId = r.body.report.id;
+});
+
+test('cleaner without location assignment cannot submit a cleaning report', async () => {
+  const admin = await login('admin', PASSWORDS.admin);
+  const created = await admin('/api/users', { method:'POST', body:JSON.stringify({
+    username:'unassigned-cleaner', name:'عامل غير مكلف', role:'cleaner', password:PASSWORDS.worker
+  }) });
+  assert.equal(created.status, 200);
+  const worker = await login('unassigned-cleaner', PASSWORDS.worker);
+  const rejected = await worker('/api/reports', { method:'POST', body:JSON.stringify({
+    locationId:'lobby-gf', tasks:['floor'], afterPhotos:[TINY_PNG]
+  }) });
+  assert.equal(rejected.status, 403);
+  assert.equal(rejected.body.error, 'NOT_ASSIGNED');
 });
 
 test('complete a ticket already awaiting verification is rejected', async () => {
@@ -922,6 +943,12 @@ test('cleaning supervisor scope can be limited to assigned workers', async () =>
   const perfIds = new Set(perf.body.metrics.map(w => w.id));
   assert.equal(perfIds.has('u-w4'), true);
   assert.equal(perfIds.has('u-w5'), false);
+
+  const crossScope = await manager('/api/tickets', { method:'POST', body:JSON.stringify({
+    locationId:'lobby-gf', title:'إسناد خارج النطاق', supervisorId:'u-s1', assignedTo:'u-w5'
+  }) });
+  assert.equal(crossScope.status, 403);
+  assert.equal(crossScope.body.error, 'WORKER_OUT_OF_SCOPE');
 });
 
 test('maintenance supervisor scope is isolated by assignment module', async () => {

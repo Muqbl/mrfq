@@ -3896,6 +3896,23 @@ function qualityScore(r){
     : 10;
   return Math.max(0,Math.min(100,reviewScore + taskScore + documentationScore));
 }
+function qualityBreakdown(r){
+  const st = r.approvalStatus || 'pending';
+  const hasRequiredPhoto = (r.afterPhotos||[]).length > 0 || (r.photos||[]).length > 0;
+  const expectedTasks = taskSetFor(r.locationType||'other');
+  const doneTasks = expectedTasks.length
+    ? expectedTasks.filter(task=>taskDone(r.tasks||[],task)).length
+    : (r.tasks||[]).length;
+  const review = ['pending','pending_approval'].includes(st)
+    ? null
+    : (st==='approved' ? 55 : st==='needs_recleaning' ? 20 : 0);
+  const tasks = expectedTasks.length
+    ? Math.round(doneTasks / expectedTasks.length * 35)
+    : (doneTasks ? 35 : 0);
+  const needsDocumentation = st!=='approved' || r.status==='needs_followup';
+  const docs = needsDocumentation ? ((r.notes||r.reviewNote) ? 10 : 0) : 10;
+  return { photo: hasRequiredPhoto ? 25 : 0, review, tasks, docs, total: qualityScore(r) };
+}
 function qualityLabel(r){
   const q = qualityScore(r);
   return q == null ? (lang==='ar'?'غير محتسب':'Not scored') : `${num(q)}%`;
@@ -5193,7 +5210,10 @@ async function deleteRecurring(id){
 function _eventLabel(eventType){
   const map = {
     'ticket.created':       lang==='ar'?'تم إنشاء البلاغ':'Ticket created',
+    'ticket.submitted':     lang==='ar'?'تم إرسال البلاغ':'Ticket submitted',
     'ticket.updated':       lang==='ar'?'تم تحديث البلاغ':'Ticket updated',
+    'ticket.waiting_verification': lang==='ar'?'بانتظار التحقق':'Waiting verification',
+    'ticket.escalated_by_supervisor': lang==='ar'?'طلب إعادة تنظيف من المشرف':'Supervisor requested reclean',
     'ticket.deleted':       lang==='ar'?'تم حذف البلاغ':'Ticket deleted',
     'report.created':       lang==='ar'?'تم إنشاء التقرير':'Report created',
     'report.approved':      lang==='ar'?'تمت الموافقة':'Approved',
@@ -5319,6 +5339,7 @@ async function openReportDetail(id){
   const tasks = taskSetFor(r.locationType);
   const st = r.approvalStatus||'pending';
   const stCls = st==='approved'?'ok':st==='rejected'||st==='needs_recleaning'?'bad':'warn';
+  const qb = qualityBreakdown(r);
   const body = `
   <div class="detailModal">
     <div class="detailModal-section">
@@ -5332,6 +5353,15 @@ async function openReportDetail(id){
         ${r.reviewNote?`<div><span class="detailLabel">${lang==='ar'?'ملاحظة المراجع':'Review note'}</span><span class="detailVal">${esc(r.reviewNote)}</span></div>`:''}
       </div>
       ${r.notes?`<div class="detailModal-notes">${esc(r.notes)}</div>`:''}
+    </div>
+    <div class="detailModal-section">
+      <div class="detailModal-sectionTitle">${ic('star',14)} ${tr('quality')} <span class="badge gold">${qualityLabel(r)}</span></div>
+      <div class="detailModal-grid2">
+        <div><span class="detailLabel">${lang==='ar'?'صورة بعد التنفيذ':'After photo'}</span><span class="detailVal">${num(qb.photo)}/25</span></div>
+        <div><span class="detailLabel">${lang==='ar'?'قرار الاعتماد':'Review decision'}</span><span class="detailVal">${qb.review==null?(lang==='ar'?'بانتظار المراجعة':'Pending review'):`${num(qb.review)}/55`}</span></div>
+        <div><span class="detailLabel">${lang==='ar'?'اكتمال المهام':'Checklist'}</span><span class="detailVal">${num(qb.tasks)}/35</span></div>
+        <div><span class="detailLabel">${lang==='ar'?'التوثيق':'Documentation'}</span><span class="detailVal">${num(qb.docs)}/10</span></div>
+      </div>
     </div>
     ${tasks.length?`
     <div class="detailModal-section">
@@ -6704,7 +6734,7 @@ function renderWorker(){
   saveRouteState();
   setDoc();
   const assigned = ((data.assignments||[]).find(a=>a.workerId===me.id)?.locationIds)||[];
-  const locs = (data.locations||[]).filter(l=>!assigned.length||assigned.includes(l.id));
+  const locs = (data.locations||[]).filter(l=>assigned.includes(l.id));
   const myTickets = (data.tickets||[]).filter(t=>t.assignedTo===me.id&&!['completed','rejected','cancelled'].includes(t.status));
   const qrFromUrl = new URL(location.href).searchParams.get('q')||new URL(location.href).searchParams.get('loc')||'';
   const qrFromStorage = sessionStorage.getItem('qr_loc')||'';
@@ -6850,7 +6880,7 @@ function startForm(){
   const id = loc.id;
   locCode.value = id;
   const asg = (data.assignments||[]).find(a=>a.workerId===me.id);
-  if(asg&&asg.locationIds.length&&!asg.locationIds.includes(id)) return toast(tr('notAssigned'),'bad');
+  if(!asg || !asg.locationIds.includes(id)) return toast(tr('notAssigned'),'bad');
   currentBeforePhotos = []; currentAfterPhotos = [];
   const tasks = taskSetFor(loc.type);
   setTopbarBackButton(true, 'workerGoBack()');
@@ -6912,7 +6942,7 @@ function startGroupForm(group, locCode){
     return;
   }
   const asg = (data.assignments||[]).find(a=>a.workerId===me.id);
-  if(asg&&asg.locationIds.length&&!members.every(l=>asg.locationIds.includes(l.id))) return toast(tr('notAssigned'),'bad');
+  if(!asg || !members.every(l=>asg.locationIds.includes(l.id))) return toast(tr('notAssigned'),'bad');
   currentGroupReport = { id:group.id, memberIds:members.map(l=>l.id) };
   if(locCode) locCode.value = group.id;
   currentBeforePhotos = []; currentAfterPhotos = [];
@@ -7450,7 +7480,11 @@ async function submitReport(locationId){
   };
   if(currentTicketId){
     const ticketPhotos = [...currentPhotos, ...currentBeforePhotos, ...currentAfterPhotos];
-    try{await api(maintenanceTicketApi('/complete'),{method:'POST',body:JSON.stringify({id:currentTicketId,photos:ticketPhotos,notes:payload.notes})})}
+    try{await api(maintenanceTicketApi('/complete'),{method:'POST',body:JSON.stringify({
+      id:currentTicketId,
+      ...(currentAfterPhotos.length ? { afterPhotos:currentAfterPhotos } : { photos:ticketPhotos }),
+      notes:payload.notes
+    })})}
     catch(e){}
     currentTicketId = null;
   }
@@ -10172,7 +10206,7 @@ function renderSupervisor(){
   const allTickets = data.tickets||[];
   const submitted   = allTickets.filter(t=>t.status==='submitted');
   const waitingVerif = allTickets.filter(t=>t.status==='waiting_verification');
-  const inProgress  = allTickets.filter(t=>['assigned','accepted','in_progress'].includes(t.status));
+  const inProgress  = allTickets.filter(t=>['assigned','accepted','in_progress','reclean_required'].includes(t.status));
   const breached    = allTickets.filter(t=>t.slaBreached&&!['completed','rejected','cancelled'].includes(t.status));
   const pendingRpts = (data.reports||[]).filter(r=>r.approvalStatus==='pending');
   const workers     = (data.users||[]).filter(u=>(u.roles||[u.role]).includes(operationalWorkerRole()));

@@ -1128,6 +1128,47 @@ function cleaningSupervisorScope(supervisorId, assignments = dbAssignments(), op
   return supervisorScope(supervisorId, 'cleaning', assignments, options);
 }
 
+function activeUserWithRole(db, userId, role) {
+  const id = sanitize(userId || '', 50);
+  if (!id) return null;
+  const user = db.prepare('SELECT * FROM users WHERE id = ? AND active = 1 AND deleted_at IS NULL').get(id);
+  return user && userHasRole(db, id, role) ? user : null;
+}
+
+function cleaningAssignment(db, workerId, locationId = '') {
+  const worker = sanitize(workerId || '', 50);
+  const loc = sanitize(locationId || '', 80);
+  if (!worker) return null;
+  if (loc) {
+    return db.prepare(`
+      SELECT * FROM assignments
+      WHERE worker_id = ? AND location_id = ? AND (module IS NULL OR module = 'cleaning')
+      LIMIT 1
+    `).get(worker, loc) || null;
+  }
+  return db.prepare(`
+    SELECT * FROM assignments
+    WHERE worker_id = ? AND (module IS NULL OR module = 'cleaning')
+    LIMIT 1
+  `).get(worker) || null;
+}
+
+function workerInCleaningSupervisorScope(db, supervisorId, workerId, locationId = '') {
+  const supervisor = sanitize(supervisorId || '', 50);
+  const worker = sanitize(workerId || '', 50);
+  const loc = sanitize(locationId || '', 80);
+  if (!supervisor || !worker) return false;
+  const row = db.prepare(`
+    SELECT 1 FROM assignments
+    WHERE worker_id = ?
+      AND supervisor_id = ?
+      ${loc ? 'AND location_id = ?' : ''}
+      AND (module IS NULL OR module = 'cleaning')
+    LIMIT 1
+  `);
+  return !!(loc ? row.get(worker, supervisor, loc) : row.get(worker, supervisor));
+}
+
 function cleaningTicketsForSupervisor(me, allTickets, assignments) {
   const cleaningTickets = allTickets.filter(t => t.module === 'cleaning');
   const scope = cleaningSupervisorScope(me.id, assignments, { strict: true });
@@ -2701,15 +2742,22 @@ const server = http.createServer(async (req, res) => {
         let supervisor = null;
         const supervisorId = sanitize(b.supervisorId || '', 50);
         if (supervisorId) {
-          supervisor = db.prepare("SELECT * FROM users WHERE id = ? AND role='cleaning_supervisor' AND active = 1 AND deleted_at IS NULL").get(supervisorId);
+          supervisor = activeUserWithRole(db, supervisorId, 'cleaning_supervisor');
           if (!supervisor) return send(res, 400, { error: 'SUPERVISOR_NOT_FOUND' });
         }
         if (b.assignedTo) {
-          worker = db.prepare('SELECT * FROM users WHERE id = ? AND active = 1 AND deleted_at IS NULL').get(b.assignedTo);
-          if (!worker || worker.role !== 'cleaner') return send(res, 400, { error: 'WORKER_NOT_FOUND' });
+          worker = activeUserWithRole(db, b.assignedTo, 'cleaner');
+          if (!worker) return send(res, 400, { error: 'WORKER_NOT_FOUND' });
+          if (!cleaningAssignment(db, worker.id)) return send(res, 403, { error: 'NOT_ASSIGNED' });
+          if (supervisor && !workerInCleaningSupervisorScope(db, supervisor.id, worker.id)) {
+            return send(res, 403, { error: 'WORKER_OUT_OF_SCOPE' });
+          }
         } else {
-          const auto = autoAssign(loc.id, db);
-          if (auto) worker = db.prepare('SELECT * FROM users WHERE id = ?').get(auto.id);
+          const auto = autoAssignCleaningRoute(loc.id, db, { requireSupervisor: !!supervisor });
+          if (auto && (!supervisor || auto.supervisorId === supervisor.id)) {
+            worker = activeUserWithRole(db, auto.id, 'cleaner');
+            if (!supervisor && auto.supervisorId) supervisor = activeUserWithRole(db, auto.supervisorId, 'cleaning_supervisor');
+          }
         }
         const id            = newId('t');
         const ts            = now();
@@ -2746,15 +2794,16 @@ const server = http.createServer(async (req, res) => {
         if (!(TICKET_TRANSITIONS[t.status] || []).includes('waiting_verification')) {
           return send(res, 400, { error: 'INVALID_TRANSITION' });
         }
-        const savedPhotos = processPhotos(b.photos, me.id, null, t.id);
+        const rawAfterPhotos = Array.isArray(b.afterPhotos) ? b.afterPhotos : (Array.isArray(b.photos) ? b.photos : []);
+        const savedPhotos = processPhotosTyped(rawAfterPhotos, me.id, null, t.id, 'after');
         if (!savedPhotos.length) return send(res, 400, { error: 'PHOTO_REQUIRED' });
         const completionMins = Math.round((Date.now() - new Date(t.created_at).getTime()) / 60_000);
         const slaBreached    = t.sla_deadline && new Date(t.sla_deadline) < new Date() ? 1 : (t.sla_breached || 0);
         const completedTs    = now();
         db.prepare(`
-          UPDATE tickets SET status='waiting_verification', notes=?, updated_at=?,
+          UPDATE tickets SET status='waiting_verification', notes=?, verification_requested_at=?, updated_at=?,
             completion_time_mins=?, sla_breached=? WHERE id=?
-        `).run(sanitize(b.notes, 1000), completedTs, completionMins, slaBreached, t.id);
+        `).run(sanitize(b.notes, 1000), completedTs, completedTs, completionMins, slaBreached, t.id);
         const ticket = ticketRow(db.prepare(`
           SELECT t.*, GROUP_CONCAT(p.filename) AS photo_files
           FROM tickets t LEFT JOIN photos p ON p.ticket_id=t.id AND p.deleted_at IS NULL
@@ -2778,12 +2827,13 @@ const server = http.createServer(async (req, res) => {
         if (!savedPhotos.length) return send(res, 400, { error: 'PHOTO_REQUIRED' });
         const note = sanitize(b.note || b.notes || '', 1000).trim();
         const ts = now();
+        const slaDeadline = computeSlaDeadline(t.category || 'general');
         db.prepare(`
           UPDATE tickets
           SET status='reclean_required', escalated_at=?, escalation_level=MAX(escalation_level, 1),
-              notes=?, updated_at=?
+              notes=?, sla_deadline=?, sla_breached=0, updated_at=?
           WHERE id=?
-        `).run(ts, note, ts, id);
+        `).run(ts, note, slaDeadline, ts, id);
         if (note) {
           db.prepare(
             'INSERT INTO ticket_comments (id,ticket_id,user_id,user_name,user_role,body,created_at) VALUES (?,?,?,?,?,?,?)'
@@ -2808,6 +2858,7 @@ const server = http.createServer(async (req, res) => {
         if (!t) return send(res, 404, { error: 'TICKET_NOT_FOUND' });
         if (!canActOnCleaningTicket(me, t)) return send(res, 403, { error: 'FORBIDDEN' });
         const sets = []; const vals = [];
+        const changes = {};
         if (b.title !== undefined)    { sets.push('title = ?');       vals.push(sanitize(b.title, 200)); }
         if (b.description !== undefined){ sets.push('description = ?'); vals.push(sanitize(b.description, 1000)); }
         if (['high','medium','low'].includes(b.priority)) { sets.push('priority = ?'); vals.push(b.priority); }
@@ -2819,30 +2870,48 @@ const server = http.createServer(async (req, res) => {
               return send(res, 400, { error: 'INVALID_TRANSITION' });
             }
             sets.push('status = ?'); vals.push(b.status);
+            changes.status = { from: t.status, to: b.status };
             const ts = now();
             if (b.status === 'completed')  { sets.push('completed_at = ?'); vals.push(ts); }
             if (b.status === 'accepted')   { sets.push('accepted_at = ?');  vals.push(ts); }
             if (b.status === 'in_progress'){ sets.push('started_at = ?');   vals.push(ts); }
+            if (b.status === 'waiting_verification') { sets.push('verification_requested_at = ?'); vals.push(ts); }
             if (b.status === 'cancelled')  { sets.push('cancelled_at = ?'); vals.push(ts); }
+            if (b.status === 'reclean_required') {
+              sets.push('sla_deadline = ?', 'sla_breached = ?', 'escalation_level = MAX(escalation_level, 1)');
+              vals.push(computeSlaDeadline(t.category || 'general'), 0);
+            }
           }
         }
         if (b.assignedTo) {
-          const w = db.prepare('SELECT * FROM users WHERE id = ? AND active=1 AND deleted_at IS NULL').get(b.assignedTo);
-          if (!w || w.role !== 'cleaner') return send(res, 400, { error: 'WORKER_NOT_FOUND' });
+          const w = activeUserWithRole(db, b.assignedTo, 'cleaner');
+          if (!w) return send(res, 400, { error: 'WORKER_NOT_FOUND' });
+          if (!cleaningAssignment(db, w.id)) return send(res, 403, { error: 'NOT_ASSIGNED' });
+          const targetSupervisorId = sanitize(b.supervisorId !== undefined ? b.supervisorId : (t.supervisor_id || ''), 50);
           if (me.role === 'cleaning_supervisor') {
             const scope = cleaningSupervisorScope(me.id, dbAssignments(), { strict: true });
             if (!scope.workerIds.has(w.id)) return send(res, 403, { error: 'WORKER_OUT_OF_SCOPE' });
           }
+          if (targetSupervisorId && !workerInCleaningSupervisorScope(db, targetSupervisorId, w.id)) {
+            return send(res, 403, { error: 'WORKER_OUT_OF_SCOPE' });
+          }
           sets.push('assigned_to = ?', 'assigned_to_name = ?'); vals.push(w.id, w.name);
+          if (w.id !== t.assigned_to) changes.assignedTo = { from: t.assigned_to || '', to: w.id };
         }
         if (b.supervisorId !== undefined && ['system_admin','facility_manager','cleaning_manager'].includes(me.role)) {
           const supervisorId = sanitize(b.supervisorId || '', 50);
           if (!supervisorId) {
             sets.push('supervisor_id = ?', 'supervisor_name = ?'); vals.push('', '');
+            if (t.supervisor_id) changes.supervisorId = { from: t.supervisor_id, to: '' };
           } else {
-            const s = db.prepare("SELECT * FROM users WHERE id=? AND role='cleaning_supervisor' AND active=1 AND deleted_at IS NULL").get(supervisorId);
+            const s = activeUserWithRole(db, supervisorId, 'cleaning_supervisor');
             if (!s) return send(res, 400, { error: 'SUPERVISOR_NOT_FOUND' });
+            const targetWorkerId = sanitize(b.assignedTo || t.assigned_to || '', 50);
+            if (targetWorkerId && !workerInCleaningSupervisorScope(db, s.id, targetWorkerId)) {
+              return send(res, 403, { error: 'WORKER_OUT_OF_SCOPE' });
+            }
             sets.push('supervisor_id = ?', 'supervisor_name = ?'); vals.push(s.id, s.name);
+            if (s.id !== t.supervisor_id) changes.supervisorId = { from: t.supervisor_id || '', to: s.id };
           }
         }
         sets.push('updated_at = ?'); vals.push(now()); vals.push(id);
@@ -2862,6 +2931,9 @@ const server = http.createServer(async (req, res) => {
           FROM tickets t LEFT JOIN photos p ON p.ticket_id=t.id AND p.deleted_at IS NULL
           WHERE t.id=? GROUP BY t.id
         `).get(id));
+        if (Object.keys(changes).length) {
+          logEvent(db, 'ticket.updated', 'ticket', id, me, changes);
+        }
         return send(res, 200, { ticket });
       }
 
@@ -2887,10 +2959,7 @@ const server = http.createServer(async (req, res) => {
         const asgRow = db.prepare(
           'SELECT location_id FROM assignments WHERE worker_id = ? AND location_id = ? AND (module IS NULL OR module = ?)'
         ).get(me.id, loc.id, 'cleaning');
-        const hasAny = db.prepare(
-          'SELECT 1 FROM assignments WHERE worker_id = ? AND (module IS NULL OR module = ?)'
-        ).get(me.id, 'cleaning');
-        if (hasAny && !asgRow) return send(res, 403, { error: 'NOT_ASSIGNED' });
+        if (!asgRow) return send(res, 403, { error: 'NOT_ASSIGNED' });
         const tasks  = Array.isArray(b.tasks) ? b.tasks.map(t => sanitize(t, 200)).slice(0, 50) : [];
         const id     = newId('r');
         const ts     = now();
@@ -2902,15 +2971,15 @@ const server = http.createServer(async (req, res) => {
           VALUES (?,?,?,?,?,?,?,?,?,?,?,'pending',?,?)
         `).run(id, me.id, me.name, loc.id, loc.name_ar, loc.name_en,
                loc.type, status, JSON.stringify(tasks), sanitize(b.notes, 1000), refNo, ts, ts);
-        // Support before/after typed photos, fallback to legacy `photos` as 'general'
+        // Cleaning reports are approved against after-execution evidence only.
         if (Array.isArray(b.beforePhotos) && b.beforePhotos.length) {
           processPhotosTyped(b.beforePhotos, me.id, id, null, 'before');
         }
-        if (Array.isArray(b.afterPhotos) && b.afterPhotos.length) {
-          processPhotosTyped(b.afterPhotos, me.id, id, null, 'after');
-        }
-        if (!b.beforePhotos && !b.afterPhotos) {
-          processPhotos(b.photos, me.id, id, null);
+        const afterPayload = Array.isArray(b.afterPhotos) ? b.afterPhotos : (Array.isArray(b.photos) ? b.photos : []);
+        const savedAfterPhotos = processPhotosTyped(afterPayload, me.id, id, null, 'after');
+        if (!savedAfterPhotos.length) {
+          db.prepare('DELETE FROM reports WHERE id=?').run(id);
+          return send(res, 400, { error: 'PHOTO_REQUIRED' });
         }
         const report = reportRow(db.prepare(`
           SELECT r.*,
@@ -3041,6 +3110,9 @@ const server = http.createServer(async (req, res) => {
       /* ── TICKET ACTIVITY ───────────────────────────────────── */
       if (req.method === 'GET' && /^\/api\/tickets\/[^/]+\/activity$/.test(url.pathname)) {
         const ticketId = sanitize(url.pathname.split('/')[3], 50);
+        const ticket = ticketRow(db.prepare("SELECT t.*, NULL AS photo_files, NULL AS photo_types FROM tickets t WHERE t.id=? AND deleted_at IS NULL").get(ticketId));
+        if (!ticket) return send(res, 404, { error: 'TICKET_NOT_FOUND' });
+        if (!canReceiveTicketEvent(publicUser(me), ticket)) return send(res, 403, { error: 'FORBIDDEN' });
         const events = db.prepare(`
           SELECT e.*, u.name AS actor_name
           FROM event_log e LEFT JOIN users u ON u.id = e.actor_id
@@ -3057,6 +3129,9 @@ const server = http.createServer(async (req, res) => {
       /* ── REPORT ACTIVITY ────────────────────────────────────── */
       if (req.method === 'GET' && /^\/api\/reports\/[^/]+\/activity$/.test(url.pathname)) {
         const reportId = sanitize(url.pathname.split('/')[3], 50);
+        const report = reportRow(db.prepare("SELECT r.*, NULL AS photo_files, NULL AS photo_types FROM reports r WHERE r.id=? AND deleted_at IS NULL").get(reportId));
+        if (!report) return send(res, 404, { error: 'REPORT_NOT_FOUND' });
+        if (!canReceiveReportEvent(publicUser(me), report)) return send(res, 403, { error: 'FORBIDDEN' });
         const events = db.prepare(`
           SELECT e.*, u.name AS actor_name
           FROM event_log e LEFT JOIN users u ON u.id = e.actor_id
