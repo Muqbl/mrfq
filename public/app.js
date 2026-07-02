@@ -1564,9 +1564,28 @@ async function load(){
     requestBrowserNotif();
     checkNewBreaches();
   }catch(e){
-    if(e?.status===401 || e?.message==='UNAUTHORIZED') return logout();
+    if(e?.status===401 || e?.message==='UNAUTHORIZED') {
+      if(me && data){
+        try{
+          await new Promise(resolve=>setTimeout(resolve,400));
+          const b = await api('/bootstrap');
+          data=b; me=b.user;
+          restoreRouteState();
+          render(); connectSSE();
+          requestBrowserNotif();
+          checkNewBreaches();
+          return;
+        }catch(retryError){
+          if(retryError?.status!==401 && retryError?.message!=='UNAUTHORIZED') {
+            console.warn('MRFQ bootstrap refresh failed', retryError);
+            return;
+          }
+        }
+      }
+      return logout();
+    }
     if(me && data){
-      toast(lang==='ar'?'تعذر تحديث البيانات، بقيت الجلسة فعالة':'Could not refresh data; session is still active','bad');
+      console.warn('MRFQ bootstrap refresh failed', e);
       return;
     }
     loginPage();
