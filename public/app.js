@@ -752,7 +752,9 @@ const UI_ACTION_NAMES = new Set([
   'submitGroupReport',
   'submitEmployeeOrder','submitEmployeeHospOrder','updateHospitalityOrderStatus',
   'showHospitalityActivity','toggleAssignRow','deleteHospitalityOrder','maintAcceptTicket','maintStartTicket',
-  'maintAssignTicket','maintOpenTicketCreate','showMaintenanceTeamForm',
+  'maintAssignTicket','maintAssignTicketSubmit','maintCompleteTicketSubmit',
+  'maintOpenTicketCreate','maintCreateTicketSubmit','maintOpenReportCreate','maintCreateReportSubmit',
+  'showMaintenanceTeamForm',
   'deleteMaintTicketConfirm','showMaintenanceScheduleForm','showMaintenanceScheduleTeamForm',
   'runMaintenanceSchedule','deleteMaintenanceSchedule','showMaintenanceAssetForm',
   'deleteMaintenanceAsset','showMaintenancePartForm','showMaintenancePartEditForm',
@@ -3171,6 +3173,12 @@ async function mapRefreshData(){
     mapState.dirty=false;
     renderMapConsole();
   }catch(error){
+    host.innerHTML=`<div class="card"><div class="empty-state">
+      <div class="empty-icon">${ic('alert-triangle',24)}</div>
+      <div class="empty-title">${lang==='ar'?'تعذر تحميل بيانات الخريطة':'Unable to load map data'}</div>
+      <p class="empty-sub">${esc(error.message||error)}</p>
+      <button class="btn secondary sm u-mt-12" ${uiAction('mapRefreshData',[])}>${lang==='ar'?'إعادة المحاولة':'Retry'}</button>
+    </div></div>`;
     toast(error.message||String(error),'bad');
   }
 }
@@ -7628,7 +7636,13 @@ function employeeHospForm(){
       empHospKitchens=k.kitchens||[];
       empHospMenuCategories=c.categories||[];
       renderEmployee();
-    }).catch(()=>toast(lang==='ar'?'تعذر تحميل القائمة':'Menu load failed','bad'));
+    }).catch(()=>{
+      empHospMenuItems=[];
+      empHospKitchens=[];
+      empHospMenuCategories=[];
+      renderEmployee();
+      toast(lang==='ar'?'تعذر تحميل القائمة':'Menu load failed','bad');
+    });
     return `<div class="wCard wCard--compact">
       <button class="linkBtn" ${uiAction('runUiFlow',['employee-service',''])}>${ic('arrow-left',14)} ${lang==='ar'?'العودة إلى الخدمات':'Back to Services'}</button>
       <div class="wCard-title u-mt-12">${ic('coffee',18)} ${lang==='ar'?'طلب ضيافة':'Hospitality Order'}</div>
@@ -9454,12 +9468,16 @@ async function submitMaintenanceClose(id){
 
 /* ── maintenance actions ──────────────────────────────────────── */
 async function maintUpdateTicket(id, update, renderFn){
-  const res = await fetch(`/api/maintenance-tickets/${id}`, {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(update)});
-  const j   = await res.json();
-  if(!res.ok){ toast(j.error||'Error','error'); return; }
-  const idx = (data.tickets||[]).findIndex(t=>t.id===id);
-  if(idx>=0) data.tickets[idx]=j.ticket; else (data.tickets=data.tickets||[]).unshift(j.ticket);
-  window[renderFn]();
+  try{
+    const j = await api(`/maintenance-tickets/${id}`, {method:'PUT',body:JSON.stringify(update)});
+    const idx = (data.tickets||[]).findIndex(t=>t.id===id);
+    if(idx>=0) data.tickets[idx]=j.ticket; else (data.tickets=data.tickets||[]).unshift(j.ticket);
+    window[renderFn]();
+    return true;
+  }catch(e){
+    toast(e.message||'Error','bad');
+    return false;
+  }
 }
 
 function maintAcceptTicket(id,renderFn){ maintUpdateTicket(id,{status:'accepted'},renderFn); }
@@ -9471,31 +9489,39 @@ function maintAssignTicket(id, renderFn){
   const opts = workers.map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('');
   showModal('maintAssign', lang==='ar'?'تعيين فني':'Assign Technician',
     `<select id="maintWorkerSel" class="form-control">${opts}</select>`,
-    async ()=>{
-      const wId = document.getElementById('maintWorkerSel')?.value;
-      if(!wId) return;
-      await maintUpdateTicket(id,{assignedTo:wId,status:'assigned'},renderFn);
-    });
+    `<button class="btn" ${uiAction('maintAssignTicketSubmit',[id,renderFn])}>${tr('assign')}</button>
+     <button class="btn secondary" ${uiAction('runUiFlow',['close-element','maintAssign'])}>${tr('cancel')}</button>`);
+}
+
+async function maintAssignTicketSubmit(id, renderFn){
+  const wId = document.getElementById('maintWorkerSel')?.value;
+  if(!wId) return;
+  try{
+    const ok = await maintUpdateTicket(id,{assignedTo:wId,status:'assigned'},renderFn);
+    if(ok) document.getElementById('maintAssign')?.remove();
+  }catch(e){ toast(e.message||'Error','bad'); }
 }
 
 function maintCompleteTicket(id, renderFn){
   showModal('maintComplete', lang==='ar'?'إغلاق البلاغ':'Close Ticket',
     `<textarea id="maintNotes" class="form-control" rows="3" placeholder="${lang==='ar'?'ملاحظات الإغلاق':'Closing notes'}"></textarea>`,
-    async ()=>{
-      const notes = document.getElementById('maintNotes')?.value||'';
-      const res = await fetch('/api/maintenance-tickets/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,notes})});
-      const j   = await res.json();
-      if(!res.ok){ toast(j.error||'Error','error'); return; }
-      const idx = (data.tickets||[]).findIndex(t=>t.id===id);
-      if(idx>=0) data.tickets[idx]=j.ticket; else (data.tickets=data.tickets||[]).unshift(j.ticket);
-      window[renderFn]();
-    });
+    `<button class="btn" ${uiAction('maintCompleteTicketSubmit',[id,renderFn])}>${tr('completeTicket')}</button>
+     <button class="btn secondary" ${uiAction('runUiFlow',['close-element','maintComplete'])}>${tr('cancel')}</button>`);
+}
+
+async function maintCompleteTicketSubmit(id, renderFn){
+  try{
+    const notes = document.getElementById('maintNotes')?.value||'';
+    const j = await api('/maintenance-tickets/complete',{method:'POST',body:JSON.stringify({id,notes})});
+    const idx = (data.tickets||[]).findIndex(t=>t.id===id);
+    if(idx>=0) data.tickets[idx]=j.ticket; else (data.tickets=data.tickets||[]).unshift(j.ticket);
+    document.getElementById('maintComplete')?.remove();
+    window[renderFn]();
+  }catch(e){ toast(e.message||'Error','bad'); }
 }
 
 async function maintReviewReport(id, status, renderFn){
-  const res = await fetch('/api/maintenance-reports/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,status})});
-  const j   = await res.json();
-  if(!res.ok){ toast(j.error||'Error','error'); return; }
+  const j = await api('/maintenance-reports/review',{method:'POST',body:JSON.stringify({id,status})});
   const idx = (data.reports||[]).findIndex(r=>r.id===id);
   if(idx>=0) data.reports[idx]=j.report; else (data.reports=data.reports||[]).unshift(j.report);
   window[renderFn]();
@@ -9511,20 +9537,24 @@ function maintOpenTicketCreate(renderFn){
      <div class="form-group"><label>${lang==='ar'?'التصنيف':'Category'}</label><select id="mcCat" class="form-control">${catOpts}</select></div>
      <div class="form-group"><label>${lang==='ar'?'العنوان':'Title'}</label><input id="mcTitle" class="form-control" placeholder="${lang==='ar'?'وصف المشكلة':'Describe the issue'}"></div>
      <div class="form-group"><label>${lang==='ar'?'الفني':'Technician'}</label><select id="mcWorker" class="form-control">${workerOpts}</select></div>`,
-    async ()=>{
-      const body = {
-        locationId: document.getElementById('mcLoc')?.value,
-        category:   document.getElementById('mcCat')?.value,
-        title:      document.getElementById('mcTitle')?.value,
-        assignedTo: document.getElementById('mcWorker')?.value||undefined
-      };
-      const res = await fetch('/api/maintenance-tickets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-      const j   = await res.json();
-      if(!res.ok){ toast(j.error||'Error','error'); return; }
-      (data.tickets=data.tickets||[]).unshift(j.ticket);
-      toast(lang==='ar'?'تم إنشاء الطلب':'Ticket created','ok');
-      window[renderFn]();
-    });
+    `<button class="btn" ${uiAction('maintCreateTicketSubmit',[renderFn])}>${tr('save')}</button>
+     <button class="btn secondary" ${uiAction('runUiFlow',['close-element','maintCreate'])}>${tr('cancel')}</button>`);
+}
+
+async function maintCreateTicketSubmit(renderFn){
+  try{
+    const body = {
+      locationId: document.getElementById('mcLoc')?.value,
+      category:   document.getElementById('mcCat')?.value,
+      title:      document.getElementById('mcTitle')?.value,
+      assignedTo: document.getElementById('mcWorker')?.value||undefined
+    };
+    const j = await api('/maintenance-tickets',{method:'POST',body:JSON.stringify(body)});
+    (data.tickets=data.tickets||[]).unshift(j.ticket);
+    document.getElementById('maintCreate')?.remove();
+    toast(lang==='ar'?'تم إنشاء الطلب':'Ticket created','ok');
+    window[renderFn]();
+  }catch(e){ toast(e.message||'Error','bad'); }
 }
 
 function maintOpenReportCreate(renderFn){
@@ -9537,16 +9567,20 @@ function maintOpenReportCreate(renderFn){
        <button class="btn btn-ghost btn-sm" type="button" ${uiAction('addMaintTask',[])}>${ic('plus',14)} ${lang==='ar'?'إضافة مهمة':'Add Task'}</button>
      </div>
      <div class="form-group"><label>${lang==='ar'?'ملاحظات':'Notes'}</label><textarea id="mrNotes" class="form-control" rows="2"></textarea></div>`,
-    async ()=>{
-      const tasks = [...document.querySelectorAll('.mr-task-input')].map(i=>i.value).filter(Boolean);
-      const body  = { locationId: document.getElementById('mrLoc')?.value, tasks, notes: document.getElementById('mrNotes')?.value||'' };
-      const res   = await fetch('/api/maintenance-reports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-      const j     = await res.json();
-      if(!res.ok){ toast(j.error||'Error','error'); return; }
-      (data.reports=data.reports||[]).unshift(j.report);
-      toast(lang==='ar'?'تم إرسال التقرير':'Report submitted','ok');
-      window[renderFn]();
-    });
+    `<button class="btn" ${uiAction('maintCreateReportSubmit',[renderFn])}>${tr('submit')}</button>
+     <button class="btn secondary" ${uiAction('runUiFlow',['close-element','maintReport'])}>${tr('cancel')}</button>`);
+}
+
+async function maintCreateReportSubmit(renderFn){
+  try{
+    const tasks = [...document.querySelectorAll('.mr-task-input')].map(i=>i.value).filter(Boolean);
+    const body  = { locationId: document.getElementById('mrLoc')?.value, tasks, notes: document.getElementById('mrNotes')?.value||'' };
+    const j = await api('/maintenance-reports',{method:'POST',body:JSON.stringify(body)});
+    (data.reports=data.reports||[]).unshift(j.report);
+    document.getElementById('maintReport')?.remove();
+    toast(lang==='ar'?'تم إرسال التقرير':'Report submitted','ok');
+    window[renderFn]();
+  }catch(e){ toast(e.message||'Error','bad'); }
 }
 
 function addMaintTask(){
@@ -9566,9 +9600,7 @@ function maintStarWidget(reportId, ratingType, currentVal){
 }
 
 async function setMaintRating(reportId, ratingType, value){
-  const res = await fetch('/api/maintenance-reports/rate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:reportId,ratingType,value})});
-  const j   = await res.json();
-  if(!res.ok){ toast(j.error||'Error','error'); return; }
+  const j = await api('/maintenance-reports/rate',{method:'POST',body:JSON.stringify({id:reportId,ratingType,value})});
   const idx = (data.reports||[]).findIndex(r=>r.id===reportId);
   if(idx>=0) data.reports[idx]=j.report;
   const renderFn = me.role==='maintenance_manager'?'renderMaintenanceManager':me.role==='maintenance_supervisor'?'renderMaintenanceSupervisor':null;
@@ -10608,9 +10640,7 @@ async function loadInventoryMovements(){
   const el = document.getElementById('invMovementsList');
   if(!el) return;
   try{
-    const r = await fetch('/api/inventory/movements?limit=100',{credentials:'same-origin'});
-    if(!r.ok) throw new Error(r.status);
-    const res = await r.json();
+    const res = await api('/inventory/movements?limit=100');
     const list = Array.isArray(res) ? res : (res.movements || []);
     const inv = inventoryData();
     if(list.length===0){el.innerHTML=`<div class="empty-state">${tr('noMovements')}</div>`;return;}
@@ -10682,13 +10712,11 @@ async function invSaveWarehouse(id){
   const notes  = document.getElementById('invWhNotes')?.value.trim()||'';
   if(!nameAr||!code){alert(lang==='ar'?'يرجى تعبئة الحقول الإلزامية':'Please fill required fields');return;}
   const payload = {nameAr,nameEn,code,type,status,notes};
-  const url = id ? `/api/inventory/warehouses/${id}` : '/api/inventory/warehouses';
+  const apiPath = id ? `/inventory/warehouses/${id}` : '/inventory/warehouses';
   const method = id ? 'PUT' : 'POST';
   try{
-    const r = await fetch(url,{method,credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const body = await r.json();
-    if(!r.ok) throw new Error(body.error||r.status);
-    closeModal();
+    await api(apiPath,{method,body:JSON.stringify(payload)});
+    document.getElementById('invWhModal')?.remove();
     await refreshInventory();
     render();
   }catch(e){alert(e.message);}
@@ -10731,13 +10759,11 @@ async function invSaveItem(id){
   const reorderLevel  = parseFloat(document.getElementById('invItReorder')?.value||'0')||0;
   if(!nameAr||!sku){alert(lang==='ar'?'يرجى تعبئة الحقول الإلزامية':'Please fill required fields');return;}
   const payload = {nameAr,nameEn,sku,category,unit,moduleScope,minStockLevel,reorderLevel};
-  const url = id ? `/api/inventory/items/${id}` : '/api/inventory/items';
+  const apiPath = id ? `/inventory/items/${id}` : '/inventory/items';
   const method = id ? 'PUT' : 'POST';
   try{
-    const r = await fetch(url,{method,credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const body = await r.json();
-    if(!r.ok) throw new Error(body.error||r.status);
-    closeModal();
+    await api(apiPath,{method,body:JSON.stringify(payload)});
+    document.getElementById('invItemModal')?.remove();
     await refreshInventory();
     render();
   }catch(e){alert(e.message);}
@@ -10783,14 +10809,11 @@ async function invSaveMovement(){
     return;
   }
   try{
-    const r = await fetch('/api/inventory/movements',{
-      method:'POST',credentials:'same-origin',
-      headers:{'Content-Type':'application/json'},
+    await api('/inventory/movements',{
+      method:'POST',
       body:JSON.stringify({warehouseId,itemId,movementType,quantity,notes})
     });
-    const body = await r.json();
-    if(!r.ok) throw new Error(body.error||r.status);
-    closeModal();
+    document.getElementById('invMvModal')?.remove();
     await refreshInventory();
     render();
   }catch(e){alert(e.message);}
@@ -10799,9 +10822,9 @@ async function invSaveMovement(){
 async function refreshInventory(){
   try{
     const [whRes, itemsRes, balRes] = await Promise.all([
-      fetch('/api/inventory/warehouses',{credentials:'same-origin'}).then(r=>r.json()),
-      fetch('/api/inventory/items',{credentials:'same-origin'}).then(r=>r.json()),
-      fetch('/api/inventory/balances',{credentials:'same-origin'}).then(r=>r.json())
+      api('/inventory/warehouses'),
+      api('/inventory/items'),
+      api('/inventory/balances')
     ]);
     if(!data.inventory) data.inventory={};
     data.inventory.warehouses     = Array.isArray(whRes)    ? whRes    : (whRes.warehouses    || []);
