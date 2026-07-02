@@ -1018,6 +1018,29 @@ function reportRow(r) {
   };
 }
 
+function reportQualityScore(r) {
+  if (!r) return null;
+  const approval = r.approval_status || 'pending';
+  const photoFiles = (r.photo_files || '').split(',').filter(Boolean);
+  const photoTypes = (r.photo_types || '').split(',');
+  const hasRequiredPhoto = photoFiles.some((_, i) => {
+    const type = photoTypes[i] || 'general';
+    return type === 'after' || type === 'general';
+  });
+  if (!hasRequiredPhoto || approval === 'pending') return null;
+
+  const reviewScore = approval === 'approved' ? 55 : approval === 'needs_recleaning' ? 20 : 0;
+  let tasks = [];
+  try { tasks = JSON.parse(r.tasks || '[]'); } catch { tasks = []; }
+  const expectedTasks = r.location_type === 'restroom' ? 6 : 5;
+  const taskScore = expectedTasks ? Math.round(Math.min(tasks.length, expectedTasks) / expectedTasks * 35) : (tasks.length ? 35 : 0);
+  const needsDocumentation = approval !== 'approved' || r.status === 'needs_followup';
+  const documentationScore = needsDocumentation
+    ? ((r.notes || r.review_note) ? 10 : 0)
+    : 10;
+  return Math.max(0, Math.min(100, reviewScore + taskScore + documentationScore));
+}
+
 /** Map DB hospitality_orders row → frontend camelCase */
 function hospitalityOrderRow(r) {
   if (!r) return null;
@@ -3761,9 +3784,14 @@ const server = http.createServer(async (req, res) => {
         const now30 = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
         const nowStr = now();
         const metrics = workers.map(w => {
-          const reports30 = db.prepare(
-            "SELECT * FROM reports WHERE worker_id=? AND module='cleaning' AND created_at>=? AND deleted_at IS NULL ORDER BY created_at DESC"
-          ).all(w.id, now30);
+          const reports30 = db.prepare(`
+            SELECT r.*, GROUP_CONCAT(p.filename) AS photo_files, GROUP_CONCAT(p.photo_type) AS photo_types
+            FROM reports r
+            LEFT JOIN photos p ON p.report_id = r.id AND p.deleted_at IS NULL
+            WHERE r.worker_id=? AND r.module='cleaning' AND r.created_at>=? AND r.deleted_at IS NULL
+            GROUP BY r.id
+            ORDER BY r.created_at DESC
+          `).all(w.id, now30);
           const total = db.prepare("SELECT COUNT(*) AS c FROM reports WHERE worker_id=? AND module='cleaning' AND deleted_at IS NULL").get(w.id).c;
           const reviewed = reports30.filter(r => r.approval_status !== 'pending');
           const approved = reviewed.filter(r => r.approval_status === 'approved').length;
@@ -3782,14 +3810,10 @@ const server = http.createServer(async (req, res) => {
           const locCount = db.prepare(
             "SELECT COUNT(*) AS c FROM assignments WHERE worker_id=? AND (module IS NULL OR module='cleaning')"
           ).get(w.id).c;
-          // Quality score (client-side formula mirror)
-          const avgQuality = reports30.length ? Math.round(
-            reports30.reduce((sum, r) => {
-              const photos = (r.photo_files || '').split(',').filter(Boolean).length;
-              const tasks  = JSON.parse(r.tasks || '[]').length;
-              return sum + Math.min(100, (photos >= 2 ? 45 : photos ? 25 : 0) + (tasks >= 4 ? 45 : tasks * 8) + (r.notes ? 10 : 0));
-            }, 0) / reports30.length
-          ) : 0;
+          const scoredReports = reports30.map(reportQualityScore).filter(score => score != null);
+          const avgQuality = scoredReports.length
+            ? Math.round(scoredReports.reduce((sum, score) => sum + score, 0) / scoredReports.length)
+            : 0;
           // Workload score: open_tickets / max(1, assigned_locations)
           const workloadScore = Math.round(openTickets / Math.max(1, locCount) * 100);
           // Month reports

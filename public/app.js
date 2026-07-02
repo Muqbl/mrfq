@@ -3855,9 +3855,24 @@ function stats(){
   };
 }
 function qualityScore(r){
-  const photos = (r.photos||[]).length;
-  const tasks = (r.tasks||[]).length;
-  return Math.min(100,Math.round((photos>=2?45:photos?25:0)+(tasks>=4?45:tasks*8)+(r.notes?10:0)));
+  const st = r.approvalStatus || 'pending';
+  const hasRequiredPhoto = (r.afterPhotos||[]).length > 0 || (r.photos||[]).length > 0;
+  if(!hasRequiredPhoto || ['pending','pending_approval'].includes(st)) return null;
+
+  const reviewScore = st==='approved' ? 55 : st==='needs_recleaning' ? 20 : 0;
+  const expectedTasks = taskSetFor(r.locationType||'other');
+  const taskScore = expectedTasks.length
+    ? Math.round(expectedTasks.filter(task=>taskDone(r.tasks||[],task)).length / expectedTasks.length * 35)
+    : ((r.tasks||[]).length ? 35 : 0);
+  const needsDocumentation = st!=='approved' || r.status==='needs_followup';
+  const documentationScore = needsDocumentation
+    ? ((r.notes||r.reviewNote) ? 10 : 0)
+    : 10;
+  return Math.max(0,Math.min(100,reviewScore + taskScore + documentationScore));
+}
+function qualityLabel(r){
+  const q = qualityScore(r);
+  return q == null ? (lang==='ar'?'غير محتسب':'Not scored') : `${num(q)}%`;
 }
 function avgNumeric(values){
   const nums = values.filter(v=>v!=null&&!Number.isNaN(Number(v))).map(Number);
@@ -3919,8 +3934,9 @@ function dash(){
     };
   });
   const max = Math.max(1,...days.map(d=>d.count));
-  const avgQ = data.reports.length
-    ? Math.round(data.reports.slice(0,12).reduce((a,r)=>a+qualityScore(r),0)/Math.min(12,data.reports.length))
+  const qualitySample = data.reports.slice(0,12).map(qualityScore).filter(q=>q!=null);
+  const avgQ = qualitySample.length
+    ? Math.round(qualitySample.reduce((a,q)=>a+q,0)/qualitySample.length)
     : 0;
   const slaPct = Math.max(10,100-Math.min(100,s.openTickets*18));
   const hour = new Date().getHours();
@@ -4076,7 +4092,6 @@ function miniReportList(items){
   if(!items.length) return `<div class="empty-state"><div class="empty-icon">${ic('reports',24)}</div><div class="empty-title">${tr('noData')}</div></div>`;
   return `<div>${items.map(r=>{
     const imgs = imgList(r);
-    const q = qualityScore(r);
     const st = r.approvalStatus||'pending_approval';
     return`<div class="list-row list-row--clickable" ${uiAction('openReportDetail',[(r.id)])} role="button" tabindex="0">
       ${imgs[0]?`<img src="${imgs[0]}" class="thumb-44">`:
@@ -4199,10 +4214,14 @@ function reportAnalytics(items){
   const byLocation = {};
   const byWorker = {};
   let qualitySum = 0;
+  let qualityCount = 0;
   let photoTotal = 0;
   for(const r of items){
     const q = qualityScore(r);
-    qualitySum += q;
+    if(q!=null){
+      qualitySum += q;
+      qualityCount += 1;
+    }
     photoTotal += imgList(r).length;
     const st = reportStatusKey(r);
     statuses[st] = (statuses[st]||0)+1;
@@ -4211,31 +4230,40 @@ function reportAnalytics(items){
     const day = reportDayKey(r.createdAt);
     if(!byDay[day]) byDay[day] = { count:0, quality:0 };
     byDay[day].count += 1;
-    byDay[day].quality += q;
+    if(q!=null){
+      byDay[day].quality += q;
+      byDay[day].qualityCount = (byDay[day].qualityCount||0)+1;
+    }
     const locCode = r.locationId || '';
     const locName = lang==='ar'?r.locationNameAr:r.locationNameEn;
     const locKey = locCode || locName;
     if(!byLocation[locKey]) byLocation[locKey] = { code:locCode, label:locName, count:0, quality:0 };
     byLocation[locKey].count += 1;
-    byLocation[locKey].quality += q;
+    if(q!=null){
+      byLocation[locKey].quality += q;
+      byLocation[locKey].qualityCount = (byLocation[locKey].qualityCount||0)+1;
+    }
     const worker = r.workerName || (lang==='ar'?'غير محدد':'Unknown');
     if(!byWorker[worker]) byWorker[worker] = { count:0, quality:0 };
     byWorker[worker].count += 1;
-    byWorker[worker].quality += q;
+    if(q!=null){
+      byWorker[worker].quality += q;
+      byWorker[worker].qualityCount = (byWorker[worker].qualityCount||0)+1;
+    }
   }
-  const averageQuality = total ? Math.round(qualitySum/total) : 0;
+  const averageQuality = qualityCount ? Math.round(qualitySum/qualityCount) : 0;
   const coveredLocations = Object.keys(byLocation).length;
   const topLocations = Object.entries(byLocation)
-    .map(([,v])=>({code:v.code,label:v.label,count:v.count,quality:Math.round(v.quality/v.count)}))
+    .map(([,v])=>({code:v.code,label:v.label,count:v.count,quality:v.qualityCount?Math.round(v.quality/v.qualityCount):0}))
     .sort((a,b)=>b.count-a.count||a.quality-b.quality).slice(0,5);
   const workerRank = Object.entries(byWorker)
-    .map(([label,v])=>({label,count:v.count,quality:Math.round(v.quality/v.count)}))
+    .map(([label,v])=>({label,count:v.count,quality:v.qualityCount?Math.round(v.quality/v.qualityCount):0}))
     .filter(x=>x.count>=1)
     .sort((a,b)=>b.quality-a.quality||b.count-a.count);
   const dailyQuality = Object.entries(byDay)
     .sort(([a],[b])=>a.localeCompare(b))
-    .map(([label,v])=>({label:label.slice(5),fullDate:label,count:v.count,quality:Math.round(v.quality/v.count)}));
-  return { total, statuses, byType, dailyQuality, averageQuality, coveredLocations, photoTotal, topLocations, workerRank };
+    .map(([label,v])=>({label:label.slice(5),fullDate:label,count:v.count,quality:v.qualityCount?Math.round(v.quality/v.qualityCount):0}));
+  return { total, statuses, byType, dailyQuality, averageQuality, qualityCount, coveredLocations, photoTotal, topLocations, workerRank };
 }
 function chartBars(entries, opts={}){
   const max = Math.max(1, ...entries.map(e=>e.value));
@@ -4372,7 +4400,6 @@ function reportCard(r,full){
   const before = (r.beforePhotos||[]);
   const after  = (r.afterPhotos||[]);
   const st = r.approvalStatus||'pending_approval';
-  const q = qualityScore(r);
   const rating = reportOverallRating(r);
   const totalPhotos = imgs.length;
   const isCleaningReport=(r.module||'cleaning')==='cleaning';
@@ -4386,7 +4413,7 @@ function reportCard(r,full){
       </div>
       <div class="u-flex-wrap-gap-6">
         <span class="badge brand">${ic('camera',10)} ${num(totalPhotos)}</span>
-        <span class="badge gold">${tr('quality')}: ${num(q)}%</span>
+        <span class="badge gold">${tr('quality')}: ${qualityLabel(r)}</span>
         <span class="badge ${st==='approved'?'ok':st==='rejected'||st==='needs_recleaning'?'bad':'warn'}">${reportStatusLabel(r)}</span>
         ${rating!=null?`<span class="badge gold">${ic('star',10)} ${rating.toFixed(1)}</span>`:''}
         <span class="badge u-inline-auto">${ic('arrow',11)} ${lang==='ar'?'تفاصيل':'Details'}</span>
@@ -4608,7 +4635,7 @@ function exportReportsCsvFromModal(){
     i+1, r.referenceNo||r.id, r.workerName,
     lang==='ar'?r.locationNameAr:r.locationNameEn,
     tr(r.locationType||'other'),
-    tr(r.status), qualityScore(r)+'%',
+    tr(r.status), qualityLabel(r),
     tr(r.approvalStatus||'pending_approval'),
     imgList(r).length,
     fmt(r.createdAt), r.notes||''
@@ -4657,7 +4684,7 @@ ${items.map((r,i)=>{
   const cls=st==='approved'?'ok':st==='rejected'||st==='needs_recleaning'?'bad':'warn';
   return`<tr><td>${i+1}</td><td class="no-wrap">${esc(r.referenceNo||r.id)}</td><td>${esc(r.workerName)}</td>
     <td>${esc(lang==='ar'?r.locationNameAr:r.locationNameEn)}<br><small class="text-gray-8a">${tr(r.locationType||'other')}</small></td>
-    <td>${qualityScore(r)}%</td>
+    <td>${qualityLabel(r)}</td>
     <td class="${cls}">${reportStatusLabel(r)}</td>
     <td>${imgList(r).length}</td>
     <td class="no-wrap">${fmt(r.createdAt)}</td>
