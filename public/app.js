@@ -1563,7 +1563,14 @@ async function load(){
     render(); connectSSE();
     requestBrowserNotif();
     checkNewBreaches();
-  }catch(e){logout()}
+  }catch(e){
+    if(e?.status===401 || e?.message==='UNAUTHORIZED') return logout();
+    if(me && data){
+      toast(lang==='ar'?'تعذر تحديث البيانات، بقيت الجلسة فعالة':'Could not refresh data; session is still active','bad');
+      return;
+    }
+    loginPage();
+  }
 }
 async function login(){
   try{

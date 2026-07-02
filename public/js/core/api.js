@@ -22,7 +22,12 @@
       const text = await response.text();
       let payload = {};
       try { payload = text ? JSON.parse(text) : {}; } catch {}
-      if (!response.ok) throw new Error(payload.error || 'ERROR');
+      if (!response.ok) {
+        const error = new Error(payload.error || 'ERROR');
+        error.status = response.status;
+        error.payload = payload;
+        throw error;
+      }
       return payload;
     } catch (error) {
       if (error && error.name === 'AbortError') throw new Error('REQUEST_TIMEOUT');
