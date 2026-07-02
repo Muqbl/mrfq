@@ -4744,10 +4744,24 @@ ${items.map((r,i)=>{
 </section>
 ${detailSection}
 </body></html>`;
-  const w=window.open('','_blank','width=900,height=700');
+  const w=window.open('','_blank','width=1180,height=900');
+  if(!w){
+    toast(lang==='ar'?'تعذر فتح نافذة الطباعة':'Unable to open print window','err');
+    return;
+  }
   w.document.write(html);
   w.document.close();
-  w.addEventListener('load',()=>w.print());
+  const printWhenReady = async()=>{
+    try{
+      const styles = Array.from(w.document.styleSheets);
+      if(styles.length===0) await new Promise(resolve=>setTimeout(resolve,250));
+      if(w.document.fonts?.ready) await w.document.fonts.ready;
+      await new Promise(resolve=>w.requestAnimationFrame(()=>w.requestAnimationFrame(resolve)));
+    }catch{}
+    w.focus();
+    w.print();
+  };
+  w.addEventListener('load',printWhenReady,{once:true});
 }
 
 function openGallery(imgs,i=0){
