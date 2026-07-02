@@ -1029,16 +1029,17 @@ function reportQualityScore(r) {
   });
   if (!hasRequiredPhoto || approval === 'pending') return null;
 
-  const reviewScore = approval === 'approved' ? 55 : approval === 'needs_recleaning' ? 20 : 0;
+  const photoScore = 25;
+  const reviewScore = approval === 'approved' ? 45 : approval === 'needs_recleaning' ? 15 : 0;
   let tasks = [];
   try { tasks = JSON.parse(r.tasks || '[]'); } catch { tasks = []; }
   const expectedTasks = r.location_type === 'restroom' ? 6 : 5;
-  const taskScore = expectedTasks ? Math.round(Math.min(tasks.length, expectedTasks) / expectedTasks * 35) : (tasks.length ? 35 : 0);
+  const taskScore = expectedTasks ? Math.round(Math.min(tasks.length, expectedTasks) / expectedTasks * 20) : (tasks.length ? 20 : 0);
   const needsDocumentation = approval !== 'approved' || r.status === 'needs_followup';
   const documentationScore = needsDocumentation
     ? ((r.notes || r.review_note) ? 10 : 0)
     : 10;
-  return Math.max(0, Math.min(100, reviewScore + taskScore + documentationScore));
+  return Math.max(0, Math.min(100, photoScore + reviewScore + taskScore + documentationScore));
 }
 
 /** Map DB hospitality_orders row → frontend camelCase */
@@ -2147,21 +2148,34 @@ setInterval(() => {
     ).all(ts);
     for (const task of dueTasks) {
       try {
+        const route = autoAssignCleaningRoute(task.location_id, db, { requireSupervisor: true });
+        const nextRun = new Date(Date.now() + task.frequency_mins * 60_000).toISOString();
+        if (!route) {
+          db.prepare('UPDATE recurring_tasks SET last_run_at=?,next_run_at=?,updated_at=? WHERE id=?')
+            .run(ts, nextRun, ts, task.id);
+          logEvent(db, 'ticket.recurring_skipped', 'recurring_task', task.id, { id: '', role: 'system' }, {
+            locationId: task.location_id,
+            reason: 'missing_worker_or_supervisor'
+          });
+          console.log(`[recurring] skipped task ${task.id}: missing worker/supervisor route`);
+          continue;
+        }
         const id        = newId('t');
         const refNo     = generateRefNo(db);
         const slaDeadline = new Date(Date.now() + slaMins(task.category) * 60_000).toISOString();
         db.prepare(`
           INSERT INTO tickets
             (id,title,description,location_id,location_name_ar,location_name_en,
+             assigned_to,assigned_to_name,supervisor_id,supervisor_name,
              created_by,created_by_id,status,priority,category,reference_no,sla_deadline,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `).run(
           id, task.title_ar, 'مهمة دورية تلقائية',
           task.location_id, task.location_name_ar, task.location_name_en,
-          'system', '', 'submitted', 'medium', task.category,
+          route.id, route.name, route.supervisorId, route.supervisorName,
+          'system', '', 'assigned', 'medium', task.category,
           refNo, slaDeadline, ts, ts
         );
-        const nextRun = new Date(Date.now() + task.frequency_mins * 60_000).toISOString();
         db.prepare('UPDATE recurring_tasks SET last_run_at=?,next_run_at=?,updated_at=? WHERE id=?')
           .run(ts, nextRun, ts, task.id);
         console.log(`[recurring] ticket ${id} (${refNo}) from task ${task.id}`);
@@ -2718,6 +2732,9 @@ const server = http.createServer(async (req, res) => {
         `).all(...expandedLocationIds)
           .filter(loc => normalizeServiceModules(loc.service_modules, loc.type, loc.id).includes(module))
           .map(loc => loc.id) : [];
+        if (expandedLocationIds.length && !supportedLocationIds.length) {
+          return send(res, 400, { error: 'NO_SUPPORTED_LOCATIONS' });
+        }
         const supervisorId = sanitize(b.supervisorId || '', 50);
         if (supervisorId) {
           const sup = db.prepare("SELECT id FROM users WHERE id=? AND active=1 AND deleted_at IS NULL").get(supervisorId);
@@ -2960,26 +2977,32 @@ const server = http.createServer(async (req, res) => {
           'SELECT location_id FROM assignments WHERE worker_id = ? AND location_id = ? AND (module IS NULL OR module = ?)'
         ).get(me.id, loc.id, 'cleaning');
         if (!asgRow) return send(res, 403, { error: 'NOT_ASSIGNED' });
+        if (Array.isArray(b.beforePhotos) && b.beforePhotos.length) {
+          return send(res, 400, { error: 'BEFORE_PHOTOS_NOT_ALLOWED' });
+        }
         const tasks  = Array.isArray(b.tasks) ? b.tasks.map(t => sanitize(t, 200)).slice(0, 50) : [];
         const id     = newId('r');
         const ts     = now();
         const refNo  = generateRefNo(db);
         const status = ['completed','needs_followup'].includes(b.status) ? b.status : 'completed';
-        db.prepare(`
-          INSERT INTO reports (id,worker_id,worker_name,location_id,location_name_ar,location_name_en,
-            location_type,status,tasks,notes,reference_no,approval_status,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,'pending',?,?)
-        `).run(id, me.id, me.name, loc.id, loc.name_ar, loc.name_en,
-               loc.type, status, JSON.stringify(tasks), sanitize(b.notes, 1000), refNo, ts, ts);
         // Cleaning reports are approved against after-execution evidence only.
-        if (Array.isArray(b.beforePhotos) && b.beforePhotos.length) {
-          processPhotosTyped(b.beforePhotos, me.id, id, null, 'before');
-        }
         const afterPayload = Array.isArray(b.afterPhotos) ? b.afterPhotos : (Array.isArray(b.photos) ? b.photos : []);
-        const savedAfterPhotos = processPhotosTyped(afterPayload, me.id, id, null, 'after');
-        if (!savedAfterPhotos.length) {
-          db.prepare('DELETE FROM reports WHERE id=?').run(id);
-          return send(res, 400, { error: 'PHOTO_REQUIRED' });
+        if (!afterPayload.length) return send(res, 400, { error: 'PHOTO_REQUIRED' });
+        let savedAfterPhotos = [];
+        try {
+          db.transaction(() => {
+            db.prepare(`
+              INSERT INTO reports (id,worker_id,worker_name,location_id,location_name_ar,location_name_en,
+                location_type,status,tasks,notes,reference_no,approval_status,created_at,updated_at)
+              VALUES (?,?,?,?,?,?,?,?,?,?,?,'pending',?,?)
+            `).run(id, me.id, me.name, loc.id, loc.name_ar, loc.name_en,
+                   loc.type, status, JSON.stringify(tasks), sanitize(b.notes, 1000), refNo, ts, ts);
+            savedAfterPhotos = processPhotosTyped(afterPayload, me.id, id, null, 'after');
+            if (!savedAfterPhotos.length) throw new Error('PHOTO_REQUIRED');
+          })();
+        } catch (e) {
+          if (e.message === 'PHOTO_REQUIRED') return send(res, 400, { error: 'PHOTO_REQUIRED' });
+          throw e;
         }
         const report = reportRow(db.prepare(`
           SELECT r.*,

@@ -471,22 +471,22 @@ test('worker completes ticket -> waiting_verification', async () => {
   assert.ok(r.body.ticket.photos.length >= 1);
 });
 
-test('worker submits cleaning report with before/after photos', async () => {
+test('worker submits cleaning report with after photo only', async () => {
   const worker3 = await login('worker3', PASSWORDS.worker);
-  const missingAfter = await worker3('/api/reports', { method: 'POST', body: JSON.stringify({
-    locationId: 'lobby-gf', tasks: ['floor'], notes: 'بدون صورة بعد',
+  const beforeOnly = await worker3('/api/reports', { method: 'POST', body: JSON.stringify({
+    locationId: 'lobby-gf', tasks: ['floor'], notes: 'صورة قبل فقط',
     beforePhotos: [TINY_PNG]
   }) });
-  assert.equal(missingAfter.status, 400);
-  assert.equal(missingAfter.body.error, 'PHOTO_REQUIRED');
+  assert.equal(beforeOnly.status, 400);
+  assert.equal(beforeOnly.body.error, 'BEFORE_PHOTOS_NOT_ALLOWED');
 
   const r = await worker3('/api/reports', { method: 'POST', body: JSON.stringify({
     locationId: 'lobby-gf', tasks: ['floor', 'mirrors'], notes: 'تقرير اختبار',
-    beforePhotos: [TINY_PNG], afterPhotos: [TINY_PNG]
+    afterPhotos: [TINY_PNG]
   }) });
   assert.equal(r.status, 200);
   assert.equal(r.body.report.approvalStatus, 'pending');
-  assert.ok(r.body.report.beforePhotos.length >= 1);
+  assert.equal(r.body.report.beforePhotos.length, 0);
   assert.ok(r.body.report.afterPhotos.length >= 1);
   reportId = r.body.report.id;
 });
@@ -586,7 +586,7 @@ test('supervisor report escalation replaces rejection and requires photo evidenc
   const worker3 = await login('worker3', PASSWORDS.worker);
   const created = await worker3('/api/reports', { method: 'POST', body: JSON.stringify({
     locationId: 'lobby-gf', tasks: ['floor'], notes: 'تقرير يحتاج تصعيد',
-    beforePhotos: [TINY_PNG], afterPhotos: [TINY_PNG]
+    afterPhotos: [TINY_PNG]
   }) });
   assert.equal(created.status, 200);
   const escalationReportId = created.body.report.id;
@@ -609,7 +609,7 @@ test('supervisor report escalation replaces rejection and requires photo evidenc
   }) });
   assert.equal(escalated.status, 200);
   assert.equal(escalated.body.report.approvalStatus, 'needs_recleaning');
-  assert.ok(escalated.body.report.photos.length >= 3);
+  assert.ok(escalated.body.report.photos.length >= 2);
 });
 
 /* ── 12b. Rating governance ─────────────────────────────────────── */
@@ -669,6 +669,9 @@ test('performance endpoint accessible to supervisor', async () => {
   const supervisor = await login('supervisor1', PASSWORDS.supervisor);
   const r = await supervisor('/api/performance');
   assert.equal(r.status, 200);
+  for (const metric of r.body.metrics) {
+    assert.ok(metric.avgQuality >= 0 && metric.avgQuality <= 100);
+  }
 });
 
 test('performance endpoint rejects cleaner (403)', async () => {
@@ -949,6 +952,28 @@ test('cleaning supervisor scope can be limited to assigned workers', async () =>
   }) });
   assert.equal(crossScope.status, 403);
   assert.equal(crossScope.body.error, 'WORKER_OUT_OF_SCOPE');
+});
+
+test('cleaning assignment rejects selections without supported cleaning locations', async () => {
+  const admin = await login('admin', PASSWORDS.admin);
+  const loc = await admin('/api/locations', { method:'POST', body:JSON.stringify({
+    id:'maint-only-cleaning-test',
+    type:'office',
+    nameAr:'موقع صيانة فقط',
+    nameEn:'Maintenance Only',
+    floor:'GF',
+    zone:'T',
+    serviceModules:['maintenance']
+  }) });
+  assert.equal(loc.status, 200);
+  const manager = await login('manager', PASSWORDS.manager);
+  const rejected = await manager('/api/assignments', { method:'POST', body:JSON.stringify({
+    workerId:'u-w4',
+    supervisorId:'u-s1',
+    locationIds:['maint-only-cleaning-test']
+  }) });
+  assert.equal(rejected.status, 400);
+  assert.equal(rejected.body.error, 'NO_SUPPORTED_LOCATIONS');
 });
 
 test('maintenance supervisor scope is isolated by assignment module', async () => {

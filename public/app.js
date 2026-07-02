@@ -1193,6 +1193,9 @@ const offlineKey = 'mrfq_offline_v16';
 /* ─── OFFLINE QUEUE ──────────────────────────────────────────── */
 function getQ(){try{return JSON.parse(localStorage.getItem(offlineKey)||'[]')}catch(e){return[]}}
 function setQ(q){localStorage.setItem(offlineKey,JSON.stringify(q))}
+function shouldQueueOffline(error){
+  return !error?.status || error.message === 'REQUEST_TIMEOUT';
+}
 
 /* ─── API ────────────────────────────────────────────────────── */
 async function api(path,opt={}){
@@ -1372,7 +1375,7 @@ async function flushOfflineQueue(){
   const remain = [];
   for(const item of q){
     try{await api(isMaintenanceRole()?'/maintenance-reports':'/reports',{method:'POST',body:JSON.stringify(item)})}
-    catch(e){remain.push(item)}
+    catch(e){if(shouldQueueOffline(e)) remain.push(item)}
   }
   setQ(remain);
   remain.length
@@ -3885,16 +3888,17 @@ function qualityScore(r){
   const hasRequiredPhoto = (r.afterPhotos||[]).length > 0 || (r.photos||[]).length > 0;
   if(!hasRequiredPhoto || ['pending','pending_approval'].includes(st)) return null;
 
-  const reviewScore = st==='approved' ? 55 : st==='needs_recleaning' ? 20 : 0;
+  const photoScore = 25;
+  const reviewScore = st==='approved' ? 45 : st==='needs_recleaning' ? 15 : 0;
   const expectedTasks = taskSetFor(r.locationType||'other');
   const taskScore = expectedTasks.length
-    ? Math.round(expectedTasks.filter(task=>taskDone(r.tasks||[],task)).length / expectedTasks.length * 35)
-    : ((r.tasks||[]).length ? 35 : 0);
+    ? Math.round(expectedTasks.filter(task=>taskDone(r.tasks||[],task)).length / expectedTasks.length * 20)
+    : ((r.tasks||[]).length ? 20 : 0);
   const needsDocumentation = st!=='approved' || r.status==='needs_followup';
   const documentationScore = needsDocumentation
     ? ((r.notes||r.reviewNote) ? 10 : 0)
     : 10;
-  return Math.max(0,Math.min(100,reviewScore + taskScore + documentationScore));
+  return Math.max(0,Math.min(100,photoScore + reviewScore + taskScore + documentationScore));
 }
 function qualityBreakdown(r){
   const st = r.approvalStatus || 'pending';
@@ -3905,13 +3909,20 @@ function qualityBreakdown(r){
     : (r.tasks||[]).length;
   const review = ['pending','pending_approval'].includes(st)
     ? null
-    : (st==='approved' ? 55 : st==='needs_recleaning' ? 20 : 0);
+    : (st==='approved' ? 45 : st==='needs_recleaning' ? 15 : 0);
   const tasks = expectedTasks.length
-    ? Math.round(doneTasks / expectedTasks.length * 35)
-    : (doneTasks ? 35 : 0);
+    ? Math.round(doneTasks / expectedTasks.length * 20)
+    : (doneTasks ? 20 : 0);
   const needsDocumentation = st!=='approved' || r.status==='needs_followup';
   const docs = needsDocumentation ? ((r.notes||r.reviewNote) ? 10 : 0) : 10;
-  return { photo: hasRequiredPhoto ? 25 : 0, review, tasks, docs, total: qualityScore(r) };
+  const reasons = [];
+  if(!hasRequiredPhoto) reasons.push(lang==='ar'?'لا توجد صورة بعد التنفيذ':'Missing after photo');
+  if(['pending','pending_approval'].includes(st)) reasons.push(lang==='ar'?'بانتظار الاعتماد':'Pending review');
+  if(st==='needs_recleaning') reasons.push(lang==='ar'?'مطلوب إعادة تنظيف':'Reclean required');
+  if(st==='rejected') reasons.push(lang==='ar'?'مرفوض':'Rejected');
+  if(expectedTasks.length && doneTasks < expectedTasks.length) reasons.push(lang==='ar'?'مهام ناقصة':'Checklist incomplete');
+  if(needsDocumentation && !(r.notes||r.reviewNote)) reasons.push(lang==='ar'?'توثيق ناقص':'Documentation missing');
+  return { photo: hasRequiredPhoto ? 25 : 0, review, tasks, docs, total: qualityScore(r), reasons };
 }
 function qualityLabel(r){
   const q = qualityScore(r);
@@ -5358,10 +5369,11 @@ async function openReportDetail(id){
       <div class="detailModal-sectionTitle">${ic('star',14)} ${tr('quality')} <span class="badge gold">${qualityLabel(r)}</span></div>
       <div class="detailModal-grid2">
         <div><span class="detailLabel">${lang==='ar'?'صورة بعد التنفيذ':'After photo'}</span><span class="detailVal">${num(qb.photo)}/25</span></div>
-        <div><span class="detailLabel">${lang==='ar'?'قرار الاعتماد':'Review decision'}</span><span class="detailVal">${qb.review==null?(lang==='ar'?'بانتظار المراجعة':'Pending review'):`${num(qb.review)}/55`}</span></div>
-        <div><span class="detailLabel">${lang==='ar'?'اكتمال المهام':'Checklist'}</span><span class="detailVal">${num(qb.tasks)}/35</span></div>
+        <div><span class="detailLabel">${lang==='ar'?'قرار الاعتماد':'Review decision'}</span><span class="detailVal">${qb.review==null?(lang==='ar'?'بانتظار المراجعة':'Pending review'):`${num(qb.review)}/45`}</span></div>
+        <div><span class="detailLabel">${lang==='ar'?'اكتمال المهام':'Checklist'}</span><span class="detailVal">${num(qb.tasks)}/20</span></div>
         <div><span class="detailLabel">${lang==='ar'?'التوثيق':'Documentation'}</span><span class="detailVal">${num(qb.docs)}/10</span></div>
       </div>
+      ${qb.reasons.length?`<div class="layout-wrap-gap-6-mt-10">${qb.reasons.map(x=>`<span class="badge warn">${esc(x)}</span>`).join('')}</div>`:''}
     </div>
     ${tasks.length?`
     <div class="detailModal-section">
@@ -7480,12 +7492,17 @@ async function submitReport(locationId){
   };
   if(currentTicketId){
     const ticketPhotos = [...currentPhotos, ...currentBeforePhotos, ...currentAfterPhotos];
-    try{await api(maintenanceTicketApi('/complete'),{method:'POST',body:JSON.stringify({
-      id:currentTicketId,
-      ...(currentAfterPhotos.length ? { afterPhotos:currentAfterPhotos } : { photos:ticketPhotos }),
-      notes:payload.notes
-    })})}
-    catch(e){}
+    try{
+      await api(maintenanceTicketApi('/complete'),{method:'POST',body:JSON.stringify({
+        id:currentTicketId,
+        ...(currentAfterPhotos.length ? { afterPhotos:currentAfterPhotos } : { photos:ticketPhotos }),
+        notes:payload.notes
+      })});
+    }catch(e){
+      toast(lang==='ar'?'تعذر إغلاق البلاغ، لم يتم إرسال التقرير':'Could not close the request; report was not submitted','bad');
+      if(btn){btn.disabled=false;btn.innerHTML=`${ic('check',20)} ${tr('submit')}`}
+      return;
+    }
     currentTicketId = null;
   }
   try{
@@ -7501,6 +7518,11 @@ async function submitReport(locationId){
       </div>`;
     await load();
   }catch(e){
+    if(!shouldQueueOffline(e)){
+      toast(e?.payload?.error || e.message || 'ERROR','bad');
+      if(btn){btn.disabled=false;btn.innerHTML=`${ic('check',20)} ${tr('submit')}`}
+      return;
+    }
     const q = getQ();
     q.push(payload);
     setQ(q);
@@ -7545,6 +7567,11 @@ async function submitGroupReport(){
       </div>`;
     await load();
   }catch(e){
+    if(!shouldQueueOffline(e)){
+      toast(e?.payload?.error || e.message || 'ERROR','bad');
+      if(btn){btn.disabled=false;btn.innerHTML=`${ic('check',20)} ${tr('submit')}`}
+      return;
+    }
     const q = getQ();
     payloads.slice(sentCount).forEach(payload=>q.push(payload));
     setQ(q);
@@ -10209,6 +10236,9 @@ function renderSupervisor(){
   const inProgress  = allTickets.filter(t=>['assigned','accepted','in_progress','reclean_required'].includes(t.status));
   const breached    = allTickets.filter(t=>t.slaBreached&&!['completed','rejected','cancelled'].includes(t.status));
   const pendingRpts = (data.reports||[]).filter(r=>r.approvalStatus==='pending');
+  const unscoredRpts = (data.reports||[]).filter(r=>qualityScore(r)==null);
+  const recleanRpts = (data.reports||[]).filter(r=>r.approvalStatus==='needs_recleaning');
+  const unroutedTickets = allTickets.filter(t=>!t.assignedTo||!t.supervisorId);
   const workers     = (data.users||[]).filter(u=>(u.roles||[u.role]).includes(operationalWorkerRole()));
   const statsHtml=`
     <div class="supStats">
@@ -10272,6 +10302,14 @@ function renderSupervisor(){
     <div class="supervisorDashboard">
       ${statsHtml}
       ${slaSummaryHtml}
+      <div class="wCard">
+        <div class="wCard-title">${ic('bar-chart',16)} ${lang==='ar'?'متابعة جودة النظافة':'Cleaning quality follow-up'}</div>
+        <div class="quickActionGrid quickActionGrid--supervisor">
+          <button class="quickAction" ${uiAction('runUiFlow',['navigate','supervisorView','reports','supervisor-reports','renderSupervisor'])}><span>${ic('star',18)}</span><b>${lang==='ar'?'غير محتسب':'Not scored'}</b><small>${num(unscoredRpts.length)}</small></button>
+          <button class="quickAction" ${uiAction('runUiFlow',['navigate','supervisorView','reports','supervisor-reports','renderSupervisor'])}><span>${ic('flip',18)}</span><b>${lang==='ar'?'إعادة تنظيف':'Reclean'}</b><small>${num(recleanRpts.length)}</small></button>
+          <button class="quickAction" ${uiAction('runUiFlow',['navigate','supervisorView','requests','supervisor-requests','renderSupervisor'])}><span>${ic('assignments',18)}</span><b>${lang==='ar'?'بلا إسناد':'Unrouted'}</b><small>${num(unroutedTickets.length)}</small></button>
+        </div>
+      </div>
       <div class="wCard">
         <div class="wCard-title">${ic('dashboard',16)} ${lang==='ar'?'اختصارات التشغيل':'Operational shortcuts'}</div>
         <div class="quickActionGrid quickActionGrid--supervisor">
